@@ -1,0 +1,49 @@
+import React, { useEffect, useState  } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+function Sidebar({ userId, handleLogout, isAdmin }) {
+  const navigate = useNavigate();
+
+  const [username, setUsername] = useState('');
+  const [onlineStatus, setOnlineStatus] = useState(false);
+  const [gold, setGold] = useState(0);
+
+  useEffect(() => {
+    if (userId) {
+      fetch(`http://localhost:5000/users/${userId}`)
+        .then((response) => response.json())
+        .then((data) => {
+          setUsername(data.username);
+          setOnlineStatus(data.online_status);
+          console.log(data.online_status);
+          setGold(data.gold);
+        })
+        .catch((error) => console.error('Error fetching user data:', error));
+    }
+  }, [userId]);
+
+  return (
+    <div className="sidebar">
+      <nav>
+        <ul>
+            <li><a href="/" onClick={handleLogout}><img src="/images/buttons/exit.png" alt="exit"/></a></li> 
+            <li><a href="/"><img src="/images/buttons/mainpage.png" alt="mainpage"/></a></li>   
+            <li><a href="/"><img src="/images/buttons/world.png" alt="world"/></a></li> 
+            <li><a href="/"><img src="/images/buttons/homepage.png" alt="homepage"/></a></li> 
+            {isAdmin && <li><a href="/admin"><img src="/images/buttons/admin.png" alt="Admin"/></a></li>}
+            <li><a href="/"><img src="/images/buttons/management.png" alt="management"/></a></li>
+            <li><a href="/"><img src="/images/buttons/analysis.png" alt="analysis"/></a></li>
+        </ul>
+      </nav>
+      <div className="user-info">
+        <p>Tài khoản: {username}</p>
+        <p>Tình trạng: {onlineStatus ? 'Online' : 'Offline'}</p>
+        <p>Gold: {gold}</p>
+        <button >Thoát game</button>
+        <button>Tìm kiếm</button>
+      </div>
+    </div>
+  );
+}
+
+export default Sidebar;

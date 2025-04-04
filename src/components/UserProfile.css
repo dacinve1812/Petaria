@@ -1,0 +1,82 @@
+.user-profile {
+    display: flex;
+    justify-content: center;
+    margin: auto;
+    padding: 20px;
+  }
+  .header-free{
+    height: 150px;
+    background-color: rgb(55, 225, 255);
+    text-align: center;
+  }
+  .header-free p{
+    padding-top: 30px;
+    font-size: 40px;
+  }
+  .profile-header,
+  .profile-details {
+    width: 40%; /* Điều chỉnh độ rộng theo ý muốn */
+    max-width: 400px; /* Giới hạn độ rộng tối đa */
+    padding: 40px;
+    border: 2px solid #aeaeae;
+    border-radius: 5px;
+    background-color: #ffffff;
+    box-shadow: 20px 20px 30px rgba(0, 0, 0, 0.1);
+    height: 400px;
+  }
+  
+  .profile-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-right:0;
+  }
+  
+  .profile-picture {
+    width: 350px;
+    height: 350px;
+    /* border-radius: 50%; */
+    object-fit: cover;
+    /* margin-bottom: 10px;
+    border: 2px solid #007bff; */
+     /* Thêm border cho ảnh đại diện */
+  }
+  
+  .profile-details {
+  
+  }
+  
+  .profile-details p {
+    margin: 8px 0;
+    border-bottom: 1px solid #eee; /* Thêm đường kẻ dưới mỗi dòng */
+    padding-bottom: 8px;
+    color: rgba(22, 13, 90, 0.905);
+  }
+  .profile-details p strong{
+    color: rgba(25, 0, 218, 0.905)
+  }
+  
+  /* Loại bỏ đường kẻ dưới ở dòng cuối cùng */
+  .profile-details p:last-child {
+    border-bottom: none;
+  }
+
+
+  /* FOR NAVBAR */
+  .navbar nav ul {
+    list-style: none; /* Loại bỏ dấu chấm */
+    padding: 0;
+    display: flex; /* Sử dụng flexbox để dễ dàng sắp xếp theo hàng */
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .navbar nav ul li {
+    display: flex;
+    flex-direction: row;
+  }
+  
+  .navbar nav ul li:not(:last-child)::after {
+    content: "|"; /* Thêm dấu gạch đứng */
+    margin: 0 10px; /* Thêm khoảng cách giữa dấu gạch đứng và mục tiếp theo */
+  }
