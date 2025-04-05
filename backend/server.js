@@ -171,7 +171,8 @@ app.get('/users/:userId/pets', (req, res) => {
               p.id,
               p.name,
               pt.name AS pet_types_name,
-              pt.image
+              pt.image,
+              p.level
             FROM pets p
             JOIN pet_types pt ON p.pet_type_id = pt.id
             WHERE p.owner_id = ?`, [userId], (err, results) => {
@@ -313,7 +314,9 @@ app.get('/api/pets/:id', (req, res) => {
 // API Get Orphanage Pets
 app.get('/api/orphanage-pets/:level', (req, res) => {
   const level = req.params.level;
-  const description = `normal-${level}`;
+  // const description = `normal-${level}`;
+
+  const description = 'Legend';
 
   pool.query(
     'SELECT pet_types.id, pet_types.name AS pet_types_name, pet_types.image FROM pet_types WHERE description = ?',

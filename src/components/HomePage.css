@@ -36,7 +36,7 @@ header img {
 
 .sidebar {
     width: 100%;
-    max-width: 180px;
+    max-width: 170px;
     background-color: #cce6fc;
     padding: 20px;
 }
@@ -54,9 +54,6 @@ header img {
     color: #333;
 }
 
-.sidebar nav ul li a:hover {
-    background-color: #d0d0d0;
-}
 
 .sidebar .user-info {
     margin-top: 20px;
@@ -65,13 +62,15 @@ header img {
 .sidebar nav ul li a img {
     box-shadow: 5px 10px 10px #4e4e4e; /* Loại bỏ viền mặc định của hình ảnh */
     display: block; /* Đảm bảo hình ảnh hoạt động như một khối */
-    max-width: 180px;
+    width: 100%;
+    max-width: 150px;
     height: 100%;
     object-fit: cover;
+    margin: auto;
 
   }
   .sidebar nav ul li a{
-    background-color: red;
+    /* background-color: red; */
   }
 
 .main-content {
@@ -133,27 +132,6 @@ header img {
     padding: 10px;
     background-color: #f0f0f0;
 }
-
-.pet-list {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr); /* 4 cột mỗi hàng */
-    gap: 20px;
-  }
-  
-  .pet-item {
-    border: 1px solid #ccc;
-    padding: 10px;
-    text-align: center;
-  }
-  
-  .pet-item img {
-    max-width: 100%;
-    height: auto;
-  }
-  
-  .pet-info {
-    margin-top: 10px;
-  }
 
   table {
     width: 100%;

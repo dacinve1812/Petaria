@@ -1,28 +1,94 @@
+:root{
+    --pet-detail: #00b7fb;
+    --pet-info: #fec200;
+    --pet-detail-text: #00338f;
+}
+
+
+/* Pet list */
+.pet-list {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 4 cột mỗi hàng */
+    gap: 10px;
+  }
+  
+  .pet-item {
+    /* border: 1px solid #ccc; */
+    padding: 10px;
+    text-align: center;
+    transition: transform 0.3s ease;
+  }
+  
+  .pet-item img {
+    max-width: 100%;
+    height: 180px;
+    transition: transform 0.3s ease;
+  }
+  .pet-item:hover{
+    transform: scale(1.1, 1.1);
+  }
+  
+  .pet-info {
+    margin-top: 10px;
+    /* background-color: #333; */
+    color: #333;
+  }
+  .pet-info>p {
+    margin-top: 5px;
+  }
+
+
+/* Pet Details  */
 .pet-profile {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
+    display: grid;
+    grid-template-areas:
+    "pet-header pet-header"
+    "pet-details pet-details-right";
+    grid-template-columns: 1fr 2fr;
     background-color: #f9f9f9;
     border: 1px solid #ddd;
-    border-radius: 8px;
-    margin-top: 20px;
+    margin: auto;
+    margin-top: 50px;
+    width: 70%;
+    justify-content: center;
+
 }
 
 .pet-header {
+    grid-area: pet-header;
+    width: 100%;
+    text-align: center;
+    background-color: var(--pet-info);
+    font-size: 1.7rem;
+    font-weight: 600;
+    color: #67606a;
+}
+
+.pet-details{
+    grid-area: pet-details;
+    text-align: left;
+    background-color: var(--pet-detail);
     display: flex;
     flex-direction: column;
+    justify-content: center;
+    padding-left: 5px;
+
+}
+.pet-details-right{
+    grid-area: pet-details-right;
+    background-color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    margin-bottom: 20px;
+    height: 700px;
 }
 
 .pet-image {
-    width: 200px;
-    height: 200px;
+    max-width: 100%;
+    height: 350px;
     object-fit: cover;
-    border-radius: 50%;
-    border: 4px solid #eee;
-    margin-bottom: 10px;
+    /* margin-bottom: 10px; */
 }
 
 .pet-header h2 {
@@ -31,31 +97,23 @@
 }
 
 .pet-species {
-    font-style: italic;
     color: #777;
+    margin-top:0;
 }
 
-.pet-details {
-    width: 80%;
-    max-width: 600px;
-    text-align: left;
-}
-
-.pet-details h3 {
-    border-bottom: 2px solid #ccc;
-    padding-bottom: 10px;
-    margin-bottom: 15px;
-    color: #555;
-}
 
 .pet-details p {
-    margin-bottom: 8px;
-    color: #666;
+    margin: 3px;
+    color: var(--pet-detail-text);
+    font-weight: 550;
+    font-family: "Poppins", sans-serif;
+    font-optical-sizing: auto;
 }
 
-.pet-details strong {
-    font-weight: bold;
-    color: #444;
+.pet-details > p > spam{
+    color: #c7271d;
+
 }
+
 
 /* Bạn có thể tùy chỉnh thêm các style khác theo ý muốn */

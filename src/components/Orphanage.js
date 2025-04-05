@@ -122,12 +122,7 @@ function Orphanage() {
                 <div key={pet.tempId} className="pet-item" onClick={() => handleSelectPet(pet)}>
                 <img src={`/images/pets/${pet.image}`} alt={pet.name} />
                 <div className="pet-info">
-                    <p>HP: {pet.hp}</p>
-                    <p>STR: {pet.str}</p>
-                    <p>DEF: {pet.def}</p>
-                    <p>INT: {pet.int}</p>
-                    <p>SPD: {pet.spd}</p>
-                    <p>MP: {pet.mp}</p>
+                    <p>Loài: {pet.pet_types_name}</p>
                     <p>Level: {pet.level}</p>
                 </div>
                 </div>

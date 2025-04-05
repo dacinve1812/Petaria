@@ -77,22 +77,37 @@ function PetProfile() {
                 <div className="main-content">
                     <Navbar />
                     <div className="pet-profile">
-                        <div className="pet-header">
-                            <img src={`/images/pets/${pet.image}`} alt={pet.name || pet.pet_types_name} className="pet-image" />
-                            <h2>{pet.name || pet.pet_types_name}</h2>
-                            {pet.name && <p className="pet-species">Loài: {pet.pet_types_name}</p>}
-                        </div>
+                        <div className='pet-header'>Xem thông tin thú cưng</div>
                         <div className="pet-details">
-                            <h3>Thông tin chi tiết</h3>
-                            <p><strong>HP:</strong> {pet.hp}</p>
-                            <p><strong>STR:</strong> {pet.str}</p>
-                            <p><strong>DEF:</strong> {pet.def}</p>
-                            <p><strong>INT:</strong> {pet.intelligence}</p>
-                            <p><strong>SPD:</strong> {pet.spd}</p>
-                            <p><strong>MP:</strong> {pet.mp}</p>
-                            <p><strong>Level:</strong> {pet.level}</p>
+                            
+                            <p>Tên: {pet.name}</p>
+                            <p><spam className='extra-stats'>Chưa tiến hóa</spam></p>
+                            <p>Đẳng cấp: {pet.level}</p>
+                            <p>Sinh Nhật: 07-11-2024</p>
+                            <p>Hạng: {pet.rank}</p>
+                            <p>Điểm cần nâng cấp: {pet.experience}/99999999</p>
+                            <p>Sức Khỏe: {pet.hp}/99999</p>
+                            <p>Năng Lượng:{pet.mp}</p>
+                            <p>Sức Mạnh: {pet.str}</p>
+                            <p>Phòng Thủ: {pet.def}</p>
+                            <p>Thông Minh: {pet.intelligence}</p>
+                            <p>Tốc Độ: {pet.spd}</p>
+                            <p>Tình Trạng: Mập Mạp</p>
+                            <br></br>
+                            <p >Chiến đấu thắng: N/A</p>
+                            
+                            
                             {/* Thêm các thông tin khác về thú cưng nếu có */}
                         </div>
+
+                        <div className="pet-details-right">
+                            <img src={`/images/pets/${pet.image}`} alt={pet.name || pet.pet_types_name} className="pet-image" />
+                            <h2>{pet.name || pet.pet_types_name}</h2>
+                            <p className="pet-species">Loài: {pet.pet_types_name}</p>
+                            <p>Linh thú trang bị:</p>
+                            <p>Vật phẩm trang bị:</p>
+                        </div>
+
                         {/* Các hành động khác có thể thêm vào như cho ăn, huấn luyện, v.v. */}
                     </div>
                 </div>

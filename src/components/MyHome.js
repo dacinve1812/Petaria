@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import './HomePage.css'; 
 import Sidebar from './Sidebar';
+import Navbar from './Navbar';
 
 
 function MyHome({isLoggedIn, onLogoutSuccess }) {
@@ -77,6 +77,7 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
           isAdmin={isAdmin}
         />
       <div className="main-content">
+        <Navbar />
         <div>
           <h2>Nhà của tôi</h2>
           <Link to={`/profile/${userId}`}>
@@ -89,13 +90,14 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
               <div className="pet-list">
                 {userPets.map((pet) => (
                   <div key={pet.id} className="pet-item">
-                    <Link to={`/pet/${pet.id}`}> {/* Thêm Link */}
+                    <Link to={`/pet/${pet.id}`} style={{ textDecoration: 'none' }}> {/* Thêm Link */}
                         <img src={`/images/pets/${pet.image}`} alt={pet.name || pet.pet_types_name} />
                         <div className="pet-info">
-                            <p>
+                            <strong>
                                 {pet.name ? pet.name : pet.pet_types_name}
                                 {pet.name && ` (Loài: ${pet.pet_types_name})`}
-                            </p>
+                            </strong>
+                            <p>Level: {pet.level}</p>
                         </div>
                   </Link>
                   </div>
