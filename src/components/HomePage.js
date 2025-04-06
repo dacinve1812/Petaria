@@ -57,9 +57,9 @@ function HomePage({isLoggedIn, onLogoutSuccess }) {
             <p>Thông báo: Bạn chưa có thú cưng nào cả!</p>
             <p>Bạn có thể đến Trại mồ côi để nhận nuôi thú cưng!!!</p>
           </div>
-          <div className="map">
+          {/* <div className="map">
             <img src="map.jpg" alt="Bản đồ Petaria" />
-          </div>
+          </div> */}
           <div className="links">
             <a href="#">Auction</a>
             <a href="#">Sông Jordan</a>

@@ -283,7 +283,7 @@ function Admin() {
         )}
 
         <br></br>
-        <h2>Create Pet</h2>
+        {/* <h2>Create Pet</h2>
         <button onClick={() => setShowCreatePet(!showCreatePet)}>
             {showCreatePet ? 'Hide Create Pet' : 'Show Create Pet'}
             </button>
@@ -310,7 +310,7 @@ function Admin() {
             <button className='admin-pet-form-button' type="submit">Create Pet</button>
             </form>
         </div>
-        )}
+        )} */}
 
 <h2>Pet Type List</h2>
         <button onClick={() => setShowPetTypes(!showPetTypes)}>

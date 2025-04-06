@@ -53,7 +53,7 @@ function App() {
           <Route path="/admin" element={<Admin />} />
           <Route path="/profile/:userId" element={<UserProfile />} />
           <Route path="/profile" element={<UserProfile />} />
-          <Route path="pet/:petId" element={<PetProfile />} />
+          <Route path="pet/:uuid" element={<PetProfile />} />
         </Routes>
       </div>
     </BrowserRouter>

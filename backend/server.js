@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const port = 5000; // Chọn cổng cho backend
@@ -168,7 +169,7 @@ app.post('/orphanage/adopt', async (req, res) => {
 app.get('/users/:userId/pets', (req, res) => {
   const userId = req.params.userId;
   pool.query(`SELECT
-              p.id,
+              p.uuid,
               p.name,
               pt.name AS pet_types_name,
               pt.image,
@@ -185,25 +186,34 @@ app.get('/users/:userId/pets', (req, res) => {
   });
 });
 
-// API Create Pet (Admin)
-app.post('/api/admin/pets', (req, res) => {
-  const { name, type, hp, str, def, int, spd, mp } = req.body;
 
-  pool.query(
-    'INSERT INTO pets (name, type, hp, str, def, intelligence, spd, mp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [name, type, hp, str, def, int, spd, mp],
-    (err, results) => {
-      if (err) {
-        console.error('Error creating pet: ', err);
-        res.status(500).json({ message: 'Error creating pet' });
-      } else {
-        res.json({ message: 'Pet created successfully' });
-      }
-    }
-  );
-});
+/********************************************************************************************************************
+*
+ADMIN API
+*
 
-// API Get Pets (Admin)
+********************************************************************************************************************/
+// API Create Pet (Admin) No one should able to create pet 
+// app.post('/api/admin/pets', (req, res) => {
+//   const { name, type, pet_type_id, hp, mp, str, def, intelligence, spd, rank, birthday, evolution_stage, status } = req.body;
+//   const petUuid = uuidv4();
+//   const max_hp = hp; // Giá trị ban đầu của max_hp
+//   const max_mp = mp; // Giá trị ban đầu của max_mp
+
+//   pool.query(
+//       'INSERT INTO pets (uuid, name, type, pet_type_id, hp, max_hp, mp, max_mp, str, def, intelligence, spd, rank, evolution_stage, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+//       [petUuid, name, type, pet_type_id, hp, max_hp, mp, max_mp, str, def, intelligence, spd, rank, evolution_stage, status],
+//       (err, results) => {
+//           if (err) {
+//               console.error('Error creating pet: ', err);
+//               return res.status(500).json({ message: 'Error creating pet' });
+//           }
+//           res.json({ message: 'Pet created successfully', id: results.insertId, uuid: petUuid });
+//       }
+//   );
+// });
+
+// API Get Pets (Admin) -> Suy nghĩ sau
 app.get('/api/admin/pets', (req, res) => {
   pool.query('SELECT * FROM pets', (err, results) => {
     if (err) {
@@ -215,18 +225,7 @@ app.get('/api/admin/pets', (req, res) => {
   });
 });
 
-// API Delete Pet (Admin)
-app.delete('/api/admin/pets/:id', (req, res) => {
-  const id = req.params.id;
-  pool.query('DELETE FROM pets WHERE id = ?', [id], (err, results) => {
-    if (err) {
-      console.error('Error deleting pet: ', err);
-      res.status(500).json({ message: 'Error deleting pet' });
-    } else {
-      res.json({ message: 'Pet deleted successfully' });
-    }
-  });
-});
+
 
 // API Create Pet Type (Admin)
 app.post('/api/admin/pet-types', (req, res) => {
@@ -289,15 +288,15 @@ app.put('/api/admin/pet-types/:id', (req, res) => {
   );
 });
 
-// API Lấy Thông Tin Chi Tiết Thú Cưng Theo ID
-app.get('/api/pets/:id', (req, res) => {
-  const id = req.params.id;
+// API Lấy Thông Tin Chi Tiết Thú Cưng Theo ID/UUID
+app.get('/api/pets/:uuid', (req, res) => {
+  const uuid = req.params.uuid;
   pool.query(`
-      SELECT pets.*, pet_types.name AS pet_types_name, pet_types.image
-      FROM pets
-      JOIN pet_types ON pets.pet_type_id = pet_types.id
-      WHERE pets.id = ?
-  `, [id], (err, results) => {
+      SELECT p.*, pt.name AS pet_types_name, pt.image
+      FROM pets p
+      JOIN pet_types pt ON p.pet_type_id = pt.id
+      WHERE p.uuid = ?
+  `, [uuid], (err, results) => {
       if (err) {
           console.error('Error fetching pet details: ', err);
           res.status(500).json({ message: 'Error fetching pet details' });
@@ -311,90 +310,117 @@ app.get('/api/pets/:id', (req, res) => {
   });
 });
 
-// API Get Orphanage Pets
-app.get('/api/orphanage-pets/:level', (req, res) => {
-  const level = req.params.level;
-  // const description = `normal-${level}`;
 
-  const description = 'Legend';
+// API Adopt Pet (Create real pet record using data from temp pet)
+app.post('/api/adopt-pet', async (req, res) => {
+  const { tempId, owner_id, petName } = req.body;
 
-  pool.query(
-    'SELECT pet_types.id, pet_types.name AS pet_types_name, pet_types.image FROM pet_types WHERE description = ?',
-    [description],
-    (err, results) => {
+  const tempPet = orphanagePets.find(pet => pet.tempId === tempId);
+
+  if (!tempPet) {
+      return res.status(400).json({ message: 'Invalid temporary pet ID' });
+  }
+
+  const { pet_type_id, hp, mp, str, def, intelligence, spd } = tempPet;
+  const petUuid = uuidv4();
+  const level = 1;
+  const adoptDate = new Date();
+
+  try {
+      const [petTypeResult] = await pool.promise().query(
+          'SELECT name, type, rarity FROM pet_types WHERE id = ?',
+          [pet_type_id]
+      );
+
+      if (petTypeResult.length === 0) {
+          return res.status(400).json({ message: 'Invalid pet type ID' });
+      }
+
+      const petTypeName = petTypeResult[0].name;
+      const petType = petTypeResult[0].type;
+      const rarity = petTypeResult[0].rarity;
+
+      const maxHp = hp;
+      const maxMp = mp;
+
+      const [insertResult] = await pool.promise().query(
+          'INSERT INTO pets (uuid, name, type, pet_type_id, owner_id, hp, max_hp, mp, max_mp, str, def, intelligence, spd, level, rarity, created_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [petUuid, petName, petType, pet_type_id, owner_id, hp, maxHp, mp, maxMp, str, def, intelligence, spd, level, rarity, adoptDate]
+      );
+
+      res.json({ message: 'Pet adopted successfully', uuid: petUuid });
+
+      const index = orphanagePets.findIndex(pet => pet.tempId === tempId);
+      if (index > -1) {
+          orphanagePets.splice(index, 1);
+      }
+
+  } catch (error) {
+      console.error('Error adopting pet:', error);
+      res.status(500).json({ message: 'Error adopting pet' });
+  }
+});
+// API Delete Pet
+app.delete('/api/admin/pets/:uuid', (req, res) => {
+  const uuid = req.params.uuid;
+  pool.query('DELETE FROM pets WHERE uuid = ?', [uuid], (err, results) => {
       if (err) {
-        console.error('Error fetching pet types: ', err);
-        res.status(500).json({ message: 'Error fetching pet types' });
-        return;
+          console.error('Error deleting pet: ', err);
+          return res.status(500).json({ message: 'Error deleting pet' });
+      } else if (results.affectedRows > 0) {
+          res.json({ message: 'Pet deleted successfully' });
+      } else {
+          res.status(404).json({ message: 'Pet not found' });
       }
-
-      const petTypes = results;
-      const orphanagePets = [];
-
-      for (let i = 0; i < 4; i++) {
-        const randomPetType = petTypes[Math.floor(Math.random() * petTypes.length)];
-        const randomStats = {
-          hp: Math.floor(Math.random() * 20) + 10,
-          str: Math.floor(Math.random() * 10) + 5,
-          def: Math.floor(Math.random() * 10) + 5,
-          int: Math.floor(Math.random() * 10) + 5,
-          spd: Math.floor(Math.random() * 10) + 5,
-          mp: Math.floor(Math.random() * 10) + 5,
-        };
-        const level = 1; // Cố định level là 1
-        const tempId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15); // Tạo id tạm thời.
-
-        orphanagePets.push({
-          tempId: tempId, // Thêm id tạm thời
-          pet_type_id: randomPetType.id,
-          name: randomPetType.name,
-          pet_types_name: randomPetType.pet_types_name,
-          image: randomPetType.image,
-          ...randomStats,
-          level: level,
-        });
-      }
-
-      res.json(orphanagePets);
-    }
-  );
+  });
 });
 
-// API Adopt Pet
-app.post('/api/adopt-pet', (req, res) => {
-  const { pet_type_id, owner_id, hp, str, def, int, spd, mp, level } = req.body;
+
+
+// API Get Orphanage Pets (Rarity Common, Level 1) 
+
+let orphanagePets = []; // Khai báo biến để lưu trữ danh sách thú cưng tạm thời
+app.get('/api/orphanage-pets', (req, res) => {
+  const level = 1; // Cố định level là 1
+  const rarity = 'Common';
 
   pool.query(
-    'SELECT description FROM pet_types WHERE id = ?',
-    [pet_type_id],
-    (err, results) => {
-      if (err) {
-        console.error('Error fetching pet type description: ', err);
-        res.status(500).json({ message: 'Error adopting pet' });
-        return;
-      }
-
-      if (results.length === 0) {
-        res.status(400).json({ message: 'Invalid pet type ID' });
-        return;
-      }
-
-      const type = results[0].description;
-
-      pool.query(
-        'INSERT INTO pets (pet_type_id, owner_id, hp, str, def, intelligence, spd, mp, level, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [pet_type_id, owner_id, hp, str, def, int, spd, mp, level, type],
-        (err, results) => {
+      'SELECT id, name AS pet_types_name, image FROM pet_types WHERE rarity = ?',
+      [rarity],
+      (err, results) => {
           if (err) {
-            console.error('Error adopting pet: ', err);
-            res.status(500).json({ message: 'Error adopting pet' });
-            return;
+              console.error('Error fetching common pet types: ', err);
+              return res.status(500).json({ message: 'Error fetching pet types' });
           }
 
-          res.json({ message: 'Pet adopted successfully' });
-        }
-      );
-    }
+          const petTypes = results;
+          orphanagePets = [];
+
+          for (let i = 0; i < 4; i++) {
+              const randomPetType = petTypes[Math.floor(Math.random() * petTypes.length)];
+              const randomStats = {
+                  hp: Math.floor(Math.random() * 10) + 20,
+                  mp: Math.floor(Math.random() * 5) + 10,
+                  str: Math.floor(Math.random() * 3) + 5,
+                  def: Math.floor(Math.random() * 3) + 5,
+                  intelligence: Math.floor(Math.random() * 3) + 5,
+                  spd: Math.floor(Math.random() * 3) + 5,
+              };
+              const tempId = uuidv4();
+
+              orphanagePets.push({
+                  tempId: tempId,
+                  pet_type_id: randomPetType.id,
+                  name: randomPetType.pet_types_name,
+                  pet_types_name: randomPetType.pet_types_name,
+                  image: randomPetType.image,
+                  ...randomStats,
+                  level: level,
+              });
+          }
+
+          res.json(orphanagePets);
+      }
   );
 });
 

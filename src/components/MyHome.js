@@ -90,8 +90,8 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
             {userPets.length > 0 ? (
               <div className="pet-list">
                 {userPets.map((pet) => (
-                  <div key={pet.id} className="pet-item">
-                    <Link to={`/pet/${pet.id}`} style={{ textDecoration: 'none' }}> {/* Thêm Link */}
+                  <div key={pet.uuid} className="pet-item">
+                    <Link to={`/pet/${pet.uuid}`} style={{ textDecoration: 'none' }}> {/* Thêm Link */}
                         <img src={`/images/pets/${pet.image}`} alt={pet.name || pet.pet_types_name} />
                         <div className="pet-info">
                             <strong>

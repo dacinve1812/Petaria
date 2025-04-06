@@ -5,8 +5,8 @@ import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 
 function PetProfile() {
-    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
-    const { petId } = useParams(); // Lấy ID thú cưng từ URL
+    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+    const { uuid } = useParams(); // Lấy UUID thú cưng từ URL
     const [pet, setPet] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -34,7 +34,7 @@ function PetProfile() {
             setLoading(true);
             setError(null);
             try {
-                const response = await fetch(`${API_BASE_URL}/api/pets/${petId}`); // Cần API endpoint để lấy thông tin thú cưng theo ID
+                const response = await fetch(`${API_BASE_URL}/api/pets/${uuid}`); // Gọi API với UUID
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -49,7 +49,7 @@ function PetProfile() {
         };
 
         fetchPetDetails();
-    }, [petId, navigate]);
+    }, [uuid, navigate]); // Theo dõi uuid thay vì petId
 
     const handleLogout = () => {
         localStorage.removeItem('token');
@@ -68,6 +68,8 @@ function PetProfile() {
         return <div>Pet not found.</div>;
     }
 
+    const isEvolved = pet.evolution_stage === true; // Kiểm tra trạng thái tiến hóa
+
     return (
         <div className="container">
             <header>
@@ -80,24 +82,21 @@ function PetProfile() {
                     <div className="pet-profile">
                         <div className='pet-header'>Xem thông tin thú cưng</div>
                         <div className="pet-details">
-                            
                             <p>Tên: {pet.name}</p>
-                            <p><spam className='extra-stats'>Chưa tiến hóa</spam></p>
+                            <p><span className='extra-stats'>{isEvolved ? 'Đã tiến hóa' : 'Chưa tiến hóa'}</span></p>
                             <p>Đẳng cấp: {pet.level}</p>
-                            <p>Sinh Nhật: 07-11-2024</p>
-                            <p>Hạng: {pet.rank}</p>
+                            <p>Sinh Nhật: {pet.created_date ? new Date(pet.created_date).toLocaleDateString() : 'N/A'}</p>
+                            <p>Hạng: {pet.rank || 'N/A'}</p>
                             <p>Điểm cần nâng cấp: {pet.experience}/99999999</p>
-                            <p>Sức Khỏe: {pet.hp}/99999</p>
-                            <p>Năng Lượng:{pet.mp}</p>
-                            <p>Sức Mạnh: {pet.str}</p>
-                            <p>Phòng Thủ: {pet.def}</p>
-                            <p>Thông Minh: {pet.intelligence}</p>
-                            <p>Tốc Độ: {pet.spd}</p>
-                            <p>Tình Trạng: Mập Mạp</p>
+                            <p>Sức Khỏe: {pet.hp}/{pet.max_hp}</p>
+                            <p>Năng Lượng: {pet.mp}/{pet.max_mp}</p>
+                            <p>Sức Mạnh: {pet.str}{pet.str_added > 0 ? ` (+${pet.str_added})` : ''}</p>
+                            <p>Phòng Thủ: {pet.def}{pet.def_added > 0 ? ` (+${pet.def_added})` : ''}</p>
+                            <p>Thông Minh: {pet.intelligence}{pet.intelligence_added > 0 ? ` (+${pet.intelligence_added})` : ''}</p>
+                            <p>Tốc Độ: {pet.spd}{pet.spd_added > 0 ? ` (+${pet.spd_added})` : ''}</p>
+                            <p>Tình Trạng: {pet.status || 'Ổn định'}</p>
                             <br></br>
-                            <p >Chiến đấu thắng: N/A</p>
-                            
-                            
+                            <p>Chiến đấu thắng: {pet.battles_won || 'N/A'}</p>
                             {/* Thêm các thông tin khác về thú cưng nếu có */}
                         </div>
 
