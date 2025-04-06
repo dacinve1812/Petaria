@@ -115,5 +115,18 @@
 
 }
 
+.pet-actions{
+  /* background-color: #00338f; */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+}
+.release-button {
+  padding: 20px 40px;
+  font-size: 15px;
+  /* border-radius: 10px; */
+}
+
 
 /* Bạn có thể tùy chỉnh thêm các style khác theo ý muốn */

@@ -140,30 +140,6 @@ app.post('/login', async (req, res) => {
   );
 });
 
-// API Lấy Danh Sách Thú Cưng Có Sẵn (Trại Mồ Côi)
-app.get('/orphanage/pets', (req, res) => {
-  pool.query('SELECT * FROM pets WHERE owner_id IS NULL', (err, results) => {
-    if (err) {
-      console.error('Error fetching available pets: ', err);
-      res.status(500).json({ message: 'Error fetching available pets' });
-    } else {
-      res.json(results);
-    }
-  });
-});
-
-// API Nhận Nuôi Thú Cưng
-app.post('/orphanage/adopt', async (req, res) => {
-  const { petId, userId, petName } = req.body;
-  pool.query('UPDATE pets SET owner_id = ?, name = ? WHERE id = ?', [userId, petName, petId], (err, results) => {
-    if (err) {
-      console.error('Error adopting pet: ', err);
-      res.status(500).json({ message: 'Error adopting pet' });
-    } else {
-      res.json({ message: 'Pet adopted successfully' });
-    }
-  });
-});
 
 // API Lấy Danh Sách Thú Cưng Của Người Dùng
 app.get('/users/:userId/pets', (req, res) => {
@@ -229,11 +205,11 @@ app.get('/api/admin/pets', (req, res) => {
 
 // API Create Pet Type (Admin)
 app.post('/api/admin/pet-types', (req, res) => {
-  const { name, image, evolution_tree, description } = req.body;
+  const { name, image, evolution_tree, description, rarity } = req.body;
 
   pool.query(
-    'INSERT INTO pet_types (name, image, evolution_tree, description) VALUES (?, ?, ?, ?)',
-    [name, image, evolution_tree, description],
+    'INSERT INTO pet_types (name, image, evolution_tree, description, rarity) VALUES (?, ?, ?, ?, ?)',
+    [name, image, evolution_tree, description, rarity],
     (err, results) => {
       if (err) {
         console.error('Error creating pet type: ', err);
@@ -375,14 +351,60 @@ app.delete('/api/admin/pets/:uuid', (req, res) => {
   });
 });
 
+// API Delete Pet (User)
+app.delete('/api/pets/:uuid/release', (req, res) => {
+  const uuid = req.params.uuid;
+  const token = req.headers.authorization?.split(' ')[1]; // Lấy token từ header
 
+  if (!token) {
+      return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  try {
+      const decodedToken = jwt.verify(token, 'your_secret_key'); // Xác thực token
+      const userId = decodedToken.userId;
+
+      // Kiểm tra xem thú cưng có thuộc sở hữu của người dùng này không
+      pool.query('SELECT owner_id FROM pets WHERE uuid = ?', [uuid], (err, results) => {
+          if (err) {
+              console.error('Error checking pet ownership: ', err);
+              return res.status(500).json({ message: 'Error checking pet ownership' });
+          }
+
+          if (results.length === 0) {
+              return res.status(404).json({ message: 'Pet not found' });
+          }
+
+          const petOwnerId = results[0].owner_id;
+
+          if (petOwnerId !== userId) {
+              return res.status(403).json({ message: 'You do not own this pet' });
+          }
+
+          // Nếu là chủ sở hữu, tiến hành xóa (phóng thích)
+          pool.query('DELETE FROM pets WHERE uuid = ?', [uuid], (deleteErr, deleteResults) => {
+              if (deleteErr) {
+                  console.error('Error releasing pet: ', deleteErr);
+                  return res.status(500).json({ message: 'Error releasing pet' });
+              } else if (deleteResults.affectedRows > 0) {
+                  res.json({ message: 'Pet released successfully' });
+              } else {
+                  res.status(404).json({ message: 'Pet not found (during deletion)' }); // Trường hợp hiếm
+              }
+          });
+      });
+  } catch (err) {
+      console.error('Error verifying token: ', err);
+      return res.status(401).json({ message: 'Invalid token' });
+  }
+});
 
 // API Get Orphanage Pets (Rarity Common, Level 1) 
 
 let orphanagePets = []; // Khai báo biến để lưu trữ danh sách thú cưng tạm thời
 app.get('/api/orphanage-pets', (req, res) => {
   const level = 1; // Cố định level là 1
-  const rarity = 'Common';
+  const rarity = 'Legend';
 
   pool.query(
       'SELECT id, name AS pet_types_name, image FROM pet_types WHERE rarity = ?',
@@ -423,6 +445,8 @@ app.get('/api/orphanage-pets', (req, res) => {
       }
   );
 });
+
+
 
 // API Get User Info
 app.get('/users/:userId', (req, res) => {

@@ -49,11 +49,51 @@ function PetProfile() {
         };
 
         fetchPetDetails();
-    }, [uuid, navigate]); // Theo dõi uuid thay vì petId
+    }, [uuid, navigate,API_BASE_URL]); // Theo dõi uuid thay vì petId
 
     const handleLogout = () => {
         localStorage.removeItem('token');
         navigate('/login');
+    };
+    const handleReleasePet = async () => {
+        if (!pet || !currentUserId) return;
+
+        if (pet.owner_id !== currentUserId) {
+            alert('Bạn không có quyền phóng thích thú cưng này.');
+            return;
+        }
+
+        const confirmRelease = window.confirm(`Bạn có chắc chắn muốn phóng thích ${pet.name || pet.pet_types_name} không? Hành động này không thể hoàn tác.`);
+
+        if (confirmRelease) {
+            const token = localStorage.getItem('token');
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/pets/${uuid}/release`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+
+                if (response.ok) {
+                    alert('Thú cưng đã được phóng thích thành công.');
+                    navigate('/myhome'); // Chuyển về trang nhà sau khi phóng thích
+                } else if (response.status === 401) {
+                    setError('Bạn chưa đăng nhập.');
+                    navigate('/login');
+                } else if (response.status === 403) {
+                    alert('Bạn không có quyền phóng thích thú cưng này.');
+                } else if (response.status === 404) {
+                    setError('Không tìm thấy thú cưng này.');
+                } else {
+                    const errorData = await response.json();
+                    setError(`Lỗi khi phóng thích thú cưng: ${errorData?.message || response.statusText}`);
+                }
+            } catch (err) {
+                console.error('Error releasing pet:', err);
+                setError('Lỗi mạng khi phóng thích thú cưng.');
+            }
+        }
     };
 
     if (loading) {
@@ -109,7 +149,16 @@ function PetProfile() {
                         </div>
 
                         {/* Các hành động khác có thể thêm vào như cho ăn, huấn luyện, v.v. */}
+
                     </div>
+                    {currentUserId === pet.owner_id && (
+                            <div className="pet-actions">
+                                {/* Các hành động khác có thể thêm vào như cho ăn, huấn luyện, v.v. */}
+                                <button className="release-button" onClick={handleReleasePet}>
+                                    Phóng thích thú cưng
+                                </button>
+                            </div>
+                        )}
                 </div>
             </div>
         </div>

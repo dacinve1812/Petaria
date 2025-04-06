@@ -16,35 +16,37 @@ function Orphanage() {
         const token = localStorage.getItem('token');
         if (!token) {
             navigate('/login');
-        } else {
-            try {
-                const decodedToken = JSON.parse(atob(token.split('.')[1]));
-                setUserId(decodedToken.userId);
-            } catch (err) {
-                console.error('Error decoding token:', err);
-                setError('Invalid token');
-            }
+            return;
+        }
+        try {
+            const decodedToken = JSON.parse(atob(token.split('.')[1]));
+            setUserId(decodedToken.userId);
+        } catch (err) {
+            console.error('Error decoding token:', err);
+            setError('Invalid token');
         }
     }, [navigate]);
 
     useEffect(() => {
         const fetchPets = async () => {
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/orphanage-pets`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setAvailablePets(data);
-                } else {
-                    setError('Failed to fetch pets');
+            if (userId) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/orphanage-pets`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        setAvailablePets(data);
+                    } else {
+                        setError('Failed to fetch pets');
+                    }
+                } catch (err) {
+                    console.error('Error fetching pets:', err);
+                    setError('Network error');
                 }
-            } catch (err) {
-                console.error('Error fetching pets:', err);
-                setError('Network error');
             }
         };
 
         fetchPets();
-    }, []);
+    }, [userId]);
 
     const handleSelectPet = (pet) => {
         setSelectedPet(pet);

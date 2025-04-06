@@ -30,6 +30,7 @@ function Admin() {
     image: '',
     evolution_tree: '',
     description: '',
+    rarity: '',
   });
   const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
@@ -142,6 +143,7 @@ function Admin() {
     image: '',
     evolution_tree: '',
     description: '',
+    rarity: '',
   });
 
   const handlePetTypeInputChange = (e) => {
@@ -168,7 +170,9 @@ function Admin() {
           image: '',
           evolution_tree: '',
           description: '',
+          rarity: '',
         });
+        fetchPetTypes(); // Reload danh sách pet types
       } else {
         alert('Error creating pet type.');
       }
@@ -184,6 +188,7 @@ function Admin() {
       image: petType.image,
       evolution_tree: petType.evolution_tree,
       description: petType.description,
+      rarity: petType.rarity,
     });
   };
 
@@ -239,6 +244,8 @@ function Admin() {
   const filteredPetTypes = petTypes.filter((petType) =>
     petType.name.toLowerCase().includes(searchTermPetType.toLowerCase())
   );
+
+  const rarityOptions = ['common', 'uncommon', 'rare', 'epic', 'legend', 'mythic'];
   return (
     <div className="container">
       <header>
@@ -277,40 +284,27 @@ function Admin() {
                 <label className="admin-pet-form-label">Description:</label>
                 <textarea className="admin-pet-form-input" name="description" placeholder="Description" onChange={handlePetTypeInputChange} />
 
+                <label className="admin-pet-form-label">Rarity:</label>
+                      <select
+                          className="admin-pet-form-input"
+                          name="rarity"
+                          value={petTypeData.rarity}
+                          onChange={handlePetTypeInputChange}
+                      >
+                          <option value=""> -- Select Rarity -- </option>
+                          {rarityOptions.map((option) => (
+                              <option key={option} value={option}>
+                                  {option}
+                              </option>
+                          ))}
+                      </select>
+
                 <button className="admin-pet-form-button" type="submit">Create Pet Type</button>
                 </form>
           </div>
         )}
 
         <br></br>
-        {/* <h2>Create Pet</h2>
-        <button onClick={() => setShowCreatePet(!showCreatePet)}>
-            {showCreatePet ? 'Hide Create Pet' : 'Show Create Pet'}
-            </button>
-            {showCreatePet && (
-            <div>
-                
-                <form className="admin-pet-form-container" onSubmit={handleSubmit}>
-                <label className="admin-pet-form-label">Name:</label>
-                <input className="admin-pet-form-input" type="text" name="name" placeholder="Name" onChange={handleInputChange} />   
-                <label className="admin-pet-form-label">Type:</label>
-                <input className="admin-pet-form-input" type="text" name="type" placeholder="Type" onChange={handleInputChange} />   
-                <label className="admin-pet-form-label" >HP:</label>
-                <input className="admin-pet-form-input" type="number" name="hp" placeholder="HP" onChange={handleInputChange} /> 
-                <label className="admin-pet-form-label">STR:</label>
-                <input className="admin-pet-form-input" type="number" name="str" placeholder="STR" onChange={handleInputChange} />   
-                <label className="admin-pet-form-label">DEF:</label>
-                <input className="admin-pet-form-input" type="number" name="def" placeholder="DEF" onChange={handleInputChange} />   
-                <label className="admin-pet-form-label">INT:</label>
-                <input className="admin-pet-form-input" type="number" name="int" placeholder="INT" onChange={handleInputChange} />   
-                <label className="admin-pet-form-label">SPD:</label>
-                <input className="admin-pet-form-input" type="number" name="spd" placeholder="SPD" onChange={handleInputChange} />   
-                <label className="admin-pet-form-label">MP:</label>
-                <input className="admin-pet-form-input" type="number" name="mp" placeholder="MP" onChange={handleInputChange} />
-            <button className='admin-pet-form-button' type="submit">Create Pet</button>
-            </form>
-        </div>
-        )} */}
 
 <h2>Pet Type List</h2>
         <button onClick={() => setShowPetTypes(!showPetTypes)}>
@@ -332,6 +326,7 @@ function Admin() {
                   <th>Image</th>
                   <th>Evolution Tree</th>
                   <th>Description</th>
+                  <th>Rarity</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -349,6 +344,7 @@ function Admin() {
                     </td>
                     <td>{petType.evolution_tree}</td>
                     <td>{petType.description}</td>
+                    <td>{petType.rarity}</td>
                     <td>
                       <button onClick={() => handlePetTypeEdit(petType)}>Edit</button>
                       <button onClick={() => handlePetTypeDelete(petType.id)}>Delete</button>
