@@ -5,6 +5,7 @@ import Navbar from './Navbar';
 
 
 function MyHome({isLoggedIn, onLogoutSuccess }) {
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
   const [userPets, setUserPets] = useState([]);
   const [userId, setUserId] = useState(null);
   const [error, setError] = useState(null);
@@ -40,7 +41,7 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
     const fetchUserPets = async () => {
       if (userId) {
         try {
-          const response = await fetch(`http://localhost:5000/users/${userId}/pets`);
+          const response = await fetch(`${API_BASE_URL}/users/${userId}/pets`);
           if (response.ok) {
             const data = await response.json();
             setUserPets(data);

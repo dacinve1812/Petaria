@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 
 function PetProfile() {
+    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
     const { petId } = useParams(); // Lấy ID thú cưng từ URL
     const [pet, setPet] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -33,7 +34,7 @@ function PetProfile() {
             setLoading(true);
             setError(null);
             try {
-                const response = await fetch(`http://localhost:5000/api/pets/${petId}`); // Cần API endpoint để lấy thông tin thú cưng theo ID
+                const response = await fetch(`${API_BASE_URL}/api/pets/${petId}`); // Cần API endpoint để lấy thông tin thú cưng theo ID
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }

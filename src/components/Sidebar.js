@@ -2,6 +2,7 @@ import React, { useEffect, useState  } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 function Sidebar({ userId, handleLogout, isAdmin }) {
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
   const navigate = useNavigate();
 
   const [username, setUsername] = useState('');
@@ -10,7 +11,7 @@ function Sidebar({ userId, handleLogout, isAdmin }) {
 
   useEffect(() => {
     if (userId) {
-      fetch(`http://localhost:5000/users/${userId}`)
+      fetch(`${API_BASE_URL}/users/${userId}`)
         .then((response) => response.json())
         .then((data) => {
           setUsername(data.username);

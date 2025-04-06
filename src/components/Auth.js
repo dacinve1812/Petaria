@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './Auth.css';
 
 function Auth({ onLoginSuccess }) {
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -28,7 +29,7 @@ function Auth({ onLoginSuccess }) {
       return;
     }
 
-    const url = isLogin ? 'http://localhost:5000/login' : 'http://localhost:5000/register';
+    const url = isLogin ? `${API_BASE_URL}/login` : `${API_BASE_URL}/register`;
 
     try {
       const response = await fetch(url, {

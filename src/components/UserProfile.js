@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 
 function UserProfile() {
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
   const { userId } = useParams();
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ function UserProfile() {
         setCurrentUserId(decodedToken.userId); // Set currentUserId
         // Nếu userId không được cung cấp trong URL, sử dụng currentUserId
         const idToFetch = userId ? userId : decodedToken.userId;
-        fetch(`http://localhost:5000/users/${idToFetch}`)
+        fetch(`${API_BASE_URL}/users/${idToFetch}`)
           .then((response) => response.json())
           .then((data) => setUser(data))
           .catch((error) => console.error('Error fetching user:', error));

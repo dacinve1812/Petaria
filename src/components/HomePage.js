@@ -5,7 +5,7 @@ import Sidebar from './Sidebar';
 
 
 function HomePage({isLoggedIn, onLogoutSuccess }) {
-
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
   const navigate = useNavigate();
 
   const [userId, setUserId] = useState(null);

@@ -4,6 +4,8 @@ import './HomePage.css';
 import Sidebar from './Sidebar';
 
 function Admin() {
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
+  
   const [petData, setPetData] = useState({
     name: '',
     type: '',
@@ -39,7 +41,7 @@ function Admin() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5000/api/admin/pets', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/pets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -60,7 +62,7 @@ function Admin() {
 
   const fetchPets = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/admin/pets');
+      const response = await fetch(`${API_BASE_URL}/api/admin/pets`);
       if (response.ok) {
         const data = await response.json();
         setPets(data);
@@ -75,7 +77,7 @@ function Admin() {
 
   const handleDelete = async (id) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/pets/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/pets/${id}`, {
         method: 'DELETE',
       });
       if (response.ok) {
@@ -109,7 +111,7 @@ function Admin() {
 
   const fetchPetTypes = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/admin/pet-types');
+      const response = await fetch(`${API_BASE_URL}/api/admin/pet-types`);
       if (response.ok) {
         const data = await response.json();
         setPetTypes(data);
@@ -150,7 +152,7 @@ function Admin() {
   const handlePetTypeSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5000/api/admin/pet-types', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/pet-types`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -193,7 +195,7 @@ function Admin() {
   const handleEditPetTypeSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/pet-types/${editPetTypeId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/pet-types/${editPetTypeId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -216,7 +218,7 @@ function Admin() {
 
   const handlePetTypeDelete = async (id) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/pet-types/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/pet-types/${id}`, {
         method: 'DELETE',
       });
       if (response.ok) {

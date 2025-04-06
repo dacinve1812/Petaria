@@ -4,6 +4,7 @@ import './HomePage.css';
 import Sidebar from './Sidebar';
 
 function Orphanage() {
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
   const [availablePets, setAvailablePets] = useState([]);
   const [selectedPet, setSelectedPet] = useState(null);
   const [petName, setPetName] = useState('');
@@ -31,7 +32,7 @@ function Orphanage() {
   useEffect(() => {
     const fetchPets = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/orphanage-pets/1'); // Lấy thú cưng level 1
+        const response = await fetch(`${API_BASE_URL}/api/orphanage-pets/1`); // Lấy thú cưng level 1
         if (response.ok) {
           const data = await response.json();
           setAvailablePets(data);
