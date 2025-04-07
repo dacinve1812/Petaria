@@ -34,6 +34,13 @@ function Admin() {
   });
   const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
+  // State cho việc sắp xếp và lọc
+  const [sortCriteria, setSortCriteria] = useState('id'); // Mặc định sắp xếp theo ID
+  const [sortOrder, setSortOrder] = useState('asc'); // Mặc định tăng dần
+  const [filterRarity, setFilterRarity] = useState('all'); // Mặc định hiển thị tất cả
+
+
+  // ... các hàm xử lý input, submit, fetch, delete, edit ...
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setPetData({ ...petData, [name]: value });
@@ -241,9 +248,51 @@ function Admin() {
     }
   };
 
-  const filteredPetTypes = petTypes.filter((petType) =>
-    petType.name.toLowerCase().includes(searchTermPetType.toLowerCase())
-  );
+const handleSortChange = (e) => {
+    setSortCriteria(e.target.value);
+};
+
+const handleSortOrderChange = () => {
+    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+};
+
+const handleFilterRarityChange = (e) => {
+    setFilterRarity(e.target.value);
+};
+
+const sortedPetTypes = [...petTypes].sort((a, b) => {
+    if (sortCriteria === 'rarity') {
+        // Custom sort order for rarity (optional, you can define your own)
+        const rarityOrder = ['common', 'uncommon', 'rare', 'epic', 'legend', 'mythic'];
+        const aIndex = rarityOrder.indexOf(a.rarity.toLowerCase());
+        const bIndex = rarityOrder.indexOf(b.rarity.toLowerCase());
+        if (sortOrder === 'asc') {
+            return aIndex - bIndex;
+        } else {
+            return bIndex - aIndex;
+        }
+    } else {
+        if (sortOrder === 'asc') {
+            return a[sortCriteria] > b[sortCriteria] ? 1 : -1;
+        } else {
+            return a[sortCriteria] < b[sortCriteria] ? 1 : -1;
+        }
+    }
+});
+
+const filteredPetTypes = sortedPetTypes.filter((petType) => {
+    if (filterRarity === 'all') {
+        return petType.name.toLowerCase().includes(searchTermPetType.toLowerCase());
+    } else {
+        return (
+            petType.name.toLowerCase().includes(searchTermPetType.toLowerCase()) &&
+            petType.rarity.toLowerCase() === filterRarity.toLowerCase()
+        );
+    }
+});
+
+const totalPetTypes = petTypes.length;
+const totalFilteredPetTypes = filteredPetTypes.length;
 
   const rarityOptions = ['common', 'uncommon', 'rare', 'epic', 'legend', 'mythic'];
   return (
@@ -306,55 +355,79 @@ function Admin() {
 
         <br></br>
 
-<h2>Pet Type List</h2>
-        <button onClick={() => setShowPetTypes(!showPetTypes)}>
-          {showPetTypes ? 'Hide Pet Types' : 'Show Pet Types'}
-        </button>
-        {showPetTypes && (
-          <div>
-            <input
-              type="text"
-              placeholder="Search pet types..."
-              value={searchTermPetType}
-              onChange={(e) => setSearchTermPetType(e.target.value)}
-            />
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Image</th>
-                  <th>Evolution Tree</th>
-                  <th>Description</th>
-                  <th>Rarity</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPetTypes.map((petType) => (
-                  <tr key={petType.id}>
-                    <td>{petType.id}</td>
-                    <td>{petType.name}</td>
-                    <td>
-                      <img
-                        src={`/images/pets/${petType.image}`}
-                        alt={petType.name}
-                        style={{ width: '50px', height: '50px' }}
-                      />
-                    </td>
-                    <td>{petType.evolution_tree}</td>
-                    <td>{petType.description}</td>
-                    <td>{petType.rarity}</td>
-                    <td>
-                      <button onClick={() => handlePetTypeEdit(petType)}>Edit</button>
-                      <button onClick={() => handlePetTypeDelete(petType.id)}>Delete</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <h2>Pet Type List</h2>
+                    <button onClick={() => setShowPetTypes(!showPetTypes)}>
+                        {showPetTypes ? 'Hide Pet Types' : 'Show Pet Types'}
+                    </button>
+                    {showPetTypes && (
+                        <div>
+                            <div className='pet-type-list-summary'>
+                                <p><strong>Total: {totalPetTypes}</strong></p>{' '}
+                                {rarityOptions.map((rarity) => (
+                                    <span key={rarity}>
+                                      ;  {rarity} (Total: {petTypes.filter(pt => pt.rarity.toLowerCase() === rarity).length})
+                                    </span>
+                                ))}
+                            </div>
+                            <div className='pet-type-list-filter'>
+                                <h4> - Search & Filter</h4>
+                                <input
+                                    type="text"
+                                    placeholder="Search pet types..."
+                                    value={searchTermPetType}
+                                    onChange={(e) => setSearchTermPetType(e.target.value)}
+                                />
+                                <label htmlFor="sortCriteria">Sort By:</label>
+                                <select id="sortCriteria" value={sortCriteria} onChange={handleSortChange} className="admin-pet-form-input-2">
+                                    <option value="id">ID</option>
+                                    <option value="name">Name</option>
+                                    <option value="rarity">Rarity</option>
+                                </select>
+                                <button onClick={handleSortOrderChange}>
+                                    {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                                </button>
+                                <label htmlFor="filterRarity">Filter Rarity:</label>
+                                <select id="filterRarity" value={filterRarity} onChange={handleFilterRarityChange} className="admin-pet-form-input-2">
+                                    <option value="all">All</option>
+                                    {rarityOptions.map((rarity) => (
+                                        <option key={rarity} value={rarity}>{rarity}</option>
+                                    ))}
+                                </select>
+                                <p><strong>Filtered Total: {totalFilteredPetTypes}</strong></p>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th onClick={() => { setSortCriteria('id'); handleSortOrderChange(); }}>ID</th>
+                                        <th onClick={() => { setSortCriteria('name'); handleSortOrderChange(); }}>Name</th>
+                                        <th>Image</th>
+                                        <th>Evolution Tree</th>
+                                        <th>Description</th>
+                                        <th onClick={() => { setSortCriteria('rarity'); handleSortOrderChange(); }}>Rarity</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredPetTypes.map((petType) => (
+                                        <tr key={petType.id}>
+                                            <td>{petType.id}</td>
+                                            <td>{petType.name}</td>
+                                            <td>
+                                                <img src={`/images/pets/${petType.image}`} alt={petType.name} style={{ width: '50px', height: '50px' }} />
+                                            </td>
+                                            <td>{petType.evolution_tree}</td>
+                                            <td>{petType.description}</td>
+                                            <td>{petType.rarity}</td>
+                                            <td>
+                                                <button onClick={() => handlePetTypeEdit(petType)}>Edit</button>
+                                                <button onClick={() => handlePetTypeDelete(petType.id)}>Delete</button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
         {editPetTypeId && (
           <div>
             <h2>Edit Pet Type</h2>
@@ -370,6 +443,21 @@ function Admin() {
 
               <label className="admin-pet-form-label">Description:</label>
               <textarea className="admin-pet-form-input" name="description" value={editPetTypeData.description} onChange={handleEditPetTypeInputChange} />
+
+              <label className="admin-pet-form-label">Rarity:</label>
+                      <select
+                          className="admin-pet-form-input"
+                          name="rarity"
+                          value={petTypeData.rarity}
+                          onChange={handleEditPetTypeInputChange}
+                      >
+                          <option value=""> {editPetTypeData.rarity}</option>
+                          {rarityOptions.map((option) => (
+                              <option key={option} value={option}>
+                                  {option}
+                              </option>
+                          ))}
+                      </select>
 
               <button className="admin-pet-form-button" type="submit">Update Pet Type</button>
               <button type="button" onClick={() => setEditPetTypeId(null)}>Cancel</button>

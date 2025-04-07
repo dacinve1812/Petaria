@@ -249,10 +249,10 @@ app.delete('/api/admin/pet-types/:id', (req, res) => {
 // API Update Pet Type (Admin)
 app.put('/api/admin/pet-types/:id', (req, res) => {
   const id = req.params.id;
-  const { name, image, evolution_tree, description } = req.body;
+  const { name, image, evolution_tree, description, rarity } = req.body;
   pool.query(
-    'UPDATE pet_types SET name = ?, image = ?, evolution_tree = ?, description = ? WHERE id = ?',
-    [name, image, evolution_tree, description, id],
+    'UPDATE pet_types SET name = ?, image = ?, evolution_tree = ?, description = ?, rarity = ? WHERE id = ?',
+    [name, image, evolution_tree, description, rarity, id],
     (err, results) => {
       if (err) {
         console.error('Error updating pet type: ', err);
