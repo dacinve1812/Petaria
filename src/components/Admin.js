@@ -6,21 +6,11 @@ import Sidebar from './Sidebar';
 function Admin() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
   
-  const [petData, setPetData] = useState({
-    name: '',
-    type: '',
-    hp: 0,
-    str: 0,
-    def: 0,
-    int: 0,
-    spd: 0,
-    mp: 0,
-  });
   const [pets, setPets] = useState([]);
   const [showPets, setShowPets] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
-  const [showCreatePet, setShowCreatePet] = useState(true);
+  // const [showCreatePet, setShowCreatePet] = useState(true);
   const [showCreatePetType, setShowCreatePetType] = useState(true);
   const [searchTermPetType, setSearchTermPetType] = useState('');
   const [userId, setUserId] = useState(null);
@@ -41,32 +31,6 @@ function Admin() {
 
 
   // ... các hàm xử lý input, submit, fetch, delete, edit ...
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setPetData({ ...petData, [name]: value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/pets`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(petData),
-      });
-
-      if (response.ok) {
-        alert('Pet created successfully!');
-      } else {
-        alert('Error creating pet.');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('An error occurred.');
-    }
-  };
 
   const fetchPets = async () => {
     try {
@@ -294,7 +258,9 @@ const filteredPetTypes = sortedPetTypes.filter((petType) => {
 const totalPetTypes = petTypes.length;
 const totalFilteredPetTypes = filteredPetTypes.length;
 
-  const rarityOptions = ['common', 'uncommon', 'rare', 'epic', 'legend', 'mythic'];
+const rarityOptions = ['common', 'uncommon', 'rare', 'epic', 'legend', 'mythic'];
+
+// START HERE *******************************************************************************************************
   return (
     <div className="container">
       <header>
@@ -462,53 +428,6 @@ const totalFilteredPetTypes = filteredPetTypes.length;
               <button className="admin-pet-form-button" type="submit">Update Pet Type</button>
               <button type="button" onClick={() => setEditPetTypeId(null)}>Cancel</button>
             </form>
-          </div>
-        )}
-
-        <h2>Pet List</h2>
-        {/* <button onClick={() => setShowPets(!showPets)}>
-          {showPets ? 'Hide Pets' : 'Show Pets'}
-        </button> */}
-        {showPets && (
-          <div>
-            <input
-              type="text"
-              placeholder="Search pets..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>HP</th>
-                  <th>STR</th>
-                  <th>DEF</th>
-                  <th>INT</th>
-                  <th>SPD</th>
-                  <th>MP</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPets.map((pet) => (
-                  <tr key={pet.id}>
-                    <td>{pet.name}</td>
-                    <td>{pet.type}</td>
-                    <td>{pet.hp}</td>
-                    <td>{pet.str}</td>
-                    <td>{pet.def}</td>
-                    <td>{pet.int}</td>
-                    <td>{pet.spd}</td>
-                    <td>{pet.mp}</td>
-                    <td>
-                      <button onClick={() => handleDelete(pet.id)}>Delete</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         )}
       </div>
