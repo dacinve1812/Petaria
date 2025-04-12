@@ -142,49 +142,49 @@ app.post('/login', async (req, res) => {
   );
 });
 
-// Middleware kiểm tra quyền admin
-function requireAdmin(req, res, next) {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) {
-    return res.status(401).json({ message: 'Unauthorized: No token provided' });
-  }
+// // Middleware kiểm tra quyền admin
+// function requireAdmin(req, res, next) {
+//   const token = req.headers.authorization?.split(' ')[1];
+//   if (!token) {
+//     return res.status(401).json({ message: 'Unauthorized: No token provided' });
+//   }
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+//   try {
+//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    pool.query('SELECT username FROM users WHERE id = ?', [decoded.userId], (err, results) => {
-      if (err || results.length === 0) {
-        return res.status(403).json({ message: 'Forbidden: User not found' });
-      }
+//     pool.query('SELECT username FROM users WHERE id = ?', [decoded.userId], (err, results) => {
+//       if (err || results.length === 0) {
+//         return res.status(403).json({ message: 'Forbidden: User not found' });
+//       }
 
-      const user = results[0];
-      if (user.username !== 'admin') {
-        return res.status(403).json({ message: 'Forbidden: Admin only' });
-      }
+//       const user = results[0];
+//       if (user.username !== 'admin') {
+//         return res.status(403).json({ message: 'Forbidden: Admin only' });
+//       }
 
-      next();
-    });
+//       next();
+//     });
 
-  } catch (error) {
-    return res.status(401).json({ message: 'Unauthorized: Invalid token' });
-  }
-}
+//   } catch (error) {
+//     return res.status(401).json({ message: 'Unauthorized: Invalid token' });
+//   }
+// }
 
-// Middleware xác thực người dùng
-function requireAuth(req, res, next) {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) {
-    return res.status(401).json({ message: 'Unauthorized: No token provided' });
-  }
+// // Middleware xác thực người dùng
+// function requireAuth(req, res, next) {
+//   const token = req.headers.authorization?.split(' ')[1];
+//   if (!token) {
+//     return res.status(401).json({ message: 'Unauthorized: No token provided' });
+//   }
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.userId; // Gắn userId vào req để dùng sau
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Unauthorized: Invalid token' });
-  }
-}
+//   try {
+//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+//     req.userId = decoded.userId; // Gắn userId vào req để dùng sau
+//     next();
+//   } catch (error) {
+//     return res.status(401).json({ message: 'Unauthorized: Invalid token' });
+//   }
+// }
 
 // API Lấy Danh Sách Thú Cưng Của Người Dùng
 app.get('/users/:userId/pets', (req, res) => {
@@ -502,7 +502,7 @@ app.get('/users/:userId', (req, res) => {
 /************************************* ITEMS ********************************************** */
 
 // Admin - Tạo vật phẩm mới
-app.post('/api/admin/items', requireAdmin, (req, res) => {
+app.post('/api/admin/items', (req, res) => {
   const { name, description, type, rarity, image_url, buy_price, sell_price } = req.body;
 
   pool.query(
@@ -519,7 +519,7 @@ app.post('/api/admin/items', requireAdmin, (req, res) => {
 });
 
 // Admin - Xem toàn bộ vật phẩm
-app.get('/api/admin/items', requireAdmin, (req, res) => {
+app.get('/api/admin/items', (req, res) => {
   pool.query('SELECT * FROM items', (err, results) => {
     if (err) {
       console.error('Error fetching items:', err);
