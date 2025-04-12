@@ -1,4 +1,5 @@
 import React, { useEffect, useState  } from 'react';
+import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import './UserProfile.css'; // Tạo file UserProfile.css
 
@@ -21,6 +22,7 @@ function Navbar() {
               <li><a href="/myhome">Trung tâm mua sắm</a></li>
               <li><a href="/myhome">Cửa hàng của tôi</a></li>
               <li><a href="/myhome">Trung tâm mua sắm</a></li>
+              <li><Link to="/inventory">Inventory</Link></li>
               
           </ul>
         </nav>

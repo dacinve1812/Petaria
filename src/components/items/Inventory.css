@@ -1,0 +1,12 @@
+/* Inventory.css */
+.inventory-container {
+    padding: 20px;
+    text-align: center;
+  }
+  
+  .item-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+  }

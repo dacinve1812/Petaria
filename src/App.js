@@ -6,6 +6,7 @@ import MyHome from './components/MyHome'; // Import MyHome
 import Admin from './components/Admin';
 import UserProfile from './components/UserProfile';
 import PetProfile from './components/PetProfile';
+import Inventory from './components/items/Inventory';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 function App() {
@@ -54,6 +55,7 @@ function App() {
           <Route path="/profile/:userId" element={<UserProfile />} />
           <Route path="/profile" element={<UserProfile />} />
           <Route path="pet/:uuid" element={<PetProfile />} />
+          <Route path="/inventory" element={<Inventory />} />
         </Routes>
       </div>
     </BrowserRouter>

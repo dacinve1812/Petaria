@@ -1,0 +1,37 @@
+/* ItemCard.css */
+.item-card {
+    border: none;
+    padding: 8px;
+    text-align: center;
+    cursor: pointer;
+    background-color: #fff;
+    /* position: relative; */
+    transition: transform 0.2s ease;
+  }
+  
+  .item-card:hover {
+    transform: scale(1.05);
+  }
+  
+  .item-image {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+  }
+  
+  .item-name {
+    font-size: 14px;
+    margin-top: 8px;
+  }
+  
+  .item-qty {
+    /* position: absolute;
+    top: 4px;
+    right: 6px; */
+    /* background: #444; */
+    /* color: #fff; */
+    font-size: 14px;
+    padding: 2px 6px;
+    border-radius: 12px;
+  }
+  

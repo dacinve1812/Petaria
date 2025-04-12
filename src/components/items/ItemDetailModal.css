@@ -1,0 +1,65 @@
+/* ItemDetailModal.css */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+  }
+  
+  .modal-content {
+    background: white;
+    padding: 24px;
+    width: 340px;
+    border-radius: 12px;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  }
+  
+  .modal-close {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    background: transparent;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+  }
+  
+  .modal-title {
+    font-size: 20px;
+    margin-bottom: 12px;
+  }
+  
+  .modal-image {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    margin-bottom: 12px;
+  }
+  
+  .modal-desc {
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  
+  .modal-action {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    justify-content: center;
+  }
+  
+  .modal-info {
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #f8f8f8;
+    padding: 12px;
+    border-radius: 8px;
+  }
+  
