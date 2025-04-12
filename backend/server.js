@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -140,6 +142,49 @@ app.post('/login', async (req, res) => {
   );
 });
 
+// Middleware kiểm tra quyền admin
+function requireAdmin(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Unauthorized: No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    pool.query('SELECT username FROM users WHERE id = ?', [decoded.userId], (err, results) => {
+      if (err || results.length === 0) {
+        return res.status(403).json({ message: 'Forbidden: User not found' });
+      }
+
+      const user = results[0];
+      if (user.username !== 'admin') {
+        return res.status(403).json({ message: 'Forbidden: Admin only' });
+      }
+
+      next();
+    });
+
+  } catch (error) {
+    return res.status(401).json({ message: 'Unauthorized: Invalid token' });
+  }
+}
+
+// Middleware xác thực người dùng
+function requireAuth(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Unauthorized: No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.userId; // Gắn userId vào req để dùng sau
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: 'Unauthorized: Invalid token' });
+  }
+}
 
 // API Lấy Danh Sách Thú Cưng Của Người Dùng
 app.get('/users/:userId/pets', (req, res) => {
@@ -169,25 +214,6 @@ ADMIN API
 *
 
 ********************************************************************************************************************/
-// API Create Pet (Admin) No one should able to create pet 
-// app.post('/api/admin/pets', (req, res) => {
-//   const { name, type, pet_type_id, hp, mp, str, def, intelligence, spd, rank, birthday, evolution_stage, status } = req.body;
-//   const petUuid = uuidv4();
-//   const max_hp = hp; // Giá trị ban đầu của max_hp
-//   const max_mp = mp; // Giá trị ban đầu của max_mp
-
-//   pool.query(
-//       'INSERT INTO pets (uuid, name, type, pet_type_id, hp, max_hp, mp, max_mp, str, def, intelligence, spd, rank, evolution_stage, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-//       [petUuid, name, type, pet_type_id, hp, max_hp, mp, max_mp, str, def, intelligence, spd, rank, evolution_stage, status],
-//       (err, results) => {
-//           if (err) {
-//               console.error('Error creating pet: ', err);
-//               return res.status(500).json({ message: 'Error creating pet' });
-//           }
-//           res.json({ message: 'Pet created successfully', id: results.insertId, uuid: petUuid });
-//       }
-//   );
-// });
 
 // API Get Pets (Admin) -> Suy nghĩ sau
 app.get('/api/admin/pets', (req, res) => {
@@ -200,8 +226,6 @@ app.get('/api/admin/pets', (req, res) => {
     }
   });
 });
-
-
 
 // API Create Pet Type (Admin)
 app.post('/api/admin/pet-types', (req, res) => {
@@ -471,4 +495,61 @@ app.get('/users/:userId', (req, res) => {
 
     res.json(results[0]);
   });
+});
+
+
+
+/************************************* ITEMS ********************************************** */
+
+// Admin - Tạo vật phẩm mới
+app.post('/api/admin/items', requireAdmin, (req, res) => {
+  const { name, description, type, rarity, image_url, buy_price, sell_price } = req.body;
+
+  pool.query(
+    'INSERT INTO items (name, description, type, rarity, image_url, buy_price, sell_price) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [name, description, type, rarity, image_url, buy_price, sell_price],
+    (err, results) => {
+      if (err) {
+        console.error('Error creating item:', err);
+        return res.status(500).json({ message: 'Error creating item' });
+      }
+      res.json({ message: 'Item created successfully', id: results.insertId });
+    }
+  );
+});
+
+// Admin - Xem toàn bộ vật phẩm
+app.get('/api/admin/items', requireAdmin, (req, res) => {
+  pool.query('SELECT * FROM items', (err, results) => {
+    if (err) {
+      console.error('Error fetching items:', err);
+      return res.status(500).json({ message: 'Error fetching items' });
+    }
+    res.json(results);
+  });
+});
+
+
+// User - Xem inventory cá nhân (có middleware xác thực)
+app.get('/api/users/:userId/inventory', requireAuth, (req, res) => {
+  const { userId } = req.params;
+
+  // Kiểm tra userId từ token và userId từ params có trùng nhau không
+  if (parseInt(userId) !== req.userId) {
+    return res.status(403).json({ message: 'Forbidden: Access denied' });
+  }
+
+  pool.query(`
+    SELECT i.*, it.name, it.description, it.type, it.rarity, it.image_url
+    FROM inventory i
+    JOIN items it ON i.item_id = it.id
+    WHERE i.player_id = ?`,
+    [userId], 
+    (err, results) => {
+      if (err) {
+        console.error('Error fetching user inventory:', err);
+        return res.status(500).json({ message: 'Error fetching inventory' });
+      }
+      res.json(results);
+    });
 });
