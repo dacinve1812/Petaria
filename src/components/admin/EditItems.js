@@ -148,11 +148,11 @@ function EditItems() {
           <Navbar />
           <h1>Quản lý Items</h1>
 
-          <form className="admin-pet-form-container" onSubmit={handleSubmit}>
-            <input type="text" name="name" placeholder="Tên vật phẩm" value={formData.name} onChange={handleChange} required />
-            <textarea name="description" placeholder="Mô tả" value={formData.description} onChange={handleChange} required />
-            <input type="text" name="image_url" placeholder="Link ảnh" value={formData.image_url} onChange={handleChange} required />
-            <select name="type" value={formData.type} onChange={handleChange} required>
+          <form className="admin-form-container" onSubmit={handleSubmit}>
+            <input className="admin-pet-form-input" type="text" name="name" placeholder="Tên vật phẩm" value={formData.name} onChange={handleChange} required />
+            <textarea className="admin-pet-form-input" name="description" placeholder="Mô tả" value={formData.description} onChange={handleChange} required />
+            <input className="admin-pet-form-input" type="text" name="image_url" placeholder="Link ảnh" value={formData.image_url} onChange={handleChange} required />
+            <select className="admin-pet-form-input" name="type" value={formData.type} onChange={handleChange} required>
               <option value="">Loại vật phẩm</option>
               <option value="food">Food</option>
               <option value="equipment">Equipment</option>
@@ -161,16 +161,16 @@ function EditItems() {
               <option value="evolve">Evolve</option>
               <option value="misc">Misc</option>
             </select>
-            <select name="rarity" value={formData.rarity} onChange={handleChange} required>
+            <select className="admin-pet-form-input" name="rarity" value={formData.rarity} onChange={handleChange} required>
               <option value="">Độ hiếm</option>
               <option value="common">Common</option>
               <option value="rare">Rare</option>
               <option value="epic">Epic</option>
               <option value="legendary">Legendary</option>
             </select>
-            <div>Giá bán<input type="number" name="buy_price" placeholder="Giá mua" value={formData.buy_price} onChange={handleChange} required /></div>
-            <div>Giá Mua<input type="number" name="sell_price" placeholder="Giá bán" value={formData.sell_price} onChange={handleChange} required /></div>
-            <button type="submit">{editMode ? 'Cập nhật' : 'Tạo mới'}</button>
+            <div>Giá bán<input className="admin-pet-form-input" type="number" name="buy_price" placeholder="Giá mua" value={formData.buy_price} onChange={handleChange} required /></div>
+            <div>Giá Mua<input className="admin-pet-form-input" type="number" name="sell_price" placeholder="Giá bán" value={formData.sell_price} onChange={handleChange} required /></div>
+            <button className="admin-pet-form-button" type="submit">{editMode ? 'Cập nhật' : 'Tạo mới'}</button>
           </form>
 
           <div className="item-summary">
@@ -230,8 +230,11 @@ function EditItems() {
                           <button onClick={() => handleEdit(item)}>Sửa</button>
                           <button onClick={() => handleDelete(item.id)}>Xoá</button>
                           {item.type === 'equipment' && (
-                                <button><a href={`/admin/edit-equipment-stats?item_id=${item.id}`}>Gán chỉ số</a></button>
+                                <button><a href={`/admin/edit-equipment-stats?item_id=${item.id}`}>View stats</a></button>
                                 )}
+                          {(item.type === 'booster' || item.type === 'consumable') && (
+                            <button><a href={`/admin/edit-item-effects?item_id=${item.id}`}>View effect</a></button>
+                            )}
                         </td>
                         
                       </tr>

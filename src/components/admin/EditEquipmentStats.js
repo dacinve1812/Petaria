@@ -95,17 +95,17 @@ function EditEquipmentStats() {
           <Navbar />
           <h1>Quản lý chỉ số Equipment</h1>
             
-          <form onSubmit={handleSubmit} className="admin-pet-form-container">
+          <form onSubmit={handleSubmit} className="admin-form-container">
             
-            <select value={selectedItemId} onChange={(e) => setSelectedItemId(e.target.value)} required>
+            <select className="admin-pet-form-input" value={selectedItemId} onChange={(e) => setSelectedItemId(e.target.value)} required>
               <option value="">Chọn item</option>
               {equipmentItems.map(item => (
                 <option key={item.id} value={item.id}>{item.name}</option>
               ))}
             </select>
-            <input type="number" value={power} onChange={(e) => setPower(e.target.value)} placeholder="Power" required />
-            <input type="number" value={durability} onChange={(e) => setDurability(e.target.value)} placeholder="Durability" required />
-            <button type="submit">{editId ? 'Cập nhật' : 'Tạo mới'}</button>
+            <input className="admin-pet-form-input" type="number" value={power} onChange={(e) => setPower(e.target.value)} placeholder="Power" required />
+            <input className="admin-pet-form-input" type="number" value={durability} onChange={(e) => setDurability(e.target.value)} placeholder="Durability" required />
+            <button className="admin-pet-form-button" type="submit">{editId ? 'Cập nhật' : 'Tạo mới'}</button>
           </form>
 
           <h2>Danh sách Equipment đã cấu hình</h2>

@@ -633,3 +633,61 @@ app.put('/api/admin/equipment-stats/:id', (req, res) => {
     res.json({ message: 'Equipment data updated successfully' });
   });
 });
+
+// get items 
+app.get('/api/admin/item-effects', (req, res) => {
+  const sql = `SELECT * FROM item_effects`;
+  pool.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error fetching item effects:', err);
+      return res.status(500).json({ message: 'Error fetching item effects' });
+    }
+    res.json(results);
+  });
+});
+
+app.post('/api/admin/item-effects', (req, res) => {
+  const {
+    item_id, effect_target, effect_type,
+    value_min, value_max, is_permanent, duration_turns
+  } = req.body;
+
+  const sql = `INSERT INTO item_effects 
+    (item_id, effect_target, effect_type, value_min, value_max, is_permanent, duration_turns)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+  pool.query(sql, [
+    item_id, effect_target, effect_type,
+    value_min, value_max, is_permanent, duration_turns
+  ], (err, results) => {
+    if (err) {
+      console.error('Error creating item effect:', err);
+      return res.status(500).json({ message: 'Error creating item effect' });
+    }
+    res.json({ message: 'Item effect created successfully' });
+  });
+});
+
+app.put('/api/admin/item-effects/:id', (req, res) => {
+  const { id } = req.params;
+  const {
+    item_id, effect_target, effect_type,
+    value_min, value_max, is_permanent, duration_turns
+  } = req.body;
+
+  const sql = `UPDATE item_effects SET 
+    item_id = ?, effect_target = ?, effect_type = ?, 
+    value_min = ?, value_max = ?, is_permanent = ?, duration_turns = ?
+    WHERE id = ?`;
+
+  pool.query(sql, [
+    item_id, effect_target, effect_type,
+    value_min, value_max, is_permanent, duration_turns, id
+  ], (err, results) => {
+    if (err) {
+      console.error('Error updating item effect:', err);
+      return res.status(500).json({ message: 'Error updating item effect' });
+    }
+    res.json({ message: 'Item effect updated successfully' });
+  });
+});

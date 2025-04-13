@@ -24,11 +24,12 @@ function EditPetTypes() {
   const [error, setError] = useState(null);
   const [showList, setShowList] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(5);
+  const [pageSize] = useState(10);
   const [filterRarity, setFilterRarity] = useState('');
   const [sortAZ, setSortAZ] = useState(false);
 
   useEffect(() => {
+    if (user === undefined) return;
     if (!user || !user.isAdmin) {
       navigate('/login');
     }
@@ -170,7 +171,7 @@ function EditPetTypes() {
           <Navbar />
           <h1>Quản lý Pet Types</h1>
 
-          <form className="admin-pet-form-container" onSubmit={handleSubmit}>
+          <form className="admin-form-container" onSubmit={handleSubmit}>
             <input className="admin-pet-form-input" type="text" name="name" placeholder="Tên" value={formData.name} onChange={handleChange} required />
             <input className="admin-pet-form-input" type="text" name="image" placeholder="Link ảnh" value={formData.image} onChange={handleChange} required />
             <input className="admin-pet-form-input" type="text" name="evolution_tree" placeholder="Evolution Tree" value={formData.evolution_tree} onChange={handleChange} />
