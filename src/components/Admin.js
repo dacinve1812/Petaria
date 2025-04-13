@@ -29,8 +29,9 @@ function Admin() {
         <div className="main-content">
           <h1>Admin Page</h1>
           <ul>
-            <li><Link to="/admin/edit-pet-types">Quản lý Pet Types</Link></li>
-            <li><Link to="/admin/edit-items">Quản lý Items</Link></li>
+            <li><Link to="/admin/edit-pet-types">Quản lý Chủng loại Thú cưng</Link></li>
+            <li><Link to="/admin/edit-items">Quản lý tất cả vật phẩm</Link></li>
+            <li><Link to="/admin/edit-equipment-stats">Quản lý vật phẩm chiến đấu</Link></li>
           </ul>
         </div>
       </div>

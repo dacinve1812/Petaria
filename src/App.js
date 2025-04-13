@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { UserContext } from './UserContext';
@@ -12,9 +13,10 @@ import PetProfile from './components/PetProfile';
 import Inventory from './components/items/Inventory';
 import EditPetTypes from './components/admin/EditPetTypes';
 import EditItems from './components/admin/EditItems';
+import EditEquipmentStats from './components/admin/EditEquipmentStats';
 
 function App() {
-  const [user, setUser] = useState(null); // user context
+  const [user, setUser] = useState(undefined); // undefined để tránh redirect sớm
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -85,6 +87,7 @@ function App() {
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/admin/edit-pet-types" element={<EditPetTypes />} />
             <Route path="/admin/edit-items" element={<EditItems />} />
+            <Route path="/admin/edit-equipment-stats" element={<EditEquipmentStats />} />
           </Routes>
         </div>
       </UserContext.Provider>

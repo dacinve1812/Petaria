@@ -28,10 +28,10 @@ function Sidebar({ userId, handleLogout, isAdmin }) {
       <nav>
         <ul>
             <li><a href="/" onClick={handleLogout}><img src="/images/buttons/exit.png" alt="exit"/></a></li> 
+            {isAdmin && <li><a href="/admin"><img src="/images/buttons/admin.png" alt="Admin"/></a></li>}
             <li><a href="/"><img src="/images/buttons/mainpage.png" alt="mainpage"/></a></li>   
             <li><a href="/"><img src="/images/buttons/world.png" alt="world"/></a></li> 
             <li><a href="/"><img src="/images/buttons/homepage.png" alt="homepage"/></a></li> 
-            {isAdmin && <li><a href="/admin"><img src="/images/buttons/admin.png" alt="Admin"/></a></li>}
             <li><a href="/"><img src="/images/buttons/management.png" alt="management"/></a></li>
             <li><a href="/"><img src="/images/buttons/analysis.png" alt="analysis"/></a></li>
         </ul>

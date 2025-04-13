@@ -530,8 +530,44 @@ app.get('/api/admin/items', (req, res) => {
 });
 
 
+//Admin - Edit vật phẩm
+app.put('/api/admin/items/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, description, type, rarity, image_url, buy_price, sell_price } = req.body;
+
+  const sql = `
+    UPDATE items
+    SET name = ?, description = ?, type = ?, rarity = ?, image_url = ?, buy_price = ?, sell_price = ?
+    WHERE id = ?
+  `;
+
+  pool.query(sql, [name, description, type, rarity, image_url, buy_price, sell_price, id], (err, results) => {
+    if (err) {
+      console.error('Error updating item:', err);
+      return res.status(500).json({ message: 'Error updating item' });
+    }
+
+    res.json({ message: 'Item updated successfully' });
+  });
+});
+
+//Admin - Delete vật phẩm
+app.delete('/api/admin/items/:id', (req, res) => {
+  const { id } = req.params;
+
+  pool.query('DELETE FROM items WHERE id = ?', [id], (err, results) => {
+    if (err) {
+      console.error('Error deleting item:', err);
+      return res.status(500).json({ message: 'Error deleting item' });
+    }
+
+    res.json({ message: 'Item deleted successfully' });
+  });
+});
+
+
 // User - Xem inventory cá nhân (có middleware xác thực)
-app.get('/api/users/:userId/inventory', requireAuth, (req, res) => {
+app.get('/api/users/:userId/inventory', (req, res) => {
   const { userId } = req.params;
 
   // Kiểm tra userId từ token và userId từ params có trùng nhau không
@@ -552,4 +588,48 @@ app.get('/api/users/:userId/inventory', requireAuth, (req, res) => {
       }
       res.json(results);
     });
+});
+
+//Lấy stats của equipment-stats
+app.get('/api/admin/equipment-stats', (req, res) => {
+  const sql = `SELECT * FROM equipment_data`;
+  pool.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error fetching equipment data:', err);
+      return res.status(500).json({ message: 'Error fetching equipment data' });
+    }
+    res.json(results);
+  });
+});
+
+app.post('/api/admin/equipment-stats', (req, res) => {
+  const { item_id, power, durability } = req.body;
+  const sql = `INSERT INTO equipment_data (item_id, power, durability)
+               VALUES (?, ?, ?)
+               ON DUPLICATE KEY UPDATE power = VALUES(power), durability = VALUES(durability)`;
+
+  pool.query(sql, [item_id, power, durability], (err, results) => {
+    if (err) {
+      console.error('Error saving equipment data:', err);
+      return res.status(500).json({ message: 'Error saving equipment data' });
+    }
+    res.json({ message: 'Equipment data saved successfully' });
+  });
+});
+
+app.put('/api/admin/equipment-stats/:id', (req, res) => {
+  const { id } = req.params;
+  const { item_id, power, durability } = req.body;
+
+  const sql = `UPDATE equipment_data
+               SET item_id = ?, power = ?, durability = ?
+               WHERE id = ?`;
+
+  pool.query(sql, [item_id, power, durability, id], (err, results) => {
+    if (err) {
+      console.error('Error updating equipment data:', err);
+      return res.status(500).json({ message: 'Error updating equipment data' });
+    }
+    res.json({ message: 'Equipment data updated successfully' });
+  });
 });
