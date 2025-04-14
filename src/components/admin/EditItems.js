@@ -5,6 +5,7 @@ import Sidebar from '../Sidebar';
 import Navbar from '../Navbar';
 import '../HomePage.css';
 import { UserContext } from '../../UserContext';
+import { Link } from 'react-router-dom';
 
 function EditItems() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -138,12 +139,17 @@ function EditItems() {
       alert(err.message);
     }
   };
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('isAdmin');
+    navigate('/login');
+  };
 
   return (
     <div className="container">
       <header><img src="/images/buttons/banner.jpeg" alt="Banner Petaria" /></header>
       <div className="content">
-        <Sidebar userId={user?.userId} isAdmin={user?.isAdmin} handleLogout={() => navigate('/login')} />
+        <Sidebar userId={user?.userId} isAdmin={user?.isAdmin} handleLogout={handleLogout} />
         <div className="main-content">
           <Navbar />
           <h1>Quản lý Items</h1>
@@ -230,11 +236,13 @@ function EditItems() {
                           <button onClick={() => handleEdit(item)}>Sửa</button>
                           <button onClick={() => handleDelete(item.id)}>Xoá</button>
                           {item.type === 'equipment' && (
-                                <button><a href={`/admin/edit-equipment-stats?item_id=${item.id}`}>View stats</a></button>
+                                <button><Link to={`/admin/edit-equipment-stats?item_id=${item.id}`}>View stats</Link></button>
                                 )}
                           {(item.type === 'booster' || item.type === 'consumable') && (
-                            <button><a href={`/admin/edit-item-effects?item_id=${item.id}`}>View effect</a></button>
+                            <button><Link to={`/admin/edit-item-effects?item_id=${item.id}`}>View effect</Link>
+                            </button>
                             )}
+                            
                         </td>
                         
                       </tr>

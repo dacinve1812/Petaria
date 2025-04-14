@@ -105,12 +105,18 @@ function EditItemEffects() {
     setDurationTurns(eff.duration_turns || 0);
     setEditId(eff.id);
   };
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('isAdmin');
+    navigate('/login');
+  };
+  
 
   return (
     <div className="container">
       <header><img src="/images/buttons/banner.jpeg" alt="Banner Petaria" /></header>
       <div className="content">
-        <Sidebar userId={user?.userId} isAdmin={user?.isAdmin} handleLogout={() => navigate('/login')} />
+        <Sidebar userId={user?.userId} isAdmin={user?.isAdmin} handleLogout={handleLogout} />
         <div className="main-content">
           <Navbar />
           <h1>Update chỉ số cho vật phẩm</h1>

@@ -32,6 +32,7 @@ function Admin() {
             <li><Link to="/admin/edit-pet-types">Quản lý Chủng loại Thú cưng</Link></li>
             <li><Link to="/admin/edit-items">Quản lý tất cả vật phẩm</Link></li>
             <li><Link to="/admin/edit-equipment-stats">Quản lý vật phẩm chiến đấu</Link></li>
+            <li><Link to="/admin/edit-shop-items">Quản lý cửa hàng vật phẩm</Link></li>
           </ul>
         </div>
       </div>

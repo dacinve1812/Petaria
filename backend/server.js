@@ -24,6 +24,8 @@ const pool = mysql.createPool({ // Hoặc const pool = new Pool({
   queueLimit: 0,
 });
 
+const db = pool.promise();
+
 // Kiểm tra kết nối
 pool.getConnection((err, connection) => {
   if (err) {
@@ -690,4 +692,166 @@ app.put('/api/admin/item-effects/:id', (req, res) => {
     }
     res.json({ message: 'Item effect updated successfully' });
   });
+});
+
+
+/************************************* SHOP ********************************************** */
+
+// 1. API: Lấy danh sách cửa hàng: 
+// Dành cho người chơi hoặc admin để hiện danh sách các shop.
+
+app.get('/api/shops', async (req, res) => {
+  try {
+    const [shops] = await db.query('SELECT * FROM shop_definitions');
+    res.json(shops); // shops là mảng kết quả thực tế
+  } catch (err) {
+    console.error('Lỗi khi query shop_definitions:', err);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách cửa hàng' });
+  }
+});
+
+// 2. API: Lấy danh sách item của 1 cửa hàng
+// Trả về item đang được bán trong shop tương ứng với shop_code
+app.get('/api/shop/:shop_code', async (req, res) => {
+  const { shop_code } = req.params;
+
+  try {
+    const [shopRows] = await db.query(
+      'SELECT id FROM shop_definitions WHERE code = ?',
+      [shop_code]
+    );
+
+    if (!shopRows.length) {
+      return res.status(404).json({ error: 'Shop không tồn tại' });
+    }
+
+    const shop = shopRows[0];
+
+    const [items] = await db.query(`
+      SELECT 
+        i.id, i.name, i.description, i.type, i.rarity, i.image_url,
+        COALESCE(si.custom_price, i.buy_price) AS price,
+        si.currency_type, si.stock_limit, si.available_from, si.available_until
+      FROM shop_items si
+      JOIN items i ON si.item_id = i.id
+      WHERE si.shop_id = ?
+    `, [shop.id]);
+
+    res.json(items);
+  } catch (err) {
+    console.error('Lỗi khi lấy danh sách item trong shop:', err);
+    res.status(500).json({ error: 'Lỗi server khi lấy item trong shop' });
+  }
+});
+
+// 3.API Admin: Thêm item vào shop (bulk)
+//Cho phép admin thêm nhiều item vào 1 cửa hàng cùng lúc
+app.post('/api/admin/shop-items/bulk-add', async (req, res) => {
+  const { shop_id, item_ids, custom_price, currency_type } = req.body;
+
+  if (!shop_id || !Array.isArray(item_ids) || item_ids.length === 0) {
+    return res.status(400).json({ error: 'Thiếu thông tin' });
+  }
+
+  try {
+    const placeholders = item_ids.map(() => '(?, ?, ?, ?)').join(', ');
+    const flatValues = item_ids.flatMap(itemId => [shop_id, itemId, custom_price ?? null, currency_type ?? 'gold']);
+
+    const sql = `INSERT INTO shop_items (shop_id, item_id, custom_price, currency_type) VALUES ${placeholders}`;
+    await db.query(sql, flatValues);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Lỗi khi thêm item vào shop:', err);
+    res.status(500).json({ error: 'Lỗi khi thêm item vào shop' });
+  }
+});
+
+
+
+// Mua item
+
+// POST /api/shop/buy
+app.post('/api/shop/buy', async (req, res) => {
+  const { shop_code, item_id, user_id } = req.body;
+
+  try {
+    // 1. Lấy shop ID từ code
+    const [shopRows] = await db.query(`SELECT id FROM shop_definitions WHERE code = ?`, [shop_code]);
+    if (!shopRows.length) return res.status(404).json({ error: 'Shop không tồn tại' });
+    const shop = shopRows[0];
+
+    // 2. Lấy thông tin item trong shop
+    const [itemRows] = await db.query(`
+    SELECT i.*, si.custom_price, si.currency_type, si.stock_limit
+    FROM shop_items si
+    JOIN items i ON si.item_id = i.id
+    WHERE si.item_id = ? AND si.shop_id = ?
+    `, [item_id, shop.id]);
+    
+    if (!itemRows.length) {
+      return res.status(404).json({ error: 'Item không tồn tại trong shop' });
+    }
+    
+    const itemRow = itemRows[0];
+    const price = itemRow.custom_price ?? itemRow.buy_price;
+    const currency = itemRow.currency_type;
+    
+    if (!currency || !['gold', 'petagold'].includes(currency)) {
+      return res.status(400).json({ error: 'Loại tiền không hợp lệ' });
+    }
+
+    // 4. Lấy thông tin người dùng
+    const [userRow] = await db.query(`SELECT gold, petagold FROM users WHERE id = ?`, [user_id]);
+    if (!userRow) return res.status(404).json({ error: 'Người dùng không tồn tại' });
+
+    const userBalance = currency === 'gold' ? userRow.gold : userRow.petagold;
+    if (userBalance < price) return res.status(400).json({ error: 'Không đủ tiền' });
+
+    // 5. Trừ tiền
+    await db.query(`UPDATE users SET ${currency} = ${currency} - ? WHERE id = ?`, [price, user_id]);
+
+    // 6. Thêm item vào inventory
+    if (itemRow.type === 'equipment') {
+      // Equipment: mỗi bản riêng biệt
+      await db.query(`
+        INSERT INTO inventory (player_id, item_id, quantity, is_equipped, durability_left)
+        VALUES (?, ?, 1, 0, ?)
+      `, [user_id, item_id, itemRow.durability ?? 100]);
+    } else {
+      // Các loại khác: cộng dồn
+      const [invRow] = await db.query(`
+        SELECT id, quantity FROM inventory
+        WHERE player_id = ? AND item_id = ? AND is_equipped = 0
+      `, [user_id, item_id]);
+
+      if (invRow) {
+        await db.query(`UPDATE inventory SET quantity = quantity + 1 WHERE id = ?`, [invRow.id]);
+      } else {
+        await db.query(`
+          INSERT INTO inventory (player_id, item_id, quantity)
+          VALUES (?, ?, 1)
+        `, [user_id, item_id]);
+      }
+    }
+
+    // 7. Trừ stock nếu có
+    if (itemRow.stock_limit !== null) {
+      const result = await db.query(`
+        UPDATE shop_items
+        SET stock_limit = stock_limit - 1
+        WHERE shop_id = ? AND item_id = ? AND stock_limit > 0
+      `, [shop.id, item_id]);
+
+      if (result.affectedRows === 0) {
+        return res.status(400).json({ error: 'Không thể cập nhật stock (có thể đã hết hàng)' });
+      }
+    }
+
+    res.json({ success: true, message: 'Mua thành công!' });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Lỗi máy chủ khi xử lý mua vật phẩm' });
+  }
 });

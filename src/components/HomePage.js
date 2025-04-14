@@ -65,7 +65,7 @@ function HomePage({isLoggedIn, onLogoutSuccess }) {
             <a href="#">Sông Jordan</a>
             <a href="#">Bưu điện</a>
             <a href="#">Club</a>
-            <a href="#">Cửa hàng</a>
+            <a href="/shop">Cửa hàng</a>
             <a href="#">Ngân hàng</a>
             <a href="/orphanage">Trại mồ côi</a>
             <a href="#">Game Center</a>

@@ -15,6 +15,8 @@ import EditPetTypes from './components/admin/EditPetTypes';
 import EditItems from './components/admin/EditItems';
 import EditEquipmentStats from './components/admin/EditEquipmentStats';
 import EditItemEffects from './components/admin/EditItemEffects';
+import ShopPage from './components/ShopPage';
+import EditShopItems from './components/admin/EditShopItems';
 
 function App() {
   const [user, setUser] = useState(undefined); // undefined để tránh redirect sớm
@@ -90,6 +92,8 @@ function App() {
             <Route path="/admin/edit-items" element={<EditItems />} />
             <Route path="/admin/edit-equipment-stats" element={<EditEquipmentStats />} />
             <Route path="/admin/edit-item-effects" element={<EditItemEffects />} />
+            <Route path="/shop" element={<ShopPage />} />
+            <Route path="/admin/edit-shop-items" element={<EditShopItems />} />
           </Routes>
         </div>
       </UserContext.Provider>
