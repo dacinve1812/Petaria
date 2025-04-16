@@ -5,6 +5,7 @@ import { UserContext } from '../UserContext';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import ShopItemList from './ShopItemList';
+import ItemDetailModal from './items/ItemDetailModal';
 import './css/ShopPage.css';
 
 function ShopPage() {
@@ -15,6 +16,7 @@ function ShopPage() {
   const [shops, setShops] = useState([]);
   const [selectedShop, setSelectedShop] = useState(null);
   const [shopItems, setShopItems] = useState([]);
+  const [selectedItem, setSelectedItem] = useState(null);
 
   useEffect(() => {
     if (user === undefined) return;
@@ -67,6 +69,7 @@ function ShopPage() {
     if (res.ok) {
       alert('Mua thành công!');
       fetchShopItems(selectedShop.code);
+      setSelectedItem(null);
     } else {
       alert(data.error || 'Đã có lỗi xảy ra');
     }
@@ -81,7 +84,7 @@ function ShopPage() {
           <Navbar />
           <h1>Cửa hàng vật phẩm</h1>
 
-          <div className = 'shop-container'>
+          <div className='shop-container'>
             {Array.isArray(shops) && shops.map(shop => (
               <button
                 key={shop.id}
@@ -97,8 +100,17 @@ function ShopPage() {
             <>
               <h2>{selectedShop.name}</h2>
               <h3>{selectedShop.description}</h3>
-              <ShopItemList items={shopItems} onBuyClick={handleBuy} />
+              <ShopItemList items={shopItems} onItemClick={(item) => setSelectedItem(item)} />
             </>
+          )}
+
+          {selectedItem && (
+            <ItemDetailModal
+              item={selectedItem}
+              onClose={() => setSelectedItem(null)}
+              onBuy={handleBuy}
+              mode="shop"
+            />
           )}
         </div>
       </div>

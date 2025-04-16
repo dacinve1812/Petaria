@@ -39,7 +39,7 @@ function Sidebar({ userId, handleLogout, isAdmin }) {
       <div className="user-info">
         <p>Tài khoản: {username}</p>
         <p>Tình trạng: {onlineStatus ? 'Online' : 'Offline'}</p>
-        <p>Gold: {gold}</p>
+        <p>Peta: {gold.toLocaleString()}</p>
         <button >Thoát game</button>
         <button>Tìm kiếm</button>
       </div>

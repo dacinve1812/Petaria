@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import './css/ShopPage.css';
 
-function ShopItemList({ items = [], onBuyClick }) {
+function ShopItemList({ items = [], onItemClick }) {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 12;
 
@@ -13,15 +13,16 @@ function ShopItemList({ items = [], onBuyClick }) {
     <div>
       <div className='item-list-container'>
         {paginatedItems.map((item, index) => (
-          <div key={`${item.id}-${index}`} className='item-list-detail'>
+          <div
+            key={`${item.id}-${index}`}
+            className='item-list-detail'
+            onClick={() => onItemClick && onItemClick(item)}
+            style={{ cursor: 'pointer' }}
+          >
             <img src={`/images/equipments/${item.image_url}`} alt={item.name} width="60" />
             <div><strong>{item.name}</strong></div>
             <div>Còn lại: {item.stock_limit === null ? '0' : item.stock_limit}</div>
-            <div>Giá: {item.price} {item.currency_type === 'gem' ? 'petaGold' : 'peta'}</div>
-            <br></br>
-            {onBuyClick && (
-              <button onClick={() => onBuyClick(item)}>Mua</button>
-            )}
+            <div>Giá: {item.price.toLocaleString()} {item.currency_type === 'gem' ? 'petaGold' : 'peta'}</div>
           </div>
         ))}
       </div>

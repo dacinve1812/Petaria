@@ -16,9 +16,9 @@ function ItemCard({ item, onClick }) {
       style={{ borderColor: rarityColors[item.rarity] || '#999' }}
       onClick={onClick}
     >
-      <img src={item.image_url} alt={item.name} className="item-image" />
+      <img src={`/images/equipments/${item.image_url}`} alt={item.name} className="item-image" />
       <div className="item-name">{item.name}</div>
-      {item.quantity > 1 && <div className="item-qty">Số lượng: {item.quantity}</div>}
+      {item.quantity >= 1 && <div className="item-qty">Số lượng: {item.quantity}</div>}
     </div>
   );
 }

@@ -567,31 +567,6 @@ app.delete('/api/admin/items/:id', (req, res) => {
   });
 });
 
-
-// User - Xem inventory cá nhân (có middleware xác thực)
-app.get('/api/users/:userId/inventory', (req, res) => {
-  const { userId } = req.params;
-
-  // Kiểm tra userId từ token và userId từ params có trùng nhau không
-  if (parseInt(userId) !== req.userId) {
-    return res.status(403).json({ message: 'Forbidden: Access denied' });
-  }
-
-  pool.query(`
-    SELECT i.*, it.name, it.description, it.type, it.rarity, it.image_url
-    FROM inventory i
-    JOIN items it ON i.item_id = it.id
-    WHERE i.player_id = ?`,
-    [userId], 
-    (err, results) => {
-      if (err) {
-        console.error('Error fetching user inventory:', err);
-        return res.status(500).json({ message: 'Error fetching inventory' });
-      }
-      res.json(results);
-    });
-});
-
 //Lấy stats của equipment-stats
 app.get('/api/admin/equipment-stats', (req, res) => {
   const sql = `SELECT * FROM equipment_data`;
@@ -769,7 +744,7 @@ app.post('/api/admin/shop-items/bulk-add', async (req, res) => {
 
 
 
-// Mua item
+// User - Mua item
 
 // POST /api/shop/buy
 app.post('/api/shop/buy', async (req, res) => {
@@ -820,19 +795,20 @@ app.post('/api/shop/buy', async (req, res) => {
       `, [user_id, item_id, itemRow.durability ?? 100]);
     } else {
       // Các loại khác: cộng dồn
-      const [invRow] = await db.query(`
-        SELECT id, quantity FROM inventory
-        WHERE player_id = ? AND item_id = ? AND is_equipped = 0
+      const [invRows] = await db.query(`
+      SELECT id, quantity FROM inventory
+      WHERE player_id = ? AND item_id = ? AND is_equipped = 0
+    `, [user_id, item_id]);
+    
+    if (invRows.length > 0) {
+      const inv = invRows[0];
+      await db.query(`UPDATE inventory SET quantity = quantity + 1 WHERE id = ?`, [inv.id]);
+    } else {
+      await db.query(`
+        INSERT INTO inventory (player_id, item_id, quantity)
+        VALUES (?, ?, 1)
       `, [user_id, item_id]);
-
-      if (invRow) {
-        await db.query(`UPDATE inventory SET quantity = quantity + 1 WHERE id = ?`, [invRow.id]);
-      } else {
-        await db.query(`
-          INSERT INTO inventory (player_id, item_id, quantity)
-          VALUES (?, ?, 1)
-        `, [user_id, item_id]);
-      }
+    }
     }
 
     // 7. Trừ stock nếu có
@@ -853,5 +829,83 @@ app.post('/api/shop/buy', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Lỗi máy chủ khi xử lý mua vật phẩm' });
+  }
+});
+
+
+// Admin - Cập nhật item trong shop (Edit)
+app.put('/api/admin/shop-items/:shop_id/:item_id', async (req, res) => {
+  const { shop_id, item_id } = req.params;
+  let { custom_price, stock_limit, restock_interval, available_from, available_until } = req.body;
+
+  try {
+    // Nếu có ngày giờ, thì mặc định restock = none
+    if (available_from || available_until) {
+      restock_interval = 'none';
+    }
+
+    const sql = `
+      UPDATE shop_items
+      SET custom_price = ?, stock_limit = ?, restock_interval = ?, available_from = ?, available_until = ?
+      WHERE shop_id = ? AND item_id = ?
+    `;
+
+    await db.query(sql, [
+      custom_price || null,
+      stock_limit || null,
+      restock_interval || 'none',
+      available_from || null,
+      available_until || null,
+      shop_id,
+      item_id
+    ]);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Lỗi khi cập nhật shop item:', err);
+    res.status(500).json({ error: 'Lỗi server khi cập nhật item trong shop' });
+  }
+});
+
+//Admin - Delete items trong shop 
+app.delete('/api/admin/shop-items/:shop_id/:item_id', async (req, res) => {
+  const { shop_id, item_id } = req.params;
+
+  try {
+    const result = await db.query(`
+      DELETE FROM shop_items
+      WHERE shop_id = ? AND item_id = ?
+    `, [shop_id, item_id]);
+
+    if (result[0].affectedRows === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy item để xóa' });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Lỗi khi xóa item khỏi shop:', err);
+    res.status(500).json({ error: 'Lỗi server khi xóa item khỏi shop' });
+  }
+});
+
+
+// User - Lấy thông tin items từ Inventory
+
+app.get('/api/users/:userId/inventory', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const [rows] = await db.query(`
+      SELECT i.id AS item_id, i.name, i.type, i.rarity, i.description, i.image_url,
+             inv.id, inv.quantity, inv.durability_left, inv.is_equipped
+      FROM inventory inv
+      JOIN items i ON inv.item_id = i.id
+      WHERE inv.player_id = ?
+    `, [userId]);
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Lỗi khi lấy inventory:', err);
+    res.status(500).json({ error: 'Không thể lấy dữ liệu inventory' });
   }
 });

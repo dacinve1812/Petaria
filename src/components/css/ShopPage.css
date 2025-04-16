@@ -31,9 +31,33 @@ color: rgb(255, 255, 255);
     flex-wrap: wrap;
 }
 .item-list-detail{
+    width: 150px;
     border: none;
     padding: '10px';
     text-align: center;
     font-size: 15px;
     margin-bottom: 20px ;
+}
+.item-list-edit{
+    margin-bottom: 10px;
+}
+.item-list-edit > input{
+    width: 100px;
+}
+
+/* Icons */
+.icon-button {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    transition: transform 0.1s ease;
+  }
+  
+.icon-button:hover {
+    transform: scale(1.1);
+}
+.icon-button > img {
+    width: 20px;
+    height: 20px;
 }
