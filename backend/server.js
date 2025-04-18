@@ -1,3 +1,4 @@
+import './utils/petStats.js';
 require('dotenv').config();
 
 const express = require('express');
@@ -144,62 +145,29 @@ app.post('/login', async (req, res) => {
   );
 });
 
-// // Middleware kiểm tra quyền admin
-// function requireAdmin(req, res, next) {
-//   const token = req.headers.authorization?.split(' ')[1];
-//   if (!token) {
-//     return res.status(401).json({ message: 'Unauthorized: No token provided' });
-//   }
-
-//   try {
-//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-//     pool.query('SELECT username FROM users WHERE id = ?', [decoded.userId], (err, results) => {
-//       if (err || results.length === 0) {
-//         return res.status(403).json({ message: 'Forbidden: User not found' });
-//       }
-
-//       const user = results[0];
-//       if (user.username !== 'admin') {
-//         return res.status(403).json({ message: 'Forbidden: Admin only' });
-//       }
-
-//       next();
-//     });
-
-//   } catch (error) {
-//     return res.status(401).json({ message: 'Unauthorized: Invalid token' });
-//   }
-// }
-
-// // Middleware xác thực người dùng
-// function requireAuth(req, res, next) {
-//   const token = req.headers.authorization?.split(' ')[1];
-//   if (!token) {
-//     return res.status(401).json({ message: 'Unauthorized: No token provided' });
-//   }
-
-//   try {
-//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-//     req.userId = decoded.userId; // Gắn userId vào req để dùng sau
-//     next();
-//   } catch (error) {
-//     return res.status(401).json({ message: 'Unauthorized: Invalid token' });
-//   }
-// }
 
 // API Lấy Danh Sách Thú Cưng Của Người Dùng
 app.get('/users/:userId/pets', (req, res) => {
   const userId = req.params.userId;
-  pool.query(`SELECT
-              p.uuid,
-              p.name,
-              pt.name AS pet_types_name,
-              pt.image,
-              p.level
-            FROM pets p
-            JOIN pet_types pt ON p.pet_type_id = pt.id
-            WHERE p.owner_id = ?`, [userId], (err, results) => {
+
+  pool.query(`
+    SELECT
+      p.uuid,
+      p.name,
+      ps.name AS species_name,
+      ps.image,
+      p.level,
+      p.hp,
+      p.mp,
+      p.str,
+      p.def,
+      p.intelligence,
+      p.spd,
+      p.final_stats
+    FROM pets p
+    JOIN pet_species ps ON p.pet_species_id = ps.id
+    WHERE p.owner_id = ?
+  `, [userId], (err, results) => {
     if (err) {
       console.error('Error fetching user pets: ', err);
       res.status(500).json({ message: 'Error fetching user pets' });
@@ -229,30 +197,43 @@ app.get('/api/admin/pets', (req, res) => {
   });
 });
 
-// API Create Pet Type (Admin)
-app.post('/api/admin/pet-types', (req, res) => {
-  const { name, image, evolution_tree, description, rarity } = req.body;
+// API Create Pet Species (Admin)
+app.post('/api/admin/pet-species', (req, res) => {
+  const {
+    name, image, type, description, rarity,
+    base_hp, base_mp, base_str, base_def, base_intelligence, base_spd,
+    evolve_to
+  } = req.body;
 
-  pool.query(
-    'INSERT INTO pet_types (name, image, evolution_tree, description, rarity) VALUES (?, ?, ?, ?, ?)',
-    [name, image, evolution_tree, description, rarity],
-    (err, results) => {
-      if (err) {
-        console.error('Error creating pet type: ', err);
-        res.status(500).json({ message: 'Error creating pet type' });
-      } else {
-        res.json({ message: 'Pet type created successfully' });
-      }
+  const sql = `
+    INSERT INTO pet_species
+    (name, image, type, description, rarity,
+     base_hp, base_mp, base_str, base_def, base_intelligence, base_spd, evolve_to)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  const values = [
+    name, image, type, description, rarity,
+    base_hp, base_mp, base_str, base_def, base_intelligence, base_spd,
+    evolve_to ? JSON.stringify(evolve_to) : null
+  ];
+
+  pool.query(sql, values, (err, results) => {
+    if (err) {
+      console.error('Error creating pet species:', err);
+      res.status(500).json({ message: 'Error creating pet species' });
+    } else {
+      res.json({ message: 'Pet species created successfully', speciesId: results.insertId });
     }
-  );
+  });
 });
 
 // API Get Pet Types (Admin)
-app.get('/api/admin/pet-types', (req, res) => {
-  pool.query('SELECT * FROM pet_types', (err, results) => {
+app.get('/api/admin/pet-species', (req, res) => {
+  pool.query('SELECT * FROM pet_species', (err, results) => {
     if (err) {
-      console.error('Error fetching pet types: ', err);
-      res.status(500).json({ message: 'Error fetching pet types' });
+      console.error('Error fetching pet species: ', err);
+      res.status(500).json({ message: 'Error fetching pet species' });
     } else {
       res.json(results);
     }
@@ -260,34 +241,51 @@ app.get('/api/admin/pet-types', (req, res) => {
 });
 
 // API Delete Pet Type (Admin)
-app.delete('/api/admin/pet-types/:id', (req, res) => {
+app.delete('/api/admin/pet-species/:id', (req, res) => {
   const id = req.params.id;
-  pool.query('DELETE FROM pet_types WHERE id = ?', [id], (err, results) => {
+
+  pool.query('DELETE FROM pet_species WHERE id = ?', [id], (err, results) => {
     if (err) {
-      console.error('Error deleting pet type: ', err);
-      res.status(500).json({ message: 'Error deleting pet type' });
+      console.error('Error deleting pet species:', err);
+      res.status(500).json({ message: 'Error deleting pet species' });
     } else {
-      res.json({ message: 'Pet type deleted successfully' });
+      res.json({ message: 'Pet species deleted successfully' });
     }
   });
 });
 
 // API Update Pet Type (Admin)
-app.put('/api/admin/pet-types/:id', (req, res) => {
+app.put('/api/admin/pet-species/:id', (req, res) => {
   const id = req.params.id;
-  const { name, image, evolution_tree, description, rarity } = req.body;
-  pool.query(
-    'UPDATE pet_types SET name = ?, image = ?, evolution_tree = ?, description = ?, rarity = ? WHERE id = ?',
-    [name, image, evolution_tree, description, rarity, id],
-    (err, results) => {
-      if (err) {
-        console.error('Error updating pet type: ', err);
-        res.status(500).json({ message: 'Error updating pet type' });
-      } else {
-        res.json({ message: 'Pet type updated successfully' });
-      }
+  const {
+    name, image, type, description, rarity,
+    base_hp, base_mp, base_str, base_def, base_intelligence, base_spd,
+    evolve_to
+  } = req.body;
+
+  const sql = `
+    UPDATE pet_species SET
+      name = ?, image = ?, type = ?, description = ?, rarity = ?,
+      base_hp = ?, base_mp = ?, base_str = ?, base_def = ?, base_intelligence = ?, base_spd = ?,
+      evolve_to = ?
+    WHERE id = ?
+  `;
+
+  const values = [
+    name, image, type, description, rarity,
+    base_hp, base_mp, base_str, base_def, base_intelligence, base_spd,
+    evolve_to ? JSON.stringify(evolve_to) : null,
+    id
+  ];
+
+  pool.query(sql, values, (err, results) => {
+    if (err) {
+      console.error('Error updating pet species:', err);
+      res.status(500).json({ message: 'Error updating pet species' });
+    } else {
+      res.json({ message: 'Pet species updated successfully' });
     }
-  );
+  });
 });
 
 // API Lấy Thông Tin Chi Tiết Thú Cưng Theo ID/UUID
@@ -296,7 +294,7 @@ app.get('/api/pets/:uuid', (req, res) => {
   pool.query(`
       SELECT p.*, pt.name AS pet_types_name, pt.image
       FROM pets p
-      JOIN pet_types pt ON p.pet_type_id = pt.id
+      JOIN pet_species pt ON p.pet_species_id = pt.id
       WHERE p.uuid = ?
   `, [uuid], (err, results) => {
       if (err) {
@@ -312,56 +310,6 @@ app.get('/api/pets/:uuid', (req, res) => {
   });
 });
 
-
-// API Adopt Pet (Create real pet record using data from temp pet)
-app.post('/api/adopt-pet', async (req, res) => {
-  const { tempId, owner_id, petName } = req.body;
-
-  const tempPet = orphanagePets.find(pet => pet.tempId === tempId);
-
-  if (!tempPet) {
-      return res.status(400).json({ message: 'Invalid temporary pet ID' });
-  }
-
-  const { pet_type_id, hp, mp, str, def, intelligence, spd } = tempPet;
-  const petUuid = uuidv4();
-  const level = 1;
-  const adoptDate = new Date();
-
-  try {
-      const [petTypeResult] = await pool.promise().query(
-          'SELECT name, type, rarity FROM pet_types WHERE id = ?',
-          [pet_type_id]
-      );
-
-      if (petTypeResult.length === 0) {
-          return res.status(400).json({ message: 'Invalid pet type ID' });
-      }
-
-      const petTypeName = petTypeResult[0].name;
-      const petType = petTypeResult[0].type;
-      const rarity = petTypeResult[0].rarity;
-
-      const maxHp = hp;
-      const maxMp = mp;
-
-      const [insertResult] = await pool.promise().query(
-          'INSERT INTO pets (uuid, name, type, pet_type_id, owner_id, hp, max_hp, mp, max_mp, str, def, intelligence, spd, level, rarity, created_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [petUuid, petName, petType, pet_type_id, owner_id, hp, maxHp, mp, maxMp, str, def, intelligence, spd, level, rarity, adoptDate]
-      );
-
-      res.json({ message: 'Pet adopted successfully', uuid: petUuid });
-
-      const index = orphanagePets.findIndex(pet => pet.tempId === tempId);
-      if (index > -1) {
-          orphanagePets.splice(index, 1);
-      }
-
-  } catch (error) {
-      console.error('Error adopting pet:', error);
-      res.status(500).json({ message: 'Error adopting pet' });
-  }
-});
 // API Delete Pet
 app.delete('/api/admin/pets/:uuid', (req, res) => {
   const uuid = req.params.uuid;
@@ -425,51 +373,153 @@ app.delete('/api/pets/:uuid/release', (req, res) => {
   }
 });
 
+// API Admin tạo pet thủ công (POST /api/admin/pets)
+app.post('/api/admin/pets', async (req, res) => {
+  const {
+    name, pet_species_id, owner_id, level = 1,
+    iv_hp, iv_mp, iv_str, iv_def, iv_intelligence, iv_spd
+  } = req.body;
+
+  try {
+    const [speciesResult] = await pool.promise().query(
+      'SELECT name, type, rarity, base_hp AS hp, base_mp AS mp, base_str AS str, base_def AS def, base_intelligence AS intelligence, base_spd AS spd FROM pet_species WHERE id = ?',
+      [pet_species_id]
+    );
+
+    if (speciesResult.length === 0) return res.status(400).json({ message: 'Invalid pet species ID' });
+
+    const species = speciesResult[0];
+    const iv = {
+      iv_hp: iv_hp ?? Math.floor(Math.random() * 32),
+      iv_mp: iv_mp ?? Math.floor(Math.random() * 32),
+      iv_str: iv_str ?? Math.floor(Math.random() * 32),
+      iv_def: iv_def ?? Math.floor(Math.random() * 32),
+      iv_intelligence: iv_intelligence ?? Math.floor(Math.random() * 32),
+      iv_spd: iv_spd ?? Math.floor(Math.random() * 32),
+    };
+    const finalStats = calculateFinalStats(species, iv, level);
+
+    const uuid = uuidv4();
+    await pool.promise().query(
+      `INSERT INTO pets (uuid, name, type, pet_species_id, owner_id, level, rarity, created_date,
+        iv_hp, iv_mp, iv_str, iv_def, iv_intelligence, iv_spd, final_stats)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        uuid, name, species.type, pet_species_id, owner_id, level, species.rarity,
+        iv.iv_hp, iv.iv_mp, iv.iv_str, iv.iv_def, iv.iv_intelligence, iv.iv_spd,
+        JSON.stringify(finalStats)
+      ]
+    );
+
+    res.json({ message: 'Pet created successfully', uuid });
+  } catch (err) {
+    console.error('Error creating pet:', err);
+    res.status(500).json({ message: 'Failed to create pet' });
+  }
+});
+
 // API Get Orphanage Pets (Rarity Common, Level 1) 
+// Cập nhật API orphanage-pets
+let orphanagePets = []; // Danh sách thú cưng tạm thời
+app.get('/api/orphanage-pets', async (req, res) => {
+  const level = 1;
+  const rarity = 'Common';
 
-let orphanagePets = []; // Khai báo biến để lưu trữ danh sách thú cưng tạm thời
-app.get('/api/orphanage-pets', (req, res) => {
-  const level = 1; // Cố định level là 1
-  const rarity = 'Legend';
+  try {
+    const [results] = await pool.promise().query(
+      `SELECT id, name, image, type, rarity,
+              base_hp AS hp, base_mp AS mp, base_str AS str,
+              base_def AS def, base_intelligence AS intelligence, base_spd AS spd
+       FROM pet_species WHERE rarity = ?`,
+      [rarity]
+    );
 
-  pool.query(
-      'SELECT id, name AS pet_types_name, image FROM pet_types WHERE rarity = ?',
-      [rarity],
-      (err, results) => {
-          if (err) {
-              console.error('Error fetching common pet types: ', err);
-              return res.status(500).json({ message: 'Error fetching pet types' });
-          }
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'No common pets found' });
+    }
 
-          const petTypes = results;
-          orphanagePets = [];
+    orphanagePets = [];
+    for (let i = 0; i < 4; i++) {
+      const petSpecies = results[Math.floor(Math.random() * results.length)];
+      const iv = generateIVStats();
+      const finalStats = calculateFinalStats({
+        hp: petSpecies.hp,
+        mp: petSpecies.mp,
+        str: petSpecies.str,
+        def: petSpecies.def,
+        intelligence: petSpecies.intelligence,
+        spd: petSpecies.spd
+      }, iv, level);
 
-          for (let i = 0; i < 4; i++) {
-              const randomPetType = petTypes[Math.floor(Math.random() * petTypes.length)];
-              const randomStats = {
-                  hp: Math.floor(Math.random() * 10) + 20,
-                  mp: Math.floor(Math.random() * 5) + 10,
-                  str: Math.floor(Math.random() * 3) + 5,
-                  def: Math.floor(Math.random() * 3) + 5,
-                  intelligence: Math.floor(Math.random() * 3) + 5,
-                  spd: Math.floor(Math.random() * 3) + 5,
-              };
-              const tempId = uuidv4();
+      orphanagePets.push({
+        tempId: uuidv4(),
+        pet_species_id: petSpecies.id,
+        name: petSpecies.name,
+        image: petSpecies.image,
+        type: petSpecies.type,
+        rarity: petSpecies.rarity,
+        level,
+        ...iv,
+        ...finalStats
+      });
+    }
 
-              orphanagePets.push({
-                  tempId: tempId,
-                  pet_type_id: randomPetType.id,
-                  name: randomPetType.pet_types_name,
-                  pet_types_name: randomPetType.pet_types_name,
-                  image: randomPetType.image,
-                  ...randomStats,
-                  level: level,
-              });
-          }
+    res.json(orphanagePets);
+  } catch (err) {
+    console.error('Error fetching orphanage pets:', err);
+    res.status(500).json({ message: 'Server error while fetching pets' });
+  }
+});
 
-          res.json(orphanagePets);
-      }
-  );
+// Cập nhật API adopt-pet
+app.post('/api/adopt-pet', async (req, res) => {
+  const { tempId, owner_id, petName } = req.body;
+  const tempPet = orphanagePets.find(pet => pet.tempId === tempId);
+  if (!tempPet) return res.status(400).json({ message: 'Invalid temporary pet ID' });
+
+  const {
+    pet_species_id, iv_hp, iv_mp, iv_str, iv_def,
+    iv_intelligence, iv_spd, hp, mp, str, def, intelligence, spd
+  } = tempPet;
+
+  const petUuid = uuidv4();
+  const level = 1;
+  const adoptDate = new Date();
+  const finalStats = {
+    hp, mp, str, def, intelligence, spd
+  };
+
+  try {
+    const [speciesResult] = await pool.promise().query(
+      'SELECT name, type, rarity FROM pet_species WHERE id = ?',
+      [pet_species_id]
+    );
+
+    if (speciesResult.length === 0) {
+      return res.status(400).json({ message: 'Invalid pet species ID' });
+    }
+
+    const species = speciesResult[0];
+
+    await pool.promise().query(
+      `INSERT INTO pets
+      (uuid, name, type, pet_species_id, owner_id, level, rarity, created_date,
+        iv_hp, iv_mp, iv_str, iv_def, iv_intelligence, iv_spd, final_stats)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        petUuid, petName, species.type, pet_species_id, owner_id, level,
+        species.rarity, adoptDate,
+        iv_hp, iv_mp, iv_str, iv_def, iv_intelligence, iv_spd,
+        JSON.stringify(finalStats)
+      ]
+    );
+
+    res.json({ message: 'Pet adopted successfully', uuid: petUuid });
+    orphanagePets = orphanagePets.filter(pet => pet.tempId !== tempId);
+  } catch (error) {
+    console.error('Error adopting pet:', error);
+    res.status(500).json({ message: 'Error adopting pet' });
+  }
 });
 
 

@@ -136,6 +136,7 @@ function EditItemEffects() {
               <option value="def">DEF</option>
               <option value="spd">SPD</option>
               <option value="int">INT</option>
+              <option value="exp">Exp</option>
               <option value="status">Status</option>
             </select>
             <div>Type:</div>

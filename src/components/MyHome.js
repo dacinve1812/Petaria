@@ -92,11 +92,11 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
                 {userPets.map((pet) => (
                   <div key={pet.uuid} className="pet-item">
                     <Link to={`/pet/${pet.uuid}`} style={{ textDecoration: 'none' }}> {/* Thêm Link */}
-                        <img src={`/images/pets/${pet.image}`} alt={pet.name || pet.pet_types_name} />
+                        <img src={`/images/pets/${pet.image}`} alt={pet.name || pet.species_name} />
                         <div className="pet-info">
                             <strong>
-                                {pet.name ? pet.name : pet.pet_types_name}
-                                {pet.name && ` (Loài: ${pet.pet_types_name})`}
+                                {pet.name ? pet.name : pet.species_name}
+                                {/* {pet.name && ` (Loài: ${pet.species_name})`} */}
                             </strong>
                             <p>Level: {pet.level}</p>
                         </div>
