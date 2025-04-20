@@ -4,7 +4,7 @@ import './HomePage.css';
 import Sidebar from './Sidebar';
 
 function Orphanage() {
-    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
     const [availablePets, setAvailablePets] = useState([]);
     const [selectedPet, setSelectedPet] = useState(null);
     const [petName, setPetName] = useState('');
@@ -112,8 +112,11 @@ function Orphanage() {
                             <div key={pet.tempId} className="pet-item" onClick={() => handleSelectPet(pet)}>
                                 <img src={`/images/pets/${pet.image}`} alt={pet.name} />
                                 <div className="pet-info">
-                                    <p>Loài: {pet.pet_types_name}</p>
-                                    <p>Level: {pet.level}</p>
+                                    <p>{pet.name} (Lv.{pet.level})</p>
+                                    <p>Type: {pet.type}</p>
+                                    <p>HP: {pet.hp} | MP: {pet.mp}</p>
+                                    <p>STR: {pet.str} | DEF: {pet.def}</p>
+                                    <p>INT: {pet.intelligence} | SPD: {pet.spd}</p>
                                 </div>
                             </div>
                         ))}
