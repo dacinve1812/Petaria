@@ -1,4 +1,4 @@
-// File: Inventory.js
+// Updated Inventory.js to show equipped items with toggle and note
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import './Inventory.css';
@@ -18,9 +18,9 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const [sortOption, setSortOption] = useState('name');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 12;
+  const [showEquipped, setShowEquipped] = useState(true);
+  const pageSize = 50;
   const navigate = useNavigate();
-
   const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
   useEffect(() => {
@@ -71,7 +71,8 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
 
   const filteredItems = inventoryItems
     .filter(item => filterType === 'all' || item.type === filterType)
-    .filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    .filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .filter(item => showEquipped || !item.is_equipped);
 
   const sortedItems = [...filteredItems].sort((a, b) => {
     if (sortOption === 'name') return a.name.localeCompare(b.name);
@@ -82,6 +83,12 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const totalPages = Math.ceil(sortedItems.length / pageSize);
   const paginatedItems = sortedItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  const updateSingleItemInState = (updatedItem) => {
+    setInventoryItems(prev =>
+      prev.map(it => it.id === updatedItem.id ? updatedItem : it)
+    );
+  };
+
   if (error) return <div>Error: {error}</div>;
 
   return (
@@ -91,18 +98,12 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
       </header>
 
       <div className="content">
-        <Sidebar
-          userId={userId}
-          handleLogout={handleLogout}
-          isAdmin={isAdmin}
-        />
+        <Sidebar userId={userId} handleLogout={handleLogout} isAdmin={isAdmin} />
 
         <div className="main-content">
           <Navbar />
           <h2>Kho vật phẩm</h2>
-          <Link to={`/profile/${userId}`}>
-            <p>Trang cá nhân</p>
-          </Link>
+          <Link to={`/profile/${userId}`}><p>Trang cá nhân</p></Link>
 
           <input
             type="text"
@@ -116,21 +117,17 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
             {filterOptions.map(type => (
               <button
                 key={type}
-                onClick={() => {
-                  setFilterType(type);
-                  setCurrentPage(1);
-                }}
+                onClick={() => { setFilterType(type); setCurrentPage(1); }}
                 style={{
-                  marginRight: '8px',
-                  padding: '6px 10px',
+                  marginRight: '8px', padding: '6px 10px',
                   background: type === filterType ? '#c0ffe4' : '#eee',
-                  border: '1px solid #999',
-                  borderRadius: '6px'
+                  border: '1px solid #999', borderRadius: '6px'
                 }}
               >
                 {type.charAt(0).toUpperCase() + type.slice(1)}
               </button>
             ))}
+          
           </div>
 
           <div style={{ marginBottom: '15px' }}>
@@ -143,13 +140,26 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
               <option value="name">Tên (A-Z)</option>
               <option value="quantity">Số lượng</option>
             </select>
+            <button
+              onClick={() => setShowEquipped(prev => !prev)}
+              style={{ marginLeft: '20px', background: '#ddd', padding: '6px 10px', border: '1px solid #aaa' }}
+            >
+              {showEquipped ? 'Ẩn vật phẩm đã trang bị' : 'Hiện tất cả vật phẩm'}
+            </button>
           </div>
+          
 
           <div className="inventory-container">
             {paginatedItems.length > 0 ? (
               <div className="item-grid">
                 {paginatedItems.map((item, index) => (
-                  <ItemCard key={`${item.id}-${index}`} item={item} onClick={() => handleCardClick(item)} />
+                  <ItemCard
+                    key={`${item.id}-${index}`}
+                    item={item}
+                    note={item.is_equipped ? `Trang bị cho ${item.pet_name || '??'} Lvl. ${item.pet_level}` : ''}
+                    icon={item.is_equipped ? <img className="icon-button-1" src="/images/icons/equipped.png" alt="equipped" /> : ''}
+                    onClick={() => handleCardClick(item)}
+                  />
                 ))}
               </div>
             ) : (
@@ -170,7 +180,11 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
             </div>
 
             {selectedItem && (
-              <ItemDetailModal item={selectedItem} onClose={handleCloseModal} />
+              <ItemDetailModal
+              item={selectedItem}
+              onClose={handleCloseModal}
+              onUpdateItem={updateSingleItemInState}
+            />
             )}
           </div>
         </div>

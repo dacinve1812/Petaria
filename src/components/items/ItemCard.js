@@ -1,7 +1,8 @@
+// Updated ItemCard.js to support icon and note
 import React from 'react';
 import './ItemCard.css';
 
-function ItemCard({ item, onClick }) {
+function ItemCard({ item, onClick, note, icon }) {
   const rarityColors = {
     common: '#ccc',
     uncommon: '#6cc27c',
@@ -13,12 +14,24 @@ function ItemCard({ item, onClick }) {
   return (
     <div
       className="item-card"
-      style={{ borderColor: rarityColors[item.rarity] || '#999' }}
+      style={{ borderColor: rarityColors[item.rarity] || '#999', position: 'relative' }}
       onClick={onClick}
     >
-      <img src={`/images/equipments/${item.image_url}`} alt={item.name} className="item-image" />
+      <img
+        src={`/images/equipments/${item.image_url}`}
+        alt={item.name}
+        className="item-image"
+      />
+      {icon && (
+        <span
+          className="item-icon"
+        >
+          {icon}
+        </span>
+      )}
       <div className="item-name">{item.name}</div>
       {item.quantity >= 1 && <div className="item-qty">Số lượng: {item.quantity}</div>}
+      {note && <div className="item-note" style={{ fontSize: '0.85rem', color: '#666' }}>{note}</div>}
     </div>
   );
 }

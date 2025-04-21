@@ -128,5 +128,15 @@
   /* border-radius: 10px; */
 }
 
+.remove-button{
+  position: absolute;
+  top: -10px;
+  right: -20px;
+  cursor: pointer;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 5px;
+
+};
 
 /* Bạn có thể tùy chỉnh thêm các style khác theo ý muốn */

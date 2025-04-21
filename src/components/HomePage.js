@@ -61,17 +61,17 @@ function HomePage({isLoggedIn, onLogoutSuccess }) {
             <img src="map.jpg" alt="Bản đồ Petaria" />
           </div> */}
           <div className="links">
-            <a href="#">Auction</a>
+            {/* <a href="#">Auction</a>
             <a href="#">Sông Jordan</a>
             <a href="#">Bưu điện</a>
-            <a href="#">Club</a>
+            <a href="#">Club</a> */}
             <a href="/shop">Cửa hàng</a>
-            <a href="#">Ngân hàng</a>
+            {/* <a href="#">Ngân hàng</a> */}
             <a href="/orphanage">Trại mồ côi</a>
-            <a href="#">Game Center</a>
+            {/* <a href="#">Game Center</a> */}
             <a href="/myhome">My Home</a>
-            <a href="#">Đấu trường</a>
-            <a href="#">Penny Shop</a>
+            {/* <a href="#">Đấu trường</a>
+            <a href="#">Penny Shop</a> */}
           </div>
           <div className="footer">
             <p>WebGame Thú ảo Online được phát triển bởi BaoNguyen</p>

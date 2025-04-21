@@ -179,6 +179,7 @@ app.get('/users/:userId/pets', (req, res) => {
 
   pool.query(`
     SELECT
+      p.id,
       p.uuid,
       p.name,
       ps.name AS species_name,
@@ -898,6 +899,11 @@ app.post('/api/shop/buy', async (req, res) => {
     }
     
     const itemRow = itemRows[0];
+
+    if (itemRow.stock_limit == null || itemRow.stock_limit <= 0) {
+      return res.status(400).json({ error: 'Vật phẩm đã hết hàng' });
+    }
+
     const price = itemRow.custom_price ?? itemRow.buy_price;
     const currency = itemRow.currency_type;
     
@@ -917,27 +923,32 @@ app.post('/api/shop/buy', async (req, res) => {
 
     // 6. Thêm item vào inventory
     if (itemRow.type === 'equipment') {
-      // Equipment: mỗi bản riêng biệt
+      const [equipInfo] = await db.query(
+        'SELECT durability FROM equipment_data WHERE item_id = ?',
+        [item_id]
+      );
+
+      const durability = (equipInfo.length > 0) ? equipInfo[0].durability : 1;
+
       await db.query(`
         INSERT INTO inventory (player_id, item_id, quantity, is_equipped, durability_left)
         VALUES (?, ?, 1, 0, ?)
-      `, [user_id, item_id, itemRow.durability ?? 100]);
+      `, [user_id, item_id, durability]);
     } else {
-      // Các loại khác: cộng dồn
       const [invRows] = await db.query(`
-      SELECT id, quantity FROM inventory
-      WHERE player_id = ? AND item_id = ? AND is_equipped = 0
-    `, [user_id, item_id]);
-    
-    if (invRows.length > 0) {
-      const inv = invRows[0];
-      await db.query(`UPDATE inventory SET quantity = quantity + 1 WHERE id = ?`, [inv.id]);
-    } else {
-      await db.query(`
-        INSERT INTO inventory (player_id, item_id, quantity)
-        VALUES (?, ?, 1)
+        SELECT id, quantity FROM inventory
+        WHERE player_id = ? AND item_id = ? AND is_equipped = 0
       `, [user_id, item_id]);
-    }
+
+      if (invRows.length > 0) {
+        const inv = invRows[0];
+        await db.query(`UPDATE inventory SET quantity = quantity + 1 WHERE id = ?`, [inv.id]);
+      } else {
+        await db.query(`
+          INSERT INTO inventory (player_id, item_id, quantity)
+          VALUES (?, ?, 1)
+        `, [user_id, item_id]);
+      }
     }
 
     // 7. Trừ stock nếu có
@@ -1025,16 +1036,128 @@ app.get('/api/users/:userId/inventory', async (req, res) => {
 
   try {
     const [rows] = await db.query(`
-      SELECT i.id AS item_id, i.name, i.type, i.rarity, i.description, i.image_url,
-             inv.id, inv.quantity, inv.durability_left, inv.is_equipped
-      FROM inventory inv
-      JOIN items i ON inv.item_id = i.id
-      WHERE inv.player_id = ?
+        SELECT i.*, it.name, it.image_url, it.type, p.name AS pet_name, p.level AS pet_level
+        FROM inventory i
+        JOIN items it ON i.item_id = it.id
+        LEFT JOIN pets p ON i.equipped_pet_id = p.id
+        WHERE i.player_id = ?
     `, [userId]);
 
     res.json(rows);
   } catch (err) {
     console.error('Lỗi khi lấy inventory:', err);
     res.status(500).json({ error: 'Không thể lấy dữ liệu inventory' });
+  }
+});
+
+// ======================================================== EQUIP ITEMS ========================================================
+//Equip item cho pet
+/* Điều kiện:
+ Item phải thuộc user
+ Item phải là equipment
+ Item chưa được trang bị (is_equipped = 0)
+ Pet là của user
+ Pet chưa đủ 4 item đang gắn
+*/ 
+app.post('/api/pets/:petId/equip-item', async (req, res) => {
+  const { petId } = req.params;
+  const { inventory_id } = req.body;
+  const maxItemsCanEquip = 4 ;
+
+  try {
+    // 1. Kiểm tra inventory item
+    const [invRows] = await pool.promise().query(
+      `SELECT i.*, it.type, i.player_id FROM inventory i
+       JOIN items it ON i.item_id = it.id
+       WHERE i.id = ? AND i.is_equipped = 0`,
+      [inventory_id]
+    );
+
+    if (invRows.length === 0) {
+      return res.status(400).json({ message: 'Item không tồn tại hoặc đã được trang bị' });
+    }
+
+    const item = invRows[0];
+    if (item.type !== 'equipment') {
+      return res.status(400).json({ message: 'Chỉ có thể trang bị item loại equipment' });
+    }
+
+    // 2. Kiểm tra pet tồn tại và thuộc cùng user
+    const [petRows] = await pool.promise().query(
+      'SELECT * FROM pets WHERE id = ? AND owner_id = ?',
+      [petId, item.player_id]
+    );
+
+    if (petRows.length === 0) {
+      return res.status(400).json({ message: 'Pet không tồn tại hoặc không thuộc user' });
+    }
+
+    // 3. Kiểm tra số item đã được gắn
+    const [equippedCount] = await pool.promise().query(
+      'SELECT COUNT(*) AS count FROM inventory WHERE equipped_pet_id = ? AND is_equipped = 1',
+      [petId]
+    );
+
+    if (equippedCount[0].count >= maxItemsCanEquip) {
+      return res.status(400).json({ message: 'Pet đã trang bị tối đa 4 item' });
+    }
+
+    // 4. Cập nhật inventory
+    await pool.promise().query(
+      'UPDATE inventory SET is_equipped = 1, equipped_pet_id = ? WHERE id = ?',
+      [petId, inventory_id]
+    );
+
+    res.json({ message: 'Trang bị thành công' });
+
+  } catch (err) {
+    console.error('Lỗi khi trang bị item:', err);
+    res.status(500).json({ message: 'Lỗi server khi trang bị item' });
+  }
+});
+
+// API: Lấy danh sách item đã được trang bị cho pet
+app.get('/api/pets/:petId/equipment', async (req, res) => {
+  const { petId } = req.params;
+  try {
+    const [rows] = await pool.promise().query(
+      `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, i.durability_left
+       FROM inventory i
+       JOIN items it ON i.item_id = it.id
+       WHERE i.equipped_pet_id = ? AND i.is_equipped = 1`,
+      [petId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching equipped items for pet:', err);
+    res.status(500).json({ message: 'Lỗi khi lấy danh sách item đã trang bị' });
+  }
+});
+
+// API: Gỡ item khỏi pet (unequip)
+app.post('/api/inventory/:id/unequip', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Kiểm tra item tồn tại và đang được trang bị
+    const [rows] = await db.query(
+      'SELECT * FROM inventory WHERE id = ? AND is_equipped = 1',
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Item không tồn tại hoặc chưa được trang bị' });
+    }
+
+    // Cập nhật trạng thái: tháo khỏi pet
+    await db.query(
+      'UPDATE inventory SET is_equipped = 0, equipped_pet_id = NULL WHERE id = ?',
+      [id]
+    );
+
+    res.json({ message: 'Đã gỡ item khỏi pet thành công' });
+  } catch (err) {
+    console.error('Lỗi khi gỡ item:', err);
+    res.status(500).json({ message: 'Lỗi server khi gỡ item' });
   }
 });
