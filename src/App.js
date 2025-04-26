@@ -18,6 +18,10 @@ import EditItemEffects from './components/admin/EditItemEffects';
 import ShopPage from './components/ShopPage';
 import EditShopItems from './components/admin/EditShopItems';
 import AdminCreatePet from './components/admin/AdminCreatePet';
+import BattlePage from './components/battle/BattlePage';
+import ArenaPage from './components/battle/ArenaPage';
+import PveSelectPage from './components/battle/PveSelectPage';
+import AdminAddPetForBattle from './components/admin/AdminAddPetForBattle';
 
 function App() {
   const [user, setUser] = useState(undefined); // undefined để tránh redirect sớm
@@ -96,6 +100,10 @@ function App() {
             <Route path="/shop" element={<ShopPage />} />
             <Route path="/admin/edit-shop-items" element={<EditShopItems />} />
             <Route path="/admin/create-pet" element={<AdminCreatePet />} />
+            <Route path="/battle" element={<BattlePage />} />
+            <Route path="/arena" element={<ArenaPage />} />
+            <Route path="/pve" element={<PveSelectPage />} />
+            <Route path="/admin/create-arena-pet" element={<AdminAddPetForBattle/>} />
           </Routes>
         </div>
       </UserContext.Provider>

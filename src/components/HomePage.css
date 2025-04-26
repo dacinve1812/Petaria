@@ -1,3 +1,8 @@
+*{
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 body {
     /* font-family: sans-serif; */
     font-family: "Lexend", sans-serif;
@@ -10,6 +15,7 @@ body {
     /* background-image: url("../../public/images/background_body.png"); */
     background-repeat: no-repeat;
     background-size: cover;
+    height: 100dvh;
     
 }
 
@@ -18,16 +24,19 @@ body {
     max-width: 1680px;
     margin: 0 auto;
     background-color: #ffffff;
+    height: 100dvh;
 }
 
 header {
     background-color: #f0f0f0;
     text-align: center;
+    /* height: 0; */
 }
 header img {
     width: 100%;
     max-height: 300px;
     object-fit: fill;
+    /* height: 0; */
 }
 
 .content {
@@ -36,14 +45,16 @@ header img {
 
 .sidebar {
     width: 100%;
-    max-width: 170px;
+    max-width: 200px;
     background-color: #cce6fc;
-    padding: 20px;
+    /* padding: 20px; */
+    max-height: 100dvh;
 }
 
 .sidebar nav ul {
     list-style: none;
-    padding: 0;
+    /* background-color: #333; */
+    height: 80dvh;
 }
 
 .sidebar nav ul li a {
@@ -51,18 +62,20 @@ header img {
     width: 100%;
     margin-bottom: 20px;
     text-decoration: none;
-    color: #333;
+    /* color: #333; */
 }
 
 
 .sidebar .user-info {
-    margin-top: 20px;
+    padding: 20px;
+    height: 20dvh;
+    max-height: 30vh;
 }
 
 .sidebar nav ul li a img {
     box-shadow: 5px 10px 10px #4e4e4e; /* Loại bỏ viền mặc định của hình ảnh */
     display: block; /* Đảm bảo hình ảnh hoạt động như một khối */
-    width: 100%;
+    width: 60%;
     max-width: 150px;
     height: 100%;
     object-fit: cover;

@@ -35,6 +35,9 @@ function Admin() {
             <li><Link to="/admin/edit-equipment-stats">Quản lý vật phẩm chiến đấu</Link></li>
             <li><Link to="/admin/edit-item-effects">Quản lý vật phẩm tăng stats</Link></li>
             <li><Link to="/admin/edit-shop-items">Quản lý cửa hàng vật phẩm</Link></li>
+            <li><Link to="/admin/create-arena-pet">Thêm NPC cho đấu trường và các vùng khác</Link></li>
+
+            
             
           </ul>
         </div>

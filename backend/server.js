@@ -1161,3 +1161,93 @@ app.post('/api/inventory/:id/unequip', async (req, res) => {
     res.status(500).json({ message: 'Lỗi server khi gỡ item' });
   }
 });
+
+/*==================================================== ARENA =========================================================================*/
+// API: Admin tạo pet NPC từ species để dùng trong arena
+app.post('/api/admin/arena-pet', async (req, res) => {
+  const { pet_species_id, level, custom_name } = req.body;
+  const adminId = req.user?.id || 6; // giả định admin là user id 1
+
+  try {
+    const [speciesRows] = await db.query(
+      'SELECT * FROM pet_species WHERE id = ?',
+      [pet_species_id]
+    );
+    if (!speciesRows.length) return res.status(404).json({ message: 'Pet species không tồn tại' });
+    const species = speciesRows[0];
+
+    // IV full 31
+    const iv = { iv_hp: 31, iv_mp: 31, iv_str: 31, iv_def: 31, iv_intelligence: 31, iv_spd: 31 };
+
+    // Tính chỉ số thật từ công thức
+    const calculateFinalStats = (base, iv, lvl) => {
+      const hp = Math.floor(((2 * base.hp + iv.iv_hp) * lvl) / 100) + lvl + 10;
+      const mp = Math.floor(((2 * base.mp + iv.iv_mp) * lvl) / 100) + lvl + 10;
+      const str = Math.floor(((2 * base.str + iv.iv_str) * lvl) / 100) + 5;
+      const def = Math.floor(((2 * base.def + iv.iv_def) * lvl) / 100) + 5;
+      const intelligence = Math.floor(((2 * base.intelligence + iv.iv_intelligence) * lvl) / 100) + 5;
+      const spd = Math.floor(((2 * base.spd + iv.iv_spd) * lvl) / 100) + 5;
+      return { hp, mp, str, def, intelligence, spd };
+    };
+
+    const base = {
+      hp: parseInt(species.base_hp),
+      mp: parseInt(species.base_mp),
+      str: parseInt(species.base_str),
+      def: parseInt(species.base_def),
+      intelligence: parseInt(species.base_intelligence),
+      spd: parseInt(species.base_spd),
+    };
+
+    const stats = calculateFinalStats(base, iv, level);
+    const uuid = require('uuid').v4();
+    const now = new Date();
+    const expToNext = 100; // default hoặc dùng bảng exp
+
+    await db.query(`
+      INSERT INTO pets (uuid, name, owner_id, pet_species_id, level, created_date, 
+        hp, max_hp, mp, max_mp, str, def, intelligence, spd,
+        iv_hp, iv_mp, iv_str, iv_def, iv_intelligence, iv_spd, 
+        current_exp, exp_to_next_level, final_stats, is_arena_enemy)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      uuid,
+      custom_name || species.name,
+      adminId,
+      species.id,
+      level,
+      now,
+      stats.hp, stats.hp,
+      stats.mp, stats.mp,
+      stats.str, stats.def, stats.intelligence, stats.spd,
+      iv.iv_hp, iv.iv_mp, iv.iv_str, iv.iv_def, iv.iv_intelligence, iv.iv_spd,
+      0, expToNext,
+      JSON.stringify(stats),
+      1
+    ]);
+
+    res.json({ message: 'Đã tạo NPC thành công!' });
+  } catch (err) {
+    console.error('Lỗi tạo arena pet:', err);
+    res.status(500).json({ message: 'Lỗi khi tạo pet đấu trường' });
+  }
+});
+
+
+// API: Lấy danh sách pet NPC dùng trong Arena
+app.get('/api/arena/enemies', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT p.id, p.name, p.level, ps.image
+      FROM pets p
+      JOIN pet_species ps ON p.pet_species_id = ps.id
+      WHERE p.is_arena_enemy = 1
+      ORDER BY p.level DESC
+    `);
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Lỗi khi lấy danh sách pet NPC Arena:', err);
+    res.status(500).json({ message: 'Lỗi server khi tải danh sách pet NPC' });
+  }
+});

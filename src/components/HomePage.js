@@ -70,8 +70,9 @@ function HomePage({isLoggedIn, onLogoutSuccess }) {
             <a href="/orphanage">Trại mồ côi</a>
             {/* <a href="#">Game Center</a> */}
             <a href="/myhome">My Home</a>
-            {/* <a href="#">Đấu trường</a>
-            <a href="#">Penny Shop</a> */}
+            <a href="/battle">Đấu trường</a>
+            {/* <a href="#">Penn
+            y Shop</a> */}
           </div>
           <div className="footer">
             <p>WebGame Thú ảo Online được phát triển bởi BaoNguyen</p>
