@@ -12,7 +12,7 @@ body {
     font-style: normal;
     margin: 0;
     padding: 0;
-    /* background-image: url("../../public/images/background_body.png"); */
+    background-image: url("../../public/images/background_body.png");
     background-repeat: no-repeat;
     background-size: cover;
     height: 100dvh;
@@ -21,7 +21,7 @@ body {
 
 .container {
     width: 100%;
-    max-width: 1680px;
+    max-width: 1480px;
     margin: 0 auto;
     background-color: #ffffff;
     height: 100dvh;
@@ -30,13 +30,13 @@ body {
 header {
     background-color: #f0f0f0;
     text-align: center;
-    /* height: 0; */
+    height: 0;
 }
 header img {
     width: 100%;
     max-height: 300px;
     object-fit: fill;
-    /* height: 0; */
+    height: 0;
 }
 
 .content {

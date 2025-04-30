@@ -1165,7 +1165,7 @@ app.post('/api/inventory/:id/unequip', async (req, res) => {
 /*==================================================== ARENA =========================================================================*/
 // API: Admin tạo pet NPC từ species để dùng trong arena
 app.post('/api/admin/arena-pet', async (req, res) => {
-  const { pet_species_id, level, custom_name } = req.body;
+  let { pet_species_id, level, custom_name } = req.body;
   const adminId = req.user?.id || 6; // giả định admin là user id 1
 
   try {
@@ -1177,18 +1177,7 @@ app.post('/api/admin/arena-pet', async (req, res) => {
     const species = speciesRows[0];
 
     // IV full 31
-    const iv = { iv_hp: 31, iv_mp: 31, iv_str: 31, iv_def: 31, iv_intelligence: 31, iv_spd: 31 };
-
-    // Tính chỉ số thật từ công thức
-    const calculateFinalStats = (base, iv, lvl) => {
-      const hp = Math.floor(((2 * base.hp + iv.iv_hp) * lvl) / 100) + lvl + 10;
-      const mp = Math.floor(((2 * base.mp + iv.iv_mp) * lvl) / 100) + lvl + 10;
-      const str = Math.floor(((2 * base.str + iv.iv_str) * lvl) / 100) + 5;
-      const def = Math.floor(((2 * base.def + iv.iv_def) * lvl) / 100) + 5;
-      const intelligence = Math.floor(((2 * base.intelligence + iv.iv_intelligence) * lvl) / 100) + 5;
-      const spd = Math.floor(((2 * base.spd + iv.iv_spd) * lvl) / 100) + 5;
-      return { hp, mp, str, def, intelligence, spd };
-    };
+    const iv = { iv_hp: parseInt(31), iv_mp: parseInt(31), iv_str: parseInt(31), iv_def: parseInt(31), iv_intelligence: parseInt(31), iv_spd: parseInt(31) };
 
     const base = {
       hp: parseInt(species.base_hp),
@@ -1198,8 +1187,10 @@ app.post('/api/admin/arena-pet', async (req, res) => {
       intelligence: parseInt(species.base_intelligence),
       spd: parseInt(species.base_spd),
     };
-
+    level = parseInt(level);
+    console.log('BASE STATS:', base, 'IV:', iv, 'LEVEL:', level);
     const stats = calculateFinalStats(base, iv, level);
+    console.log('FINAL STATS:', stats);
     const uuid = require('uuid').v4();
     const now = new Date();
     const expToNext = 100; // default hoặc dùng bảng exp
@@ -1238,7 +1229,7 @@ app.post('/api/admin/arena-pet', async (req, res) => {
 app.get('/api/arena/enemies', async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT p.id, p.name, p.level, ps.image
+      SELECT p.id, p.uuid, p.name, p.level, ps.image
       FROM pets p
       JOIN pet_species ps ON p.pet_species_id = ps.id
       WHERE p.is_arena_enemy = 1

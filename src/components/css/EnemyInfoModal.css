@@ -1,0 +1,173 @@
+/* EnemyInfoModal.css - Style cho modal thông tin NPC + chọn pet */
+
+.enemy-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100dvh;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    z-index: 9999;
+  }
+  
+  .enemy-modal-content {
+    width: max(400px,100%) ;
+    max-width: 800px;
+    height: 65dvh;
+    background: #fcfdff;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    /* padding: 60px; */
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.3s ease forwards;
+    position: relative;
+  }
+ 
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .header-banner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 80px; /* hoặc bạn có thể chỉnh height */
+    background: linear-gradient(0deg, #fcfdff 0%,  #65ebfc 55%, #7fb9fe 95%);
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    z-index: -1;
+    padding: 60px;
+  }
+  
+  .enemy-info-section {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    align-items: center;
+    padding: 4%;
+  }
+
+  
+  .enemy-modal-image {
+    width: 180px;
+    height: 180px;
+    object-fit: contain;
+  }
+  
+  .enemy-stats h2 {
+    margin: 0 0 5px 0;
+    font-size: 1.4rem;
+  }
+  
+  .enemy-stats p {
+    margin: 2px 0;
+    font-size: 0.95rem;
+    color: #555;
+  }
+  
+  .select-pet-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: #eef6f9;
+    box-shadow: 0 -3px 5px rgb(219, 219, 219, 0.1);
+    padding: 3%;
+  }
+  
+  .pet-scroll-list {
+    display: flex;
+    overflow-x: auto;
+    gap: 15px;
+    padding: 10px 10px;
+    scrollbar-width: none;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+  }
+  
+  .pet-scroll-list::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .pet-select-card {
+    flex: 0 0 auto;
+    background: #f8feff;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    width: 120px;
+    padding: 8px;
+    text-align: center;
+    cursor: pointer;
+  }
+  
+  .pet-select-card img {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    margin-bottom: 6px;
+  }
+  .pet-select-card-infor{
+    /* background-color: #417cda; */
+    font-size: 0.75rem;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.1) inset, -5px -5px 5px #ffffff inset;
+  }
+  
+  .battle-button {
+    display: block;
+    margin: 4% auto !important;
+    padding: 10px 50px;
+    background: #34e0ee;
+    border: 1px solid #e8feff !important;
+    box-shadow: rgba(128, 208, 245, 1) 0 0 20px;
+    color: white;
+    border: none;
+    border-radius: 50px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: transform 0.1s ease;
+  }
+  
+  .battle-button:hover {
+    background: #00ddff;
+    transform: scale(0.95);
+  }
+
+  .close-button{
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    border: none;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3) ;
+    background-color: #eef6f9;
+    margin: auto !important;
+  }
+  .close-button img {
+    width: 30px;
+    margin: -1px -6px;
+    /* background-color: #00ddff; */
+  }
+  
+
+  .pet-select-card.selected {
+    border: 2px solid #5a9cff;
+    background-color: #ffffff;
+    box-shadow: 0 0 10px 2px rgba(90, 156, 255, 0.6);
+    animation: glowSelected 1.2s infinite alternate;
+  }
+  
+  @keyframes glowSelected {
+    from {
+      box-shadow: 0 0 8px 2px rgba(90, 156, 255, 0.6);
+    }
+    to {
+      box-shadow: 0 0 14px 4px rgba(90, 156, 255, 0.9);
+    }
+  }

@@ -1,0 +1,103 @@
+/* ArenaPage.css - Style mới cho trang Arena */
+
+.arena-container {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .arena-content {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    /* background-color: #666; */
+  }
+  
+  .arena-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  
+  .arena-header {
+    text-align: center;
+    padding: 10px 0;
+  }
+  
+  .enemy-scroll-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 20px;
+    display: flex;
+    /* justify-content: center; */
+    align-items: center;
+    flex-direction: column;
+    gap: 20px;
+    scrollbar-width: none; /* Firefox */
+  }
+  
+  .enemy-scroll-list::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
+  }
+  
+  .enemy-card {
+    display: flex;
+    background: #fefefe;
+    border-radius: 12px;
+    box-shadow: 0 0 20px 5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    height: 120px;
+    width: min(600px,80%);
+  }
+  
+  .enemy-card:hover {
+    transform: scale(0.985);
+  }
+  
+  .enemy-card-left {
+    width: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .enemy-card-left span{
+    position: absolute;
+    overflow: hidden;
+    width: 150px;
+    height: 300px;
+    background: linear-gradient(50deg, #ffa202 40%, #fff4e5 50%, #fda232  60%);
+    transform: rotate(-15deg) translateY(0px);
+  }
+  
+  .enemy-card-left img {
+    position: absolute;
+    margin-left: 80px;
+    width: 160px;
+    height: 160px;
+    object-fit: contain;
+  }
+  
+  .enemy-card-right {
+    flex: 1;
+    padding: 10px 20px;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  
+  .enemy-card-right h3 {
+    margin: 0 0 5px 0;
+    font-size: 1.2rem;
+  }
+  
+  .enemy-card-right p {
+    margin: 0;
+    font-size: 1rem;
+    color: #666;
+  }
+  
