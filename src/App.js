@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { UserContext } from './UserContext';
+import { useNavigate, Outlet } from 'react-router-dom';
 
 import HomePage from './components/HomePage';
 import Auth from './components/Auth';
@@ -21,10 +22,16 @@ import AdminCreatePet from './components/admin/AdminCreatePet';
 import BattlePage from './components/battle/BattlePage';
 import ArenaPage from './components/battle/ArenaPage';
 import PveSelectPage from './components/battle/PveSelectPage';
+import ArenaBattlePage from './components/battle/ArenaBattlePage';
 import AdminAddPetForBattle from './components/admin/AdminAddPetForBattle';
+
+import NavbarMobile from './components/navbar/NavbarMobile';
+import useIsMobile from './hooks/useIsMobile';
 
 function App() {
   const [user, setUser] = useState(undefined); // undefined để tránh redirect sớm
+
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -74,6 +81,7 @@ function App() {
     <BrowserRouter>
       <UserContext.Provider value={user}>
         <div className="App">
+        {isMobile && <NavbarMobile />}
           <Routes>
             <Route
               path="/"
@@ -101,9 +109,11 @@ function App() {
             <Route path="/admin/edit-shop-items" element={<EditShopItems />} />
             <Route path="/admin/create-pet" element={<AdminCreatePet />} />
             <Route path="/battle" element={<BattlePage />} />
-            <Route path="/arena" element={<ArenaPage />} />
-            <Route path="/pve" element={<PveSelectPage />} />
+            <Route path="/battle/pve" element={<PveSelectPage />} />
+            <Route path="/battle/pve/arena" element={<ArenaPage />} />
+
             <Route path="/admin/create-arena-pet" element={<AdminAddPetForBattle/>} />
+            <Route path="/battle/pve/arena/arenabattle" element={<ArenaBattlePage/>} />
           </Routes>
         </div>
       </UserContext.Provider>

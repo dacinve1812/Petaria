@@ -1,10 +1,11 @@
 import React, { useEffect, useState  } from 'react';
 import { useNavigate } from 'react-router-dom';
+import useIsMobile from '../hooks/useIsMobile';
 
 function Sidebar({ userId, handleLogout, isAdmin }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
   const navigate = useNavigate();
-
+  const isMobile = useIsMobile();
   const [username, setUsername] = useState('');
   const [onlineStatus, setOnlineStatus] = useState(false);
   const [gold, setGold] = useState(0);
@@ -23,6 +24,8 @@ function Sidebar({ userId, handleLogout, isAdmin }) {
     }
   }, [userId]);
 
+  if (isMobile) return null;
+
   return (
     <div className="sidebar">
       <nav>
@@ -40,7 +43,7 @@ function Sidebar({ userId, handleLogout, isAdmin }) {
         <p>Tài khoản: {username}</p>
         <p>Tình trạng: {onlineStatus ? 'Online' : 'Offline'}</p>
         <p>Peta: {gold.toLocaleString()}</p>
-        <button >Thoát game</button>
+        {/* <button >Thoát game</button> */}
         <button>Tìm kiếm</button>
       </div>
     </div>

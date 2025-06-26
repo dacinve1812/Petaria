@@ -42,7 +42,7 @@ function PveSelectPage() {
             <h2>Solo (PvE) - Chọn chế độ</h2>
           </div>
           <div className="battle-mode-grid">
-            <div className="battle-mode-card" onClick={() => navigate('/arena')}>
+            <div className="battle-mode-card" onClick={() => navigate('/battle/pve/arena')}>
               <img src="/images/icons/arena.png" alt="Arena" />
               <h3>Arena</h3>
               <p>Đấu từng quái vật NPC</p>

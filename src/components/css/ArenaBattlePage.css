@@ -1,0 +1,27 @@
+.attack-flash {
+    animation: flash 0.3s ease-in-out;
+  }
+  
+  @keyframes flash {
+    0% { filter: brightness(1.8); }
+    100% { filter: brightness(1); }
+  }
+  
+  .battle-win {
+    animation: victory 0.5s ease-in-out 2;
+  }
+  
+  .battle-lose {
+    animation: defeat 0.5s ease-in-out 2;
+  }
+  
+  @keyframes victory {
+    0%, 100% { background-color: #fff; }
+    50% { background-color: #d4fcd4; }
+  }
+  
+  @keyframes defeat {
+    0%, 100% { background-color: #fff; }
+    50% { background-color: #fdd; }
+  }
+  

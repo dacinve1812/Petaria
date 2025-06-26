@@ -1,0 +1,25 @@
+:root {
+    /* Font Sizes */
+    --font-xs: clamp(8px, 2.2vw, 12px);
+    --font-sm: clamp(10px, 2.5vw, 14px);
+    --font-md: clamp(14px, 3vw, 16px);
+    --font-lg: clamp(16px, 4vw, 20px);
+    --font-xl: clamp(20px, 5vw, 28px);
+  
+    /* Spacing */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+  
+    /* Colors */
+    --color-bg: #fafafa;
+    --color-text: #222;
+    /* --color-accent: #ffcc00;
+    --color-border: #ddd; */
+  
+    /* Layout */
+    --max-width: 1080px;
+    /* --max-width: 430px; */
+  }

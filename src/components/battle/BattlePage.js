@@ -43,7 +43,7 @@ function BattlePage() {
             <div className="battle-background-img"></div>
           </div>
           <div className="battle-mode-grid">
-            <div className="battle-mode-card" onClick={() => navigate('/pve')}>
+            <div className="battle-mode-card" onClick={() => navigate('/battle/pve')}>
               <img src="/images/icons/arena_icon.png" alt="Arena" />
               <h3>Solo Arena</h3>
               <p>Chiến đấu với quái NPC</p>

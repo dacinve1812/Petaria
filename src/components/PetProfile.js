@@ -179,7 +179,7 @@ function PetProfile() {
                       src={`/images/equipments/${item.image_url}`}
                       alt={item.item_name}
                       title={`${item.item_name} (Durability: ${item.durability})`}
-                      style={{ width: '64px', height: '64px', objectFit: 'contain' }}
+                      style={{ width: 'min(64px,90%)', height: '64px', objectFit: 'contain' }}
                     />
                     {currentUserId === pet.owner_id && (
                       <button

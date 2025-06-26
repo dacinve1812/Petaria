@@ -1,3 +1,13 @@
+const {
+  randomFactor,
+  isCriticalHit,
+  isDodged,
+  calculateDamage,
+  simulateTurn,
+  simulateFullBattle
+} = require('./battleEngine');
+
+
 function generateIVStats() {
   return {
     iv_hp: Math.floor(Math.random() * 32),
@@ -1240,5 +1250,42 @@ app.get('/api/arena/enemies', async (req, res) => {
   } catch (err) {
     console.error('Lỗi khi lấy danh sách pet NPC Arena:', err);
     res.status(500).json({ message: 'Lỗi server khi tải danh sách pet NPC' });
+  }
+});
+
+
+//API ARENA: Mô phỏng 1 lượt tấn cân giữa người chơi và NPC
+// POST /api/arena/simulate-turn
+app.post('/api/arena/simulate-turn', (req, res) => {
+  const { attacker, defender, movePower, moveName } = req.body;
+
+  try {
+    const result = simulateTurn(attacker, defender, movePower, moveName);
+    res.json(result);
+  } catch (err) {
+    console.error('Error during turn simulation:', err);
+    res.status(500).json({ message: 'Lỗi khi mô phỏng lượt đánh' });
+  }
+});
+
+// API ARENA: Mô phỏng toàn bộ trận đấu (PvE)
+// POST /api/arena/simulate-full
+app.post('/api/arena/simulate-full', (req, res) => {
+  const {
+    playerPet, enemyPet,
+    playerMovePower = 10, playerMoveName = 'Tackle',
+    enemyMovePower = 10, enemyMoveName = 'Bite'
+  } = req.body;
+
+  try {
+    const result = simulateFullBattle(
+      playerPet, enemyPet,
+      playerMovePower, playerMoveName,
+      enemyMovePower, enemyMoveName
+    );
+    res.json(result);
+  } catch (err) {
+    console.error('Error during full battle simulation:', err);
+    res.status(500).json({ message: 'Lỗi khi mô phỏng trận đấu' });
   }
 });

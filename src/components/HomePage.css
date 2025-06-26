@@ -1,31 +1,14 @@
-*{
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-body {
-    /* font-family: sans-serif; */
-    font-family: "Lexend", sans-serif;
-    font-optical-sizing: auto;
-    font-weight: 300;
-    font-size: 18px;
-    font-style: normal;
-    margin: 0;
-    padding: 0;
-    background-image: url("../../public/images/background_body.png");
-    background-repeat: no-repeat;
-    background-size: cover;
-    height: 100dvh;
-    
-}
+@import '../styles/variables.css';
+@import '../styles/global.css';
 
-.container {
+
+/* .container {
     width: 100%;
     max-width: 1480px;
     margin: 0 auto;
     background-color: #ffffff;
     height: 100dvh;
-}
+} */
 
 header {
     background-color: #f0f0f0;

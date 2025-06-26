@@ -102,8 +102,12 @@ function ArenaPage() {
                     enemy={selectedEnemy}
                     onClose={() => setSelectedEnemy(null)}
                     onSelectPet={(pet) => {
-                      console.log('Chọn pet này để đấu:', pet);
-                      // Xử lý bắt đầu trận đấu sau này
+                      navigate('/battle/pve/arena/arenabattle', {
+                        state: {
+                          playerPet: pet,
+                          enemyPet: selectedEnemy
+                        }
+                      });
                     }}
                   />
                 )}

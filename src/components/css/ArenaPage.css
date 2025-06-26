@@ -50,7 +50,11 @@
     cursor: pointer;
     transition: transform 0.2s ease;
     height: 120px;
-    width: min(600px,80%);
+    width: min(550px,95%);
+    background-image: url("../../../public/images/background/enemy-card.jpg");
+    background-size: cover;
+    background-position-y: 0%;
+  
   }
   
   .enemy-card:hover {
@@ -67,10 +71,11 @@
   .enemy-card-left span{
     position: absolute;
     overflow: hidden;
-    width: 150px;
+    width: 400px;
     height: 300px;
-    background: linear-gradient(50deg, #ffa202 40%, #fff4e5 50%, #fda232  60%);
-    transform: rotate(-15deg) translateY(0px);
+    background: linear-gradient(to right, rgba(255, 255, 255, 1) 40%, rgba(255, 255, 255, 0));
+   
+    
   }
   
   .enemy-card-left img {
