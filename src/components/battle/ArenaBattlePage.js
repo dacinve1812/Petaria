@@ -1,8 +1,10 @@
 // ArenaBattlePage.js - Trang chiến đấu PvE
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
+import Navbar from '../Navbar';
 import '../css/BattlePage.css';
 import '../css/ArenaBattlePage.css';
+import expTable from '../../data/exp_table_petaria.json';
 
 function ArenaBattlePage() {
     const location = useLocation();
@@ -20,8 +22,14 @@ function ArenaBattlePage() {
     const [equipmentStats, setEquipmentStats] = useState([]);
     const [attackAnimation, setAttackAnimation] = useState('');
     const [resultEffect, setResultEffect] = useState('');
+    const [actionLocked, setActionLocked] = useState(false);
   
     const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+
+    const expToThisLevel = expTable[player.level] || 0;
+    const expToNextLevel = expTable[player.level + 1] || 1;
+    const expProgress = player.current_exp;
+  const expRequired = expToNextLevel - expToThisLevel;
   
     const appendLog = (entry) => {
       setLog((prev) => [...prev.slice(-3), entry]);
@@ -37,8 +45,10 @@ function ArenaBattlePage() {
     };
   
     const handleAttackWithItem = async (item) => {
-      const stat = equipmentStats.find(e => e.item_id === item.item_id);
-      const power = stat?.power || 10;
+        if (actionLocked) return;
+        setActionLocked(true);
+        const stat = equipmentStats.find(e => e.item_id === item.item_id);
+        const power = stat?.power || 10;
   
       if (item.durability_left <= 0) return;
   
@@ -89,7 +99,7 @@ function ArenaBattlePage() {
         setAttackAnimation('player');
   
         if (!checkBattleEnded(newEnemyHp, player.current_hp)) {
-          setTimeout(() => handleEnemyTurn(), 1500);
+          setTimeout(() => handleEnemyTurn(), 1000);
         }
       } catch (err) {
         console.error('Lỗi khi tấn công thường:', err);
@@ -120,6 +130,8 @@ function ArenaBattlePage() {
         checkBattleEnded(enemy.current_hp, newPlayerHp);
       } catch (err) {
         console.error('Enemy attack failed:', err);
+      } finally {
+        setActionLocked(false); // ✅ Unlock sau khi enemy kết thúc
       }
     };
   
@@ -163,7 +175,66 @@ function ArenaBattlePage() {
       if (player.current_hp <= 0 || enemy.current_hp <= 0) setBattleEnded(true);
     }, [player.current_hp, enemy.current_hp]);
 
+    const gainExpIfVictory = async () => {
+        if (player.current_hp > 0 && battleEnded) {
+          try {
+            const res = await fetch(`${API_BASE_URL}/api/pets/${player.id}/gain-exp`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                source: 'arena',
+                enemy_level: enemy.level,
+                custom_amount: null
+              })
+            });
+            const updatedPet = await res.json();
+            setPlayer(prev => ({ ...prev, level: updatedPet.level, current_exp: updatedPet.current_exp }));
+
+            console.log('Pet sau khi cộng EXP:', updatedPet);
+            appendLog(`🎉 Chúc mừng ${player.name} nhận được ${updatedPet.gained} EXP`);
+            if (updatedPet.level > player.level) {
+                appendLog(`✨ ${player.name} đã lên cấp ${updatedPet.level}!`);
+              }
+          } catch (err) {
+            console.error('Lỗi khi cộng EXP sau chiến thắng:', err);
+          }
+        }
+      };
+    
+      useEffect(() => {
+        if (battleEnded && player.current_hp > 0) {
+          gainExpIfVictory();
+        }
+      }, [battleEnded]);
+
+      const resetBattle = () => {
+        const newPlayer = { ...playerPet, current_hp: playerPet.final_stats.hp };
+        const newEnemy = { ...enemyPet, current_hp: enemyPet.final_stats.hp };
+        setPlayer(newPlayer);
+        setEnemy(newEnemy);
+        setTurn(0);
+        setLog([]);
+        setAutoMode(false);
+        setIsBlitzMode(false);
+        setBattleEnded(false);
+        setAttackAnimation('');
+        setResultEffect('');
+        setActionLocked(false);
+      
+        // ✅ Gọi lại API lấy item trang bị
+        fetch(`${API_BASE_URL}/api/pets/${newPlayer.id}/equipment`)
+          .then(res => res.json())
+          .then(setEquippedItems)
+          .catch(err => console.error('Lỗi khi load trang bị (reset):', err));
+      };
+    useEffect(() => {
+        if (location.state?._refresh) {
+          resetBattle();
+        }
+      }, [location.state?._refresh]);
+
     return (
+        <><Navbar />
         <div className={`battle-page container ${resultEffect === 'win' ? 'battle-win' : resultEffect === 'lose' ? 'battle-lose' : ''}`}>
           <header><img src="/images/buttons/banner.jpeg" alt="Banner" /></header>
     
@@ -176,9 +247,11 @@ function ArenaBattlePage() {
                 onAnimationEnd={() => setAttackAnimation('')}
               />
               <p>{player.name}</p>
+              <p>Cấp độ: {player.level}</p>
               <div className="hp-bar">
                 <div className="hp-fill" style={{ width: `${(player.current_hp / player.final_stats.hp) * 100}%` }}></div>
               </div>
+              <progress style={{ width: `${(player.final_stats.hp / player.final_stats.hp) * 100}%` }} value={(expProgress - expToThisLevel)} max={expRequired}></progress>
             </div>
     
             <div className="pet-side">
@@ -189,6 +262,7 @@ function ArenaBattlePage() {
                 onAnimationEnd={() => setAttackAnimation('')}
               />
               <p>{enemy.name}</p>
+              <p>Cấp độ: {enemy.level}</p>
               <div className="hp-bar">
                 <div className="hp-fill" style={{ width: `${(enemy.current_hp / enemy.final_stats.hp) * 100}%` }}></div>
               </div>
@@ -232,9 +306,23 @@ function ArenaBattlePage() {
           {battleEnded && (
             <div className="battle-result">
               {player.current_hp > 0 ? '🎉 Thắng lợi!' : '💀 Thất bại!'}
+              <div style={{ marginTop: '20px', textAlign: 'center' }}>
+              <button onClick={() => {
+                navigate('/battle/pve/arena/arenabattle', {
+                    state: { playerPet: player, enemyPet, _refresh: Date.now() }
+                        });
+                    }}>
+                        🔁 Khiêu chiến lại
+                </button>
             </div>
+            </div>
+            
           )}
+
+            <li><Link to="/battle/pve/arena">Quay lại Đấu trường</Link></li>
+            
         </div>
+        </>
       );
     }
 

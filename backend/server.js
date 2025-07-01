@@ -1289,3 +1289,55 @@ app.post('/api/arena/simulate-full', (req, res) => {
     res.status(500).json({ message: 'Lỗi khi mô phỏng trận đấu' });
   }
 });
+
+
+// Base EXP theo từng giai đoạn
+function getBaseExp(level) {
+  if (level <= 3) return 100;
+  if (level <= 7) return 200;
+  if (level <= 10) return 400;
+  return 10;
+}
+
+function calculateExpGain(playerLevel, enemyLevel) {
+  const base = getBaseExp(playerLevel);
+  const numerator = Math.pow(enemyLevel, 2.2);
+  const denominator = Math.pow(playerLevel, 0.3);
+  return Math.round(base * (numerator / denominator))
+}
+
+// ✅ API cộng EXP khi thắng trận
+app.post('/api/pets/:id/gain-exp', async (req, res) => {
+  const petId = req.params.id;
+  const { source, enemy_level, custom_amount } = req.body;
+
+
+  try {
+    const [rows] = await pool.promise().query('SELECT * FROM pets WHERE id = ?', [petId]);
+    if (!rows.length) return res.status(404).json({ message: 'Pet not found' });
+
+    const pet = rows[0];
+
+    if (pet.is_npc) {
+      return res.status(403).json({ message: 'NPC không được cộng EXP' });
+    }
+
+    const gain = custom_amount !== null ? custom_amount : calculateExpGain(pet.level, enemy_level);
+    let newExp = pet.current_exp + gain;
+    let newLevel = pet.level;
+
+    while (expTable[newLevel + 1] && newExp >= expTable[newLevel + 1]) {
+      newLevel++;
+    }
+
+    await pool.promise().query(
+      'UPDATE pets SET current_exp = ?, level = ? WHERE id = ?',
+      [newExp, newLevel, petId]
+    );
+
+    res.json({ id: petId, level: newLevel, current_exp: newExp, gained: gain, source });
+  } catch (err) {
+    console.error('Lỗi cộng EXP:', err);
+    res.status(500).json({ message: 'Server error cộng EXP' });
+  }
+});
