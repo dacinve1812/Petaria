@@ -1311,7 +1311,6 @@ app.post('/api/pets/:id/gain-exp', async (req, res) => {
   const petId = req.params.id;
   const { source, enemy_level, custom_amount } = req.body;
 
-
   try {
     const [rows] = await pool.promise().query('SELECT * FROM pets WHERE id = ?', [petId]);
     if (!rows.length) return res.status(404).json({ message: 'Pet not found' });
@@ -1330,12 +1329,89 @@ app.post('/api/pets/:id/gain-exp', async (req, res) => {
       newLevel++;
     }
 
-    await pool.promise().query(
-      'UPDATE pets SET current_exp = ?, level = ? WHERE id = ?',
-      [newExp, newLevel, petId]
-    );
+    // ✅ Recalculate stats khi level up
+    let updatedStats = null;
+    if (newLevel > pet.level) {
+      // Lấy base stats từ pet_species
+      const [speciesRows] = await pool.promise().query(
+        'SELECT base_hp, base_mp, base_str, base_def, base_intelligence, base_spd FROM pet_species WHERE id = ?',
+        [pet.pet_species_id]
+      );
+      
+      if (speciesRows.length > 0) {
+        const species = speciesRows[0];
+        const base = {
+          hp: parseInt(species.base_hp),
+          mp: parseInt(species.base_mp),
+          str: parseInt(species.base_str),
+          def: parseInt(species.base_def),
+          intelligence: parseInt(species.base_intelligence),
+          spd: parseInt(species.base_spd),
+        };
+        
+        const iv = {
+          iv_hp: pet.iv_hp,
+          iv_mp: pet.iv_mp,
+          iv_str: pet.iv_str,
+          iv_def: pet.iv_def,
+          iv_intelligence: pet.iv_intelligence,
+          iv_spd: pet.iv_spd,
+        };
+        
+        updatedStats = calculateFinalStats(base, iv, newLevel);
+      }
+    }
 
-    res.json({ id: petId, level: newLevel, current_exp: newExp, gained: gain, source });
+    // Update database với stats mới nếu level up
+    if (updatedStats) {
+      await pool.promise().query(
+        `UPDATE pets SET 
+          current_exp = ?, 
+          level = ?, 
+          hp = ?, 
+          max_hp = ?, 
+          mp = ?, 
+          max_mp = ?, 
+          str = ?, 
+          def = ?, 
+          intelligence = ?, 
+          spd = ?, 
+          final_stats = ? 
+        WHERE id = ?`,
+        [
+          newExp, newLevel,
+          updatedStats.hp, updatedStats.hp,
+          updatedStats.mp, updatedStats.mp,
+          updatedStats.str, updatedStats.def, updatedStats.intelligence, updatedStats.spd,
+          JSON.stringify(updatedStats),
+          petId
+        ]
+      );
+    } else {
+      // Chỉ update exp nếu không level up
+      await pool.promise().query(
+        'UPDATE pets SET current_exp = ? WHERE id = ?',
+        [newExp, petId]
+      );
+    }
+
+    res.json({ 
+      id: petId, 
+      level: newLevel, 
+      current_exp: newExp, 
+      gained: gain, 
+      source,
+      stats_updated: !!updatedStats,
+      new_stats: updatedStats,
+      old_stats: updatedStats ? {
+        hp: pet.hp,
+        mp: pet.mp,
+        str: pet.str,
+        def: pet.def,
+        intelligence: pet.intelligence,
+        spd: pet.spd
+      } : null
+    });
   } catch (err) {
     console.error('Lỗi cộng EXP:', err);
     res.status(500).json({ message: 'Server error cộng EXP' });

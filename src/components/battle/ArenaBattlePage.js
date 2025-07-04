@@ -32,7 +32,7 @@ function ArenaBattlePage() {
   const expRequired = expToNextLevel - expToThisLevel;
   
     const appendLog = (entry) => {
-      setLog((prev) => [...prev.slice(-3), entry]);
+      setLog((prev) => [...prev.slice(-7), entry]);
     };
   
     const checkBattleEnded = (nextEnemyHp, nextPlayerHp) => {
@@ -188,13 +188,51 @@ function ArenaBattlePage() {
               })
             });
             const updatedPet = await res.json();
-            setPlayer(prev => ({ ...prev, level: updatedPet.level, current_exp: updatedPet.current_exp }));
+            const oldLevel = player.level; // Lưu lại level cũ trước khi update
+            // ✅ Update player stats nếu level up
+            if (updatedPet.stats_updated && updatedPet.new_stats) {
+              setPlayer(prev => ({ 
+                ...prev, 
+                level: updatedPet.level, 
+                current_exp: updatedPet.current_exp,
+                hp: updatedPet.new_stats.hp,
+                max_hp: updatedPet.new_stats.hp,
+                mp: updatedPet.new_stats.mp,
+                max_mp: updatedPet.new_stats.mp,
+                str: updatedPet.new_stats.str,
+                def: updatedPet.new_stats.def,
+                intelligence: updatedPet.new_stats.intelligence,
+                spd: updatedPet.new_stats.spd,
+                final_stats: updatedPet.new_stats
+              }));
+            } else {
+              setPlayer(prev => ({ 
+                ...prev, 
+                level: updatedPet.level, 
+                current_exp: updatedPet.current_exp 
+              }));
+            }
 
             console.log('Pet sau khi cộng EXP:', updatedPet);
             appendLog(`🎉 Chúc mừng ${player.name} nhận được ${updatedPet.gained} EXP`);
-            if (updatedPet.level > player.level) {
-                appendLog(`✨ ${player.name} đã lên cấp ${updatedPet.level}!`);
+            if (updatedPet.level > oldLevel) {
+              appendLog(`✨ ${player.name} đã lên cấp ${updatedPet.level}!`);
+              if (updatedPet.stats_updated) {
+                appendLog(`📊 Stat changes:`);
+                const oldStats = updatedPet.old_stats;
+                const newStats = updatedPet.new_stats;
+                if (oldStats && newStats) {
+                  const statChanges = [];
+                  if (newStats.hp > oldStats.hp) statChanges.push(`HP: ${oldStats.hp} → ${newStats.hp} (+${newStats.hp - oldStats.hp})`);
+                  if (newStats.str > oldStats.str) statChanges.push(`STR: ${oldStats.str} → ${newStats.str} (+${newStats.str - oldStats.str})`);
+                  if (newStats.def > oldStats.def) statChanges.push(`DEF: ${oldStats.def} → ${newStats.def} (+${newStats.def - oldStats.def})`);
+                  if (newStats.intelligence > oldStats.intelligence) statChanges.push(`INT: ${oldStats.intelligence} → ${newStats.intelligence} (+${newStats.intelligence - oldStats.intelligence})`);
+                  if (newStats.spd > oldStats.spd) statChanges.push(`SPD: ${oldStats.spd} → ${newStats.spd} (+${newStats.spd - oldStats.spd})`);
+                  if (newStats.mp > oldStats.mp) statChanges.push(`MP: ${oldStats.mp} → ${newStats.mp} (+${newStats.mp - oldStats.mp})`);
+                  statChanges.forEach(change => appendLog(`   ${change}`));
+                }
               }
+            }
           } catch (err) {
             console.error('Lỗi khi cộng EXP sau chiến thắng:', err);
           }
@@ -208,7 +246,11 @@ function ArenaBattlePage() {
       }, [battleEnded]);
 
       const resetBattle = () => {
-        const newPlayer = { ...playerPet, current_hp: playerPet.final_stats.hp };
+        // ✅ Sử dụng stats hiện tại của player (có thể đã level up)
+        const newPlayer = { 
+          ...player, 
+          current_hp: player.final_stats.hp 
+        };
         const newEnemy = { ...enemyPet, current_hp: enemyPet.final_stats.hp };
         setPlayer(newPlayer);
         setEnemy(newEnemy);
