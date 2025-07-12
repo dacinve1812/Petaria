@@ -1,0 +1,13 @@
+{
+"item_effects": [
+	{
+		"id" : 1,
+		"item_id" : 46,
+		"effect_target" : "hp",
+		"effect_type" : "percent",
+		"value_min" : 10,
+		"value_max" : 10,
+		"is_permanent" : 1,
+		"duration_turns" : 0
+	}
+]}

@@ -18,9 +18,8 @@ function ArenaBattlePage() {
     const [autoMode, setAutoMode] = useState(false);
     const [isBlitzMode, setIsBlitzMode] = useState(false);
     const [battleEnded, setBattleEnded] = useState(false);
-    const [equippedItems, setEquippedItems] = useState([]);
-    const [equipmentStats, setEquipmentStats] = useState([]);
-    const [attackAnimation, setAttackAnimation] = useState('');
+      const [equippedItems, setEquippedItems] = useState([]);
+  const [attackAnimation, setAttackAnimation] = useState('');
     const [resultEffect, setResultEffect] = useState('');
     const [actionLocked, setActionLocked] = useState(false);
   
@@ -44,13 +43,13 @@ function ArenaBattlePage() {
       return false;
     };
   
-    const handleAttackWithItem = async (item) => {
-        if (actionLocked) return;
-        setActionLocked(true);
-        const stat = equipmentStats.find(e => e.item_id === item.item_id);
-        const power = stat?.power || 10;
-  
-      if (item.durability_left <= 0) return;
+      const handleAttackWithItem = async (item) => {
+      if (actionLocked) return;
+      setActionLocked(true);
+      // Sử dụng power trực tiếp từ item data
+      const power = item.power || 10;
+
+    if (item.durability_left <= 0) return;
   
       try {
         const res = await fetch(`${API_BASE_URL}/api/arena/simulate-turn`, {
@@ -63,16 +62,43 @@ function ArenaBattlePage() {
             moveName: item.item_name || 'Weapon'
           })
         });
-        const result = await res.json();
+                const result = await res.json();
         const newEnemyHp = Math.max(enemy.current_hp - result.damage, 0);
         appendLog(`${result.attacker} dùng ${result.moveUsed}${result.critical ? ' (CRIT)' : ''}, gây ${result.damage} sát thương.`);
         setEnemy((prev) => ({ ...prev, current_hp: newEnemyHp }));
-        setEquippedItems((prev) => prev.map(i => i.item_id === item.item_id ? { ...i, durability_left: i.durability_left - 1 } : i));
+        
+        // Cập nhật durability trong database
+        try {
+          const durabilityRes = await fetch(`${API_BASE_URL}/api/inventory/${item.id}/use-durability`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: 1 })
+          });
+          const durabilityResult = await durabilityRes.json();
+          
+          if (durabilityResult.item_broken) {
+            // Xóa item khỏi equipped items nếu đã hỏng
+            setEquippedItems((prev) => prev.filter(i => i.id !== item.id));
+            appendLog(`${item.item_name} đã bị hư hại!`);
+          } else {
+            // Cập nhật durability
+            setEquippedItems((prev) => prev.map(i => 
+              i.id === item.id ? { ...i, durability_left: durabilityResult.durability_left } : i
+            ));
+          }
+        } catch (err) {
+          console.error('Error updating durability:', err);
+          // Fallback: cập nhật UI local
+          setEquippedItems((prev) => prev.map(i => i.id === item.id ? { ...i, durability_left: Math.max(i.durability_left - 1, 0) } : i));
+        }
+        
         setTurn((prev) => prev + 1);
         setAttackAnimation('player');
-  
+
         if (!checkBattleEnded(newEnemyHp, player.current_hp)) {
           setTimeout(() => handleEnemyTurn(), 1500);
+        } else {
+          setActionLocked(false);
         }
       } catch (err) {
         console.error('Lỗi khi đánh bằng vũ khí:', err);
@@ -158,18 +184,13 @@ function ArenaBattlePage() {
       }
     };
   
-    useEffect(() => {
-      if (!player?.id) return;
-      fetch(`${API_BASE_URL}/api/pets/${player.id}/equipment`)
-        .then(res => res.json())
-        .then(setEquippedItems)
-        .catch(err => console.error('Lỗi khi load trang bị:', err));
-  
-      fetch(`${API_BASE_URL}/api/admin/equipment-stats`)
-        .then(res => res.json())
-        .then(setEquipmentStats)
-        .catch(err => console.error('Lỗi khi load chỉ số vũ khí:', err));
-    }, [player?.id]);
+      useEffect(() => {
+    if (!player?.id) return;
+    fetch(`${API_BASE_URL}/api/pets/${player.id}/equipment`)
+      .then(res => res.json())
+      .then(setEquippedItems)
+      .catch(err => console.error('Lỗi khi load trang bị:', err));
+  }, [player?.id]);
   
     useEffect(() => {
       if (player.current_hp <= 0 || enemy.current_hp <= 0) setBattleEnded(true);
@@ -177,6 +198,15 @@ function ArenaBattlePage() {
 
     const gainExpIfVictory = async () => {
         if (player.current_hp > 0 && battleEnded) {
+          // Cập nhật hunger status sau battle
+          try {
+            await fetch(`${API_BASE_URL}/api/pets/${player.id}/update-hunger-after-battle`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' }
+            });
+          } catch (err) {
+            console.error('Error updating hunger status after battle:', err);
+          }
           try {
             const res = await fetch(`${API_BASE_URL}/api/pets/${player.id}/gain-exp`, {
               method: 'POST',
@@ -319,8 +349,8 @@ function ArenaBattlePage() {
             <div className="battle-controls">
               <div className="equipment-row">
                 {equippedItems.map(item => {
-                  const stat = equipmentStats.find(e => e.item_id === item.item_id);
-                  const power = stat?.power || 10;
+                  // Sử dụng power trực tiếp từ item data
+                  const power = item.power || 10;
                   return (
                     <div key={item.id} style={{ display: 'inline-block', textAlign: 'center', margin: '5px' }}>
                       <img
@@ -334,7 +364,7 @@ function ArenaBattlePage() {
                         }}
                       />
                       <div style={{ fontSize: '12px' }}>{power} dmg</div>
-                      <div style={{ fontSize: '12px' }}>🔧 {item.durability_left}</div>
+                      <div style={{ fontSize: '12px' }}>🔧 {item.durability_left} uses left</div>
                     </div>
                   );
                 })}

@@ -6,6 +6,7 @@ import Sidebar from '../Sidebar';
 import Navbar from '../Navbar';
 import ItemCard from './ItemCard';
 import ItemDetailModal from './ItemDetailModal';
+import RepairButton from './RepairButton';
 
 function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -89,6 +90,20 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
     );
   };
 
+  const handleRepairComplete = () => {
+    // Refresh inventory after repair
+    if (userId && token) {
+      fetch(`${API_BASE_URL}/api/users/${userId}/inventory`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => setInventoryItems(data))
+        .catch(err => {
+          console.error('Lỗi khi refresh inventory:', err);
+        });
+    }
+  };
+
   if (error) return <div>Error: {error}</div>;
 
   return (
@@ -102,8 +117,13 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
 
         <div className="main-content">
           <Navbar />
-          <h2>Kho vật phẩm</h2>
-          <Link to={`/profile/${userId}`}><p>Trang cá nhân</p></Link>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h2>Kho vật phẩm</h2>
+              <Link to={`/profile/${userId}`}><p>Trang cá nhân</p></Link>
+            </div>
+            <RepairButton userId={userId} onRepairComplete={handleRepairComplete} />
+          </div>
 
           <input
             type="text"

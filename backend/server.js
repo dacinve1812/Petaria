@@ -1126,15 +1126,17 @@ app.post('/api/pets/:petId/equip-item', async (req, res) => {
   }
 });
 
-// API: Lấy danh sách item đã được trang bị cho pet
+// API: Lấy danh sách item đã được trang bị cho pet với power và durability từ equipment_data
 app.get('/api/pets/:petId/equipment', async (req, res) => {
   const { petId } = req.params;
   try {
     const [rows] = await pool.promise().query(
-      `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, i.durability_left
+      `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, i.durability_left,
+              ed.power, ed.durability AS max_durability, i.is_broken
        FROM inventory i
        JOIN items it ON i.item_id = it.id
-       WHERE i.equipped_pet_id = ? AND i.is_equipped = 1`,
+       LEFT JOIN equipment_data ed ON it.id = ed.item_id
+       WHERE i.equipped_pet_id = ? AND i.is_equipped = 1 AND i.is_broken = 0`,
       [petId]
     );
     res.json(rows);
@@ -1169,6 +1171,54 @@ app.post('/api/inventory/:id/unequip', async (req, res) => {
   } catch (err) {
     console.error('Lỗi khi gỡ item:', err);
     res.status(500).json({ message: 'Lỗi server khi gỡ item' });
+  }
+});
+
+// API: Cập nhật durability của equipment khi sử dụng trong battle
+app.post('/api/inventory/:id/use-durability', async (req, res) => {
+  const { id } = req.params;
+  const { amount = 1 } = req.body;
+
+  try {
+    // Giảm durability và kiểm tra nếu <= 0 thì xóa item
+    const [result] = await pool.promise().query(
+      'UPDATE inventory SET durability_left = GREATEST(durability_left - ?, 0) WHERE id = ?',
+      [amount, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Item không tồn tại' });
+    }
+
+    // Kiểm tra durability còn lại
+    const [itemRows] = await pool.promise().query(
+      'SELECT durability_left FROM inventory WHERE id = ?',
+      [id]
+    );
+
+    const durability_left = itemRows[0]?.durability_left || 0;
+
+    // Nếu durability về 0, chuyển sang trạng thái broken thay vì xóa
+    if (durability_left <= 0) {
+      await pool.promise().query('UPDATE inventory SET is_broken = 1 WHERE id = ?', [id]);
+      res.json({ 
+        message: 'Equipment đã hỏng', 
+        durability_left: 0, 
+        item_destroyed: false,
+        item_broken: true 
+      });
+    } else {
+      res.json({ 
+        message: 'Durability đã được cập nhật', 
+        durability_left, 
+        item_destroyed: false,
+        item_broken: false 
+      });
+    }
+
+  } catch (err) {
+    console.error('Error updating durability:', err);
+    res.status(500).json({ message: 'Lỗi khi cập nhật durability' });
   }
 });
 
@@ -1417,3 +1467,459 @@ app.post('/api/pets/:id/gain-exp', async (req, res) => {
     res.status(500).json({ message: 'Server error cộng EXP' });
   }
 });
+
+// API: Sửa chữa equipment bị hỏng bằng Repair Kit
+app.post('/api/inventory/:id/repair-with-kit', async (req, res) => {
+  const { id } = req.params;
+  const { repair_kit_item_id } = req.body;
+
+  try {
+    // Kiểm tra item có bị hỏng không
+    const [itemRows] = await pool.promise().query(
+      `SELECT i.*, it.rarity AS item_rarity, ed.durability AS max_durability
+       FROM inventory i
+       JOIN items it ON i.item_id = it.id
+       LEFT JOIN equipment_data ed ON it.id = ed.item_id
+       WHERE i.id = ? AND i.is_broken = 1`,
+      [id]
+    );
+
+    if (itemRows.length === 0) {
+      return res.status(404).json({ message: 'Item không tồn tại hoặc không bị hỏng' });
+    }
+
+    const item = itemRows[0];
+
+    // Kiểm tra Repair Kit có phù hợp không
+    const [kitRows] = await pool.promise().query(
+      `SELECT * FROM items WHERE id = ? AND type = 'repair_kit'`,
+      [repair_kit_item_id]
+    );
+
+    if (kitRows.length === 0) {
+      return res.status(400).json({ message: 'Repair Kit không hợp lệ' });
+    }
+
+    const kit = kitRows[0];
+
+    // Tính hiệu quả repair dựa trên rarity
+    const effectiveness = getRepairEffectiveness(kit.rarity, item.item_rarity);
+    
+    if (effectiveness === 0) {
+      return res.status(400).json({ 
+        message: `Repair Kit ${kit.rarity} không thể sửa equipment ${item.item_rarity}` 
+      });
+    }
+
+    // Tính durability được khôi phục
+    const restoredDurability = Math.floor(item.max_durability * effectiveness / 100);
+
+    // Sửa chữa equipment
+    await pool.promise().query(
+      `UPDATE inventory SET is_broken = 0, durability_left = ? WHERE id = ?`,
+      [restoredDurability, id]
+    );
+
+    // Xóa Repair Kit
+    await pool.promise().query(
+      'DELETE FROM inventory WHERE item_id = ? AND player_id = ? LIMIT 1',
+      [repair_kit_item_id, item.player_id]
+    );
+
+    res.json({ 
+      message: 'Equipment đã được sửa chữa thành công',
+      repair_kit_used: kit.name,
+      effectiveness: effectiveness + '%',
+      durability_left: restoredDurability,
+      max_durability: item.max_durability
+    });
+
+  } catch (err) {
+    console.error('Error repairing equipment:', err);
+    res.status(500).json({ message: 'Lỗi khi sửa chữa equipment' });
+  }
+});
+
+// Hàm tính hiệu quả repair dựa trên rarity
+function getRepairEffectiveness(repairKitRarity, equipmentRarity) {
+  const effectivenessMap = {
+    common: {
+      common: 100,
+      uncommon: 50,
+      rare: 10,
+      epic: 0,
+      legendary: 0
+    },
+    rare: {
+      common: 100,
+      uncommon: 75,
+      rare: 50,
+      epic: 10,
+      legendary: 0
+    },
+    epic: {
+      common: 100,
+      uncommon: 85,
+      rare: 70,
+      epic: 50,
+      legendary: 10
+    },
+    legendary: {
+      common: 100,
+      uncommon: 100,
+      rare: 100,
+      epic: 100,
+      legendary: 100
+    }
+  };
+
+  return effectivenessMap[repairKitRarity]?.[equipmentRarity] || 0;
+}
+
+// API: Sửa chữa equipment bằng Blacksmith (trả tiền)
+app.post('/api/inventory/:id/repair-with-blacksmith', async (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.body;
+
+  try {
+    // Kiểm tra item có bị hỏng không
+    const [itemRows] = await pool.promise().query(
+      `SELECT i.*, it.rarity AS item_rarity, ed.durability AS max_durability, ed.power
+       FROM inventory i
+       JOIN items it ON i.item_id = it.id
+       LEFT JOIN equipment_data ed ON it.id = ed.item_id
+       WHERE i.id = ? AND i.is_broken = 1`,
+      [id]
+    );
+
+    if (itemRows.length === 0) {
+      return res.status(404).json({ message: 'Item không tồn tại hoặc không bị hỏng' });
+    }
+
+    const item = itemRows[0];
+
+    // Tính giá sửa chữa dựa trên rarity và power
+    let repairCost;
+    switch (item.item_rarity) {
+      case 'common':
+        repairCost = 100;
+        break;
+      case 'uncommon':
+        repairCost = 300;
+        break;
+      case 'rare':
+        repairCost = 800;
+        break;
+      case 'epic':
+        repairCost = 2000;
+        break;
+      case 'legendary':
+        repairCost = 5000;
+        break;
+      default:
+        repairCost = 500;
+    }
+
+    // Thêm bonus cost dựa trên power
+    repairCost += Math.floor(item.power / 10) * 50;
+
+    // Kiểm tra tiền của user
+    const [userRows] = await pool.promise().query(
+      'SELECT gold FROM users WHERE id = ?',
+      [user_id]
+    );
+
+    if (userRows.length === 0) {
+      return res.status(404).json({ message: 'User không tồn tại' });
+    }
+
+    if (userRows[0].gold < repairCost) {
+      return res.status(400).json({ 
+        message: `Không đủ tiền. Cần ${repairCost} gold để sửa chữa` 
+      });
+    }
+
+    // Trừ tiền và sửa chữa
+    await pool.promise().query(
+      'UPDATE users SET gold = gold - ? WHERE id = ?',
+      [repairCost, user_id]
+    );
+
+    await pool.promise().query(
+      `UPDATE inventory SET is_broken = 0, durability_left = ? WHERE id = ?`,
+      [item.max_durability, id]
+    );
+
+    res.json({ 
+      message: `Equipment đã được sửa chữa thành công với giá ${repairCost} gold`,
+      durability_left: item.max_durability,
+      repair_cost: repairCost
+    });
+
+  } catch (err) {
+    console.error('Error repairing equipment with blacksmith:', err);
+    res.status(500).json({ message: 'Lỗi khi sửa chữa equipment' });
+  }
+});
+
+// API: Lấy danh sách equipment bị hỏng của user
+app.get('/api/users/:userId/broken-equipment', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const [rows] = await pool.promise().query(
+      `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, it.rarity,
+              ed.power, ed.durability AS max_durability
+       FROM inventory i
+       JOIN items it ON i.item_id = it.id
+       LEFT JOIN equipment_data ed ON it.id = ed.item_id
+       WHERE i.player_id = ? AND i.is_broken = 1`,
+      [userId]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching broken equipment:', err);
+    res.status(500).json({ message: 'Lỗi khi lấy danh sách equipment hỏng' });
+  }
+});
+
+// ==================== HUNGER STATUS SYSTEM ====================
+
+// API: Lấy thông tin hunger status của pet
+app.get('/api/pets/:petId/hunger-status', async (req, res) => {
+  const { petId } = req.params;
+
+  try {
+    const [rows] = await pool.promise().query(
+      `SELECT id, name, hunger_status, hunger_battles, hp, owner_id
+       FROM pets WHERE id = ?`,
+      [petId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Pet không tồn tại' });
+    }
+
+    const pet = rows[0];
+    
+    // Chuyển đổi status number thành text
+    const statusText = getHungerStatusText(pet.hunger_status);
+    const canBattle = pet.hunger_status >= 1 && pet.hp > 0;
+
+    res.json({
+      pet_id: pet.id,
+      pet_name: pet.name,
+      hunger_status: pet.hunger_status,
+      hunger_status_text: statusText,
+      hunger_battles: pet.hunger_battles,
+      can_battle: canBattle,
+      hp: pet.hp
+    });
+  } catch (err) {
+    console.error('Error fetching pet hunger status:', err);
+    res.status(500).json({ message: 'Lỗi khi lấy thông tin hunger status' });
+  }
+});
+
+// API: Kiểm tra pet có thể đấu không
+app.get('/api/pets/:petId/battle-ready', async (req, res) => {
+  const { petId } = req.params;
+
+  try {
+    const [rows] = await pool.promise().query(
+      `SELECT id, name, hunger_status, hunger_battles, hp
+       FROM pets WHERE id = ?`,
+      [petId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Pet không tồn tại' });
+    }
+
+    const pet = rows[0];
+    
+    // Kiểm tra điều kiện đấu
+    const canBattle = pet.hunger_status >= 1 && pet.hp > 0;
+    const reasons = [];
+    
+    if (pet.hunger_status === 0) reasons.push('Pet đang chết đói (cần hồi máu)');
+    if (pet.hp <= 0) reasons.push('Pet đã hết máu');
+
+    res.json({
+      can_battle: canBattle,
+      reasons: reasons,
+      hunger_status: pet.hunger_status,
+      hunger_status_text: getHungerStatusText(pet.hunger_status),
+      hunger_battles: pet.hunger_battles,
+      hp: pet.hp
+    });
+  } catch (err) {
+    console.error('Error checking pet battle readiness:', err);
+    res.status(500).json({ message: 'Lỗi khi kiểm tra pet' });
+  }
+});
+
+// API: Sử dụng food item để hồi phục hunger status
+app.post('/api/pets/:petId/feed', async (req, res) => {
+  const { petId } = req.params;
+  const { itemId, userId } = req.body;
+
+  try {
+    // Kiểm tra item có trong inventory không
+    const [inventoryRows] = await pool.promise().query(
+      'SELECT * FROM inventory WHERE item_id = ? AND player_id = ? AND quantity > 0',
+      [itemId, userId]
+    );
+
+    if (inventoryRows.length === 0) {
+      return res.status(400).json({ message: 'Food item không có trong inventory' });
+    }
+
+    // Lấy thông tin food recovery
+    const [foodRows] = await pool.promise().query(
+      'SELECT * FROM food_recovery_items WHERE item_id = ?',
+      [itemId]
+    );
+
+    if (foodRows.length === 0) {
+      return res.status(400).json({ message: 'Item không phải food item' });
+    }
+
+    // Lấy thông tin pet
+    const [petRows] = await pool.promise().query(
+      'SELECT * FROM pets WHERE id = ? AND owner_id = ?',
+      [petId, userId]
+    );
+
+    if (petRows.length === 0) {
+      return res.status(404).json({ message: 'Pet không tồn tại hoặc không thuộc sở hữu' });
+    }
+
+    const pet = petRows[0];
+    const food = foodRows[0];
+    
+    // Tính toán status mới
+    const oldStatus = pet.hunger_status;
+    const newStatus = Math.min(3, oldStatus + food.recovery_amount);
+    const oldBattles = pet.hunger_battles;
+    const newBattles = 0; // Reset battles sau khi ăn
+
+    // Cập nhật pet
+    await pool.promise().query(
+      'UPDATE pets SET hunger_status = ?, hunger_battles = ? WHERE id = ?',
+      [newStatus, newBattles, petId]
+    );
+
+    // Lưu vào history
+    await pool.promise().query(
+      'INSERT INTO hunger_status_history (pet_id, old_status, new_status, old_battles, new_battles, change_reason, food_item_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [petId, oldStatus, newStatus, oldBattles, newBattles, 'feeding', itemId]
+    );
+
+    // Giảm số lượng item
+    await pool.promise().query(
+      'UPDATE inventory SET quantity = quantity - 1 WHERE item_id = ? AND player_id = ?',
+      [itemId, userId]
+    );
+
+    // Xóa item nếu hết
+    await pool.promise().query(
+      'DELETE FROM inventory WHERE item_id = ? AND player_id = ? AND quantity <= 0',
+      [itemId, userId]
+    );
+
+    res.json({
+      message: 'Cho pet ăn thành công',
+      old_status: oldStatus,
+      new_status: newStatus,
+      old_status_text: getHungerStatusText(oldStatus),
+      new_status_text: getHungerStatusText(newStatus),
+      recovery_amount: food.recovery_amount,
+      battles_reset: true
+    });
+
+  } catch (err) {
+    console.error('Error feeding pet:', err);
+    res.status(500).json({ message: 'Lỗi khi cho pet ăn' });
+  }
+});
+
+// API: Cập nhật hunger status sau battle
+app.post('/api/pets/:petId/update-hunger-after-battle', async (req, res) => {
+  const { petId } = req.params;
+
+  try {
+    const [petRows] = await pool.promise().query(
+      'SELECT * FROM pets WHERE id = ?',
+      [petId]
+    );
+
+    if (petRows.length === 0) {
+      return res.status(404).json({ message: 'Pet không tồn tại' });
+    }
+
+    const pet = petRows[0];
+    const oldStatus = pet.hunger_status;
+    const oldBattles = pet.hunger_battles;
+    let newStatus = oldStatus;
+    let newBattles = oldBattles + 1;
+    
+    // Logic giảm status dựa trên số trận
+    if (oldStatus === 3 && newBattles >= 25) { // Mập mạp -> Hơi đói (25 trận)
+      newStatus = 2;
+      newBattles = 0;
+    } else if (oldStatus === 2 && newBattles >= 15) { // Hơi đói -> Đói (15 trận)
+      newStatus = 1;
+      newBattles = 0;
+    } else if (oldStatus === 1 && newBattles >= 10) { // Đói -> Chết đói (10 trận)
+      newStatus = 0;
+      newBattles = 0;
+      // Set HP về 0 khi chết đói
+      await pool.promise().query(
+        'UPDATE pets SET hp = 0 WHERE id = ?',
+        [petId]
+      );
+    }
+
+    // Cập nhật status
+    await pool.promise().query(
+      'UPDATE pets SET hunger_status = ?, hunger_battles = ? WHERE id = ?',
+      [newStatus, newBattles, petId]
+    );
+
+    // Lưu vào history nếu có thay đổi
+    if (oldStatus !== newStatus) {
+      await pool.promise().query(
+        'INSERT INTO hunger_status_history (pet_id, old_status, new_status, old_battles, new_battles, change_reason) VALUES (?, ?, ?, ?, ?, ?)',
+        [petId, oldStatus, newStatus, oldBattles, newBattles, 'battle']
+      );
+    }
+
+    res.json({
+      message: 'Cập nhật hunger status sau battle thành công',
+      old_status: oldStatus,
+      new_status: newStatus,
+      old_status_text: getHungerStatusText(oldStatus),
+      new_status_text: getHungerStatusText(newStatus),
+      old_battles: oldBattles,
+      new_battles: newBattles,
+      status_changed: oldStatus !== newStatus
+    });
+
+  } catch (err) {
+    console.error('Error updating pet hunger status after battle:', err);
+    res.status(500).json({ message: 'Lỗi khi cập nhật hunger status' });
+  }
+});
+
+// Hàm helper để chuyển đổi status number thành text
+function getHungerStatusText(status) {
+  switch (status) {
+    case 0: return 'Chết đói';
+    case 1: return 'Đói';
+    case 2: return 'Hơi đói';
+    case 3: return 'Mập mạp';
+    default: return 'Không xác định';
+  }
+}

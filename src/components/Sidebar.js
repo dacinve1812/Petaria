@@ -1,11 +1,9 @@
 import React, { useEffect, useState  } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useIsMobile from '../hooks/useIsMobile';
 
 function Sidebar({ userId, handleLogout, isAdmin }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
   const [username, setUsername] = useState('');
   const [onlineStatus, setOnlineStatus] = useState(false);
   const [gold, setGold] = useState(0);
@@ -17,14 +15,11 @@ function Sidebar({ userId, handleLogout, isAdmin }) {
         .then((data) => {
           setUsername(data.username);
           setOnlineStatus(data.online_status);
-          console.log(data.online_status);
           setGold(data.gold);
         })
         .catch((error) => console.error('Error fetching user data:', error));
     }
   }, [userId]);
-
-  if (isMobile) return null;
 
   return (
     <div className="sidebar">

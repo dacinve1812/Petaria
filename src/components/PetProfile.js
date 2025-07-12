@@ -6,11 +6,49 @@ import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import expTable from '../data/exp_table_petaria.json';
 
+// Component hiển thị hunger status
+const HungerStatusDisplay = ({ hungerStatus, canBattle }) => {
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 0: return '#c20000'; // Chết đói - đỏ
+      case 1: return '#c20000'; // Đói - cam
+      case 2: return '#870000'; // Hơi đói - vàng
+      case 3: return '#870000'; // Mập mạp - xanh
+      default: return '#000000';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 0: return 'Chết đói';
+      case 1: return 'Đói';
+      case 2: return 'Hơi đói';
+      case 3: return 'Mập mạp';
+      default: return 'Không xác định';
+    }
+  };
+
+  return (
+    <span>
+      <span  style={{ color: getStatusColor(hungerStatus) }}>
+        <span >{getStatusText(hungerStatus)}</span>
+      </span>
+
+      {!canBattle && (
+        <div className="battle-warning">
+          ⚠️ Pet không thể đấu do đói hoặc hết máu
+        </div>
+      )}
+    </span>
+  );
+};
+
 function PetProfile() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const { uuid } = useParams();
   const [pet, setPet] = useState(null);
   const [equippedItems, setEquippedItems] = useState([]);
+  const [hungerStatus, setHungerStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
@@ -54,6 +92,7 @@ function PetProfile() {
 
   useEffect(() => {
     if (pet?.id) {
+      // Fetch equipped items
       fetch(`${API_BASE_URL}/api/pets/${pet.id}/equipment`)
         .then(res => res.json())
         .then(data => {
@@ -64,6 +103,14 @@ function PetProfile() {
           }
         })
         .catch(err => console.error('Error loading equipped items:', err));
+
+      // Fetch hunger status
+      fetch(`${API_BASE_URL}/api/pets/${pet.id}/hunger-status`)
+        .then(res => res.json())
+        .then(data => {
+          setHungerStatus(data);
+        })
+        .catch(err => console.error('Error loading hunger status:', err));
     }
   }, [pet, API_BASE_URL]);
 
@@ -142,7 +189,15 @@ function PetProfile() {
     <div className="container">
       <header><img src="/images/buttons/banner.jpeg" alt="Banner Petaria" /></header>
       <div className="content">
-        <Sidebar userId={currentUserId} handleLogout={handleLogout} isAdmin={isAdmin} />
+      {(!isMobile || (isMobile && sidebarOpen)) && (
+          <div className={`sidebar-v2 ${!isMobile || sidebarOpen ? 'open' : ''} ${!isMobile ? 'always-show' : ''}`}>
+            <Sidebar
+              userId={userId}
+              handleLogout={handleLogout}
+              isAdmin={isAdmin}
+            />
+          </div>
+        )}
         <div className="main-content">
           <Navbar />
           <div className="pet-profile">
@@ -161,7 +216,11 @@ function PetProfile() {
               <p>Phòng Thủ: {pet.def}{pet.def_added > 0 ? ` (+${pet.def_added})` : ''}</p>
               <p>Thông Minh: {pet.intelligence}{pet.intelligence_added > 0 ? ` (+${pet.intelligence_added})` : ''}</p>
               <p>Tốc Độ: {pet.spd}{pet.spd_added > 0 ? ` (+${pet.spd_added})` : ''}</p>
-              <p>Tình Trạng: {pet.status || 'Ổn định'}</p>
+                             <p>Tình Trạng: {hungerStatus ? <HungerStatusDisplay 
+                    hungerStatus={hungerStatus.hunger_status}
+                    canBattle={hungerStatus.can_battle}
+                  /> : 'Ổn định'}</p>
+              
               <br />
               <p>Chiến đấu thắng: {pet.battles_won || 'N/A'}</p>
             </div>

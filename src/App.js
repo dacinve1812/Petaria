@@ -81,7 +81,7 @@ function App() {
     <BrowserRouter>
       <UserContext.Provider value={user}>
         <div className="App">
-        {isMobile && <NavbarMobile />}
+        {/* {isMobile && <NavbarMobile />} */}
           <Routes>
             <Route
               path="/"

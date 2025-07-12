@@ -1,0 +1,157 @@
+{
+"inventory": [
+	{
+		"id" : 1,
+		"player_id" : 3,
+		"item_id" : 8,
+		"quantity" : 3,
+		"is_equipped" : 0,
+		"equipped_pet_id" : null,
+		"durability_left" : null,
+		"used_at" : null,
+		"is_broken" : 0
+	},
+	{
+		"id" : 3,
+		"player_id" : 3,
+		"item_id" : 4,
+		"quantity" : 2,
+		"is_equipped" : 0,
+		"equipped_pet_id" : null,
+		"durability_left" : null,
+		"used_at" : null,
+		"is_broken" : 0
+	},
+	{
+		"id" : 5,
+		"player_id" : 3,
+		"item_id" : 77,
+		"quantity" : 1,
+		"is_equipped" : 1,
+		"equipped_pet_id" : 27,
+		"durability_left" : 0,
+		"used_at" : null,
+		"is_broken" : 1
+	},
+	{
+		"id" : 6,
+		"player_id" : 3,
+		"item_id" : 77,
+		"quantity" : 1,
+		"is_equipped" : 0,
+		"equipped_pet_id" : null,
+		"durability_left" : 10,
+		"used_at" : null,
+		"is_broken" : 0
+	},
+	{
+		"id" : 7,
+		"player_id" : 3,
+		"item_id" : 77,
+		"quantity" : 1,
+		"is_equipped" : 0,
+		"equipped_pet_id" : null,
+		"durability_left" : 10,
+		"used_at" : null,
+		"is_broken" : 0
+	},
+	{
+		"id" : 8,
+		"player_id" : 3,
+		"item_id" : 81,
+		"quantity" : 1,
+		"is_equipped" : 0,
+		"equipped_pet_id" : null,
+		"durability_left" : 20,
+		"used_at" : null,
+		"is_broken" : 0
+	},
+	{
+		"id" : 9,
+		"player_id" : 3,
+		"item_id" : 78,
+		"quantity" : 1,
+		"is_equipped" : 0,
+		"equipped_pet_id" : null,
+		"durability_left" : 10,
+		"used_at" : null,
+		"is_broken" : 0
+	},
+	{
+		"id" : 10,
+		"player_id" : 3,
+		"item_id" : 76,
+		"quantity" : 1,
+		"is_equipped" : 0,
+		"equipped_pet_id" : null,
+		"durability_left" : 20,
+		"used_at" : null,
+		"is_broken" : 0
+	},
+	{
+		"id" : 11,
+		"player_id" : 3,
+		"item_id" : 78,
+		"quantity" : 1,
+		"is_equipped" : 0,
+		"equipped_pet_id" : null,
+		"durability_left" : 10,
+		"used_at" : null,
+		"is_broken" : 0
+	},
+	{
+		"id" : 12,
+		"player_id" : 3,
+		"item_id" : 78,
+		"quantity" : 1,
+		"is_equipped" : 0,
+		"equipped_pet_id" : null,
+		"durability_left" : 10,
+		"used_at" : null,
+		"is_broken" : 0
+	},
+	{
+		"id" : 13,
+		"player_id" : 3,
+		"item_id" : 57,
+		"quantity" : 1,
+		"is_equipped" : 0,
+		"equipped_pet_id" : null,
+		"durability_left" : null,
+		"used_at" : null,
+		"is_broken" : 0
+	},
+	{
+		"id" : 14,
+		"player_id" : 3,
+		"item_id" : 48,
+		"quantity" : 1,
+		"is_equipped" : 0,
+		"equipped_pet_id" : null,
+		"durability_left" : null,
+		"used_at" : null,
+		"is_broken" : 0
+	},
+	{
+		"id" : 15,
+		"player_id" : 3,
+		"item_id" : 47,
+		"quantity" : 1,
+		"is_equipped" : 0,
+		"equipped_pet_id" : null,
+		"durability_left" : null,
+		"used_at" : null,
+		"is_broken" : 0
+	},
+	{
+		"id" : 16,
+		"player_id" : 3,
+		"item_id" : 81,
+		"quantity" : 1,
+		"is_equipped" : 0,
+		"equipped_pet_id" : null,
+		"durability_left" : 20,
+		"used_at" : null,
+		"is_broken" : 0
+	}
+]}

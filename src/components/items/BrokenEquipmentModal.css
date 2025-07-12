@@ -1,0 +1,160 @@
+.broken-equipment-modal {
+  max-width: 800px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.broken-equipment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.broken-equipment-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  border: 2px solid #ff6b6b;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%);
+}
+
+.equipment-image {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  border: 2px solid #ddd;
+}
+
+.equipment-info {
+  flex: 1;
+}
+
+.equipment-info h3 {
+  margin: 0 0 5px 0;
+  font-size: 1.1em;
+}
+
+.equipment-info p {
+  margin: 2px 0;
+  font-size: 0.9em;
+  color: #666;
+}
+
+.repair-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.repair-blacksmith-btn {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: all 0.3s ease;
+}
+
+.repair-blacksmith-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
+  transform: translateY(-1px);
+}
+
+.repair-kit-btn {
+  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: all 0.3s ease;
+}
+
+.repair-kit-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+  transform: translateY(-1px);
+}
+
+.repair-kit-modal {
+  margin-top: 20px;
+  padding: 20px;
+  border: 2px solid #2196F3;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f0f8ff 0%, #e3f2fd 100%);
+}
+
+.repair-kit-select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  margin: 10px 0;
+  font-size: 1em;
+}
+
+.repair-kit-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.repair-confirm-btn {
+  background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: all 0.3s ease;
+}
+
+.repair-confirm-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #F57C00 0%, #E65100 100%);
+  transform: translateY(-1px);
+}
+
+.cancel-btn {
+  background: #f44336;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: all 0.3s ease;
+}
+
+.cancel-btn:hover {
+  background: #d32f2f;
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .broken-equipment-item {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .repair-options {
+    flex-direction: row;
+    justify-content: center;
+  }
+  
+  .repair-kit-actions {
+    flex-direction: column;
+  }
+} 

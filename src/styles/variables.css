@@ -22,4 +22,22 @@
     /* Layout */
     --max-width: 1080px;
     /* --max-width: 430px; */
+
+    --color-bg-main: #f6faff;
+    --color-bg-topbar: transparent;
+    --color-bg-sidebar: #fff;
+    --color-bg-map: #eaf6ff;
+    --color-bg-minibar: #fff;
+    --color-bg-burger: #fff;
+    --color-shadow-main: 0 4px 32px #b2e0ff;
+    --color-shadow-minibar: 0 2px 12px #e0e0e0;
+    --color-shadow-btn: 0 2px 8px #e0e0e0;
+    --color-shadow-sidebar: 2px 0 16px #b2e0ff;
+    --color-shadow-burger: 0 2px 12px #b2e0e0;
+    --color-border-avatar: #b2e0ff;
+    --color-primary: #4a90e2;
+    --color-secondary: #00c6a7;
+    --color-white: #fff;
+    --color-overlay: rgba(0,0,0,0.18);
   }
+

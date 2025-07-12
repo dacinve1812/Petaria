@@ -1,0 +1,81 @@
+.repair-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  font-family: 'Arial', sans-serif;
+}
+
+.repair-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+}
+
+.repair-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.repair-icon {
+  font-size: 16px;
+  animation: rotate 2s linear infinite;
+}
+
+.repair-text {
+  font-family: 'Arial', sans-serif;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .repair-button {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  .repair-icon {
+    font-size: 14px;
+  }
+}
+
+/* Disabled state */
+.repair-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.repair-button:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Compact version for smaller spaces */
+.repair-button.compact {
+  padding: 6px 10px;
+  font-size: 12px;
+  gap: 4px;
+}
+
+.repair-button.compact .repair-icon {
+  font-size: 12px;
+} 

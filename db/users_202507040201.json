@@ -1,0 +1,87 @@
+{
+"users": [
+	{
+		"id" : 3,
+		"username" : "test1",
+		"password" : "$2b$10$zy8Q9cxMZEYcIEXIK6sgO.WSBHIcR.NSwTs93nlgUZ0uAjAWylA36",
+		"gold" : 99396425,
+		"petagold" : 0,
+		"real_name" : null,
+		"guild" : null,
+		"title" : null,
+		"ranking" : null,
+		"online_status" : 1,
+		"birthday" : null,
+		"registration_date" : "2025-03-01 20:11:28"
+	},
+	{
+		"id" : 4,
+		"username" : "test3",
+		"password" : "$2b$10$3VyTHnIxt7\/byRSRWL7lyO\/yEr\/n6joZFNDxzYnHyb5BC2yiYK.1G",
+		"gold" : 2000,
+		"petagold" : 0,
+		"real_name" : null,
+		"guild" : null,
+		"title" : null,
+		"ranking" : null,
+		"online_status" : 1,
+		"birthday" : null,
+		"registration_date" : "2025-03-01 20:11:28"
+	},
+	{
+		"id" : 5,
+		"username" : "test2",
+		"password" : "$2b$10$oj21GFOFBiJZHrUxu8oRzO8knPG\/uL5ltR9bZ3FS1JR0XmEXxvcDm",
+		"gold" : 2000,
+		"petagold" : 0,
+		"real_name" : null,
+		"guild" : null,
+		"title" : null,
+		"ranking" : null,
+		"online_status" : 0,
+		"birthday" : null,
+		"registration_date" : "2025-03-01 20:11:28"
+	},
+	{
+		"id" : 6,
+		"username" : "admin",
+		"password" : "$2b$10$WNPt\/e.ltGSUnkZ8pN\/SOe3Et.B1xw57svlV4m\/fo8H3i3iEApjLS",
+		"gold" : 2000,
+		"petagold" : 0,
+		"real_name" : null,
+		"guild" : null,
+		"title" : null,
+		"ranking" : null,
+		"online_status" : 1,
+		"birthday" : null,
+		"registration_date" : "2025-03-01 20:11:28"
+	},
+	{
+		"id" : 7,
+		"username" : "dacinve",
+		"password" : "$2b$10$S5qAXenGR1wftWjpNkObAe4k3CWeOxcV3\/0eQJkKXwAzMxbrJZSji",
+		"gold" : 2000,
+		"petagold" : 0,
+		"real_name" : null,
+		"guild" : null,
+		"title" : null,
+		"ranking" : null,
+		"online_status" : 1,
+		"birthday" : null,
+		"registration_date" : "2025-03-02 00:37:30"
+	},
+	{
+		"id" : 8,
+		"username" : "test6",
+		"password" : "$2b$10$iGcdi9eCQVA9zY\/CMPql\/.UMQvyGPQu6D8tt2h9p7ALO9TA977yBS",
+		"gold" : 2000,
+		"petagold" : 0,
+		"real_name" : null,
+		"guild" : null,
+		"title" : null,
+		"ranking" : null,
+		"online_status" : 0,
+		"birthday" : null,
+		"registration_date" : "2025-04-05 23:53:33"
+	}
+]}

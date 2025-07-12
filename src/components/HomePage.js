@@ -1,14 +1,14 @@
-import React, { useEffect, useState  } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Outlet } from 'react-router-dom';
-import './HomePage.css'; // Tạo file HomePage.css
+import './HomePage.css';
 import Sidebar from './Sidebar';
 
-
-function HomePage({isLoggedIn, onLogoutSuccess }) {
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
+function HomePage({ isLoggedIn, onLogoutSuccess }) {
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const navigate = useNavigate();
-
   const [userId, setUserId] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 800);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -17,7 +17,7 @@ function HomePage({isLoggedIn, onLogoutSuccess }) {
     } else {
       try {
         const decodedToken = JSON.parse(atob(token.split('.')[1]));
-        setUserId(decodedToken.userId); //set userId here
+        setUserId(decodedToken.userId);
       } catch (err) {
         console.error('Error decoding token:', err);
         navigate('/login');
@@ -25,60 +25,67 @@ function HomePage({isLoggedIn, onLogoutSuccess }) {
     }
   }, [navigate]);
 
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 800);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const handleLogout = () => {
     onLogoutSuccess();
     localStorage.removeItem('token');
     navigate('/login');
-
   };
-
 
   const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
   return (
     <div className="container">
       <header>
-      <img
-          src="/images/buttons/banner.jpeg"
-          alt="Banner Petaria"
-        />
-        {/* <h1>Petaria - Vương quốc thú ảo</h1> */}
+        <img src="/images/buttons/banner.jpeg" alt="Banner Petaria" />
       </header>
       <div className="content">
-      <Sidebar
-          userId={userId}
-          handleLogout={handleLogout}
-          isAdmin={isAdmin}
-        />
-      
+        {/* Sidebar: desktop luôn hiện, mobile chỉ hiện khi sidebarOpen */}
+        {(!isMobile || (isMobile && sidebarOpen)) && (
+          <div className={`sidebar-v2 ${!isMobile || sidebarOpen ? 'open' : ''} ${!isMobile ? 'always-show' : ''}`}>
+            <Sidebar
+              userId={userId}
+              handleLogout={handleLogout}
+              isAdmin={isAdmin}
+            />
+          </div>
+        )}
+        {/* Overlay khi sidebar mở ở mobile */}
+        {sidebarOpen && isMobile && (
+          <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>
+        )}
         <div className="main-content">
           <Outlet />
           <div className="notice">
             <p>Thông báo: Bạn chưa có thú cưng nào cả!</p>
             <p>Bạn có thể đến Trại mồ côi để nhận nuôi thú cưng!!!</p>
           </div>
-          {/* <div className="map">
-            <img src="map.jpg" alt="Bản đồ Petaria" />
-          </div> */}
+          {/* Map panorama scrollable - native scroll only */}
+          <div className="map-scroll-container">
+            <img src="map.jpg" alt="Bản đồ Petaria" className="map-img" />
+          </div>
           <div className="links">
-            {/* <a href="#">Auction</a>
-            <a href="#">Sông Jordan</a>
-            <a href="#">Bưu điện</a>
-            <a href="#">Club</a> */}
             <a href="/shop">Cửa hàng</a>
-            {/* <a href="#">Ngân hàng</a> */}
             <a href="/orphanage">Trại mồ côi</a>
-            {/* <a href="#">Game Center</a> */}
             <a href="/myhome">My Home</a>
             <a href="/battle">Đấu trường</a>
-            {/* <a href="#">Penn
-            y Shop</a> */}
           </div>
           <div className="footer">
             <p>WebGame Thú ảo Online được phát triển bởi BaoNguyen</p>
             <p>05:45:23 AM | Terms/Rules | Privacy</p>
           </div>
         </div>
+        {/* Burger menu - bottom left, chỉ hiện ở mobile */}
+        {isMobile && (
+          <button className="burger-menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            {sidebarOpen ? <span style={{ fontSize: 32 }}>&lt;</span> : <span style={{ fontSize: 32 }}>&gt;</span>}
+          </button>
+        )}
       </div>
     </div>
   );
