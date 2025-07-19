@@ -1,0 +1,71 @@
+.back-button-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--max-width);
+  z-index: 20;
+  transition: transform 0.2s ease;
+  padding-left: 20px;
+  pointer-events: none;
+}
+
+.back-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  transition: transform 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.back-button:hover {
+  transform: scale(1.1);
+}
+
+.back-button:active {
+  transform: scale(0.95);
+}
+
+.back-button-svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+/* CSS Variables for customization */
+:root {
+  --back-button-outline: #ff4444;
+  --back-button-icon: #ff4444;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .back-button-container {
+    padding-left: 15px;
+  }
+  
+  .back-button {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .back-button-container {
+    padding-left: 10px;
+  }
+  
+  .back-button {
+    width: 40px;
+    height: 40px;
+  }
+} 

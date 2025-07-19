@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 
 
@@ -72,11 +71,11 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
         {/* <h1>Petaria - Vương quốc thú ảo</h1> */}
       </header>
       <div className="content">
-      <Sidebar
+      {/* <Sidebar
           userId={userId}
           handleLogout={handleLogout}
           isAdmin={isAdmin}
-        />
+        /> */}
       <div className="main-content">
         <Navbar />
         <div>

@@ -189,15 +189,7 @@ function PetProfile() {
     <div className="container">
       <header><img src="/images/buttons/banner.jpeg" alt="Banner Petaria" /></header>
       <div className="content">
-      {(!isMobile || (isMobile && sidebarOpen)) && (
-          <div className={`sidebar-v2 ${!isMobile || sidebarOpen ? 'open' : ''} ${!isMobile ? 'always-show' : ''}`}>
-            <Sidebar
-              userId={userId}
-              handleLogout={handleLogout}
-              isAdmin={isAdmin}
-            />
-          </div>
-        )}
+
         <div className="main-content">
           <Navbar />
           <div className="pet-profile">

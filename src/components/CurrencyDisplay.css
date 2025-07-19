@@ -1,0 +1,112 @@
+.currency-display {
+  position: fixed;
+  top: 20px;
+  right: 50%;
+  transform: translateX(50%);
+  width: 100%;
+  max-width: var(--max-width);
+  z-index: 20;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-right: 20px;
+  pointer-events: none;
+}
+
+.currency-box {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, #4a90e2, #357abd);
+  border: 2px solid #2c5aa0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-width: 120px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  pointer-events: auto;
+}
+
+.currency-box:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.currency-box.peta {
+  background: linear-gradient(135deg, #f39c12, #e67e22);
+  border-color: #d68910;
+}
+
+.currency-box.petagold {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  border-color: #a93226;
+}
+
+.currency-icon {
+  font-size: 20px;
+  margin-right: 8px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.currency-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.currency-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  margin-bottom: 2px;
+}
+
+.currency-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .currency-display {
+    
+    gap: 8px;
+  }
+  
+  .currency-box {
+    min-width: 100px;
+    padding: 6px 10px;
+  }
+  
+  .currency-label {
+    font-size: 11px;
+  }
+  
+  .currency-value {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .currency-display {
+    padding-right: 10px;
+    gap: 6px;
+  }
+  
+  .currency-box {
+    min-width: 90px;
+    padding: 5px 8px;
+  }
+  
+  .currency-label {
+    font-size: 10px;
+  }
+  
+  .currency-value {
+    font-size: 12px;
+  }
+} 

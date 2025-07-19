@@ -107,15 +107,7 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   if (error) return <div>Error: {error}</div>;
 
   return (
-    <div className="container">
-      <header>
-        <img src="/images/buttons/banner.jpeg" alt="Banner Petaria" />
-      </header>
-
-      <div className="content">
-        <Sidebar userId={userId} handleLogout={handleLogout} isAdmin={isAdmin} />
-
-        <div className="main-content">
+    <div className="main-content">
           <Navbar />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div>
@@ -208,8 +200,6 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
             )}
           </div>
         </div>
-      </div>
-    </div>
   );
 }
 

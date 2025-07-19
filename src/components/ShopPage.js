@@ -2,11 +2,10 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../UserContext';
-import Navbar from './Navbar';
-import Sidebar from './Sidebar';
 import ShopItemList from './ShopItemList';
 import ItemDetailModal from './items/ItemDetailModal';
 import './css/ShopPage.css';
+import BackButton from './BackButton';
 
 function ShopPage() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -76,12 +75,9 @@ function ShopPage() {
   };
 
   return (
-    <div className="container">
-      <header><img src="/images/buttons/banner.jpeg" alt="Banner Petaria" /></header>
-      <div className="content">
-        <Sidebar userId={user?.userId} isAdmin={user?.isAdmin} />
-        <div className="main-content">
-          <Navbar />
+
+        <div>
+          <BackButton />
           <h1>Cửa hàng vật phẩm</h1>
 
           <div className='shop-container'>
@@ -113,8 +109,7 @@ function ShopPage() {
             />
           )}
         </div>
-      </div>
-    </div>
+
   );
 }
 

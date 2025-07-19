@@ -26,38 +26,66 @@ html, body, #root {
   overflow: hidden;
 }
 
-/* a {
-  color: inherit;
-  text-decoration: none;
-}
-
-img {
-  max-width: 100%;
-  display: block;
-}
-
-button {
-  font-family: inherit;
-  cursor: pointer;
-  border: none;
-  background: none;
-}
-
-input, textarea, select {
-  font-family: inherit;
-} */
 
 /* Mobile layout container wrapper */
 .container {
   max-width: var(--max-width);
   height: 100dvh;
   margin: 0 auto;
-  /* height: 100%; */
   overflow-y: auto;
   background-color: #ffffff;
   scrollbar-width: none; /* Firefox */
+  position: relative;
 }
 
 .container::-webkit-scrollbar {
   display: none; /* Chrome, Safari */
+}
+
+/* Ensure main content doesn't get hidden behind navbar */
+/* .main-content {
+  padding-bottom: 80px;
+} */
+
+/* Mobile specific adjustments */
+@media (max-width: 1000px) {
+  /* .main-content {
+    padding-bottom: 100px;
+  } */
+}
+
+/* .content {
+  position: relative;
+} */
+
+/* Sidebar styles */
+.sidebar-v2 {
+  position: absolute;
+  /* top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%); */
+  /* width: 100%; */
+  max-width: var(--max-width);
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 9999;
+  display: none;
+}
+
+.sidebar-v2.open {
+  display: block;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+}
+
+div {
+  -webkit-tap-highlight-color: transparent;
 }

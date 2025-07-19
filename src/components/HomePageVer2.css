@@ -1,0 +1,93 @@
+.map-container {
+  width: 100%;
+  /* height: calc(100dvh - 40px); */
+  height: 100dvh;
+  overflow: auto;
+  position: relative;
+}
+
+.map-image {
+  width: 100%;
+  /* min-height: 200dvh; */
+  background-image: url('../../public/map.png'); /* use absolute path */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+}
+
+.background-video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* <== THIS is the key to 'background-size: cover' */
+  object-position: center; 
+}
+
+/* Hide text but still allow scrolling */
+.invisible-filler {
+  opacity: 0;
+  /* pointer-events: none; */
+}
+
+/* Map buttons container */
+.map-buttons {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Allow clicking through to map */
+}
+
+/* Individual map buttons */
+.map-button {
+  position: absolute;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #333;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+  cursor: pointer;
+  pointer-events: auto; /* Re-enable pointer events for buttons */
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+.map-button:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: scale(1.05);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+.map-button:active {
+  transform: scale(0.95);
+}
+
+/* Button positions - you can adjust these */
+.shop-button {
+  top: 30%;
+  left: 30%;
+  transform: translate(-50%, -50%);
+}
+
+/* .battle-button {
+  top: 30%;
+  right: 25%;
+}
+
+.inventory-button {
+  bottom: 30%;
+  left: 15%;
+}
+
+.profile-button {
+  bottom: 20%;
+  right: 20%;
+} */

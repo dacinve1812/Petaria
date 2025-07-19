@@ -1,7 +1,6 @@
 // BattlePage.js - Giao diện tổng quan các chế độ chiến đấu
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../Sidebar';
 import Navbar from '../Navbar';
 import '../css/BattlePage.css';
 
@@ -35,7 +34,7 @@ function BattlePage() {
     <div className="container">
       <header><img src="/images/buttons/banner.jpeg" alt="Banner Petaria" /></header>
       <div className="content">
-        <Sidebar userId={userId} handleLogout={handleLogout} isAdmin={isAdmin} />
+        {/* <Sidebar userId={userId} handleLogout={handleLogout} isAdmin={isAdmin} /> */}
         <div className="main-content">
           <Navbar />
           <div className="battle-header">

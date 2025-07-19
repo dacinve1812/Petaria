@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import './UserProfile.css'; // Tạo file UserProfile.css
-import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 
 function UserProfile() {
@@ -48,7 +47,7 @@ function UserProfile() {
         <img src="/images/buttons/banner.jpeg" alt="Banner Petaria" />
       </header>
       <div className="content">
-        <Sidebar userId={currentUserId} handleLogout={handleLogout} isAdmin={isAdmin} />
+        {/* <Sidebar userId={currentUserId} handleLogout={handleLogout} isAdmin={isAdmin} /> */}
         <div className="main-content">
           <Navbar />
           <div className="header-free">

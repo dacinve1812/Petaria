@@ -2,13 +2,6 @@
 @import '../styles/global.css';
 
 
-/* .container {
-    width: 100%;
-    max-width: 1480px;
-    margin: 0 auto;
-    background-color: #ffffff;
-    height: 100dvh;
-} */
 
 header {
     background-color: #f0f0f0;
@@ -22,9 +15,9 @@ header img {
     height: 0;
 }
 
-.content {
+/* .content {
     display: flex;
-}
+} */
 
 .sidebar {
     width: 100%;
@@ -69,10 +62,6 @@ header img {
     /* background-color: red; */
   }
 
-.main-content {
-    flex: 1;
-    padding: 20px;
-}
 
 .notice {
     background-color: #fff8e1;
@@ -82,7 +71,7 @@ header img {
 }
 
 .map-scroll-container {
-  width:auto;
+  width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   white-space: nowrap;
@@ -94,12 +83,11 @@ header img {
   display: none;
 }
 .map-img {
-  /* height: 70vh;
-  min-height: 300px;
-  max-height: 640px; */
   height: 640px;
   width: auto;
   display: block;
+  margin: 0 auto;
+
 }
 
 .links {
@@ -313,7 +301,7 @@ table {
   left: -260px;
   height: 100vh;
   z-index: 30;
-  transition: left 0.3s cubic-bezier(.4,2,.6,1);
+  transition: translate 0.3s cubic-bezier(.4,2,.6,1);
 }
 .sidebar-v2.open {
   left: 0;
@@ -339,11 +327,14 @@ table {
 .NavbarMobile {
   display: none !important;
 } 
+@media (max-width: 1000px) {
+  .sidebar-v2 {
+    position: fixed;
+  }
+}
 
-@media (max-width: 800px) {
-    .sidebar-v2 {
-        position: fixed;
-      }
+@media (max-width: 860px) {
+
     .map-scroll-container{
       width: 100vw;
     }
