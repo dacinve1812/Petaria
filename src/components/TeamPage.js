@@ -7,7 +7,7 @@ const TeamPage = () => {
   const navigate = useNavigate();
 
   const handleBack = () => {
-    navigate('/home-ver2');
+    navigate('/');
   };
 
   return (

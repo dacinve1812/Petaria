@@ -7,7 +7,7 @@ const TasksPage = () => {
   const navigate = useNavigate();
 
   const handleBack = () => {
-    navigate('/home-ver2');
+    navigate('/');
   };
 
   return (

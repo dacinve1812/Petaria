@@ -7,14 +7,14 @@ const BottomNavbar = ({ onToggleSidebar, sidebarOpen }) => {
   const location = useLocation();
 
   const navItems = [
-    { id: 'town', label: 'Thị trấn', icon: '🏘️', path: '/', hasNotification: false },
-    { id: 'shop', label: 'Cửa hàng', icon: '🛒', path: '/shop', hasNotification: true },
-    { id: 'pokedex', label: 'Petadex', icon: '📖', path: '/pokedex', hasNotification: true },
-    { id: 'cultivate', label: 'Huấn luyện', icon: '⭐', path: '/cultivate', hasNotification: true },
-    { id: 'inventory', label: 'Túi đồ', icon: '🎒', path: '/inventory', hasNotification: true },
-    { id: 'tasks', label: 'Nhiệm vụ', icon: '✅', path: '/tasks', hasNotification: true },
-    { id: 'pokemon', label: 'Thú cưng', icon: '⚡', path: '/myhome', hasNotification: true },
-    { id: 'team', label: 'Đội hình', icon: '🏁', path: '/team', hasNotification: true }
+    // { id: 'town', label: 'Thị trấn', icon: '/images/icons/placeholder.png', path: '/home-ver2', hasNotification: false },
+    { id: 'shop', label: 'Cửa hàng', icon: '/images/icons/shop.png', path: '/shop', hasNotification: true },
+    // { id: 'pokedex', label: 'Petadex', icon: '/images/icons/Pokedex.png', path: '/pokedex', hasNotification: true },
+    { id: 'cultivate', label: 'Huấn luyện', icon: '/images/icons/training.png', path: '/cultivate', hasNotification: true },
+    { id: 'inventory', label: 'Túi đồ', icon: '/images/icons/inventory-2.png', path: '/inventory', hasNotification: true },
+    // { id: 'tasks', label: 'Nhiệm vụ', icon: '/images/icons/mission.png', path: '/tasks', hasNotification: true },
+    { id: 'pokemon', label: 'Thú cưng', icon: '/images/icons/pet.png', path: '/myhome', hasNotification: true },
+    { id: 'team', label: 'Đội hình', icon: '/images/icons/team.png', path: '/team', hasNotification: true }
   ];
 
   const handleNavClick = (path) => {
@@ -38,7 +38,7 @@ const BottomNavbar = ({ onToggleSidebar, sidebarOpen }) => {
           onClick={() => handleNavClick(item.path)}
         >
           <div className="nav-icon">
-            {item.icon}
+            <img src={item.icon} alt={item.label} />
             {item.hasNotification && <div className="notification-dot"></div>}
           </div>
           <span className="nav-label">{item.label}</span>

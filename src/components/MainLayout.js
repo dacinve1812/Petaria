@@ -10,52 +10,51 @@ function MainLayout() {
     const navigate = useNavigate();
     const [userId, setUserId] = useState(null);
     const [error, setError] = useState(null);
-      const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(true); // Always mobile layout
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(true); // Always mobile layout
 
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            navigate('/login');
+            return;
+        }
+        try {
+            const decodedToken = JSON.parse(atob(token.split('.')[1]));
+            setUserId(decodedToken.userId);
+        } catch (err) {
+            console.error('Error decoding token:', err);
+            setError('Invalid token');
+        }
+    }, [navigate]);
 
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    const handleLogout = () => {
+        localStorage.removeItem('token');
         navigate('/login');
-        return;
-    }
-    try {
-        const decodedToken = JSON.parse(atob(token.split('.')[1]));
-        setUserId(decodedToken.userId);
-    } catch (err) {
-        console.error('Error decoding token:', err);
-        setError('Invalid token');
-    }
-}, [navigate]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
     };
 
-const isAdmin = localStorage.getItem('isAdmin') === 'true';
+    const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
-  return (
-    <div className="container">
-        <div className="content">
-            {sidebarOpen && (
-                <div className="sidebar-v2 open">
-                <Sidebar userId={userId} handleLogout={handleLogout} isAdmin={isAdmin} />
+    return (
+        <div className="container">
+            <div className="content">
+                <Sidebar 
+                    userId={userId} 
+                    handleLogout={handleLogout} 
+                    isAdmin={isAdmin}
+                    className={sidebarOpen ? 'sidebar open' : 'sidebar'}
+                />
+                {sidebarOpen && (
+                    <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>
+                )}
+                <div className="main-content">
+                    <Outlet />
                 </div>
-            )}
-            {sidebarOpen && (
-                <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>
-            )}
-      <div className="main-content">
-        <Outlet />
-      </div>
-      <BottomNavbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
-      {userId && <CurrencyDisplay userId={userId} />}
-      </div>
-    </div>
-  );
+                <BottomNavbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
+                {userId && <CurrencyDisplay userId={userId} />}
+            </div>
+        </div>
+    );
 }
 
 export default MainLayout; 

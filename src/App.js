@@ -83,7 +83,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<Auth onLoginSuccess={handleLoginSuccess} />} />
             <Route path="/" element={<MainLayout />}>
-              <Route index element={user ? <HomePage isLoggedIn={true} onLogoutSuccess={handleLogoutSuccess} /> : <Auth onLoginSuccess={handleLoginSuccess} />} />
+              <Route index element={user ? <HomePageVer2 isLoggedIn={true} onLogoutSuccess={handleLogoutSuccess} /> : <Auth onLoginSuccess={handleLoginSuccess} />} />
               <Route path="orphanage" element={<Orphanage />} />
               <Route path="myhome" element={<MyHome isLoggedIn={!!user} onLogoutSuccess={handleLogoutSuccess} />} />
               <Route path="admin" element={<Admin />} />
@@ -103,7 +103,7 @@ function App() {
               <Route path="battle/pve/arena" element={<ArenaPage />} />
               <Route path="admin/create-arena-pet" element={<AdminAddPetForBattle />} />
               <Route path="battle/pve/arena/arenabattle" element={<ArenaBattlePage />} />
-              <Route path="home-ver2" element={<HomePageVer2 />} />
+              <Route path="home-ver2" element={<HomePage />} />
               <Route path="pokedex" element={<PokedexPage />} />
               <Route path="cultivate" element={<CultivatePage />} />
               <Route path="tasks" element={<TasksPage />} />

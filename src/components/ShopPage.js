@@ -73,11 +73,14 @@ function ShopPage() {
       alert(data.error || 'Đã có lỗi xảy ra');
     }
   };
+  const handleBack = () => {
+    navigate('/');
+  };
 
   return (
 
         <div>
-          <BackButton />
+          <BackButton onClick={handleBack} />
           <h1>Cửa hàng vật phẩm</h1>
 
           <div className='shop-container'>

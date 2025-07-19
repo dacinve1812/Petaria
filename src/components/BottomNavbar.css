@@ -26,26 +26,19 @@
   transition: all 0.2s ease;
   position: relative;
   min-width: 40px;
-  background-image: url('../../public/images/icons/pokeball-bg.png');
-  background-size: 45px;
-  background-position: center;
-  background-repeat: no-repeat;
 }
 
-
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: translateY(-2px);
+  /* scale: 1.1; */
 }
 
 .nav-item.active {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
+  /* scale: 1.2; */
 }
 
 .nav-icon {
   position: relative;
-  font-size: 20px;
+  font-size: var(--font-xl);
   margin-bottom: 2px;
   display: flex;
   align-items: center;
@@ -57,18 +50,35 @@
   transition: all 0.2s ease;
 }
 
+.nav-icon img {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+  transition: all 0.2s ease;
+}
+
 .nav-item:hover .nav-icon {
   /* background: rgba(255, 255, 255, 0.2); */
   transform: scale(1.1);
 }
 
-.nav-item.active .nav-icon {
-  /* background: rgba(255, 255, 255, 0.3); */
+.nav-item:hover .nav-icon img {
   transform: scale(1.1);
 }
 
+/* .nav-item.active .nav-icon {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.nav-item.active .nav-icon img {
+  transform: scale(1.1);
+} */
+
 .nav-label {
-  font-size: 12px;
+  font-size: var(--font-sm);
+  white-space: nowrap;
   font-weight: 750;
   color: #000000;
   text-align: center;
@@ -87,7 +97,6 @@
   border: 1px solid white;
   animation: pulse 2s infinite;
 }
-
 
 @keyframes pulse {
   0% {
@@ -126,8 +135,13 @@
   
   .nav-icon {
     font-size: 18px;
-    width: 28px;
-    height: 28px;
+    width: 40px;
+    height: 40px;
+  }
+  
+  .nav-icon img {
+    width: 40px;
+    height: 40px;
   }
   
   .pokeball-icon {
