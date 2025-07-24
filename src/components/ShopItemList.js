@@ -1,44 +1,87 @@
 // File: ShopItemList.js
-import React, { useState } from 'react';
+import React from 'react';
 import './css/ShopPage.css';
 
 function ShopItemList({ items = [], onItemClick }) {
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 12;
+  const getItemStatus = (item) => {
+    if (item.stock_limit === 0 || item.stock_limit === null) {
+      return { type: 'sold-out', text: 'Sold Out' };
+    }
+    if (item.stock_limit <= 2) {
+      return { type: 'limited', text: 'Limited' };
+    }
+    return null;
+  };
 
-  const totalPages = Math.ceil(items.length / pageSize);
-  const paginatedItems = items.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const getItemTag = (item) => {
+    // Logic để xác định tag dựa trên item properties
+    if (item.price > 100000) {
+      return { type: 'super-value', text: 'Super Value' };
+    }
+    if (item.name.includes('Ticket') || item.name.includes('Summon')) {
+      return { type: 'must-buy', text: 'Must-Buy' };
+    }
+    return null;
+  };
+
+  if (!Array.isArray(items)) {
+    return (
+      <div className='item-list-container'>
+        <div className='error-message'>
+          Error: Items data is invalid
+        </div>
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className='item-list-container'>
+        <div className='empty-message'>
+          Không có vật phẩm nào trong shop này
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className='item-list-container'>
-        {paginatedItems.map((item, index) => (
+    <div className='item-list-container'>
+      {items.map((item, index) => {
+        const status = getItemStatus(item);
+        const tag = getItemTag(item);
+        
+        return (
           <div
             key={`${item.id}-${index}`}
-            className='item-list-detail'
+            className={`item-list-detail ${status?.type || ''}`}
             onClick={() => onItemClick && onItemClick(item)}
-            style={{ cursor: 'pointer' }}
           >
-            <img src={`/images/equipments/${item.image_url}`} alt={item.name} width="60" />
-            <div><strong>{item.name}</strong></div>
-            <div>Còn lại: {item.stock_limit === null ? '0' : item.stock_limit}</div>
-            <div>Giá: {item.price.toLocaleString()} {item.currency_type === 'gem' ? 'petaGold' : 'peta'}</div>
+            {status && status.type === 'sold-out' && (
+              <div className={`item-status-overlay ${status.type}`}>
+                {status.text}
+              </div>
+            )}
+            {tag && (
+              <div className={`item-tag ${tag.type}`}>
+                {tag.text}
+              </div>
+            )}
+            <img src={`/images/equipments/${item.image_url}`} alt={item.name} />
+            <strong>{item.name}</strong>
+            <div className="item-stock">
+              Còn lại: {item.stock_limit === null ? '0' : item.stock_limit}
+            </div>
+            <div className="item-price">
+              Giá: {item.price.toLocaleString()} {item.currency_type === 'gem' ? 'petaGold' : 'peta'}
+            </div>
+            {status && status.type !== 'sold-out' && (
+              <div className={`item-status ${status.type}`}>
+                {status.text}
+              </div>
+            )}
           </div>
-        ))}
-      </div>
-
-      <div style={{ marginTop: '20px', textAlign: 'center' }}>
-        {Array.from({ length: totalPages }, (_, i) => (
-          <button
-            key={i + 1}
-            onClick={() => setCurrentPage(i + 1)}
-            disabled={currentPage === i + 1}
-            style={{ margin: '0 5px' }}
-          >
-            {i + 1}
-          </button>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
 }

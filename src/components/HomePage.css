@@ -297,9 +297,7 @@ table {
     .map-scroll-container{
       width: 100vw;
     }
-    .main-content{
-      padding: 0;
-    }
+
   }
   @media (max-height: 933px) {
     .map-img {

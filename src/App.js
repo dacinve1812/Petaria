@@ -29,6 +29,7 @@ import PokedexPage from './components/PokedexPage';
 import CultivatePage from './components/CultivatePage';
 import TasksPage from './components/TasksPage';
 import TeamPage from './components/TeamPage';
+import HuntingWorldPage from './components/HuntingWorldPage';
 
 function App() {
   const [user, setUser] = useState(undefined);
@@ -108,6 +109,7 @@ function App() {
               <Route path="cultivate" element={<CultivatePage />} />
               <Route path="tasks" element={<TasksPage />} />
               <Route path="team" element={<TeamPage />} />
+              <Route path="hunting-world" element={<HuntingWorldPage />} />
             </Route>  
           </Routes>
         </div>

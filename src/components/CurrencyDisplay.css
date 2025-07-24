@@ -9,104 +9,159 @@
   display: flex;
   flex-direction: row;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 15px;
   padding-right: 20px;
   pointer-events: none;
+  height: 30px;
 }
 
 .currency-box {
   display: flex;
   align-items: center;
-  background: linear-gradient(135deg, #4a90e2, #357abd);
-  border: 2px solid #2c5aa0;
-  border-radius: 8px;
-  padding: 8px 12px;
-  min-width: 120px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(10px);
+  background: #fffced; 
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 0px 10px;
+  min-width: 100px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   pointer-events: auto;
 }
 
 .currency-box:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.currency-box.peta {
-  background: linear-gradient(135deg, #f39c12, #e67e22);
-  border-color: #d68910;
-}
-
-.currency-box.petagold {
-  background: linear-gradient(135deg, #e74c3c, #c0392b);
-  border-color: #a93226;
-}
 
 .currency-icon {
-  font-size: 20px;
-  margin-right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
-.currency-info {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.currency-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  margin-bottom: 2px;
+.currency-icon img {
+  width: 100%;
+  height: 100%;
+  margin-left: -30px;
+  object-fit: contain;
 }
 
 .currency-value {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
-  color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  color: #333333;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+.add-button {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ff4757;
+  border: none;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.add-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .currency-display {
-    
-    gap: 8px;
+    gap: 10px;
+    height: 28px;
   }
   
   .currency-box {
-    min-width: 100px;
-    padding: 6px 10px;
+    min-width: 120px;
+    padding: 10px 12px;
+    gap: 8px;
   }
   
-  .currency-label {
-    font-size: 11px;
+  .currency-icon {
+    width: 28px;
+    height: 28px;
   }
   
   .currency-value {
-    font-size: 13px;
+    font-size: 14px;
+  }
+  
+  .add-button {
+    width: 20px;
+    height: 20px;
+    font-size: 14px;
   }
 }
 
 @media (max-width: 480px) {
   .currency-display {
     padding-right: 10px;
-    gap: 6px;
+    gap: 8px;
+    height: 24px;
   }
   
   .currency-box {
-    min-width: 90px;
-    padding: 5px 8px;
+    min-width: 100px;
+    padding: 8px 10px;
+    gap: 6px;
   }
   
-  .currency-label {
-    font-size: 10px;
+  .currency-icon {
+    width: 24px;
+    height: 24px;
   }
   
   .currency-value {
+    font-size: 12px;
+  }
+  
+  .add-button {
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+  }
+} 
+
+@media (max-width: 400px) {
+  .currency-display {
+    padding-right: 10px;
+    gap: 8px;
+    height: 20px;
+  }
+  
+  .currency-box {
+    min-width: 80px;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  
+  .currency-icon {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .currency-value {
+    font-size: 10px;
+  }
+  
+  .add-button {
+    width: 18px;
+    height: 18px;
     font-size: 12px;
   }
 } 

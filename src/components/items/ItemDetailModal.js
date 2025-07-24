@@ -75,6 +75,9 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
     onClose();
   };
 
+  // Check if item is sold out
+  const isSoldOut = item.stock_limit === 0 || item.stock_limit === null;
+
   if (!item) return null;
 
   return (
@@ -86,8 +89,12 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
         <p className="modal-desc">{item.description}</p>
 
         {mode === 'shop' ? (
-          <button onClick={() => onBuy(item)}>
-            Mua với giá {item.price.toLocaleString()} {item.currency_type === 'gem' ? 'petaGold' : 'peta'}
+          <button 
+            className={`buy-button ${isSoldOut ? 'sold-out' : ''}`}
+            onClick={isSoldOut ? undefined : () => onBuy(item)}
+            disabled={isSoldOut}
+          >
+            {isSoldOut ? 'Vật phẩm đã bán hết' : `Mua với giá ${item.price.toLocaleString()} ${item.currency_type === 'gem' ? 'petaGold' : 'peta'}`}
           </button>
         ) : (
           <>

@@ -25,17 +25,19 @@ function CurrencyDisplay({ userId }) {
   return (
     <div className="currency-display">
       <div className="currency-box peta">
-        <div className="currency-info">
-          <div className="currency-label">💰Peta</div>
-          <div className="currency-value">{userData.gold.toLocaleString()}</div>
+        <div className="currency-icon">
+          <img src="/images/icons/peta.png" alt="Peta Coin" />
         </div>
+        <div className="currency-value">{userData.gold.toLocaleString()}</div>
+        {/* <button className="add-button">+</button> */}
       </div>
       
       <div className="currency-box petagold">
-        <div className="currency-info">
-          <div className="currency-label">💎 PetaGold</div>
-          <div className="currency-value">{userData.petagold.toLocaleString()}</div>
+        <div className="currency-icon">
+          <img src="/images/icons/petagold.png" alt="PetaGold Diamond" />
         </div>
+        <div className="currency-value">{userData.petagold.toLocaleString()}</div>
+        {/* <button className="add-button">+</button> */}
       </div>
     </div>
   );

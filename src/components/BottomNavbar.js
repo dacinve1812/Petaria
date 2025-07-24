@@ -10,6 +10,17 @@ const BottomNavbar = ({ onToggleSidebar, sidebarOpen }) => {
   const [submenuPosition, setSubmenuPosition] = useState({ x: 0, y: 0 });
   const navItemRefs = useRef({});
 
+  // Check if current page is home page (where BottomNavbar should be shown)
+  const isHomePage = () => {
+    const homePaths = ['/', '/home', '/home-ver2'];
+    return homePaths.includes(location.pathname);
+  };
+
+  // Don't render BottomNavbar if not on home page
+  if (!isHomePage()) {
+    return null;
+  }
+
   // Bottom navbar height based on screen size
   const getBottomNavbarHeight = () => {
     if (window.innerWidth <= 480) {

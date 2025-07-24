@@ -43,9 +43,10 @@ html, body, #root {
 }
 
 /* Ensure main content doesn't get hidden behind navbar */
-/* .main-content {
-  padding-bottom: 80px;
-} */
+.main-content-page {
+  padding: 35px 0;
+
+}
 
 /* Mobile specific adjustments */
 @media (max-width: 1000px) {
@@ -54,9 +55,7 @@ html, body, #root {
   } */
 }
 
-/* .content {
-  position: relative;
-} */
+
 
 /* Sidebar styles */
 .sidebar-v2 {
@@ -88,4 +87,10 @@ html, body, #root {
 
 div {
   -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 480px) {
+  div, button {
+    font-size: var(--font-sm) !important;
+  }
 }

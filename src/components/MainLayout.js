@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import BottomNavbar from './BottomNavbar';
 import CurrencyDisplay from './CurrencyDisplay';
+import HomeFloatingButtons from './HomeFloatingButtons';
 import { Outlet } from 'react-router-dom';
 import '../styles/global.css';
 
 function MainLayout() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [userId, setUserId] = useState(null);
     const [error, setError] = useState(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -35,6 +37,12 @@ function MainLayout() {
 
     const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
+    // Check if current page is home page (where BottomNavbar should be shown)
+    const isHomePage = () => {
+        const homePaths = ['/', '/home', '/home-ver2'];
+        return homePaths.includes(location.pathname);
+    };
+
     return (
         <div className="container">
             <div className="content">
@@ -50,7 +58,10 @@ function MainLayout() {
                 <div className="main-content">
                     <Outlet />
                 </div>
-                <BottomNavbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
+                {isHomePage() && (
+                    <BottomNavbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
+                )}
+                {isHomePage() && <HomeFloatingButtons />}
                 {userId && <CurrencyDisplay userId={userId} />}
             </div>
         </div>

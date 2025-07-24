@@ -1,14 +1,14 @@
 .back-button-container {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: var(--max-width);
-  z-index: 20;
-  transition: transform 0.2s ease;
-  padding-left: 20px;
-  pointer-events: none;
+  position: fixed !important;
+  top: 20px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: 100% !important;
+  max-width: var(--max-width) !important;
+  z-index: 100 !important;
+  transition: transform 0.2s ease !important;
+  padding-left: 20px !important;
+  pointer-events: none !important;
 }
 
 .back-button {
@@ -16,8 +16,8 @@
   border: none;
   cursor: pointer;
   padding: 0;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: flex;
   align-items: center;
