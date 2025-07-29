@@ -1046,7 +1046,7 @@ app.get('/api/users/:userId/inventory', async (req, res) => {
 
   try {
     const [rows] = await db.query(`
-        SELECT i.*, it.name, it.image_url, it.type, p.name AS pet_name, p.level AS pet_level
+        SELECT i.*, it.name, it.image_url, it.type, it.rarity, p.name AS pet_name, p.level AS pet_level
         FROM inventory i
         JOIN items it ON i.item_id = it.id
         LEFT JOIN pets p ON i.equipped_pet_id = p.id

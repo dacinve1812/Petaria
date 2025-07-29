@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import './PetProfile.css';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
+import BackButton from './BackButton';
 import expTable from '../data/exp_table_petaria.json';
 
 // Component hiển thị hunger status
@@ -119,6 +120,10 @@ function PetProfile() {
     navigate('/login');
   };
 
+  const handleBack = () => {
+    navigate('/myhome');
+  };
+
   const handleReleasePet = async () => {
     if (!pet || !currentUserId) return;
     if (pet.owner_id !== currentUserId) {
@@ -187,7 +192,10 @@ function PetProfile() {
 
   return (
     <div className="container">
-      <header><img src="/images/buttons/banner.jpeg" alt="Banner Petaria" /></header>
+      <header>
+        <BackButton onClick={handleBack} />
+        <img src="/images/buttons/banner.jpeg" alt="Banner Petaria" />
+      </header>
       <div className="content">
 
         <div className="main-content">
@@ -195,48 +203,54 @@ function PetProfile() {
           <div className="pet-profile">
             <div className='pet-header'>Xem thông tin thú cưng</div>
             <div className="pet-details">
-              <p>Tên: {pet.name}</p>
-              <p><span className='extra-stats'>{isEvolved ? 'Đã tiến hóa' : 'Chưa tiến hóa'}</span></p>
-              <p>Đẳng cấp: {pet.level}</p>
-              <p>Sinh Nhật: {pet.created_date ? new Date(pet.created_date).toLocaleDateString() : 'N/A'}</p>
-              <p>Hạng: {pet.rank || 'N/A'}</p>
-              <p>EXP: {expProgress} / {expToNextLevel}</p>
-              <progress value={(expProgress - expToThisLevel)} max={expRequired}></progress>
-              <p>Sức Khỏe: {pet.hp}/{pet.max_hp}</p>
-              <p>Năng Lượng: {pet.mp}/{pet.max_mp}</p>
-              <p>Sức Mạnh: {pet.str}{pet.str_added > 0 ? ` (+${pet.str_added})` : ''}</p>
-              <p>Phòng Thủ: {pet.def}{pet.def_added > 0 ? ` (+${pet.def_added})` : ''}</p>
-              <p>Thông Minh: {pet.intelligence}{pet.intelligence_added > 0 ? ` (+${pet.intelligence_added})` : ''}</p>
-              <p>Tốc Độ: {pet.spd}{pet.spd_added > 0 ? ` (+${pet.spd_added})` : ''}</p>
-                             <p>Tình Trạng: {hungerStatus ? <HungerStatusDisplay 
+              <p style={{ animationDelay: '0.02s' }}>Tên: {pet.name}</p>
+              <p style={{ animationDelay: '0.04s' }}><span className='extra-stats'>{isEvolved ? 'Đã tiến hóa' : 'Chưa tiến hóa'}</span></p>
+              <p style={{ animationDelay: '0.06s' }}>Đẳng cấp: {pet.level}</p>
+              <p style={{ animationDelay: '0.08s' }}>Sinh Nhật: {pet.created_date ? new Date(pet.created_date).toLocaleDateString() : 'N/A'}</p>
+              <p style={{ animationDelay: '0.1s' }}>Hạng: {pet.rank || 'N/A'}</p>
+              <p style={{ animationDelay: '0.12s' }}>EXP: {expProgress} / {expToNextLevel}</p>
+              <progress value={(expProgress - expToThisLevel)} max={expRequired} style={{ animationDelay: '0.13s' }}></progress>
+              <p style={{ animationDelay: '0.14s' }}>Sức Khỏe: {pet.hp}/{pet.max_hp}</p>
+              <p style={{ animationDelay: '0.16s' }}>Năng Lượng: {pet.mp}/{pet.max_mp}</p>
+              <p style={{ animationDelay: '0.18s' }}>Sức Mạnh: {pet.str}{pet.str_added > 0 ? ` (+${pet.str_added})` : ''}</p>
+              <p style={{ animationDelay: '0.2s' }}>Phòng Thủ: {pet.def}{pet.def_added > 0 ? ` (+${pet.def_added})` : ''}</p>
+              <p style={{ animationDelay: '0.22s' }}>Thông Minh: {pet.intelligence}{pet.intelligence_added > 0 ? ` (+${pet.intelligence_added})` : ''}</p>
+              <p style={{ animationDelay: '0.24s' }}>Tốc Độ: {pet.spd}{pet.spd_added > 0 ? ` (+${pet.spd_added})` : ''}</p>
+              <p style={{ animationDelay: '0.26s' }}>Tình Trạng: {hungerStatus ? <HungerStatusDisplay 
                     hungerStatus={hungerStatus.hunger_status}
                     canBattle={hungerStatus.can_battle}
                   /> : 'Ổn định'}</p>
               
               <br />
-              <p>Chiến đấu thắng: {pet.battles_won || 'N/A'}</p>
+              <p style={{ animationDelay: '0.28s' }}>Chiến đấu thắng: {pet.battles_won || 'N/A'}</p>
             </div>
             <div className="pet-details-right">
               <img src={`/images/pets/${pet.image}`} alt={pet.name || pet.pet_types_name} className="pet-image" />
               <h2>{pet.name || pet.pet_types_name}</h2>
               <p className="pet-species">Loài: {pet.pet_types_name}</p>
-              <p>Linh thú trang bị:</p>
-              <p>Vật phẩm trang bị:</p>
+              <p style={{ animationDelay: '0.3s' }}>Linh thú trang bị:</p>
+              <p style={{ animationDelay: '0.32s' }}>Vật phẩm trang bị:</p>
               <div className="equipped-items" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                {equippedItems.length === 0 && <p>(Không có item nào)</p>}
-                {equippedItems.map(item => (
+                {equippedItems.length === 0 && <p style={{ animationDelay: '0.34s' }}>(Không có item nào)</p>}
+                {equippedItems.map((item, index) => (
                   <div key={item.id} style={{ position: 'relative' }}>
                     <img
                       src={`/images/equipments/${item.image_url}`}
                       alt={item.item_name}
                       title={`${item.item_name} (Durability: ${item.durability})`}
-                      style={{ width: 'min(64px,90%)', height: '64px', objectFit: 'contain' }}
+                      style={{ 
+                        width: 'min(64px,90%)', 
+                        height: '64px', 
+                        objectFit: 'contain',
+                        animationDelay: `${0.34 + (index * 0.02)}s`
+                      }}
                     />
                     {currentUserId === pet.owner_id && (
                       <button
                         onClick={() => handleUnequip(item.id)}
                         className="remove-button"
                         title="Gỡ vật phẩm"
+                        style={{ animationDelay: `${0.34 + (index * 0.02)}s` }}
                       >
                         <img className="icon-button-1" src="/images/icons/delete.png" alt="remove" />
                       </button>

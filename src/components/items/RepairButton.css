@@ -2,7 +2,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
@@ -47,7 +46,6 @@
 /* Responsive design */
 @media (max-width: 768px) {
   .repair-button {
-    padding: 8px 12px;
     font-size: 12px;
   }
   
@@ -70,8 +68,7 @@
 }
 
 /* Compact version for smaller spaces */
-.repair-button.compact {
-  padding: 6px 10px;
+.repair-button.compact {  
   font-size: 12px;
   gap: 4px;
 }

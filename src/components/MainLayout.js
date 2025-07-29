@@ -43,6 +43,12 @@ function MainLayout() {
         return homePaths.includes(location.pathname);
     };
 
+    // Check if current page should show CurrencyDisplay
+    const shouldShowCurrencyDisplay = () => {
+        const currencyDisplayPaths = ['/', '/home', '/home-ver2', '/shop', '/inventory'];
+        return currencyDisplayPaths.includes(location.pathname);
+    };
+
     return (
         <div className="container">
             <div className="content">
@@ -62,7 +68,7 @@ function MainLayout() {
                     <BottomNavbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
                 )}
                 {isHomePage() && <HomeFloatingButtons />}
-                {userId && <CurrencyDisplay userId={userId} />}
+                {userId && shouldShowCurrencyDisplay() && <CurrencyDisplay userId={userId} />}
             </div>
         </div>
     );

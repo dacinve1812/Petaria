@@ -23,7 +23,6 @@ const RepairButton = ({ userId, onRepairComplete }) => {
         onClick={handleOpenModal}
         title="Sửa chữa equipment bị hỏng"
       >
-        <span className="repair-icon">🔧</span>
         <span className="repair-text">Sửa chữa</span>
       </button>
 

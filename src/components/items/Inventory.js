@@ -7,6 +7,7 @@ import Navbar from '../Navbar';
 import ItemCard from './ItemCard';
 import ItemDetailModal from './ItemDetailModal';
 import RepairButton from './RepairButton';
+import BackButton from '../BackButton';
 
 function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -20,7 +21,7 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showEquipped, setShowEquipped] = useState(true);
-  const pageSize = 50;
+  const pageSize = 24;
   const navigate = useNavigate();
   const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
@@ -68,6 +69,13 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
     setSelectedItem(null);
   };
 
+  const handleBack = () => {
+    navigate('/');
+  };
+
+  // Force re-render when filter changes to trigger animation
+  const animationKey = `${filterType}-${searchTerm}-${sortOption}-${showEquipped}-${currentPage}`;
+
   const filterOptions = ['all', 'food', 'consumable', 'equipment', 'booster', 'misc'];
 
   const filteredItems = inventoryItems
@@ -107,99 +115,126 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   if (error) return <div>Error: {error}</div>;
 
   return (
-    <div className="main-content">
-          <Navbar />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div>
-              <h2>Kho vật phẩm</h2>
-              <Link to={`/profile/${userId}`}><p>Trang cá nhân</p></Link>
-            </div>
-            <RepairButton userId={userId} onRepairComplete={handleRepairComplete} />
+    <div className="inventory-page">
+      {/* Banner section */}
+      <div className="inventory-banner">
+        <BackButton onClick={handleBack} />
+        <div className="banner-content">
+          <div className="banner-center">
+            <h2>Kho vật phẩm</h2>
           </div>
+        </div>
+      </div>
 
-          <input
-            type="text"
-            placeholder="Tìm kiếm vật phẩm..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ padding: '6px', margin: '10px 0', width: '100%' }}
-          />
-
-          <div style={{ marginBottom: '10px' }}>
+      {/* Main content */}
+      <div className="inventory-main">
+        {/* Filter options */}
+        <div className="filter-section">
+          <div className="filter-buttons">
             {filterOptions.map(type => (
               <button
                 key={type}
                 onClick={() => { setFilterType(type); setCurrentPage(1); }}
-                style={{
-                  marginRight: '8px', padding: '6px 10px',
-                  background: type === filterType ? '#c0ffe4' : '#eee',
-                  border: '1px solid #999', borderRadius: '6px'
-                }}
+                className={`filter-btn ${type === filterType ? 'active' : ''}`}
               >
                 {type.charAt(0).toUpperCase() + type.slice(1)}
               </button>
             ))}
-          
+          </div>
+        </div>
+
+        {/* Controls section */}
+        <div className="inventory-controls">
+          {/* Row 1: Search + Sort */}
+          <div className="controls-row controls-row-1">
+            <div className="search-section">
+              <input
+                type="text"
+                placeholder="Tìm kiếm vật phẩm..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
+            </div>
+
+            <div className="sort-controls">
+              <label className="sort-label">Sắp xếp theo:</label>
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value)}
+                className="sort-select"
+              >
+                <option value="name">Tên (A-Z)</option>
+                <option value="quantity">Số lượng</option>
+              </select>
+            </div>
           </div>
 
-          <div style={{ marginBottom: '15px' }}>
-            <label>Sắp xếp theo:</label>
-            <select
-              value={sortOption}
-              onChange={(e) => setSortOption(e.target.value)}
-              style={{ marginLeft: '10px', padding: '4px 8px' }}
-            >
-              <option value="name">Tên (A-Z)</option>
-              <option value="quantity">Số lượng</option>
-            </select>
+          {/* Row 2: Toggle + Repair */}
+          <div className="controls-row controls-row-2">
             <button
               onClick={() => setShowEquipped(prev => !prev)}
-              style={{ marginLeft: '20px', background: '#ddd', padding: '6px 10px', border: '1px solid #aaa' }}
+              className="toggle-equipped-btn"
             >
               {showEquipped ? 'Ẩn vật phẩm đã trang bị' : 'Hiện tất cả vật phẩm'}
             </button>
-          </div>
-          
 
-          <div className="inventory-container">
-            {paginatedItems.length > 0 ? (
-              <div className="item-grid">
-                {paginatedItems.map((item, index) => (
-                  <ItemCard
-                    key={`${item.id}-${index}`}
-                    item={item}
-                    note={item.is_equipped ? `Trang bị cho ${item.pet_name || '??'} Lvl. ${item.pet_level}` : ''}
-                    icon={item.is_equipped ? <img className="icon-button-1" src="/images/icons/equipped.png" alt="equipped" /> : ''}
-                    onClick={() => handleCardClick(item)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p>Bạn chưa có vật phẩm nào.</p>
-            )}
-
-            <div style={{ marginTop: '20px', textAlign: 'center' }}>
-              {Array.from({ length: totalPages }, (_, i) => (
-                <button
-                  key={i + 1}
-                  onClick={() => setCurrentPage(i + 1)}
-                  disabled={currentPage === i + 1}
-                  style={{ margin: '0 5px' }}
-                >
-                  {i + 1}
-                </button>
-              ))}
+            <div className="repair-section">
+              <RepairButton userId={userId} onRepairComplete={handleRepairComplete} />
             </div>
-
-            {selectedItem && (
-              <ItemDetailModal
-              item={selectedItem}
-              onClose={handleCloseModal}
-              onUpdateItem={updateSingleItemInState}
-            />
-            )}
           </div>
         </div>
+
+        {/* Items grid */}
+        <div className="inventory-container">
+          {paginatedItems.length > 0 ? (
+            <div className="item-grid" key={animationKey}>
+              {paginatedItems.map((item, index) => (
+                <ItemCard
+                  key={`${item.id}-${index}`}
+                  item={item}
+                  note={item.is_equipped ? `Trang bị cho ${item.pet_name || '??'} Lvl. ${item.pet_level}` : ''}
+                  icon={item.is_equipped ? <img className="icon-button-1" src="/images/icons/equipped.png" alt="equipped" /> : ''}
+                  onClick={() => handleCardClick(item)}
+                  style={{ animationDelay: `${index * 0.02}s` }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-inventory">
+              <p>Bạn chưa có vật phẩm nào.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Pagination at bottom */}
+      {totalPages >= 1 && (
+        <div className="pagination-container">
+          <div className="pagination">
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button
+                key={i + 1}
+                onClick={() => setCurrentPage(i + 1)}
+                disabled={currentPage === i + 1}
+                className={`page-btn ${currentPage === i + 1 ? 'active' : ''}`}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modal */}
+      {selectedItem && (
+        <ItemDetailModal
+          item={selectedItem}
+          onClose={handleCloseModal}
+          onUpdateItem={updateSingleItemInState}
+        />
+      )}
+    </div>
   );
 }
 

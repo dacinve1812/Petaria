@@ -1,1 +1,11 @@
 https://nintendo.fandom.com/wiki/Suicune/gallery
+
+handlePetTypeSubmit
+setShowCreatePetType
+handlePetTypeInputChange
+setShowPetTypes
+setSearchTermPetType
+handlePetTypeEdit
+handlePetTypeDelete
+
+handleEditPetTypeInputChange

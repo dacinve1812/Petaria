@@ -92,16 +92,25 @@
     object-fit: cover;
     /* margin-bottom: 10px; */
     /* border: solid 1px black; */
+    animation: fadeInUp 0.3s ease-out;
+    animation-fill-mode: both;
+    animation-delay: 0.1s;
 }
 
 .pet-header h2 {
     margin-top: 0;
     color: #333;
+    animation: fadeInUp 0.3s ease-out;
+    animation-fill-mode: both;
+    animation-delay: 0.2s;
 }
 
 .pet-species {
     color: #777;
     margin-top:0;
+    animation: fadeInUp 0.3s ease-out;
+    animation-fill-mode: both;
+    animation-delay: 0.3s;
 }
 
 
@@ -111,6 +120,8 @@
     font-weight: 550;
     font-family: "Poppins", sans-serif;
     font-optical-sizing: auto;
+    animation: fadeInUp 0.3s ease-out;
+    animation-fill-mode: both;
 }
 
 .pet-details > p > spam{
@@ -141,5 +152,175 @@
   padding: 2px 5px;
 
 };
+.remove-button > .icon-button-1 {
+  width: 12px ;
+  height: 12px ;
+}
 
 /* Bạn có thể tùy chỉnh thêm các style khác theo ý muốn */
+
+/* Animation for equipped items */
+.equipped-items img {
+  animation: fadeInUp 0.3s ease-out !important;
+  animation-fill-mode: both !important;
+}
+
+.equipped-items p {
+  animation: fadeInUp 0.3s ease-out !important;
+  animation-fill-mode: both !important;
+}
+
+.remove-button {
+  animation: fadeInUp 0.3s ease-out !important;
+  animation-fill-mode: both !important;
+}
+
+/* Animation for progress bar */
+progress {
+  animation: fadeInUp 0.3s ease-out !important;
+  animation-fill-mode: both !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  /* .pet-profile {
+    grid-template-areas:
+      "pet-header"
+      "pet-details-right"
+      "pet-details";
+    grid-template-columns: 1fr;
+    width: 95%;
+    margin-top: 20px;
+  } */
+
+  .pet-header {
+    font-size: 1.3rem;
+    padding: 10px 0;
+  }
+
+  .pet-details {
+    padding: 15px;
+  }
+
+  .pet-details p {
+    font-size: 0.9rem;
+  }
+
+  .pet-details-right {
+    height: auto;
+    padding: 20px 10px;
+  }
+
+  .equipped-items {
+  justify-content: center;
+}
+
+  .equipped-items img {
+    margin-top: 10px;
+    width: 50px !important;
+    height: 50px !important;
+  }
+  .remove-button > .icon-button-1 {
+    width: 12px !important;
+    height: 12px !important;  
+  }
+
+  .release-button {
+    padding: 15px 30px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pet-profile {
+    width: 98%;
+  }
+
+  .pet-header {
+    font-size: 1.1rem;
+    padding: 8px 0;
+  }
+
+  .pet-details {
+    padding: 10px;
+  }
+
+  .pet-details p {
+    font-size: 0.8rem;
+  }
+
+  .pet-details-right {
+    padding: 15px 5px;
+  }
+
+
+  .equipped-items img {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .release-button {
+    padding: 12px 25px;
+    font-size: 13px;
+  }
+
+  .remove-button {
+    top: -5px;
+    right: -10px;
+    padding: 1px 3px;
+  }
+
+  .icon-button-1 {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* Animation for pet profile elements */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 340px) {
+  .pet-profile {
+    width: 100%;
+    margin-top: 5px;
+  }
+
+  .pet-header {
+    font-size: 1rem;
+    padding: 6px 0;
+  }
+
+  .pet-details {
+    padding: 8px;
+  }
+
+  .pet-details p {
+    margin: 4px 0;
+    font-size: 0.75rem;
+  }
+
+  .pet-details-right {
+    padding: 10px 3px;
+  }
+
+/* 
+  .equipped-items img {
+    width: 35px !important;
+    height: 35px !important;
+  } */
+
+  .release-button {
+    padding: 10px 20px;
+    font-size: 12px;
+  }
+}
