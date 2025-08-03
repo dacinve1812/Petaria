@@ -12,9 +12,7 @@ function MainLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     const [userId, setUserId] = useState(null);
-    const [error, setError] = useState(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [isMobile, setIsMobile] = useState(true); // Always mobile layout
     const [isMailModalOpen, setIsMailModalOpen] = useState(false);
     const [currencyUpdateTrigger, setCurrencyUpdateTrigger] = useState(0);
 
@@ -29,7 +27,6 @@ function MainLayout() {
             setUserId(decodedToken.userId);
         } catch (err) {
             console.error('Error decoding token:', err);
-            setError('Invalid token');
         }
     }, [navigate]);
 
@@ -66,8 +63,6 @@ function MainLayout() {
 
     return (
         <div className="container">
-
-
             <div className="content">
                 <Sidebar 
                     userId={userId} 

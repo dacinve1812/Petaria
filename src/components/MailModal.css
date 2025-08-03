@@ -1,4 +1,4 @@
-/* Mail Modal Styles - Simplified Design */
+/* Mail Modal Styles - New Design Based on Reference */
 .mail-modal-overlay {
   position: fixed;
   top: 0;
@@ -13,22 +13,20 @@
   align-items: center;
   z-index: 1000;
   padding: 20px;
-  /* Đảm bảo không bị ảnh hưởng bởi container cha */
   pointer-events: auto;
 }
 
 .mail-modal {
-  background: #f5f5f5;
-  border-radius: 15px;
+  background: #f8f9fa;
+  border-radius: 20px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   width: 100%;
   max-width: 400px;
-  max-height: 80vh;
+  height: 600px; /* Fixed height */
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: modalSlideIn 0.3s ease-out;
-  /* Đảm bảo modal hiển thị đúng cách */
   position: relative;
   z-index: 1001;
 }
@@ -49,15 +47,15 @@
   max-width: var(--max-width);
 }
 
-/* Header */
+/* Header - Red background like original */
 .mail-modal-header {
-  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
   color: white;
-  padding: 20px;
+  padding: 18px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-radius: 15px 15px 0 0;
+  border-radius: 20px 20px 0 0;
   position: relative;
   overflow: hidden;
 }
@@ -79,7 +77,7 @@
 
 .mail-modal-header h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   z-index: 1;
@@ -90,9 +88,9 @@
   background: rgba(255, 255, 255, 0.2);
   border: none;
   color: white;
-  font-size: 24px;
-  width: 35px;
-  height: 35px;
+  font-size: 20px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
@@ -108,36 +106,61 @@
   transform: scale(1.1);
 }
 
-/* Filter Tabs */
+/* Filter Tabs - Like reference design */
 .mail-filter-tabs {
   background: white;
-  padding: 15px 20px;
+  padding: 12px 20px;
   display: flex;
-  gap: 10px;
-  border-bottom: 1px solid #e0e0e0;
+  gap: 8px;
+  border-bottom: 1px solid #e9ecef;
+  position: relative;
 }
 
 .mail-filter-tab {
-  background: #f0f0f0;
+  background: #f8f9fa;
   border: none;
-  color: #666;
-  padding: 10px 20px;
+  color: #6c757d;
+  padding: 8px 16px;
   border-radius: 20px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   transition: all 0.3s ease;
   flex: 1;
+  position: relative;
 }
 
 .mail-filter-tab:hover {
-  background: #e0e0e0;
+  background: #e9ecef;
 }
 
 .mail-filter-tab.active {
-  background: #8B5CF6;
+  background: #dc3545;
   color: white;
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+/* Mail count info */
+.mail-count-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.mail-count-icon {
+  width: 16px;
+  height: 16px;
+  background: #dc3545;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
 }
 
 /* Mail List */
@@ -151,14 +174,14 @@
 .mail-loading, .mail-empty {
   text-align: center;
   padding: 40px 20px;
-  color: #666;
+  color: #6c757d;
   font-size: 16px;
 }
 
-/* Mail Item Layout */
+/* Mail Item Layout - Like reference design */
 .mail-item {
   background: #f8f9fa;
-  border-radius: 12px;
+  border-radius: 15px;
   padding: 16px;
   margin-bottom: 12px;
   cursor: pointer;
@@ -169,7 +192,7 @@
 
 .mail-item:hover {
   background: #e9ecef;
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
@@ -178,7 +201,6 @@
   display: flex;
   align-items: flex-start;
   gap: 16px;
-  
 }
 
 /* Mail Icon Container - Left side */
@@ -186,43 +208,31 @@
   flex-shrink: 0;
   position: relative;
   z-index: 1;
-  width: 48px;
-  height: 48px;
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .mail-envelope {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  background: #6c757d;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  color: white;
-  transition: none;
+  transition: all 0.3s ease;
   box-sizing: border-box;
-  border: 2px solid #dee2e6;
-  background-color: red;
 }
 
 .mail-notification {
   position: absolute;
-  top: -8px;
-  right: -8px;
+  top: -6px;
+  right: -6px;
   background: #dc3545;
   color: white;
   border-radius: 50%;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: bold;
   border: 2px solid white;
   z-index: 2;
@@ -235,13 +245,13 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
 }
 
 .mail-subject {
   font-weight: 600;
-  color: #495057;
+  color: #212529;
   font-size: 15px;
   line-height: 1.3;
   margin: 0;
@@ -256,25 +266,19 @@
   margin: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
 }
 
 .mail-date {
   color: #adb5bd;
   font-size: 12px;
   margin: 0;
-  margin-left: auto;
 }
 
 /* Mail Status Indicators */
 .mail-unread .mail-subject {
   font-weight: 700;
-  color: #212529;
-}
-
-.mail-unread .mail-envelope {
-  background: #007bff;
-  border-color: #0056b3;
+  color: #000;
 }
 
 .mail-unclaimed .mail-notification {
@@ -285,56 +289,21 @@
   display: none;
 }
 
-.mail-rewards {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.reward-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.8);
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.reward-icon {
-  font-size: 14px;
-}
-
-.reward-text {
-  color: #333;
-  font-weight: 600;
-}
-
-/* Mail Timestamp */
-.mail-timestamp {
-  color: #999;
-  font-size: 12px;
-  text-align: right;
-  flex-shrink: 0;
-  min-width: 80px;
-}
-
-/* Action Buttons */
+/* Action Buttons - Like reference design */
 .mail-action-buttons {
-  padding: 20px;
+  padding: 18px 20px;
   display: flex;
-  gap: 15px;
+  gap: 12px;
   background: white;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid #e9ecef;
 }
 
 .mail-action-btn {
   flex: 1;
   padding: 12px 20px;
-  border: 2px solid;
+  border: none;
   border-radius: 25px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -342,30 +311,25 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+  color: white;
 }
 
 .delete-all-btn {
-  background: white;
-  border-color: #dc3545;
-  color: #dc3545;
+  background: #dc3545;
 }
 
 .delete-all-btn:hover {
-  background: #dc3545;
-  color: white;
+  background: #c82333;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
 }
 
 .claim-all-btn {
-  background: white;
-  border-color: #28a745;
-  color: #28a745;
+  background: #28a745;
 }
 
 .claim-all-btn:hover:not(:disabled) {
-  background: #28a745;
-  color: white;
+  background: #218838;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
 }
@@ -373,8 +337,7 @@
 .claim-all-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  border-color: #ccc;
-  color: #ccc;
+  background: #6c757d;
 }
 
 /* Responsive Design */
@@ -385,7 +348,7 @@
   
   .mail-modal {
     max-width: 95vw;
-    max-height: 90vh;
+    height: 500px; /* Smaller fixed height for mobile */
   }
 
   .mail-modal-header {
@@ -397,11 +360,11 @@
   }
 
   .mail-filter-tabs {
-    padding: 12px 15px;
+    padding: 10px 15px;
   }
 
   .mail-filter-tab {
-    padding: 8px 16px;
+    padding: 8px 14px;
     font-size: 13px;
   }
 
@@ -410,17 +373,12 @@
   }
 
   .mail-item {
-    padding: 12px;
-    gap: 12px;
+    padding: 14px;
   }
 
   .mail-icon-container {
-    width: 40px;
-    height: 40px;
-  }
-
-  .mail-envelope {
-    font-size: 18px;
+    width: 45px;
+    height: 45px;
   }
 
   .mail-subject {
@@ -437,7 +395,7 @@
 
   .mail-action-buttons {
     padding: 15px;
-    gap: 12px;
+    gap: 10px;
   }
 
   .mail-action-btn {

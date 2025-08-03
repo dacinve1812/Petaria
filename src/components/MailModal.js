@@ -5,7 +5,7 @@ import MailDetailModal from './MailDetailModal';
 const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
   const [mails, setMails] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [activeFilter, setActiveFilter] = useState('system');
   const [unclaimedCount, setUnclaimedCount] = useState(0);
   const [selectedMail, setSelectedMail] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -13,15 +13,26 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
   // Fetch mails
-  const fetchMails = async (filter = 'all') => {
+  const fetchMails = async (filter = 'system') => {
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/mails/${userId}?filter=${filter}`);
       if (response.ok) {
         const data = await response.json();
+        // console.log('fetchMails Debug:', {
+        //   filter,
+        //   mailCount: data.length,
+        //   mails: data.map(mail => ({
+        //     id: mail.id,
+        //     subject: mail.subject,
+        //     is_read: mail.is_read,
+        //     is_claimed: mail.is_claimed,
+        //     attached_rewards: mail.attached_rewards
+        //   }))
+        // });
         setMails(data);
       } else {
-        console.error('Failed to fetch mails');
+        console.error('Failed to fetch mails:', response.status);
       }
     } catch (error) {
       console.error('Error fetching mails:', error);
@@ -55,6 +66,29 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
       if (response.ok) {
         const result = await response.json();
         alert(`Nhận thành công! ${result.message}`);
+        
+        // After claiming, mark all claimed mails as read
+        const claimedMails = mails.filter(mail => {
+          const rewards = parseRewards(mail.attached_rewards);
+          const hasRewards = rewards.peta || rewards.peta_gold || (rewards.items && rewards.items.length > 0);
+          return hasRewards && !mail.is_read;
+        });
+        
+        // Mark each claimed mail as read
+        for (const mail of claimedMails) {
+          try {
+            await fetch(`${API_BASE_URL}/api/mails/${mail.id}/read`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ userId }),
+            });
+          } catch (error) {
+            console.error(`Error marking mail ${mail.id} as read:`, error);
+          }
+        }
+        
         // Refresh mails
         fetchMails(activeFilter);
         fetchUnclaimedCount();
@@ -85,19 +119,19 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
         return mail.is_claimed; // Có rewards thì phải claim hết mới xóa được
       });
       
-              // Debug: Log mail status
-        console.log('Mail status:', mails.map(mail => {
-          const rewards = parseRewards(mail.attached_rewards);
-          const hasRewards = rewards.peta || rewards.peta_gold || (rewards.items && rewards.items.length > 0);
-          return {
-            id: mail.id,
-            subject: mail.subject,
-            is_read: mail.is_read,
-            is_claimed: mail.is_claimed,
-            hasRewards,
-            canDelete: mail.is_read && (!hasRewards || mail.is_claimed)
-          };
-        }));
+      // // Debug: Log mail status
+      // console.log('Mail status:', mails.map(mail => {
+      //   const rewards = parseRewards(mail.attached_rewards);
+      //   const hasRewards = rewards.peta || rewards.peta_gold || (rewards.items && rewards.items.length > 0);
+      //   return {
+      //     id: mail.id,
+      //     subject: mail.subject,
+      //     is_read: mail.is_read,
+      //     is_claimed: mail.is_claimed,
+      //     hasRewards,
+      //     canDelete: mail.is_read && (!hasRewards || mail.is_claimed)
+      //   };
+      // }));
       
       if (deletableMails.length === 0) {
         alert('Không có mail nào để xóa! (Chỉ xóa mail đã đọc và đã nhận hết quà)');
@@ -131,11 +165,29 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
 
   // Parse rewards
   const parseRewards = (rewardsJson) => {
-    try {
-      return JSON.parse(rewardsJson || '{}');
-    } catch {
-      return {};
+    // console.log('parseRewards input:', rewardsJson, typeof rewardsJson);
+    
+    // If it's already an object, return it
+    if (typeof rewardsJson === 'object' && rewardsJson !== null) {
+      // console.log('parseRewards result (object):', rewardsJson);
+      return rewardsJson;
     }
+    
+    // If it's a string, try to parse it
+    if (typeof rewardsJson === 'string') {
+      try {
+        const result = JSON.parse(rewardsJson || '{}');
+        // console.log('parseRewards result (parsed):', result);
+        return result;
+      } catch (error) {
+        console.error('parseRewards error:', error);
+        return {};
+      }
+    }
+    
+    // Default case
+      // console.log('parseRewards result (default):', {});
+    return {};
   };
 
   // Format date
@@ -155,7 +207,7 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
 
   // Get filter options
   const getFilterOptions = () => [
-    { value: 'all', label: 'Tất cả' },
+    { value: 'notification', label: 'Thông báo' },
     { value: 'system', label: 'Hệ thống' },
   ];
 
@@ -167,9 +219,31 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
 
   // Handle mail item click
   const handleMailClick = async (mail) => {
-    // Mark mail as read when opening detail
-    if (!mail.is_read) {
+    // Parse rewards to check if mail has items
+    const rewards = parseRewards(mail.attached_rewards);
+    const hasItems = rewards.items && rewards.items.length > 0;
+    const hasRewards = rewards.peta || rewards.peta_gold || hasItems;
+    const isUnclaimed = hasRewards && !mail.is_claimed;
+    
+    // // Debug log
+    // console.log('handleMailClick Debug:', {
+    //   mailId: mail.id,
+    //   subject: mail.subject,
+    //   is_read: mail.is_read,
+    //   attached_rewards: mail.attached_rewards,
+    //   parsed_rewards: rewards,
+    //   hasItems,
+    //   hasRewards,
+    //   isUnclaimed,
+    //   shouldMarkAsRead: !mail.is_read && (!hasItems || !isUnclaimed)
+    // });
+    
+    // Mark as read if:
+    // 1. Mail chưa đọc VÀ không có items, HOẶC
+    // 2. Mail chưa đọc VÀ có items nhưng đã claim
+    if (!mail.is_read && (!hasItems || !isUnclaimed)) {
       try {
+        // console.log('Marking mail as read...');
         const response = await fetch(`${API_BASE_URL}/api/mails/${mail.id}/read`, {
           method: 'PUT',
           headers: {
@@ -178,15 +252,26 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
           body: JSON.stringify({ userId }),
         });
         
+        // console.log('API Response:', response.status, response.statusText);
+        
         if (response.ok) {
+          const result = await response.json();
+          // console.log('API Result:', result);
+          
           // Update local mail data
           mail.is_read = true;
+          // console.log('Updated mail.is_read to true');
+          
           // Refresh mails to update UI
           fetchMails(activeFilter);
+        } else {
+          console.error('API Error:', await response.text());
         }
       } catch (error) {
         console.error('Error marking mail as read:', error);
       }
+    } else {
+      //  console.log('Skipping mark as read - conditions not met');
     }
     
     setSelectedMail(mail);
@@ -200,8 +285,18 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
   };
 
   // Handle claim from detail modal
-  const handleDetailClaim = () => {
-    fetchMails(activeFilter);
+  const handleDetailClaim = async () => {
+    // Fetch updated mails first
+    await fetchMails(activeFilter);
+    
+    // Update selectedMail with the updated mail data
+    if (selectedMail) {
+      const updatedMail = mails.find(mail => mail.id === selectedMail.id);
+      if (updatedMail) {
+        setSelectedMail(updatedMail);
+      }
+    }
+    
     fetchUnclaimedCount();
     if (onCurrencyUpdate) {
       onCurrencyUpdate();
@@ -215,6 +310,16 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
       fetchUnclaimedCount();
     }
   }, [isOpen, userId, activeFilter]);
+
+  // Update selectedMail when mails change
+  useEffect(() => {
+    if (selectedMail && mails.length > 0) {
+      const updatedMail = mails.find(mail => mail.id === selectedMail.id);
+      if (updatedMail && updatedMail.is_claimed !== selectedMail.is_claimed) {
+        setSelectedMail(updatedMail);
+      }
+    }
+  }, [mails, selectedMail]);
 
   if (!isOpen) return null;
 
@@ -241,7 +346,7 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
             <button className="mail-modal-close" onClick={onClose}>×</button>
           </div>
 
-          {/* Filter tabs */}
+          {/* Filter tabs with mail count */}
           <div className="mail-filter-tabs">
             {getFilterOptions().map(filter => (
               <button
@@ -252,6 +357,10 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
                 {filter.label}
               </button>
             ))}
+            <div className="mail-count-info">
+              <span>Thư: {mails.length}/60</span>
+              <div className="mail-count-icon">i</div>
+            </div>
           </div>
 
           {/* Mail list */}
@@ -264,8 +373,27 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
               mails.map(mail => {
                 const rewards = parseRewards(mail.attached_rewards);
                 const hasRewards = rewards.peta || rewards.peta_gold || (rewards.items && rewards.items.length > 0);
-                const isUnread = !mail.is_read;
+                const hasItems = rewards.items && rewards.items.length > 0;
                 const isUnclaimed = hasRewards && !mail.is_claimed;
+                
+                // New logic for determining if mail should show as unread
+                // Mail is unread if:
+                // 1. It has items and they are unclaimed (ignore is_read), OR
+                // 2. It has no items and is marked as unread
+                const isUnread = hasItems ? !mail.is_claimed : !mail.is_read;
+                
+                // // Debug log
+                // console.log('Mail Debug:', {
+                //   id: mail.id,
+                //   subject: mail.subject,
+                //   is_read: mail.is_read,
+                //   is_claimed: mail.is_claimed,
+                //   hasItems,
+                //   hasRewards,
+                //   isUnclaimed,
+                //   isUnread,
+                //   rewards: rewards
+                // });
                 
                 return (
                   <div 
@@ -275,12 +403,19 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
                   >
                     <div className="mail-content">
                       <div className="mail-icon-container">
-                        <div className="mail-envelope">
-                          📬
-                          {isUnclaimed && (
-                            <div className="mail-notification">!</div>
-                          )}
-                        </div>
+                        <img 
+                          src={isUnread ? '/images/icons/unread-mail.png' : '/images/icons/read-mail.png'}
+                          alt="Mail"
+                          className="mail-envelope"
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain'
+                          }}
+                        />
+                        {/* {isUnclaimed && (
+                          <div className="mail-notification">!</div>
+                        )} */}
                       </div>
                       <div className="mail-text-content">
                         <div className="mail-subject">{mail.subject}</div>
@@ -302,14 +437,14 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
               className="mail-action-btn delete-all-btn"
               onClick={deleteAllReadMails}
             >
-              ⭐ Xóa nhanh
+              Xóa đã đọc
             </button>
             <button 
               className="mail-action-btn claim-all-btn"
               onClick={claimAllMails}
               disabled={unclaimedCount === 0}
             >
-              ⭐ Nhận nhanh
+              Tất cả nhận
             </button>
           </div>
         </div>
@@ -318,4 +453,4 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
   );
 };
 
-export default MailModal; 
+export default MailModal;
