@@ -29,26 +29,26 @@ function HomePage({ isLoggedIn, onLogoutSuccess }) {
   };
 
   return (
-      <div>
-        <div className="notice">
-          <p>Thông báo: Bạn chưa có thú cưng nào cả!</p>
-          <p>Bạn có thể đến Trại mồ côi để nhận nuôi thú cưng!!!</p>
-        </div>
-        {/* Map panorama scrollable - native scroll only */}
-        <div className="map-scroll-container">
-          <img src="map.jpg" alt="Bản đồ Petaria" className="map-img" />
-        </div>
-        <div className="links">
-          <a href="/shop">Cửa hàng</a>
-          <a href="/orphanage">Trại mồ côi</a>
-          <a href="/myhome">My Home</a>
-          <a href="/battle">Đấu trường</a>
-        </div>
-        {/* <div className="footer">
-          <p>WebGame Thú ảo Online được phát triển bởi BaoNguyen</p>
-          <p>05:45:23 AM | Terms/Rules | Privacy</p>
-        </div> */}
+    <div>
+      <div className="notice">
+        <p>Thông báo: Bạn chưa có thú cưng nào cả!</p>
+        <p>Bạn có thể đến Trại mồ côi để nhận nuôi thú cưng!!!</p>
       </div>
+      {/* Map panorama scrollable - native scroll only */}
+      <div className="map-scroll-container">
+        <img src="map.jpg" alt="Bản đồ Petaria" className="map-img" />
+      </div>
+      <div className="links">
+        <a href="/shop">Cửa hàng</a>
+        <a href="/orphanage">Trại mồ côi</a>
+        <a href="/myhome">My Home</a>
+        <a href="/battle">Đấu trường</a>
+      </div>
+      {/* <div className="footer">
+        <p>WebGame Thú ảo Online được phát triển bởi BaoNguyen</p>
+        <p>05:45:23 AM | Terms/Rules | Privacy</p>
+      </div> */}
+    </div>
   );
 }
 

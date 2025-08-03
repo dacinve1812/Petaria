@@ -116,8 +116,8 @@ app.post('/register', async (req, res) => {
         // Username chưa tồn tại, tiếp tục đăng ký
         const hashedPassword = await bcrypt.hash(password, 10); // Mã hóa mật khẩu
         pool.query(
-          'INSERT INTO users (username, password) VALUES (?, ?)',
-          [username, hashedPassword],
+          'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+          [username, hashedPassword, 'user'],
           (insertErr, insertResults) => {
             if (insertErr) {
               console.error('Error registering user: ', insertErr);
@@ -536,7 +536,7 @@ app.get('/users/:userId', (req, res) => {
     return;
   }
 
-  pool.query('SELECT username, gold, petagold, real_name, guild, title, ranking, online_status, birthday FROM users WHERE id = ?', [userId], (err, results) => {
+  pool.query('SELECT username, gold, petagold, real_name, guild, title, ranking, online_status, birthday, role FROM users WHERE id = ?', [userId], (err, results) => {
     if (err) {
       console.error('Error fetching user info: ', err);
       res.status(500).json({ message: 'Error fetching user info' });
@@ -549,6 +549,88 @@ app.get('/users/:userId', (req, res) => {
     }
 
     res.json(results[0]);
+  });
+});
+
+// API: Get user role
+app.get('/api/users/:userId/role', (req, res) => {
+  const userId = parseInt(req.params.userId);
+
+  if (isNaN(userId)) {
+    res.status(400).json({ message: 'Invalid user ID' });
+    return;
+  }
+
+  pool.query('SELECT id, username, role FROM users WHERE id = ?', [userId], (err, results) => {
+    if (err) {
+      console.error('Error fetching user role: ', err);
+      res.status(500).json({ message: 'Error fetching user role' });
+      return;
+    }
+
+    if (results.length === 0) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    res.json({
+      id: results[0].id,
+      username: results[0].username,
+      role: results[0].role
+    });
+  });
+});
+
+// API: Update user role (admin only)
+app.put('/api/users/:userId/role', (req, res) => {
+  const userId = parseInt(req.params.userId);
+  const { role } = req.body;
+  const { adminUserId } = req.body; // ID của admin thực hiện thay đổi
+
+  if (isNaN(userId)) {
+    res.status(400).json({ message: 'Invalid user ID' });
+    return;
+  }
+
+  // Validate role
+  const validRoles = ['user', 'admin', 'moderator'];
+  if (!validRoles.includes(role)) {
+    res.status(400).json({ message: 'Invalid role' });
+    return;
+  }
+
+  // Check if adminUserId is admin
+  pool.query('SELECT role FROM users WHERE id = ?', [adminUserId], (err, results) => {
+    if (err) {
+      console.error('Error checking admin role: ', err);
+      res.status(500).json({ message: 'Error checking admin role' });
+      return;
+    }
+
+    if (results.length === 0 || results[0].role !== 'admin') {
+      res.status(403).json({ message: 'Only admins can change user roles' });
+      return;
+    }
+
+    // Update user role
+    pool.query('UPDATE users SET role = ? WHERE id = ?', [role, userId], (updateErr, updateResults) => {
+      if (updateErr) {
+        console.error('Error updating user role: ', updateErr);
+        res.status(500).json({ message: 'Error updating user role' });
+        return;
+      }
+
+      if (updateResults.affectedRows === 0) {
+        res.status(404).json({ message: 'User not found' });
+        return;
+      }
+
+      res.json({ 
+        message: 'User role updated successfully',
+        userId,
+        newRole: role
+      });
+    });
   });
 });
 
@@ -601,14 +683,16 @@ app.post('/api/admin/pets', async (req, res) => {
         pet_species_id, level, max_hp, max_mp,
         created_date, final_stats, current_exp,
         iv_hp, iv_mp, iv_str, iv_def, iv_intelligence, iv_spd
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        petUuid, name, final.hp, final.str, final.def, final.intelligence, final.spd, final.mp,
-        pet_species_id, level, final.hp, final.mp,
-        createdDate, JSON.stringify(final), currentExp,
-        iv.iv_hp, iv.iv_mp, iv.iv_str, iv.iv_def, iv.iv_intelligence, iv.iv_spd
-      ]
-    );
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      petUuid, name, final.hp, final.str, final.def, final.intelligence, final.spd, final.mp,
+      pet_species_id, level, final.hp, final.mp,
+      createdDate, JSON.stringify(final), currentExp,
+      iv.iv_hp, iv.iv_mp, iv.iv_str, iv.iv_def, iv.iv_intelligence, iv.iv_spd,
+      0, expToNext,
+      JSON.stringify(stats),
+      1
+    ]);
 
     res.json({ message: 'Pet created successfully', uuid: petUuid });
   } catch (err) {
@@ -1923,3 +2007,367 @@ function getHungerStatusText(status) {
     default: return 'Không xác định';
   }
 }
+
+// ======================================================== MAIL SYSTEM ========================================================
+
+// GET /api/mails/:userId - Lấy danh sách mail của user
+app.get('/api/mails/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { filter = 'all' } = req.query; // all, unread, claimed, unclaimed, system, admin, user
+
+  try {
+    let whereClause = 'WHERE m.user_id = ?';
+    const params = [userId];
+
+    switch (filter) {
+      case 'unread':
+        whereClause += ' AND m.is_read = FALSE';
+        break;
+      case 'claimed':
+        whereClause += ' AND m.is_claimed = TRUE';
+        break;
+      case 'unclaimed':
+        whereClause += ' AND m.is_claimed = FALSE';
+        break;
+      case 'system':
+        whereClause += ' AND m.sender_type = "system"';
+        break;
+      case 'admin':
+        whereClause += ' AND m.sender_type = "admin"';
+        break;
+      case 'user':
+        whereClause += ' AND m.sender_type = "user"';
+        break;
+    }
+
+    const [mails] = await db.query(`
+      SELECT 
+        m.*,
+        u.username as sender_username
+      FROM mails m
+      LEFT JOIN users u ON m.sender_id = u.id
+      ${whereClause}
+      ORDER BY m.created_at DESC
+      LIMIT 100
+    `, params);
+
+    res.json(mails);
+  } catch (err) {
+    console.error('Lỗi khi lấy danh sách mail:', err);
+    res.status(500).json({ error: 'Không thể lấy danh sách mail' });
+  }
+});
+
+// POST /api/mails/claim/:mailId - Claim 1 mail
+app.post('/api/mails/claim/:mailId', async (req, res) => {
+  const { mailId } = req.params;
+  const { userId } = req.body;
+
+  try {
+    // 1. Lấy thông tin mail
+    const [mailRows] = await db.query(`
+      SELECT * FROM mails WHERE id = ? AND user_id = ? AND is_claimed = FALSE
+    `, [mailId, userId]);
+
+    if (!mailRows.length) {
+      return res.status(404).json({ error: 'Mail không tồn tại hoặc đã claim' });
+    }
+
+    const mail = mailRows[0];
+    let rewards;
+    try {
+      // Handle case where attached_rewards is already an object
+      if (typeof mail.attached_rewards === 'object') {
+        rewards = mail.attached_rewards;
+      } else {
+        // Handle case where attached_rewards is a string
+        rewards = JSON.parse(mail.attached_rewards || '{}');
+      }
+    } catch (error) {
+      console.error('Error parsing rewards for mail:', mail.id, error);
+      rewards = {};
+    }
+
+    // 2. Cập nhật currency nếu có
+    if (rewards.peta) {
+      await db.query(`UPDATE users SET gold = gold + ? WHERE id = ?`, [rewards.peta, userId]);
+    }
+    if (rewards.peta_gold) {
+      await db.query(`UPDATE users SET petagold = petagold + ? WHERE id = ?`, [rewards.peta_gold, userId]);
+    }
+
+    // 3. Thêm items vào inventory nếu có
+    if (rewards.items && rewards.items.length > 0) {
+      for (const item of rewards.items) {
+        const [invRows] = await db.query(`
+          SELECT id, quantity FROM inventory 
+          WHERE player_id = ? AND item_id = ? AND is_equipped = 0
+        `, [userId, item.item_id]);
+
+        if (invRows.length > 0) {
+          // Cập nhật quantity nếu item đã có
+          await db.query(`
+            UPDATE inventory SET quantity = quantity + ? WHERE id = ?
+          `, [item.quantity, invRows[0].id]);
+        } else {
+          // Thêm item mới
+          await db.query(`
+            INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, ?)
+          `, [userId, item.item_id, item.quantity]);
+        }
+      }
+    }
+
+    // 4. Đánh dấu mail đã claim
+    await db.query(`
+      UPDATE mails SET is_claimed = TRUE WHERE id = ?
+    `, [mailId]);
+
+    res.json({ 
+      success: true, 
+      message: 'Claim thành công!',
+      rewards: rewards
+    });
+
+  } catch (err) {
+    console.error('Lỗi khi claim mail:', err);
+    res.status(500).json({ error: 'Lỗi khi claim mail' });
+  }
+});
+
+// POST /api/mails/claim-all/:userId - Claim tất cả mail chưa claim
+app.post('/api/mails/claim-all/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { userId: bodyUserId } = req.body;
+  
+  // Sử dụng userId từ body nếu có, không thì dùng params
+  const targetUserId = bodyUserId || userId;
+
+  try {
+    // 1. Lấy tất cả mail chưa claim
+    const [mails] = await db.query(`
+      SELECT * FROM mails WHERE user_id = ? AND is_claimed = FALSE
+    `, [targetUserId]);
+
+    let totalPeta = 0;
+    let totalPetaGold = 0;
+    const itemsToAdd = {};
+
+    // 2. Tính tổng rewards
+    for (const mail of mails) {
+      let rewards;
+      try {
+        // Handle case where attached_rewards is already an object
+        if (typeof mail.attached_rewards === 'object') {
+          rewards = mail.attached_rewards;
+        } else {
+          // Handle case where attached_rewards is a string
+          rewards = JSON.parse(mail.attached_rewards || '{}');
+        }
+      } catch (error) {
+        console.error('Error parsing rewards for mail:', mail.id, error);
+        rewards = {};
+      }
+      
+      if (rewards.peta) totalPeta += rewards.peta;
+      if (rewards.peta_gold) totalPetaGold += rewards.peta_gold;
+      
+      if (rewards.items) {
+        for (const item of rewards.items) {
+          const key = item.item_id;
+          itemsToAdd[key] = (itemsToAdd[key] || 0) + item.quantity;
+        }
+      }
+    }
+
+    // 3. Cập nhật currency
+    if (totalPeta > 0) {
+      await db.query(`UPDATE users SET gold = gold + ? WHERE id = ?`, [totalPeta, targetUserId]);
+    }
+    if (totalPetaGold > 0) {
+      await db.query(`UPDATE users SET petagold = petagold + ? WHERE id = ?`, [totalPetaGold, targetUserId]);
+    }
+
+    // 4. Thêm items
+    for (const [itemId, quantity] of Object.entries(itemsToAdd)) {
+      const [invRows] = await db.query(`
+        SELECT id, quantity FROM inventory 
+        WHERE player_id = ? AND item_id = ? AND is_equipped = 0
+      `, [targetUserId, itemId]);
+
+      if (invRows.length > 0) {
+        await db.query(`
+          UPDATE inventory SET quantity = quantity + ? WHERE id = ?
+        `, [quantity, invRows[0].id]);
+              } else {
+          await db.query(`
+            INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, ?)
+          `, [targetUserId, itemId, quantity]);
+        }
+    }
+
+    // 5. Đánh dấu tất cả mail đã claim
+    await db.query(`
+      UPDATE mails SET is_claimed = TRUE WHERE user_id = ? AND is_claimed = FALSE
+    `, [targetUserId]);
+
+    res.json({ 
+      success: true, 
+      message: `Claim thành công ${mails.length} mail!`,
+      totalPeta,
+      totalPetaGold,
+      totalItems: Object.keys(itemsToAdd).length
+    });
+
+  } catch (err) {
+    console.error('Lỗi khi claim all mail:', err);
+    res.status(500).json({ error: 'Lỗi khi claim tất cả mail' });
+  }
+});
+
+// PUT /api/mails/:mailId/read - Đánh dấu đã đọc
+app.put('/api/mails/:mailId/read', async (req, res) => {
+  const { mailId } = req.params;
+  const { userId } = req.body;
+
+  try {
+    const result = await db.query(`
+      UPDATE mails SET is_read = TRUE 
+      WHERE id = ? AND user_id = ?
+    `, [mailId, userId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Mail không tồn tại' });
+    }
+
+    res.json({ success: true, message: 'Đã đánh dấu đọc' });
+  } catch (err) {
+    console.error('Lỗi khi đánh dấu đọc:', err);
+    res.status(500).json({ error: 'Lỗi khi đánh dấu đọc' });
+  }
+});
+
+// DELETE /api/mails/:mailId - Xóa mail
+app.delete('/api/mails/:mailId', async (req, res) => {
+  const { mailId } = req.params;
+  const { userId } = req.body;
+
+  try {
+    const result = await db.query(`
+      DELETE FROM mails WHERE id = ? AND user_id = ?
+    `, [mailId, userId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Mail không tồn tại' });
+    }
+
+    res.json({ success: true, message: 'Đã xóa mail' });
+  } catch (err) {
+    console.error('Lỗi khi xóa mail:', err);
+    res.status(500).json({ error: 'Lỗi khi xóa mail' });
+  }
+});
+
+// GET /api/mails/:userId/unread-count - Đếm mail chưa đọc
+app.get('/api/mails/:userId/unread-count', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const [result] = await db.query(`
+      SELECT 
+        COUNT(*) as total_unread,
+        COUNT(CASE WHEN is_claimed = FALSE THEN 1 END) as unclaimed_count
+      FROM mails 
+      WHERE user_id = ? AND is_read = FALSE
+    `, [userId]);
+
+    res.json({
+      unread_count: result[0].total_unread,
+      unclaimed_count: result[0].unclaimed_count
+    });
+  } catch (err) {
+    console.error('Lỗi khi đếm mail:', err);
+    res.status(500).json({ error: 'Lỗi khi đếm mail' });
+  }
+});
+
+// ======================================================== ADMIN MAIL APIs ========================================================
+
+// POST /api/admin/mails/send - Admin gửi mail
+app.post('/api/admin/mails/send', async (req, res) => {
+  const { 
+    user_id, 
+    sender_name, 
+    subject, 
+    message, 
+    attached_rewards,
+    expire_days = 30 
+  } = req.body;
+
+  try {
+    const expireAt = new Date();
+    expireAt.setDate(expireAt.getDate() + expire_days);
+
+    const rewardsJson = attached_rewards ? JSON.stringify(attached_rewards) : null;
+    
+    await db.query(`
+      INSERT INTO mails (user_id, sender_type, sender_name, subject, message, attached_rewards, expire_at)
+      VALUES (?, 'admin', ?, ?, ?, ?, ?)
+    `, [user_id, sender_name, subject, message, rewardsJson, expireAt]);
+
+    res.json({ success: true, message: 'Gửi mail thành công!' });
+  } catch (err) {
+    console.error('Lỗi khi gửi mail:', err);
+    res.status(500).json({ error: 'Lỗi khi gửi mail' });
+  }
+});
+
+// POST /api/admin/mails/system-send - System auto send mail
+app.post('/api/admin/mails/system-send', async (req, res) => {
+  const { 
+    user_id, 
+    subject, 
+    message, 
+    attached_rewards,
+    expire_days = 7 
+  } = req.body;
+
+  try {
+    const expireAt = new Date();
+    expireAt.setDate(expireAt.getDate() + expire_days);
+
+    const rewardsJson = attached_rewards ? JSON.stringify(attached_rewards) : null;
+    
+    await db.query(`
+      INSERT INTO mails (user_id, sender_type, sender_name, subject, message, attached_rewards, expire_at)
+      VALUES (?, 'system', 'Hệ thống', ?, ?, ?, ?)
+    `, [user_id, subject, message, rewardsJson, expireAt]);
+
+    res.json({ success: true, message: 'Gửi system mail thành công!' });
+  } catch (err) {
+    console.error('Lỗi khi gửi system mail:', err);
+    res.status(500).json({ error: 'Lỗi khi gửi system mail' });
+  }
+});
+
+// ======================================================== MAIL CLEANUP ========================================================
+
+// Auto cleanup expired mails (có thể chạy bằng cron job)
+app.post('/api/admin/mails/cleanup', async (req, res) => {
+  try {
+    const result = await db.query(`
+      DELETE FROM mails 
+      WHERE expire_at < NOW() 
+      OR (is_read = TRUE AND is_claimed = TRUE AND created_at < DATE_SUB(NOW(), INTERVAL 30 DAY))
+    `);
+
+    res.json({ 
+      success: true, 
+      message: `Đã xóa ${result.affectedRows} mail`,
+      deleted_count: result.affectedRows
+    });
+  } catch (err) {
+    console.error('Lỗi khi cleanup mail:', err);
+    res.status(500).json({ error: 'Lỗi khi cleanup mail' });
+  }
+});

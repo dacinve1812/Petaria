@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import BottomNavbar from './BottomNavbar';
 import CurrencyDisplay from './CurrencyDisplay';
 import HomeFloatingButtons from './HomeFloatingButtons';
+import MailModal from './MailModal';
 import { Outlet } from 'react-router-dom';
 import '../styles/global.css';
 
@@ -14,6 +15,8 @@ function MainLayout() {
     const [error, setError] = useState(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(true); // Always mobile layout
+    const [isMailModalOpen, setIsMailModalOpen] = useState(false);
+    const [currencyUpdateTrigger, setCurrencyUpdateTrigger] = useState(0);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -35,6 +38,18 @@ function MainLayout() {
         navigate('/login');
     };
 
+    const handleOpenMail = () => {
+        setIsMailModalOpen(true);
+    };
+
+    const handleCloseMail = () => {
+        setIsMailModalOpen(false);
+    };
+
+    const handleCurrencyUpdate = () => {
+        setCurrencyUpdateTrigger(prev => prev + 1);
+    };
+
     const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
     // Check if current page is home page (where BottomNavbar should be shown)
@@ -51,6 +66,8 @@ function MainLayout() {
 
     return (
         <div className="container">
+
+
             <div className="content">
                 <Sidebar 
                     userId={userId} 
@@ -64,11 +81,19 @@ function MainLayout() {
                 <div className="main-content">
                     <Outlet />
                 </div>
+                
+                {/* Mail Modal - Hiển thị khi cần */}
+                <MailModal 
+                    isOpen={isMailModalOpen}
+                    onClose={handleCloseMail}
+                    userId={userId}
+                    onCurrencyUpdate={handleCurrencyUpdate}
+                />
                 {isHomePage() && (
                     <BottomNavbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
                 )}
-                {isHomePage() && <HomeFloatingButtons />}
-                {userId && shouldShowCurrencyDisplay() && <CurrencyDisplay userId={userId} />}
+                {isHomePage() && <HomeFloatingButtons userId={userId} onOpenMail={handleOpenMail} />}
+                {userId && shouldShowCurrencyDisplay() && <CurrencyDisplay userId={userId} onCurrencyUpdate={currencyUpdateTrigger} />}
             </div>
         </div>
     );

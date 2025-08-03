@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import './CurrencyDisplay.css';
 
-function CurrencyDisplay({ userId }) {
+function CurrencyDisplay({ userId, onCurrencyUpdate }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const [userData, setUserData] = useState({
     gold: 0,
     petagold: 0
   });
 
-  useEffect(() => {
+  const fetchUserData = () => {
     if (userId) {
       fetch(`${API_BASE_URL}/users/${userId}`)
         .then((response) => response.json())
@@ -20,7 +20,18 @@ function CurrencyDisplay({ userId }) {
         })
         .catch((error) => console.error('Error fetching user data:', error));
     }
+  };
+
+  useEffect(() => {
+    fetchUserData();
   }, [userId]);
+
+  // Listen for currency updates from parent
+  useEffect(() => {
+    if (onCurrencyUpdate) {
+      fetchUserData();
+    }
+  }, [onCurrencyUpdate]);
 
   return (
     <div className="currency-display">
