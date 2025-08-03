@@ -9,6 +9,7 @@ import Auth from './components/Auth';
 import Orphanage from './components/Orphanage';
 import MyHome from './components/MyHome';
 import Admin from './components/Admin';
+import AdminMailTest from './components/AdminMailTest';
 import UserProfile from './components/UserProfile';
 import PetProfile from './components/PetProfile';
 import Inventory from './components/items/Inventory';
@@ -110,6 +111,7 @@ function App() {
               <Route path="tasks" element={<TasksPage />} />
               <Route path="team" element={<TeamPage />} />
               <Route path="hunting-world" element={<HuntingWorldPage />} />
+              <Route path="admin/mail-test" element={<AdminMailTest />} />
             </Route>  
           </Routes>
         </div>

@@ -177,7 +177,13 @@ function EditItemEffects() {
                 return (
                   <tr key={eff.id}>
                     <td>{item ? item.name : 'Không rõ'}</td>
-                    <td><img src= {`/images/equipments/${item.image_url}`} alt={item.name} width="40" /></td>
+                    <td>
+                      {item ? (
+                        <img src={`/images/equipments/${item.image_url}`} alt={item.name} width="40" />
+                      ) : (
+                        <span>Không có hình</span>
+                      )}
+                    </td>
                     <td>{eff.effect_target}</td>
                     <td>{eff.effect_type}</td>
                     <td>{eff.value_min} ~ {eff.value_max}</td>

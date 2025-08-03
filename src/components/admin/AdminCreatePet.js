@@ -1,18 +1,27 @@
-// File đã được tạo lại từ đầu với nút xoá pet chưa có chủ
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../Sidebar';
-import Navbar from '../Navbar';
+import { UserContext } from '../../UserContext';
+import './AdminCreatePet.css';
 
 function AdminCreatePet() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
   const navigate = useNavigate();
+  const user = useContext(UserContext);
+
   const [speciesList, setSpeciesList] = useState([]);
   const [form, setForm] = useState({
-    name: '', pet_species_id: '', level: 1,
-    iv_hp: 0, iv_mp: 0, iv_str: 0, iv_def: 0, iv_intelligence: 0, iv_spd: 0
+    name: '', 
+    pet_species_id: '', 
+    level: 1,
+    iv_hp: 0, 
+    iv_mp: 0, 
+    iv_str: 0, 
+    iv_def: 0, 
+    iv_intelligence: 0, 
+    iv_spd: 0
   });
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
   const [showList, setShowList] = useState(false);
   const [allPets, setAllPets] = useState([]);
   const [filteredPets, setFilteredPets] = useState([]);
@@ -21,49 +30,87 @@ function AdminCreatePet() {
   const [currentPage, setCurrentPage] = useState(1);
   const petsPerPage = 10;
 
-  const isAdmin = localStorage.getItem('isAdmin') === 'true';
-  const token = localStorage.getItem('token');
-  const userId = JSON.parse(atob(token.split('.')[1]))?.userId;
+  const fetchSpecies = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/pet-species`);
+      const data = await res.json();
+      setSpeciesList(data);
+    } catch (error) {
+      setMessage('❌ Lỗi khi tải danh sách Pet Species');
+    }
+  };
+
+  const fetchPets = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_BASE_URL}/api/admin/pets`);
+      const data = await res.json();
+      setAllPets(data);
+      applyFilters(search, ownerFilter, data);
+    } catch (error) {
+      setMessage('❌ Lỗi khi tải danh sách Pet');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/admin/pet-species`)
-      .then(res => res.json())
-      .then(data => setSpeciesList(data))
-      .catch(err => console.error('Error loading species:', err));
+    fetchSpecies();
   }, []);
 
   useEffect(() => {
     if (showList) {
-      fetch(`${API_BASE_URL}/api/admin/pets`)
-        .then(res => res.json())
-        .then(data => {
-          setAllPets(data);
-          applyFilters(search, ownerFilter, data);
-        })
-        .catch(err => console.error('Error fetching pets:', err));
+      fetchPets();
     }
   }, [showList]);
+
+  if (!user || !user.isAdmin) {
+    navigate('/login');
+    return null;
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/pets`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', 
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
         body: JSON.stringify(form)
       });
       const data = await response.json();
+      
       if (response.ok) {
-        setMessage(`Đã tạo pet thành công với UUID: ${data.uuid}`);
+        setMessage(`✅ Đã tạo pet thành công với UUID: ${data.uuid}`);
+        setForm({
+          name: '', 
+          pet_species_id: '', 
+          level: 1,
+          iv_hp: 0, 
+          iv_mp: 0, 
+          iv_str: 0, 
+          iv_def: 0, 
+          iv_intelligence: 0, 
+          iv_spd: 0
+        });
       } else {
-        setMessage(`Lỗi: ${data.message || 'Không thể tạo pet'}`);
+        setMessage(`❌ Lỗi: ${data.message || 'Không thể tạo pet'}`);
       }
     } catch (err) {
       console.error('Error creating pet:', err);
-      setMessage('Lỗi khi gọi API');
+      setMessage('❌ Lỗi khi gọi API');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -93,104 +140,243 @@ function AdminCreatePet() {
     setCurrentPage(1);
   };
 
-  const petsToDisplay = filteredPets.slice((currentPage - 1) * petsPerPage, currentPage * petsPerPage);
-  const totalPages = Math.ceil(filteredPets.length / petsPerPage);
-
   const handleDeletePet = async (uuid) => {
-    if (window.confirm('Bạn có chắc chắn muốn xoá pet này không?')) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/admin/pets/${uuid}`, { method: 'DELETE' });
-        const result = await res.json();
-        alert(result.message || 'Đã xoá pet');
+    if (!window.confirm('Bạn có chắc chắn muốn xoá pet này không?')) return;
+    
+    setLoading(true);
+    setMessage('');
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/pets/${uuid}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      const result = await res.json();
+      
+      if (res.ok) {
+        setMessage('✅ Đã xoá pet thành công');
         setFilteredPets(prev => prev.filter(p => p.uuid !== uuid));
-      } catch (err) {
-        alert('Xoá thất bại.');
+      } else {
+        setMessage(`❌ Lỗi: ${result.message || 'Không thể xoá pet'}`);
       }
+    } catch (err) {
+      setMessage('❌ Lỗi khi xoá pet');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const petsToDisplay = filteredPets.slice((currentPage - 1) * petsPerPage, currentPage * petsPerPage);
+  const totalPages = Math.ceil(filteredPets.length / petsPerPage);
+
+  const totalIV = form.iv_hp + form.iv_mp + form.iv_str + form.iv_def + form.iv_intelligence + form.iv_spd;
+
   return (
-    <div className="container">
-      <header><img src="/images/buttons/banner.jpeg" alt="Banner Petaria" /></header>
-      <div className="content">
-        <Sidebar userId={userId} handleLogout={() => { localStorage.removeItem('token'); navigate('/login'); }} isAdmin={isAdmin} />
-        <div className="main-content">
-          <Navbar />
-          <h2>Tạo Pet Thủ Công (Admin)</h2>
-          {message && <p>{message}</p>}
-          <label>Tên Pet: <input type="text" name="name" value={form.name} onChange={handleChange} /></label><br />
-          <label>Chủng loại (species):
-            <select name="pet_species_id" value={form.pet_species_id} onChange={handleChange}>
-              <option value="">-- Chọn --</option>
-              {speciesList.map(species => (
-                <option key={species.id} value={species.id}>{species.name}</option>
-              ))}
-            </select>
-          </label><br />
-          <label>Level: <input type="number" name="level" value={form.level} onChange={handleChange} /></label><br />
-          <label>IV HP: <input type="number" name="iv_hp" value={form.iv_hp} onChange={handleChange} /></label><br />
-          <label>IV MP: <input type="number" name="iv_mp" value={form.iv_mp} onChange={handleChange} /></label><br />
-          <label>IV STR: <input type="number" name="iv_str" value={form.iv_str} onChange={handleChange} /></label><br />
-          <label>IV DEF: <input type="number" name="iv_def" value={form.iv_def} onChange={handleChange} /></label><br />
-          <label>IV INT: <input type="number" name="iv_intelligence" value={form.iv_intelligence} onChange={handleChange} /></label><br />
-          <label>IV SPD: <input type="number" name="iv_spd" value={form.iv_spd} onChange={handleChange} /></label><br />
-          <button onClick={handleSubmit}>Tạo Pet</button>
+    <div className="admin-create-pet">
+      <div className="admin-create-pet-header">
+        <h1>Tạo Pet Thủ Công (Admin)</h1>
+        <button className="back-admin-btn" onClick={() => navigate('/admin')}>
+          ← Quay lại Admin
+        </button>
+      </div>
 
-          <hr />
-          <button onClick={() => setShowList(prev => !prev)}>{showList ? 'Ẩn danh sách' : 'Hiện danh sách tất cả pet'}</button>
-          {showList && (
-            <div>
-              <h3>Danh sách tất cả Pet</h3>
-              <label>Hiển thị:&nbsp;
-                <select value={ownerFilter} onChange={handleOwnerSelect}>
-                  <option value="unowned">Chưa có chủ</option>
-                  <option value="owned">Đã có chủ</option>
-                  <option value="all">Tất cả</option>
-                </select>
-              </label>
-              <br />
-              <input placeholder="Tìm theo tên" name="name" value={search.name} onChange={handleSearchChange} />
-              <input placeholder="Tìm theo loài" name="species" value={search.species} onChange={handleSearchChange} />
-              <input placeholder="Tìm theo chủ" name="owner" value={search.owner} onChange={handleSearchChange} />
+      {message && (
+        <div className={`message ${message.includes('✅') ? 'success' : 'error'}`}>
+          {message}
+        </div>
+      )}
 
-              <table border="1" cellPadding="5">
-                <thead>
-                  <tr>
-                    <th>Tên</th>
-                    <th>Loài</th>
-                    <th>Level</th>
-                    <th>IV</th>
-                    <th>Chủ</th>
-                    <th>Hành động</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {petsToDisplay.map(pet => (
-                    <tr key={pet.uuid}>
-                      <td>{pet.name}</td>
-                      <td>{pet.species_name}</td>
-                      <td>{pet.level}</td>
-                      <td>
-                        HP:{pet.iv_hp}, MP:{pet.iv_mp}, STR:{pet.iv_str}, DEF:{pet.iv_def},
-                        INT:{pet.iv_intelligence}, SPD:{pet.iv_spd}
-                      </td>
-                      <td>{pet.owner_name || 'Chưa có'}</td>
-                      <td>
-                        <button onClick={() => navigate(`/pet/${pet.uuid}`)}>Xem</button>
-                        {!pet.owner_name && (
-                          <button onClick={() => handleDeletePet(pet.uuid)} style={{ marginLeft: '6px' }}>Xoá</button>
-                        )}
-                      </td>
-                    </tr>
+      <div className="admin-create-pet-content">
+        <div className="form-section">
+          <h2>Thông tin Pet</h2>
+          <form onSubmit={handleSubmit}>
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Tên Pet:</label>
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Nhập tên pet"
+                  value={form.name}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Chủng loại:</label>
+                <select name="pet_species_id" value={form.pet_species_id} onChange={handleChange} required>
+                  <option value="">-- Chọn chủng loại --</option>
+                  {speciesList.map(species => (
+                    <option key={species.id} value={species.id}>{species.name}</option>
                   ))}
-                </tbody>
-              </table>
+                </select>
+              </div>
 
-              <div style={{ marginTop: '10px' }}>
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button key={i + 1} onClick={() => setCurrentPage(i + 1)} disabled={currentPage === i + 1}>{i + 1}</button>
+              <div className="form-group">
+                <label>Level:</label>
+                <input
+                  type="number"
+                  name="level"
+                  placeholder="1"
+                  value={form.level}
+                  onChange={handleChange}
+                  min="1"
+                  max="100"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="iv-section">
+              <h3>IV Stats (Tổng: {totalIV})</h3>
+              <div className="iv-grid">
+                {[
+                  { key: 'iv_hp', label: 'HP' },
+                  { key: 'iv_mp', label: 'MP' },
+                  { key: 'iv_str', label: 'STR' },
+                  { key: 'iv_def', label: 'DEF' },
+                  { key: 'iv_intelligence', label: 'INT' },
+                  { key: 'iv_spd', label: 'SPD' }
+                ].map(stat => (
+                  <div className="form-group" key={stat.key}>
+                    <label>{stat.label}:</label>
+                    <input
+                      type="number"
+                      name={stat.key}
+                      placeholder="0"
+                      value={form[stat.key]}
+                      onChange={handleChange}
+                      min="0"
+                      max="31"
+                    />
+                  </div>
                 ))}
               </div>
+            </div>
+
+            <div className="form-actions">
+              <button type="submit" className="submit-btn" disabled={loading}>
+                {loading ? 'Đang tạo...' : 'Tạo Pet'}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div className="list-section">
+          <div className="list-header">
+            <h2>Danh sách Pet</h2>
+            <button 
+              className="toggle-list-btn"
+              onClick={() => setShowList(!showList)}
+            >
+              {showList ? 'Ẩn danh sách' : 'Hiện danh sách'}
+            </button>
+          </div>
+
+          {showList && (
+            <div className="list-content">
+              <div className="list-controls">
+                <div className="search-filter">
+                  <input
+                    placeholder="Tìm theo tên..."
+                    name="name"
+                    value={search.name}
+                    onChange={handleSearchChange}
+                  />
+                  <input
+                    placeholder="Tìm theo loài..."
+                    name="species"
+                    value={search.species}
+                    onChange={handleSearchChange}
+                  />
+                  <input
+                    placeholder="Tìm theo chủ..."
+                    name="owner"
+                    value={search.owner}
+                    onChange={handleSearchChange}
+                  />
+                  <select value={ownerFilter} onChange={handleOwnerSelect}>
+                    <option value="unowned">Chưa có chủ</option>
+                    <option value="owned">Đã có chủ</option>
+                    <option value="all">Tất cả</option>
+                  </select>
+                </div>
+                <p className="total-count">Tổng số: {filteredPets.length}</p>
+              </div>
+
+              {loading ? (
+                <div className="loading">Đang tải...</div>
+              ) : (
+                <>
+                  <div className="table-container">
+                    <table className="pets-table">
+                      <thead>
+                        <tr>
+                          <th>Tên</th>
+                          <th>Loài</th>
+                          <th>Level</th>
+                          <th>IV Stats</th>
+                          <th>Chủ</th>
+                          <th>Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {petsToDisplay.map(pet => (
+                          <tr key={pet.uuid}>
+                            <td>{pet.name}</td>
+                            <td>{pet.species_name}</td>
+                            <td>{pet.level}</td>
+                            <td className="iv-stats">
+                              <span>HP:{pet.iv_hp}</span>
+                              <span>MP:{pet.iv_mp}</span>
+                              <span>STR:{pet.iv_str}</span>
+                              <span>DEF:{pet.iv_def}</span>
+                              <span>INT:{pet.iv_intelligence}</span>
+                              <span>SPD:{pet.iv_spd}</span>
+                            </td>
+                            <td>{pet.owner_name || 'Chưa có'}</td>
+                            <td>
+                              <div className="action-buttons">
+                                <button 
+                                  className="view-btn"
+                                  onClick={() => window.open(`/pet/${pet.uuid}`, '_blank')}
+                                  title="Xem chi tiết"
+                                >
+                                  👁️
+                                </button>
+                                {!pet.owner_name && (
+                                  <button 
+                                    className="delete-btn"
+                                    onClick={() => handleDeletePet(pet.uuid)}
+                                    title="Xóa pet"
+                                  >
+                                    🗑️
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div className="pagination">
+                      {Array.from({ length: totalPages }, (_, i) => (
+                        <button
+                          key={i + 1}
+                          onClick={() => setCurrentPage(i + 1)}
+                          className={currentPage === i + 1 ? 'active-page' : ''}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>
