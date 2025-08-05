@@ -2118,6 +2118,45 @@ app.post('/api/mails/claim/:mailId', async (req, res) => {
       }
     }
 
+    // 4. Thêm spirits vào user_spirits nếu có
+    if (rewards.spirits && rewards.spirits.length > 0) {
+      for (const spirit of rewards.spirits) {
+        for (let i = 0; i < spirit.quantity; i++) {
+          await db.query(`
+            INSERT INTO user_spirits (user_id, spirit_id, is_equipped, equipped_pet_id)
+            VALUES (?, ?, FALSE, NULL)
+          `, [userId, spirit.spirit_id]);
+        }
+      }
+    }
+
+    // 5. Thêm pets nếu có
+    if (rewards.pets && rewards.pets.length > 0) {
+      for (const pet of rewards.pets) {
+        for (let i = 0; i < pet.quantity; i++) {
+          // Lấy thông tin pet từ database
+          const [petRows] = await db.query(`
+            SELECT * FROM pets WHERE id = ?
+          `, [pet.pet_id]);
+          
+          if (petRows.length > 0) {
+            const originalPet = petRows[0];
+            // Tạo pet mới cho user
+            await db.query(`
+              INSERT INTO pets (owner_id, species_id, name, level, exp, hp, mp, str, def, spd, intelligence, 
+                              iv_hp, iv_mp, iv_str, iv_def, iv_spd, iv_intelligence, image, is_deployed)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)
+            `, [
+              userId, originalPet.species_id, originalPet.name, originalPet.level, originalPet.exp,
+              originalPet.hp, originalPet.mp, originalPet.str, originalPet.def, originalPet.spd, originalPet.intelligence,
+              originalPet.iv_hp, originalPet.iv_mp, originalPet.iv_str, originalPet.iv_def, originalPet.iv_spd, originalPet.iv_intelligence,
+              originalPet.image
+            ]);
+          }
+        }
+      }
+    }
+
     // 4. Đánh dấu mail đã claim
     await db.query(`
       UPDATE mails SET is_claimed = TRUE WHERE id = ?
@@ -2152,6 +2191,8 @@ app.post('/api/mails/claim-all/:userId', async (req, res) => {
     let totalPeta = 0;
     let totalPetaGold = 0;
     const itemsToAdd = {};
+    const spiritsToAdd = {};
+    const petsToAdd = {};
 
     // 2. Tính tổng rewards
     for (const mail of mails) {
@@ -2178,6 +2219,20 @@ app.post('/api/mails/claim-all/:userId', async (req, res) => {
           itemsToAdd[key] = (itemsToAdd[key] || 0) + item.quantity;
         }
       }
+
+      if (rewards.spirits) {
+        for (const spirit of rewards.spirits) {
+          const key = spirit.spirit_id;
+          spiritsToAdd[key] = (spiritsToAdd[key] || 0) + spirit.quantity;
+        }
+      }
+
+      if (rewards.pets) {
+        for (const pet of rewards.pets) {
+          const key = pet.pet_id;
+          petsToAdd[key] = (petsToAdd[key] || 0) + pet.quantity;
+        }
+      }
     }
 
     // 3. Cập nhật currency
@@ -2199,11 +2254,46 @@ app.post('/api/mails/claim-all/:userId', async (req, res) => {
         await db.query(`
           UPDATE inventory SET quantity = quantity + ? WHERE id = ?
         `, [quantity, invRows[0].id]);
-              } else {
+      } else {
+        await db.query(`
+          INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, ?)
+        `, [targetUserId, itemId, quantity]);
+      }
+    }
+
+    // 5. Thêm spirits
+    for (const [spiritId, quantity] of Object.entries(spiritsToAdd)) {
+      for (let i = 0; i < quantity; i++) {
+        await db.query(`
+          INSERT INTO user_spirits (user_id, spirit_id, is_equipped, equipped_pet_id)
+          VALUES (?, ?, FALSE, NULL)
+        `, [targetUserId, spiritId]);
+      }
+    }
+
+    // 6. Thêm pets
+    for (const [petId, quantity] of Object.entries(petsToAdd)) {
+      for (let i = 0; i < quantity; i++) {
+        // Lấy thông tin pet từ database
+        const [petRows] = await db.query(`
+          SELECT * FROM pets WHERE id = ?
+        `, [petId]);
+        
+        if (petRows.length > 0) {
+          const originalPet = petRows[0];
+          // Tạo pet mới cho user
           await db.query(`
-            INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, ?)
-          `, [targetUserId, itemId, quantity]);
+            INSERT INTO pets (owner_id, species_id, name, level, exp, hp, mp, str, def, spd, intelligence, 
+                            iv_hp, iv_mp, iv_str, iv_def, iv_spd, iv_intelligence, image, is_deployed)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)
+          `, [
+            targetUserId, originalPet.species_id, originalPet.name, originalPet.level, originalPet.exp,
+            originalPet.hp, originalPet.mp, originalPet.str, originalPet.def, originalPet.spd, originalPet.intelligence,
+            originalPet.iv_hp, originalPet.iv_mp, originalPet.iv_str, originalPet.iv_def, originalPet.iv_spd, originalPet.iv_intelligence,
+            originalPet.image
+          ]);
         }
+      }
     }
 
     // 5. Đánh dấu tất cả mail đã claim
@@ -2216,7 +2306,9 @@ app.post('/api/mails/claim-all/:userId', async (req, res) => {
       message: `Claim thành công ${mails.length} mail!`,
       totalPeta,
       totalPetaGold,
-      totalItems: Object.keys(itemsToAdd).length
+      totalItems: Object.keys(itemsToAdd).length,
+      totalSpirits: Object.keys(spiritsToAdd).length,
+      totalPets: Object.keys(petsToAdd).length
     });
 
   } catch (err) {
@@ -2371,3 +2463,432 @@ app.post('/api/admin/mails/cleanup', async (req, res) => {
     res.status(500).json({ error: 'Lỗi khi cleanup mail' });
   }
 });
+
+// ======================================================== ADMIN PETS API ========================================================
+
+// GET /api/admin/pets - Lấy danh sách tất cả pets cho admin
+app.get('/api/admin/pets', async (req, res) => {
+  try {
+    const [pets] = await db.query(`
+      SELECT p.*, ps.name as species_name
+      FROM pets p
+      LEFT JOIN pet_species ps ON p.species_id = ps.id
+      ORDER BY p.level DESC, p.name ASC
+    `);
+
+    res.json(pets);
+  } catch (err) {
+    console.error('Lỗi khi lấy danh sách pets:', err);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách pets' });
+  }
+});
+
+// ======================================================== SPIRIT SYSTEM APIs ========================================================
+
+// GET /api/spirits - Lấy danh sách tất cả Linh Thú
+app.get('/api/spirits', async (req, res) => {
+  try {
+    const [spirits] = await db.query(`
+      SELECT s.*, 
+             COUNT(ss.id) as stats_count
+      FROM spirits s
+      LEFT JOIN spirit_stats ss ON s.id = ss.spirit_id
+      GROUP BY s.id
+      ORDER BY s.rarity DESC, s.name ASC
+    `);
+
+    // Lấy stats cho từng spirit
+    for (let spirit of spirits) {
+      const [stats] = await db.query(`
+        SELECT stat_type, stat_value, stat_modifier
+        FROM spirit_stats 
+        WHERE spirit_id = ?
+        ORDER BY stat_type
+      `, [spirit.id]);
+      spirit.stats = stats;
+    }
+
+    res.json(spirits);
+  } catch (err) {
+    console.error('Lỗi khi lấy danh sách spirits:', err);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách spirits' });
+  }
+});
+
+// GET /api/users/:userId/spirits - Lấy Linh Thú của user
+app.get('/api/users/:userId/spirits', async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    const [userSpirits] = await db.query(`
+      SELECT us.*, s.name, s.description, s.image_url, s.rarity, s.max_stats_count,
+             p.name as equipped_pet_name
+      FROM user_spirits us
+      JOIN spirits s ON us.spirit_id = s.id
+      LEFT JOIN pets p ON us.equipped_pet_id = p.id
+      WHERE us.user_id = ?
+      ORDER BY us.is_equipped DESC, s.rarity DESC, s.name ASC
+    `, [userId]);
+
+    // Lấy stats cho từng spirit
+    for (let userSpirit of userSpirits) {
+      const [stats] = await db.query(`
+        SELECT stat_type, stat_value, stat_modifier
+        FROM spirit_stats 
+        WHERE spirit_id = ?
+        ORDER BY stat_type
+      `, [userSpirit.spirit_id]);
+      userSpirit.stats = stats;
+    }
+
+    res.json(userSpirits);
+  } catch (err) {
+    console.error('Lỗi khi lấy spirits của user:', err);
+    res.status(500).json({ error: 'Lỗi khi lấy spirits của user' });
+  }
+});
+
+// GET /api/pets/:petId/spirits - Lấy Linh Thú đang trang bị của pet
+app.get('/api/pets/:petId/spirits', async (req, res) => {
+  const { petId } = req.params;
+  
+  try {
+    const [equippedSpirits] = await db.query(`
+      SELECT us.*, s.name, s.description, s.image_url, s.rarity, s.max_stats_count
+      FROM user_spirits us
+      JOIN spirits s ON us.spirit_id = s.id
+      WHERE us.equipped_pet_id = ? AND us.is_equipped = 1
+      ORDER BY s.rarity DESC, s.name ASC
+    `, [petId]);
+
+    // Lấy stats cho từng spirit
+    for (let spirit of equippedSpirits) {
+      const [stats] = await db.query(`
+        SELECT stat_type, stat_value, stat_modifier
+        FROM spirit_stats 
+        WHERE spirit_id = ?
+        ORDER BY stat_type
+      `, [spirit.spirit_id]);
+      spirit.stats = stats;
+    }
+
+    res.json(equippedSpirits);
+  } catch (err) {
+    console.error('Lỗi khi lấy spirits của pet:', err);
+    res.status(500).json({ error: 'Lỗi khi lấy spirits của pet' });
+  }
+});
+
+// POST /api/spirits/equip - Trang bị Linh Thú cho pet
+app.post('/api/spirits/equip', async (req, res) => {
+  const { userSpiritId, petId } = req.body;
+  
+  try {
+    // Kiểm tra xem pet có phải của user không
+    const [petCheck] = await db.query(`
+      SELECT owner_id FROM pets WHERE id = ?
+    `, [petId]);
+    
+    if (petCheck.length === 0) {
+      return res.status(404).json({ error: 'Pet không tồn tại' });
+    }
+
+    // Kiểm tra xem user spirit có tồn tại và thuộc về user không
+    const [userSpiritCheck] = await db.query(`
+      SELECT us.*, s.max_stats_count,
+             (SELECT COUNT(*) FROM user_spirits WHERE equipped_pet_id = ? AND is_equipped = 1) as current_spirits_count
+      FROM user_spirits us
+      JOIN spirits s ON us.spirit_id = s.id
+      WHERE us.id = ? AND us.user_id = ?
+    `, [petId, userSpiritId, petCheck[0].owner_id]);
+
+    if (userSpiritCheck.length === 0) {
+      return res.status(404).json({ error: 'Linh Thú không tồn tại hoặc không thuộc về bạn' });
+    }
+
+    const spirit = userSpiritCheck[0];
+    
+    // Kiểm tra giới hạn số lượng spirits (tối đa 4)
+    if (spirit.current_spirits_count >= 4) {
+      return res.status(400).json({ error: 'Pet đã trang bị tối đa 4 Linh Thú' });
+    }
+
+    // Kiểm tra xem spirit đã được trang bị chưa
+    if (spirit.is_equipped) {
+      return res.status(400).json({ error: 'Linh Thú này đã được trang bị' });
+    }
+
+    // Trang bị spirit
+    await db.query(`
+      UPDATE user_spirits 
+      SET equipped_pet_id = ?, is_equipped = 1
+      WHERE id = ?
+    `, [petId, userSpiritId]);
+
+    res.json({ 
+      success: true, 
+      message: 'Trang bị Linh Thú thành công!',
+      spirit_id: spirit.spirit_id
+    });
+  } catch (err) {
+    console.error('Lỗi khi trang bị spirit:', err);
+    res.status(500).json({ error: 'Lỗi khi trang bị spirit' });
+  }
+});
+
+// POST /api/spirits/unequip - Tháo Linh Thú khỏi pet
+app.post('/api/spirits/unequip', async (req, res) => {
+  const { userSpiritId } = req.body;
+  
+  try {
+    // Kiểm tra xem user spirit có tồn tại và đang được trang bị không
+    const [userSpiritCheck] = await db.query(`
+      SELECT * FROM user_spirits WHERE id = ? AND is_equipped = 1
+    `, [userSpiritId]);
+
+    if (userSpiritCheck.length === 0) {
+      return res.status(404).json({ error: 'Linh Thú không tồn tại hoặc chưa được trang bị' });
+    }
+
+    // Tháo spirit
+    await db.query(`
+      UPDATE user_spirits 
+      SET equipped_pet_id = NULL, is_equipped = 0
+      WHERE id = ?
+    `, [userSpiritId]);
+
+    res.json({ 
+      success: true, 
+      message: 'Tháo Linh Thú thành công!',
+      spirit_id: userSpiritCheck[0].spirit_id
+    });
+  } catch (err) {
+    console.error('Lỗi khi tháo spirit:', err);
+    res.status(500).json({ error: 'Lỗi khi tháo spirit' });
+  }
+});
+
+// POST /api/spirits/claim - Nhận Linh Thú (từ shop, mail, etc.)
+app.post('/api/spirits/claim', async (req, res) => {
+  const { userId, spiritId } = req.body;
+  
+  try {
+    // Kiểm tra xem spirit có tồn tại không
+    const [spiritCheck] = await db.query(`
+      SELECT * FROM spirits WHERE id = ?
+    `, [spiritId]);
+
+    if (spiritCheck.length === 0) {
+      return res.status(404).json({ error: 'Linh Thú không tồn tại' });
+    }
+
+    // Kiểm tra xem user đã có spirit này chưa
+    const [existingSpirit] = await db.query(`
+      SELECT * FROM user_spirits WHERE user_id = ? AND spirit_id = ?
+    `, [userId, spiritId]);
+
+    if (existingSpirit.length > 0) {
+      return res.status(400).json({ error: 'Bạn đã sở hữu Linh Thú này rồi' });
+    }
+
+    // Thêm spirit cho user
+    await db.query(`
+      INSERT INTO user_spirits (user_id, spirit_id, is_equipped, equipped_pet_id)
+      VALUES (?, ?, 0, NULL)
+    `, [userId, spiritId]);
+
+    res.json({ 
+      success: true, 
+      message: 'Nhận Linh Thú thành công!',
+      spirit_id: spiritId
+    });
+  } catch (err) {
+    console.error('Lỗi khi nhận spirit:', err);
+    res.status(500).json({ error: 'Lỗi khi nhận spirit' });
+  }
+});
+
+// ======================================================== ADMIN SPIRIT APIs ========================================================
+
+// POST /api/admin/spirits - Tạo Linh Thú mới
+app.post('/api/admin/spirits', async (req, res) => {
+  const { name, description, image_url, rarity, max_stats_count, stats } = req.body;
+  
+  try {
+    // Tạo spirit mới
+    const [result] = await db.query(`
+      INSERT INTO spirits (name, description, image_url, rarity, max_stats_count)
+      VALUES (?, ?, ?, ?, ?)
+    `, [name, description, image_url, rarity, max_stats_count]);
+
+    const spiritId = result.insertId;
+
+    // Thêm stats cho spirit
+    if (stats && Array.isArray(stats)) {
+      for (let stat of stats) {
+        await db.query(`
+          INSERT INTO spirit_stats (spirit_id, stat_type, stat_value, stat_modifier)
+          VALUES (?, ?, ?, ?)
+        `, [spiritId, stat.stat_type, stat.stat_value, stat.stat_modifier || 'flat']);
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Tạo Linh Thú thành công!',
+      spirit_id: spiritId
+    });
+  } catch (err) {
+    console.error('Lỗi khi tạo spirit:', err);
+    res.status(500).json({ error: 'Lỗi khi tạo spirit' });
+  }
+});
+
+// PUT /api/admin/spirits/:id - Cập nhật Linh Thú
+app.put('/api/admin/spirits/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, description, image_url, rarity, max_stats_count, stats } = req.body;
+  
+  try {
+    // Cập nhật thông tin cơ bản
+    await db.query(`
+      UPDATE spirits 
+      SET name = ?, description = ?, image_url = ?, rarity = ?, max_stats_count = ?
+      WHERE id = ?
+    `, [name, description, image_url, rarity, max_stats_count, id]);
+
+    // Xóa stats cũ và thêm stats mới
+    await db.query(`DELETE FROM spirit_stats WHERE spirit_id = ?`, [id]);
+
+    if (stats && Array.isArray(stats)) {
+      for (let stat of stats) {
+        await db.query(`
+          INSERT INTO spirit_stats (spirit_id, stat_type, stat_value, stat_modifier)
+          VALUES (?, ?, ?, ?)
+        `, [id, stat.stat_type, stat.stat_value, stat.stat_modifier || 'flat']);
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Cập nhật Linh Thú thành công!',
+      spirit_id: id
+    });
+  } catch (err) {
+    console.error('Lỗi khi cập nhật spirit:', err);
+    res.status(500).json({ error: 'Lỗi khi cập nhật spirit' });
+  }
+});
+
+// DELETE /api/admin/spirits/:id - Xóa Linh Thú
+app.delete('/api/admin/spirits/:id', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    // Kiểm tra xem có user nào đang sở hữu spirit này không
+    const [userSpirits] = await db.query(`
+      SELECT COUNT(*) as count FROM user_spirits WHERE spirit_id = ?
+    `, [id]);
+
+    if (userSpirits[0].count > 0) {
+      return res.status(400).json({ 
+        error: 'Không thể xóa Linh Thú này vì có người chơi đang sở hữu' 
+      });
+    }
+
+    // Xóa stats trước
+    await db.query(`DELETE FROM spirit_stats WHERE spirit_id = ?`, [id]);
+    
+    // Xóa spirit
+    await db.query(`DELETE FROM spirits WHERE id = ?`, [id]);
+
+    res.json({ 
+      success: true, 
+      message: 'Xóa Linh Thú thành công!'
+    });
+  } catch (err) {
+    console.error('Lỗi khi xóa spirit:', err);
+    res.status(500).json({ error: 'Lỗi khi xóa spirit' });
+  }
+});
+
+// GET /api/admin/spirits/:id - Lấy chi tiết Linh Thú cho admin
+app.get('/api/admin/spirits/:id', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const [spirits] = await db.query(`
+      SELECT * FROM spirits WHERE id = ?
+    `, [id]);
+
+    if (spirits.length === 0) {
+      return res.status(404).json({ error: 'Linh Thú không tồn tại' });
+    }
+
+    const spirit = spirits[0];
+
+    // Lấy stats
+    const [stats] = await db.query(`
+      SELECT stat_type, stat_value, stat_modifier
+      FROM spirit_stats 
+      WHERE spirit_id = ?
+      ORDER BY stat_type
+    `, [id]);
+
+    spirit.stats = stats;
+
+    res.json(spirit);
+  } catch (err) {
+    console.error('Lỗi khi lấy chi tiết spirit:', err);
+    res.status(500).json({ error: 'Lỗi khi lấy chi tiết spirit' });
+  }
+});
+
+// ======================================================== SPIRIT STATS CALCULATION ========================================================
+
+// Hàm tính toán stats từ spirits cho pet
+async function calculateSpiritStats(petId) {
+  try {
+    const [equippedSpirits] = await db.query(`
+      SELECT us.spirit_id, ss.stat_type, ss.stat_value, ss.stat_modifier
+      FROM user_spirits us
+      JOIN spirit_stats ss ON us.spirit_id = ss.spirit_id
+      WHERE us.equipped_pet_id = ? AND us.is_equipped = 1
+    `, [petId]);
+
+    const spiritStats = {
+      hp: 0,
+      mp: 0,
+      str: 0,
+      def: 0,
+      spd: 0,
+      intelligence: 0
+    };
+
+    for (let spiritStat of equippedSpirits) {
+      const statType = spiritStat.stat_type;
+      const value = spiritStat.stat_value;
+      const modifier = spiritStat.stat_modifier;
+
+      if (modifier === 'percentage') {
+        // Percentage modifier sẽ được tính sau khi có base stats
+        spiritStats[`${statType}_percent`] = (spiritStats[`${statType}_percent`] || 0) + value;
+      } else {
+        // Flat modifier
+        spiritStats[statType] += value;
+      }
+    }
+
+    return spiritStats;
+  } catch (err) {
+    console.error('Lỗi khi tính toán spirit stats:', err);
+    return {
+      hp: 0, mp: 0, str: 0, def: 0, spd: 0, intelligence: 0
+    };
+  }
+}
+
+// Export function để sử dụng trong battle engine
+module.exports = {
+  calculateSpiritStats
+};

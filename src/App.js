@@ -25,6 +25,7 @@ import ArenaPage from './components/battle/ArenaPage';
 import PveSelectPage from './components/battle/PveSelectPage';
 import ArenaBattlePage from './components/battle/ArenaBattlePage';
 import AdminAddPetForBattle from './components/admin/AdminAddPetForBattle';
+import AdminSpiritEditor from './components/admin/AdminSpiritEditor';
 import HomePageVer2 from './components/HomePageVer2';
 import PokedexPage from './components/PokedexPage';
 import CultivatePage from './components/CultivatePage';
@@ -104,6 +105,7 @@ function App() {
               <Route path="battle/pve" element={<PveSelectPage />} />
               <Route path="battle/pve/arena" element={<ArenaPage />} />
               <Route path="admin/create-arena-pet" element={<AdminAddPetForBattle />} />
+              <Route path="admin/spirits" element={<AdminSpiritEditor />} />
               <Route path="battle/pve/arena/arenabattle" element={<ArenaBattlePage />} />
               <Route path="home-ver2" element={<HomePage />} />
               <Route path="pokedex" element={<PokedexPage />} />

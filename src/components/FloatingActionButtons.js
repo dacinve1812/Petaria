@@ -55,8 +55,8 @@ function FloatingActionButtons({ userId, onOpenMail }) {
       </div>
 
       <div className="fab-button mail-fab-button" onClick={handleMailClick}>
-        <div className="fab-icon">
-          <span role="img" aria-label="Mail" style={{ fontSize: 32 }}>📬</span>
+        <div className="fab-icon mail-icon">
+        <img src="/images/icons/mail.png" alt="Mail" />
           {unclaimedCount > 0 && (
             <span className="fab-mail-notification-dot">
               {unclaimedCount > 99 ? '99+' : unclaimedCount}

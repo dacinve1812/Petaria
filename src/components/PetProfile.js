@@ -49,12 +49,19 @@ function PetProfile() {
   const { uuid } = useParams();
   const [pet, setPet] = useState(null);
   const [equippedItems, setEquippedItems] = useState([]);
+  const [equippedSpirits, setEquippedSpirits] = useState([]);
   const [hungerStatus, setHungerStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const [currentUserId, setCurrentUserId] = useState(null);
   const isAdmin = localStorage.getItem('isAdmin') === 'true';
+  
+  // New state for detail modals
+  const [showSpiritDetail, setShowSpiritDetail] = useState(false);
+  const [showItemDetail, setShowItemDetail] = useState(false);
+  const [selectedSpirit, setSelectedSpirit] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -105,6 +112,18 @@ function PetProfile() {
         })
         .catch(err => console.error('Error loading equipped items:', err));
 
+      // Fetch equipped spirits
+      fetch(`${API_BASE_URL}/api/pets/${pet.id}/spirits`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) setEquippedSpirits(data);
+          else {
+            console.warn('Expected array but got:', data);
+            setEquippedSpirits([]);
+          }
+        })
+        .catch(err => console.error('Error loading equipped spirits:', err));
+
       // Fetch hunger status
       fetch(`${API_BASE_URL}/api/pets/${pet.id}/hunger-status`)
         .then(res => res.json())
@@ -113,10 +132,11 @@ function PetProfile() {
         })
         .catch(err => console.error('Error loading hunger status:', err));
     }
-  }, [pet, API_BASE_URL]);
+  }, [pet?.id, API_BASE_URL]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('isAdmin');
     navigate('/login');
   };
 
@@ -125,56 +145,136 @@ function PetProfile() {
   };
 
   const handleReleasePet = async () => {
-    if (!pet || !currentUserId) return;
-    if (pet.owner_id !== currentUserId) {
-      alert('Bạn không có quyền phóng thích thú cưng này.');
+    if (!window.confirm('Bạn có chắc chắn muốn phóng thích thú cưng này?')) {
       return;
     }
-    const confirmRelease = window.confirm(`Bạn có chắc chắn muốn phóng thích ${pet.name || pet.pet_types_name} không? Hành động này không thể hoàn tác.`);
-    if (confirmRelease) {
-      const token = localStorage.getItem('token');
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/pets/${uuid}/release`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (response.ok) {
-          alert('Thú cưng đã được phóng thích thành công.');
-          navigate('/myhome');
-        } else if (response.status === 401) {
-          setError('Bạn chưa đăng nhập.');
-          navigate('/login');
-        } else if (response.status === 403) {
-          alert('Bạn không có quyền phóng thích thú cưng này.');
-        } else if (response.status === 404) {
-          setError('Không tìm thấy thú cưng này.');
-        } else {
-          const errorData = await response.json();
-          setError(`Lỗi khi phóng thích thú cưng: ${errorData?.message || response.statusText}`);
-        }
-      } catch (err) {
-        console.error('Error releasing pet:', err);
-        setError('Lỗi mạng khi phóng thích thú cưng.');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/release`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        alert('Phóng thích thú cưng thành công!');
+        navigate('/myhome');
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || 'Lỗi khi phóng thích thú cưng');
       }
+    } catch (error) {
+      console.error('Error releasing pet:', error);
+      alert('Lỗi khi phóng thích thú cưng');
     }
   };
 
   const handleUnequip = async (itemId) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/inventory/${itemId}/unequip`, {
-        method: 'POST'
+      const response = await fetch(`${API_BASE_URL}/api/equipment/unequip`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ itemId })
       });
-      const result = await res.json();
-      if (res.ok) {
-        alert(result.message || 'Đã gỡ vật phẩm!');
-        setEquippedItems(prev => prev.filter(item => item.id !== itemId));
+      if (response.ok) {
+        // Refresh equipped items
+        const itemsResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/equipment`);
+        if (itemsResponse.ok) {
+          const itemsData = await itemsResponse.json();
+          if (Array.isArray(itemsData)) setEquippedItems(itemsData);
+        }
+        alert('Tháo vật phẩm thành công!');
       } else {
-        alert(result.message || 'Không thể gỡ vật phẩm.');
+        const errorData = await response.json();
+        alert(errorData.error || 'Lỗi khi tháo vật phẩm');
       }
-    } catch (err) {
-      console.error('Lỗi khi gọi API unequip:', err);
-      alert('Lỗi khi gỡ vật phẩm.');
+    } catch (error) {
+      console.error('Error unequipping item:', error);
+      alert('Lỗi khi tháo vật phẩm');
     }
+  };
+
+  const handleUnequipSpirit = async (userSpiritId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/spirits/unequip`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userSpiritId })
+      });
+      if (response.ok) {
+        // Refresh equipped spirits
+        const spiritsResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/spirits`);
+        if (spiritsResponse.ok) {
+          const spiritsData = await spiritsResponse.json();
+          if (Array.isArray(spiritsData)) setEquippedSpirits(spiritsData);
+        }
+        alert('Tháo linh thú thành công!');
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || 'Lỗi khi tháo linh thú');
+      }
+    } catch (error) {
+      console.error('Error unequipping spirit:', error);
+      alert('Lỗi khi tháo linh thú');
+    }
+  };
+
+  // New handlers for detail modals
+  const openSpiritDetail = (spirit) => {
+    setSelectedSpirit(spirit);
+    setShowSpiritDetail(true);
+  };
+
+  const openItemDetail = (item) => {
+    setSelectedItem(item);
+    setShowItemDetail(true);
+  };
+
+  const getRarityColor = (rarity) => {
+    switch (rarity) {
+      case 'common': return '#9d9d9d';
+      case 'rare': return '#0070dd';
+      case 'epic': return '#a335ee';
+      case 'legendary': return '#ff8000';
+      default: return '#9d9d9d';
+    }
+  };
+
+  const getRarityText = (rarity) => {
+    switch (rarity) {
+      case 'common': return 'Thường';
+      case 'rare': return 'Hiếm';
+      case 'epic': return 'Epic';
+      case 'legendary': return 'Huyền thoại';
+      default: return 'Thường';
+    }
+  };
+
+  const formatStatValue = (stat) => {
+    const value = stat.stat_value;
+    const modifier = stat.stat_modifier;
+    const type = stat.stat_type;
+    
+    let statText = '';
+    switch (type) {
+      case 'hp': statText = 'HP'; break;
+      case 'mp': statText = 'MP'; break;
+      case 'str': statText = 'STR'; break;
+      case 'def': statText = 'DEF'; break;
+      case 'spd': statText = 'SPD'; break;
+      case 'intelligence': statText = 'INT'; break;
+      default: statText = type.toUpperCase();
+    }
+
+    const sign = value >= 0 ? '+' : '';
+    const modifierText = modifier === 'percentage' ? '%' : '';
+    
+    return `${sign}${value}${modifierText} ${statText}`;
   };
 
   if (loading) return <div>Loading pet details...</div>;
@@ -229,6 +329,37 @@ function PetProfile() {
               <h2>{pet.name || pet.pet_types_name}</h2>
               <p className="pet-species">Loài: {pet.pet_types_name}</p>
               <p style={{ animationDelay: '0.3s' }}>Linh thú trang bị:</p>
+              <div className="equipped-spirits" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '15px' }}>
+                {equippedSpirits.length === 0 && <p style={{ animationDelay: '0.31s' }}>(Không có linh thú nào)</p>}
+                {equippedSpirits.map((spirit, index) => (
+                  <div key={spirit.id} style={{ position: 'relative' }}>
+                    <img
+                      src={`/images/spirit/${spirit.image_url}`}
+                      alt={spirit.name}
+                      title={`${spirit.name} (${spirit.rarity})`}
+                      style={{ 
+                        width: 'min(64px,90%)', 
+                        height: '64px', 
+                        objectFit: 'contain',
+                        animationDelay: `${0.31 + (index * 0.02)}s`,
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => openSpiritDetail(spirit)}
+                    />
+                    {currentUserId === pet.owner_id && (
+                      <button
+                        onClick={() => handleUnequipSpirit(spirit.id)}
+                        className="remove-button"
+                        title="Gỡ linh thú"
+                        style={{ animationDelay: `${0.31 + (index * 0.02)}s` }}
+                      >
+                        <img className="icon-button-1" src="/images/icons/delete.png" alt="remove" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              
               <p style={{ animationDelay: '0.32s' }}>Vật phẩm trang bị:</p>
               <div className="equipped-items" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 {equippedItems.length === 0 && <p style={{ animationDelay: '0.34s' }}>(Không có item nào)</p>}
@@ -242,8 +373,10 @@ function PetProfile() {
                         width: 'min(64px,90%)', 
                         height: '64px', 
                         objectFit: 'contain',
-                        animationDelay: `${0.34 + (index * 0.02)}s`
+                        animationDelay: `${0.34 + (index * 0.02)}s`,
+                        cursor: 'pointer'
                       }}
+                      onClick={() => openItemDetail(item)}
                     />
                     {currentUserId === pet.owner_id && (
                       <button
@@ -269,6 +402,134 @@ function PetProfile() {
           )}
         </div>
       </div>
+
+      {/* Spirit Detail Modal */}
+      {showSpiritDetail && selectedSpirit && (
+        <div className="detail-modal-overlay">
+          <div className="detail-modal">
+            <div className="detail-header">
+              <h3>{selectedSpirit.name}</h3>
+              <button 
+                className="close-btn"
+                onClick={() => {
+                  setShowSpiritDetail(false);
+                  setSelectedSpirit(null);
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="detail-content">
+              <div className="detail-image">
+                <img 
+                  src={`/images/spirit/${selectedSpirit.image_url}`} 
+                  alt={selectedSpirit.name}
+                  onError={(e) => {
+                    e.target.src = '/images/spirit/angelpuss.gif';
+                  }}
+                />
+              </div>
+              
+              <div className="detail-info">
+                <div className="detail-rarity">
+                  <span 
+                    className="rarity-badge"
+                    style={{ color: getRarityColor(selectedSpirit.rarity) }}
+                  >
+                    {getRarityText(selectedSpirit.rarity)}
+                  </span>
+                </div>
+                
+                <div className="detail-description">
+                  <p>{selectedSpirit.description}</p>
+                </div>
+                
+                <div className="detail-stats">
+                  <h4>Chỉ số:</h4>
+                  <div className="stats-grid">
+                    {selectedSpirit.stats && selectedSpirit.stats.map((stat, index) => (
+                      <div key={index} className="stat-item">
+                        {formatStatValue(stat)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Item Detail Modal */}
+      {showItemDetail && selectedItem && (
+        <div className="detail-modal-overlay">
+          <div className="detail-modal">
+            <div className="detail-header">
+              <h3>{selectedItem.item_name}</h3>
+              <button 
+                className="close-btn"
+                onClick={() => {
+                  setShowItemDetail(false);
+                  setSelectedItem(null);
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="detail-content">
+              <div className="detail-image">
+                <img 
+                  src={`/images/equipments/${selectedItem.image_url}`} 
+                  alt={selectedItem.item_name}
+                  onError={(e) => {
+                    e.target.src = '/images/equipments/placeholder.png';
+                  }}
+                />
+              </div>
+              
+              <div className="detail-info">
+                <div className="detail-description">
+                  <p>{selectedItem.description || 'Không có mô tả'}</p>
+                </div>
+                
+                <div className="detail-stats">
+                  <h4>Thông tin:</h4>
+                  <div className="stats-grid">
+                    <div className="stat-item">
+                      <strong>Loại:</strong> {selectedItem.item_type}
+                    </div>
+                    <div className="stat-item">
+                      <strong>Độ bền:</strong> {selectedItem.durability}
+                    </div>
+                    {selectedItem.str_bonus && (
+                      <div className="stat-item">
+                        <strong>STR:</strong> +{selectedItem.str_bonus}
+                      </div>
+                    )}
+                    {selectedItem.def_bonus && (
+                      <div className="stat-item">
+                        <strong>DEF:</strong> +{selectedItem.def_bonus}
+                      </div>
+                    )}
+                    {selectedItem.spd_bonus && (
+                      <div className="stat-item">
+                        <strong>SPD:</strong> +{selectedItem.spd_bonus}
+                      </div>
+                    )}
+                    {selectedItem.intelligence_bonus && (
+                      <div className="stat-item">
+                        <strong>INT:</strong> +{selectedItem.intelligence_bonus}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -53,6 +53,13 @@ function Admin() {
         </div>
 
         <div className="admin-section">
+          <h2>Quản lý Linh Thú</h2>
+          <ul>
+            <li><Link to="/admin/spirits">Quản lý Linh Thú</Link></li>
+          </ul>
+        </div>
+
+        <div className="admin-section">
           <h2>Hệ thống Mail</h2>
           <ul>
             <li><Link to="/admin/mail-test">Gửi Test Mail</Link></li>

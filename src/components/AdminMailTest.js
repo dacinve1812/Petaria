@@ -17,6 +17,12 @@ const AdminMailTest = () => {
   const [customPetaGold, setCustomPetaGold] = useState(0);
   const [customItems, setCustomItems] = useState([{ item_id: 47, quantity: 1 }]);
   const [availableItems, setAvailableItems] = useState([]);
+  
+  // New state for spirits and pets gifting
+  const [customSpirits, setCustomSpirits] = useState([]);
+  const [customPets, setCustomPets] = useState([]);
+  const [availableSpirits, setAvailableSpirits] = useState([]);
+  const [availablePets, setAvailablePets] = useState([]);
 
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -77,20 +83,35 @@ const AdminMailTest = () => {
     }
   ];
 
-  // Fetch available items
+  // Fetch available items, spirits, and pets
   React.useEffect(() => {
-    const fetchItems = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/items`);
-        if (response.ok) {
-          const items = await response.json();
+        // Fetch items
+        const itemsResponse = await fetch(`${API_BASE_URL}/api/admin/items`);
+        if (itemsResponse.ok) {
+          const items = await itemsResponse.json();
           setAvailableItems(items);
         }
+
+        // Fetch spirits
+        const spiritsResponse = await fetch(`${API_BASE_URL}/api/spirits`);
+        if (spiritsResponse.ok) {
+          const spirits = await spiritsResponse.json();
+          setAvailableSpirits(spirits);
+        }
+
+        // Fetch pets (we'll need to create an admin endpoint for this)
+        const petsResponse = await fetch(`${API_BASE_URL}/api/admin/pets`);
+        if (petsResponse.ok) {
+          const pets = await petsResponse.json();
+          setAvailablePets(pets);
+        }
       } catch (error) {
-        console.error('Error fetching items:', error);
+        console.error('Error fetching data:', error);
       }
     };
-    fetchItems();
+    fetchData();
   }, []);
 
   // Update custom fields when template changes
@@ -127,12 +148,46 @@ const AdminMailTest = () => {
     setCustomItems(newItems);
   };
 
+  // New handlers for spirits
+  const handleAddSpirit = () => {
+    setCustomSpirits([...customSpirits, { spirit_id: '', quantity: 1 }]);
+  };
+
+  const handleRemoveSpirit = (index) => {
+    const newSpirits = customSpirits.filter((_, i) => i !== index);
+    setCustomSpirits(newSpirits);
+  };
+
+  const handleSpiritChange = (index, field, value) => {
+    const newSpirits = [...customSpirits];
+    newSpirits[index] = { ...newSpirits[index], [field]: parseInt(value) || 0 };
+    setCustomSpirits(newSpirits);
+  };
+
+  // New handlers for pets
+  const handleAddPet = () => {
+    setCustomPets([...customPets, { pet_id: '', quantity: 1 }]);
+  };
+
+  const handleRemovePet = (index) => {
+    const newPets = customPets.filter((_, i) => i !== index);
+    setCustomPets(newPets);
+  };
+
+  const handlePetChange = (index, field, value) => {
+    const newPets = [...customPets];
+    newPets[index] = { ...newPets[index], [field]: parseInt(value) || 0 };
+    setCustomPets(newPets);
+  };
+
   const getCurrentRewards = () => {
     if (customMode) {
       return {
         peta: customPeta > 0 ? customPeta : undefined,
         peta_gold: customPetaGold > 0 ? customPetaGold : undefined,
-        items: customItems.filter(item => item.item_id > 0 && item.quantity > 0)
+        items: customItems.filter(item => item.item_id > 0 && item.quantity > 0),
+        spirits: customSpirits.filter(spirit => spirit.spirit_id > 0 && spirit.quantity > 0),
+        pets: customPets.filter(pet => pet.pet_id > 0 && pet.quantity > 0)
       };
     } else {
       const template = mailTemplates.find(t => t.id === selectedMailType);
@@ -397,6 +452,84 @@ const AdminMailTest = () => {
                   </div>
                 ))}
               </div>
+
+              {/* Spirits Section */}
+              <div className="rewards-section">
+                <h3>Spirits:</h3>
+                <div className="items-header">
+                  <h4>Items:</h4>
+                  <button className="add-item-btn" onClick={handleAddSpirit}>
+                    + Thêm Spirit
+                  </button>
+                </div>
+                {customSpirits.map((spirit, index) => (
+                  <div key={index} className="item-row">
+                    <select
+                      value={spirit.spirit_id}
+                      onChange={(e) => handleSpiritChange(index, 'spirit_id', e.target.value)}
+                    >
+                      <option value="">Chọn Spirit</option>
+                      {availableSpirits.map(availableSpirit => (
+                        <option key={availableSpirit.id} value={availableSpirit.id}>
+                          {availableSpirit.name} (ID: {availableSpirit.id})
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      value={spirit.quantity}
+                      onChange={(e) => handleSpiritChange(index, 'quantity', e.target.value)}
+                      placeholder="Số lượng"
+                      min="1"
+                    />
+                    <button 
+                      className="remove-item-btn"
+                      onClick={() => handleRemoveSpirit(index)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pets Section */}
+              <div className="rewards-section">
+                <h3>Pets:</h3>
+                <div className="items-header">
+                  <h4>Items:</h4>
+                  <button className="add-item-btn" onClick={handleAddPet}>
+                    + Thêm Pet
+                  </button>
+                </div>
+                {customPets.map((pet, index) => (
+                  <div key={index} className="item-row">
+                    <select
+                      value={pet.pet_id}
+                      onChange={(e) => handlePetChange(index, 'pet_id', e.target.value)}
+                    >
+                      <option value="">Chọn Pet</option>
+                      {availablePets.map(availablePet => (
+                        <option key={availablePet.id} value={availablePet.id}>
+                          {availablePet.name} (ID: {availablePet.id})
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      value={pet.quantity}
+                      onChange={(e) => handlePetChange(index, 'quantity', e.target.value)}
+                      placeholder="Số lượng"
+                      min="1"
+                    />
+                    <button 
+                      className="remove-item-btn"
+                      onClick={() => handleRemovePet(index)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </>
         )}
@@ -419,6 +552,22 @@ const AdminMailTest = () => {
                 return (
                   <li key={index}>
                     {itemDetail ? itemDetail.name : `Item ${item.item_id}`}: x{item.quantity}
+                  </li>
+                );
+              })}
+              {currentRewards.spirits && currentRewards.spirits.map((spirit, index) => {
+                const spiritDetail = availableSpirits.find(s => s.id === spirit.spirit_id);
+                return (
+                  <li key={index}>
+                    {spiritDetail ? spiritDetail.name : `Spirit ${spirit.spirit_id}`}: x{spirit.quantity}
+                  </li>
+                );
+              })}
+              {currentRewards.pets && currentRewards.pets.map((pet, index) => {
+                const petDetail = availablePets.find(p => p.id === pet.pet_id);
+                return (
+                  <li key={index}>
+                    {petDetail ? petDetail.name : `Pet ${pet.pet_id}`}: x{pet.quantity}
                   </li>
                 );
               })}
