@@ -2625,6 +2625,9 @@ app.post('/api/spirits/equip', async (req, res) => {
       WHERE id = ?
     `, [petId, userSpiritId]);
 
+    // ✅ Cập nhật pet stats sau khi equip spirit
+    await db.query('CALL recalculate_pet_stats(?)', [petId]);
+
     res.json({ 
       success: true, 
       message: 'Trang bị Linh Thú thành công!',
@@ -2650,12 +2653,17 @@ app.post('/api/spirits/unequip', async (req, res) => {
       return res.status(404).json({ error: 'Linh Thú không tồn tại hoặc chưa được trang bị' });
     }
 
+    const petId = userSpiritCheck[0].equipped_pet_id;
+    
     // Tháo spirit
     await db.query(`
       UPDATE user_spirits 
       SET equipped_pet_id = NULL, is_equipped = 0
       WHERE id = ?
     `, [userSpiritId]);
+
+    // ✅ Cập nhật pet stats sau khi unequip spirit
+    await db.query('CALL recalculate_pet_stats(?)', [petId]);
 
     res.json({ 
       success: true, 
@@ -2892,3 +2900,64 @@ async function calculateSpiritStats(petId) {
 module.exports = {
   calculateSpiritStats
 };
+
+
+// Trong server.js - Thêm API mới để lấy battle stats
+app.get('/api/pets/:petId/battle-stats', async (req, res) => {
+  const { petId } = req.params;
+  
+  try {
+    // Lấy pet data với stats đã được tính toán (cached)
+    const [petRows] = await db.query(`
+      SELECT p.*, ps.name as species_name, ps.image
+      FROM pets p
+      JOIN pet_species ps ON p.pet_species_id = ps.id
+      WHERE p.id = ?
+    `, [petId]);
+    
+    if (!petRows.length) {
+      return res.status(404).json({ message: 'Pet not found' });
+    }
+    
+    const pet = petRows[0];
+    
+    // Lấy equipment (chỉ để hiển thị, không tính vào stats)
+    const [equipmentRows] = await db.query(`
+      SELECT i.id, i.item_id, it.name AS item_name, it.image_url, i.durability_left,
+             ed.power, ed.durability AS max_durability, i.is_broken
+      FROM inventory i
+      JOIN items it ON i.item_id = it.id
+      LEFT JOIN equipment_data ed ON it.id = ed.item_id
+      WHERE i.equipped_pet_id = ? AND i.is_equipped = 1 AND i.is_broken = 0
+    `, [petId]);
+    
+    // Lấy spirits
+    const [spiritRows] = await db.query(`
+      SELECT us.*, s.name, s.description, s.image_url, s.rarity
+      FROM user_spirits us
+      JOIN spirits s ON us.spirit_id = s.id
+      WHERE us.equipped_pet_id = ? AND us.is_equipped = 1
+    `, [petId]);
+    
+    // Stats đã được tính toán trong database (cached)
+    const battleStats = {
+      hp: pet.hp,
+      mp: pet.mp,
+      str: pet.str,  // Đã bao gồm spirit bonus
+      def: pet.def,  // Đã bao gồm spirit bonus
+      spd: pet.spd,  // Đã bao gồm spirit bonus
+      intelligence: pet.intelligence  // Đã bao gồm spirit bonus
+    };
+    
+    res.json({
+      pet: { ...pet, final_stats: battleStats },
+      equipment: equipmentRows,
+      spirits: spiritRows,
+      battle_stats: battleStats
+    });
+    
+  } catch (err) {
+    console.error('Error getting battle stats:', err);
+    res.status(500).json({ message: 'Error getting battle stats' });
+  }
+});

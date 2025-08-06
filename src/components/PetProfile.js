@@ -277,6 +277,69 @@ function PetProfile() {
     return `${sign}${value}${modifierText} ${statText}`;
   };
 
+  // Calculate bonus stats from equipped spirits and items
+  const calculateBonusStats = () => {
+    const bonusStats = {
+      hp: 0,
+      mp: 0,
+      str: 0,
+      def: 0,
+      spd: 0,
+      intelligence: 0
+    };
+
+    // Calculate bonus from equipped spirits
+    equippedSpirits.forEach(spirit => {
+      if (spirit.stats) {
+        spirit.stats.forEach(stat => {
+          const statType = stat.stat_type;
+          const value = parseFloat(stat.stat_value) || 0;
+          const modifier = stat.stat_modifier;
+
+          if (bonusStats.hasOwnProperty(statType)) {
+            if (modifier === 'percentage') {
+              // Percentage bonus will be calculated based on base stats
+              bonusStats[`${statType}_percent`] = (bonusStats[`${statType}_percent`] || 0) + value;
+            } else {
+              // Flat bonus
+              bonusStats[statType] += value;
+            }
+          }
+        });
+      }
+    });
+
+    // Calculate bonus from equipped items
+    equippedItems.forEach(item => {
+      if (item.str_bonus) bonusStats.str += (item.str_bonus || 0);
+      if (item.def_bonus) bonusStats.def += (item.def_bonus || 0);
+      if (item.spd_bonus) bonusStats.spd += (item.spd_bonus || 0);
+      if (item.intelligence_bonus) bonusStats.intelligence += (item.intelligence_bonus || 0);
+    });
+
+    // Apply percentage bonuses
+    if (bonusStats.hp_percent) {
+      bonusStats.hp += Math.floor((pet.hp * bonusStats.hp_percent) / 100);
+    }
+    if (bonusStats.mp_percent) {
+      bonusStats.mp += Math.floor((pet.mp * bonusStats.mp_percent) / 100);
+    }
+    if (bonusStats.str_percent) {
+      bonusStats.str += Math.floor((pet.str * bonusStats.str_percent) / 100);
+    }
+    if (bonusStats.def_percent) {
+      bonusStats.def += Math.floor((pet.def * bonusStats.def_percent) / 100);
+    }
+    if (bonusStats.spd_percent) {
+      bonusStats.spd += Math.floor((pet.spd * bonusStats.spd_percent) / 100);
+    }
+    if (bonusStats.intelligence_percent) {
+      bonusStats.intelligence += Math.floor((pet.intelligence * bonusStats.intelligence_percent) / 100);
+    }
+
+    return bonusStats;
+  };
+
   if (loading) return <div>Loading pet details...</div>;
   if (error) return <div>Error: {error}</div>;
   if (!pet) return <div>Pet not found.</div>;
@@ -289,6 +352,9 @@ function PetProfile() {
   const expProgress = currentExp;
   const expRequired = expToNextLevel - expToThisLevel;
   const progressPercent = Math.max(Math.floor(((expProgress - expToThisLevel) / expRequired) * 100), 0);
+
+  // Calculate bonus stats
+  const bonusStats = calculateBonusStats();
 
   return (
     <div className="container">
@@ -303,47 +369,83 @@ function PetProfile() {
           <div className="pet-profile">
             <div className='pet-header'>Xem thông tin thú cưng</div>
             <div className="pet-details">
-              <p style={{ animationDelay: '0.02s' }}>Tên: {pet.name}</p>
-              <p style={{ animationDelay: '0.04s' }}><span className='extra-stats'>{isEvolved ? 'Đã tiến hóa' : 'Chưa tiến hóa'}</span></p>
-              <p style={{ animationDelay: '0.06s' }}>Đẳng cấp: {pet.level}</p>
-              <p style={{ animationDelay: '0.08s' }}>Sinh Nhật: {pet.created_date ? new Date(pet.created_date).toLocaleDateString() : 'N/A'}</p>
-              <p style={{ animationDelay: '0.1s' }}>Hạng: {pet.rank || 'N/A'}</p>
-              <p style={{ animationDelay: '0.12s' }}>EXP: {expProgress} / {expToNextLevel}</p>
-              <progress value={(expProgress - expToThisLevel)} max={expRequired} style={{ animationDelay: '0.13s' }}></progress>
-              <p style={{ animationDelay: '0.14s' }}>Sức Khỏe: {pet.hp}/{pet.max_hp}</p>
-              <p style={{ animationDelay: '0.16s' }}>Năng Lượng: {pet.mp}/{pet.max_mp}</p>
-              <p style={{ animationDelay: '0.18s' }}>Sức Mạnh: {pet.str}{pet.str_added > 0 ? ` (+${pet.str_added})` : ''}</p>
-              <p style={{ animationDelay: '0.2s' }}>Phòng Thủ: {pet.def}{pet.def_added > 0 ? ` (+${pet.def_added})` : ''}</p>
-              <p style={{ animationDelay: '0.22s' }}>Thông Minh: {pet.intelligence}{pet.intelligence_added > 0 ? ` (+${pet.intelligence_added})` : ''}</p>
-              <p style={{ animationDelay: '0.24s' }}>Tốc Độ: {pet.spd}{pet.spd_added > 0 ? ` (+${pet.spd_added})` : ''}</p>
-              <p style={{ animationDelay: '0.26s' }}>Tình Trạng: {hungerStatus ? <HungerStatusDisplay 
+              <p className="pet-detail-name">Tên: {pet.name}</p>
+              <p className="pet-detail-evolved"><span className='extra-stats'>{isEvolved ? 'Đã tiến hóa' : 'Chưa tiến hóa'}</span></p>
+              <p className="pet-detail-level">Đẳng cấp: {pet.level}</p>
+              <p className="pet-detail-birthday">Sinh Nhật: {pet.created_date ? new Date(pet.created_date).toLocaleDateString() : 'N/A'}</p>
+              <p className="pet-detail-rank">Hạng: {pet.rank || 'N/A'}</p>
+              <p className="pet-detail-exp">EXP: {expProgress} / {expToNextLevel}</p>
+              <progress className="pet-detail-progress" value={(expProgress - expToThisLevel)} max={expRequired}></progress>
+              <p className="pet-detail-hp">
+                Sức Khỏe: {pet.hp}/{pet.max_hp}
+                {bonusStats.hp > 0 && (
+                  <span className="bonus-stats">
+                    {' '}+ {bonusStats.hp}
+                  </span>
+                )}
+              </p>
+              <p className="pet-detail-mp">
+                Năng Lượng: {pet.mp}/{pet.max_mp}
+                {bonusStats.mp > 0 && (
+                  <span className="bonus-stats">
+                    {' '}+ {bonusStats.mp}
+                  </span>
+                )}
+              </p>
+              <p className="pet-detail-str">
+                Sức Mạnh: {pet.str}
+                {bonusStats.str > 0 && (
+                  <span className="bonus-stats">
+                    {' '}+ {bonusStats.str}
+                  </span>
+                )}
+              </p>
+              <p className="pet-detail-def">
+                Phòng Thủ: {pet.def}
+                {bonusStats.def > 0 && (
+                  <span className="bonus-stats">
+                    {' '}+ {bonusStats.def}
+                  </span>
+                )}
+              </p>
+              <p className="pet-detail-int">
+                Thông Minh: {pet.intelligence}
+                {bonusStats.intelligence > 0 && (
+                  <span className="bonus-stats">
+                    {' '}+ {bonusStats.intelligence}
+                  </span>
+                )}
+              </p>
+              <p className="pet-detail-spd">
+                Tốc Độ: {pet.spd}
+                {bonusStats.spd > 0 && (
+                  <span className="bonus-stats">
+                    {' '}+ {bonusStats.spd}
+                  </span>
+                )}
+              </p>
+              <p className="pet-detail-status">Tình Trạng: {hungerStatus ? <HungerStatusDisplay 
                     hungerStatus={hungerStatus.hunger_status}
                     canBattle={hungerStatus.can_battle}
                   /> : 'Ổn định'}</p>
               
               <br />
-              <p style={{ animationDelay: '0.28s' }}>Chiến đấu thắng: {pet.battles_won || 'N/A'}</p>
+              <p className="pet-detail-battles">Chiến đấu thắng: {pet.battles_won || 'N/A'}</p>
             </div>
             <div className="pet-details-right">
               <img src={`/images/pets/${pet.image}`} alt={pet.name || pet.pet_types_name} className="pet-image" />
               <h2>{pet.name || pet.pet_types_name}</h2>
               <p className="pet-species">Loài: {pet.pet_types_name}</p>
-              <p style={{ animationDelay: '0.3s' }}>Linh thú trang bị:</p>
-              <div className="equipped-spirits" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '15px' }}>
-                {equippedSpirits.length === 0 && <p style={{ animationDelay: '0.31s' }}>(Không có linh thú nào)</p>}
+              <p className="equipped-spirits-title">Linh thú trang bị:</p>
+              <div className="equipped-spirits">
+                {equippedSpirits.length === 0 && <p className="equipped-spirits-empty">(Không có linh thú nào)</p>}
                 {equippedSpirits.map((spirit, index) => (
-                  <div key={spirit.id} style={{ position: 'relative' }}>
+                  <div key={spirit.id} className="equipped-spirit-item">
                     <img
                       src={`/images/spirit/${spirit.image_url}`}
                       alt={spirit.name}
                       title={`${spirit.name} (${spirit.rarity})`}
-                      style={{ 
-                        width: 'min(64px,90%)', 
-                        height: '64px', 
-                        objectFit: 'contain',
-                        animationDelay: `${0.31 + (index * 0.02)}s`,
-                        cursor: 'pointer'
-                      }}
+                      className="spirit-image"
                       onClick={() => openSpiritDetail(spirit)}
                     />
                     {currentUserId === pet.owner_id && (
@@ -351,7 +453,6 @@ function PetProfile() {
                         onClick={() => handleUnequipSpirit(spirit.id)}
                         className="remove-button"
                         title="Gỡ linh thú"
-                        style={{ animationDelay: `${0.31 + (index * 0.02)}s` }}
                       >
                         <img className="icon-button-1" src="/images/icons/delete.png" alt="remove" />
                       </button>
@@ -360,22 +461,16 @@ function PetProfile() {
                 ))}
               </div>
               
-              <p style={{ animationDelay: '0.32s' }}>Vật phẩm trang bị:</p>
-              <div className="equipped-items" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                {equippedItems.length === 0 && <p style={{ animationDelay: '0.34s' }}>(Không có item nào)</p>}
+              <p className="equipped-items-title">Vật phẩm trang bị:</p>
+              <div className="equipped-items">
+                {equippedItems.length === 0 && <p className="equipped-items-empty">(Không có item nào)</p>}
                 {equippedItems.map((item, index) => (
-                  <div key={item.id} style={{ position: 'relative' }}>
+                  <div key={item.id} className="equipped-item">
                     <img
                       src={`/images/equipments/${item.image_url}`}
                       alt={item.item_name}
                       title={`${item.item_name} (Durability: ${item.durability})`}
-                      style={{ 
-                        width: 'min(64px,90%)', 
-                        height: '64px', 
-                        objectFit: 'contain',
-                        animationDelay: `${0.34 + (index * 0.02)}s`,
-                        cursor: 'pointer'
-                      }}
+                      className="equipped-item-image"
                       onClick={() => openItemDetail(item)}
                     />
                     {currentUserId === pet.owner_id && (
@@ -383,7 +478,6 @@ function PetProfile() {
                         onClick={() => handleUnequip(item.id)}
                         className="remove-button"
                         title="Gỡ vật phẩm"
-                        style={{ animationDelay: `${0.34 + (index * 0.02)}s` }}
                       >
                         <img className="icon-button-1" src="/images/icons/delete.png" alt="remove" />
                       </button>

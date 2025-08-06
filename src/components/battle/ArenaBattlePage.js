@@ -186,11 +186,24 @@ function ArenaBattlePage() {
   
       useEffect(() => {
     if (!player?.id) return;
+    // Lấy battle stats với đầy đủ bonus (cached)
+      fetch(`${API_BASE_URL}/api/pets/${player.id}/battle-stats`)
+      .then(res => res.json())
+      .then(data => {
+        setPlayer(prev => ({ 
+          ...prev, 
+          final_stats: data.battle_stats,
+          current_hp: data.battle_stats.hp 
+        }));
+      })
+      .catch(err => console.error('Error loading battle stats:', err));
+      
+    // Lấy equipment
     fetch(`${API_BASE_URL}/api/pets/${player.id}/equipment`)
       .then(res => res.json())
       .then(setEquippedItems)
-      .catch(err => console.error('Lỗi khi load trang bị:', err));
-  }, [player?.id]);
+      .catch(err => console.error('Error loading equipment:', err));
+    }, [player?.id]);
   
     useEffect(() => {
       if (player.current_hp <= 0 || enemy.current_hp <= 0) setBattleEnded(true);

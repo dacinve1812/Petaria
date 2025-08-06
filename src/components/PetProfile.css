@@ -2,7 +2,98 @@
     --pet-detail: #00b7fb;
     --pet-info: #fec200;
     --pet-detail-text: #00338f;
+    --bonus-stats-color: rgb(135, 0, 0);
+    --bonus-stats-weight: 650;
+    --equipped-spirits-gap: 10px;
+    --equipped-items-gap: 10px;
+    --spirit-image-size: 64px;
+    --spirit-image-size-small: 50px;
+    --spirit-image-size-xsmall: 45px;
+    --item-image-size: 64px;
+    --animation-delay-base: 0.02s;
+    --animation-delay-increment: 0.02s;
 }
+
+/* Animation delays for pet details */
+.pet-detail-name { animation-delay: 0.02s; }
+.pet-detail-evolved { animation-delay: 0.04s; }
+.pet-detail-level { animation-delay: 0.06s; }
+.pet-detail-birthday { animation-delay: 0.08s; }
+.pet-detail-rank { animation-delay: 0.1s; }
+.pet-detail-exp { animation-delay: 0.12s; }
+.pet-detail-progress { animation-delay: 0.13s; }
+.pet-detail-hp { animation-delay: 0.14s; }
+.pet-detail-mp { animation-delay: 0.16s; }
+.pet-detail-str { animation-delay: 0.18s; }
+.pet-detail-def { animation-delay: 0.2s; }
+.pet-detail-int { animation-delay: 0.22s; }
+.pet-detail-spd { animation-delay: 0.24s; }
+.pet-detail-status { animation-delay: 0.26s; }
+.pet-detail-battles { animation-delay: 0.28s; }
+
+/* Bonus stats styling */
+.bonus-stats {
+    color: var(--bonus-stats-color);
+    font-weight: var(--bonus-stats-weight);
+}
+
+/* Equipped spirits section */
+.equipped-spirits, .equipped-items {
+    display: flex;
+    gap: var(--equipped-spirits-gap);
+    /* flex-wrap: wrap; */
+    margin: 15px 0;
+}
+
+.equipped-spirits-title { animation-delay: 0.3s; }
+.equipped-spirits-empty { animation-delay: 0.31s; }
+
+.equipped-spirit-item, .equipped-item{
+    position: relative;
+}
+
+.spirit-image {
+    /* width: min(var(--spirit-image-size), 90%); */
+    height: var(--spirit-image-size);
+    object-fit: contain;
+    cursor: pointer;
+}
+
+/* Equipped items section */
+.equipped-items {
+    display: flex;
+    gap: var(--equipped-items-gap);
+    flex-wrap: wrap;
+}
+
+.equipped-items-title { animation-delay: 0.32s; }
+.equipped-items-empty { animation-delay: 0.34s; }
+
+.equipped-item-image {
+    width: min(var(--item-image-size), 90%);
+    height: var(--item-image-size);
+    object-fit: contain;
+    cursor: pointer;
+}
+
+/* Animation delays for spirits and items */
+.spirit-item:nth-child(1) .spirit-image,
+.spirit-item:nth-child(1) .remove-button { animation-delay: 0.31s; }
+.spirit-item:nth-child(2) .spirit-image,
+.spirit-item:nth-child(2) .remove-button { animation-delay: 0.33s; }
+.spirit-item:nth-child(3) .spirit-image,
+.spirit-item:nth-child(3) .remove-button { animation-delay: 0.35s; }
+.spirit-item:nth-child(4) .spirit-image,
+.spirit-item:nth-child(4) .remove-button { animation-delay: 0.37s; }
+
+.equipped-item-image:nth-child(1),
+.remove-button:nth-child(1) { animation-delay: 0.34s; }
+.equipped-item-image:nth-child(2),
+.remove-button:nth-child(2) { animation-delay: 0.36s; }
+.equipped-item-image:nth-child(3),
+.remove-button:nth-child(3) { animation-delay: 0.38s; }
+.equipped-item-image:nth-child(4),
+.remove-button:nth-child(4) { animation-delay: 0.4s; }
 
 
 /* Pet list */
@@ -51,7 +142,7 @@
     margin-top: 50px;
     width: min(700px,95%);
     justify-content: center;
-
+    height: min(800px,100%);
 }
 
 .pet-header {
@@ -83,7 +174,6 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    height: 600px;
 }
 
 .pet-image {
@@ -150,6 +240,7 @@
   border: none;
   background: rgba(255, 255, 255, 0.1);
   padding: 2px 5px;
+  z-index: 1;
 
 };
 .remove-button > .icon-button-1 {
@@ -160,7 +251,7 @@
 /* Bạn có thể tùy chỉnh thêm các style khác theo ý muốn */
 
 /* Animation for equipped items */
-.equipped-items img {
+.equipped-item-image {
   animation: fadeInUp 0.3s ease-out !important;
   animation-fill-mode: both !important;
 }
@@ -215,7 +306,7 @@ progress {
   justify-content: center;
 }
 
-  .equipped-items img {
+  .equipped-item-image {
     margin-top: 10px;
     width: 50px !important;
     height: 50px !important;
@@ -254,7 +345,7 @@ progress {
   }
 
 
-  .equipped-items img {
+  .equipped-item-image {
     width: 40px !important;
     height: 40px !important;
   }
@@ -273,6 +364,9 @@ progress {
   .icon-button-1 {
     width: 12px;
     height: 12px;
+  }
+  .spirit-image {
+    height: var(--spirit-image-size-small);
   }
 }
 
@@ -314,7 +408,7 @@ progress {
   }
 
 /* 
-  .equipped-items img {
+    .equipped-item-image {
     width: 35px !important;
     height: 35px !important;
   } */
@@ -395,14 +489,13 @@ progress {
 
 .detail-image {
   text-align: center;
+  margin:auto;
 }
 
 .detail-image img {
   width: 120px;
   height: 120px;
   object-fit: contain;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .detail-info {
@@ -481,5 +574,14 @@ progress {
   
   .detail-content {
     padding: 0 15px 15px 15px;
+  }
+}
+@media (max-width: 340px) {
+  .spirit-image {
+    height: var(--spirit-image-size-xsmall);
+  }
+  .equipped-spirits {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }
