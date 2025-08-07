@@ -81,27 +81,110 @@
     cursor: not-allowed;
   }
 
-  .buy-button.sold-out:hover {
-    background: #7f8c8d;
-    transform: none;
-    box-shadow: none;
-  }
-  
+  /* Action Section */
   .modal-action {
-    display: flex;
-    gap: 8px;
     margin-bottom: 16px;
-    justify-content: center;
   }
-  
-  .modal-info {
-    font-size: 13px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    background: #f8f8f8;
+
+  .modal-action select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+
+  .modal-action button {
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    background: #3498db;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .modal-action button:hover:not(:disabled) {
+    background: #2980b9;
+    transform: translateY(-1px);
+  }
+
+  .modal-action button:disabled {
+    background: #bdc3c7;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Equip Section */
+  .equip-section {
+    margin-bottom: 16px;
     padding: 12px;
+    background: #f8f9fa;
     border-radius: 8px;
+  }
+
+  .equip-section label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    color: #2c3e50;
+  }
+
+  .equip-section select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+
+  /* Use Section */
+  .use-section {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #e8f5e8;
+    border-radius: 8px;
+    border: 1px solid #d4edda;
+  }
+
+  .use-section label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    color: #155724;
+  }
+
+  .use-section select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #c3e6cb;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+  }
+
+  /* Info Section */
+  .modal-info {
+    margin-top: 16px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    text-align: left;
+  }
+
+  .modal-info div {
+    margin-bottom: 4px;
+    font-size: 13px;
+  }
+
+  .modal-info strong {
+    color: #2c3e50;
   }
 
   /* Responsive Design */

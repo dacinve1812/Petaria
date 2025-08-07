@@ -2961,3 +2961,248 @@ app.get('/api/pets/:petId/battle-stats', async (req, res) => {
     res.status(500).json({ message: 'Error getting battle stats' });
   }
 });
+
+
+// Sử dụng vật phẩm
+app.post('/api/pets/:petId/use-item', async (req, res) => {
+  const { petId } = req.params;
+  const { item_id, quantity = 1, userId } = req.body;
+
+  try {
+    // 1. Kiểm tra pet thuộc về user
+    const [petRows] = await db.query('SELECT * FROM pets WHERE id = ? AND owner_id = ?', [petId, userId]);
+    if (!petRows.length) {
+      return res.status(404).json({ message: 'Pet not found' });
+    }
+
+    // 2. Kiểm tra inventory có item không
+    const [inventoryRows] = await db.query('SELECT * FROM inventory WHERE player_id = ? AND item_id = ? AND quantity >= ?', 
+      [userId, item_id, quantity]);
+    if (!inventoryRows.length) {
+      return res.status(400).json({ message: 'Not enough items' });
+    }
+
+    // 3. Lấy thông tin item và effect
+    const [itemRows] = await db.query('SELECT * FROM items WHERE id = ?', [item_id]);
+    const [effectRows] = await db.query('SELECT * FROM item_effects WHERE item_id = ?', [item_id]);
+
+    if (!itemRows.length || !effectRows.length) {
+      return res.status(400).json({ message: 'Invalid item' });
+    }
+
+    // 4. Xử lý theo loại item
+    let levelUpResult = null;
+    if (itemRows[0].type === 'consumable') {
+      levelUpResult = await handleConsumableItem(petId, item_id, effectRows[0], quantity, userId);
+    } else if (itemRows[0].type === 'booster') {
+      await handleBoosterItem(petId, item_id, effectRows[0], quantity, userId);
+    } else if (itemRows[0].type === 'food') {
+      levelUpResult = await handleFoodItem(petId, item_id, effectRows[0], quantity, userId);
+    }
+
+    // 5. Trừ item khỏi inventory
+    await db.query('UPDATE inventory SET quantity = quantity - ? WHERE player_id = ? AND item_id = ?', 
+      [quantity, userId, item_id]);
+
+    // 6. Xóa item nếu quantity <= 0
+    const [checkResult] = await db.query('SELECT quantity FROM inventory WHERE player_id = ? AND item_id = ?', 
+      [userId, item_id]);
+    if (checkResult.length > 0 && checkResult[0].quantity <= 0) {
+      await db.query('DELETE FROM inventory WHERE player_id = ? AND item_id = ? AND quantity <= 0', 
+        [userId, item_id]);
+    }
+
+    res.json({ 
+      message: 'Item used successfully',
+      exp_gained: effectRows[0].effect_target === 'exp' ? effectRows[0].value_min * quantity : 0,
+      level_up: levelUpResult ? levelUpResult.level_up : false,
+      old_level: levelUpResult ? levelUpResult.old_level : null,
+      new_level: levelUpResult ? levelUpResult.new_level : null,
+      stats_updated: levelUpResult ? levelUpResult.stats_updated : false,
+      new_stats: levelUpResult ? levelUpResult.new_stats : null
+    });
+  } catch (error) {
+    console.error('Error using item:', error);
+    res.status(500).json({ message: 'Error using item' });
+  }
+});
+
+// Helper functions
+async function handleConsumableItem(petId, itemId, effect, quantity, userId) {
+  if (effect.effect_target === 'exp') {
+    // Sử dụng logic level up có sẵn
+    return await handleExpGainWithLevelUp(petId, effect.value_min * quantity);
+  } else if (effect.effect_target === 'hp') {
+    // Hồi HP
+    await pool.promise().query('UPDATE pets SET hp = LEAST(max_hp, hp + ?) WHERE id = ?', 
+      [effect.value_min * quantity, petId]);
+    return null;
+  } else if (effect.effect_target === 'str' || effect.effect_target === 'def' || 
+             effect.effect_target === 'spd' || effect.effect_target === 'intelligence') {
+    // Tăng stat tạm thời hoặc vĩnh viễn
+    const statField = effect.effect_target;
+    if (effect.effect_type === 'percent') {
+      await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
+        [effect.value_min, petId]);
+    } else if (effect.effect_type === 'flat') {
+      await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
+        [effect.value_min, petId]);
+    }
+    return null;
+  }
+  return null;
+}
+
+async function handleBoosterItem(petId, itemId, effect, quantity, userId) {
+  // Kiểm tra usage limit
+  const [usage] = await pool.promise().query('SELECT * FROM pet_item_usage WHERE pet_id = ? AND item_id = ?', [petId, itemId]);
+  
+  if (!usage.length) {
+    // Tạo record mới
+    await pool.promise().query('INSERT INTO pet_item_usage (pet_id, item_id, used_count, max_usage) VALUES (?, ?, 1, ?)', 
+      [petId, itemId, effect.max_usage]);
+  } else {
+    if (usage[0].used_count >= usage[0].max_usage) {
+      throw new Error('Usage limit reached');
+    }
+    // Cập nhật usage count
+    await pool.promise().query('UPDATE pet_item_usage SET used_count = used_count + 1, last_used = NOW() WHERE id = ?', 
+      [usage[0].id]);
+  }
+
+  // Tăng stat vĩnh viễn
+  const statField = effect.effect_target;
+  if (effect.effect_type === 'percent') {
+    await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
+      [effect.value_min, petId]);
+  }
+}
+
+async function handleFoodItem(petId, itemId, effect, quantity, userId) {
+  // Xử lý food item - có thể tăng HP, EXP hoặc stats
+  if (effect.effect_target === 'exp') {
+    // Sử dụng logic level up có sẵn
+    return await handleExpGainWithLevelUp(petId, effect.value_min * quantity);
+  } else if (effect.effect_target === 'hp') {
+    // Hồi HP
+    await pool.promise().query('UPDATE pets SET hp = LEAST(max_hp, hp + ?) WHERE id = ?', 
+      [effect.value_min * quantity, petId]);
+    return null;
+  } else if (effect.effect_target === 'str' || effect.effect_target === 'def' || 
+             effect.effect_target === 'spd' || effect.effect_target === 'intelligence') {
+    // Tăng stat
+    const statField = effect.effect_target;
+    if (effect.effect_type === 'percent') {
+      await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
+        [effect.value_min, petId]);
+    } else if (effect.effect_type === 'flat') {
+      await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
+        [effect.value_min, petId]);
+    }
+    return null;
+  }
+  return null;
+}
+
+// Helper function để xử lý EXP với logic level up
+async function handleExpGainWithLevelUp(petId, expGain) {
+  try {
+    // Lấy thông tin pet hiện tại
+    const [petRows] = await pool.promise().query('SELECT * FROM pets WHERE id = ?', [petId]);
+    if (!petRows.length) {
+      throw new Error('Pet not found');
+    }
+
+    const pet = petRows[0];
+    let newExp = pet.current_exp + expGain;
+    let newLevel = pet.level;
+
+    // Kiểm tra level up
+    while (expTable[newLevel + 1] && newExp >= expTable[newLevel + 1]) {
+      newLevel++;
+    }
+
+    // Recalculate stats nếu level up
+    let updatedStats = null;
+    if (newLevel > pet.level) {
+      // Lấy base stats từ pet_species
+      const [speciesRows] = await pool.promise().query(
+        'SELECT base_hp, base_mp, base_str, base_def, base_intelligence, base_spd FROM pet_species WHERE id = ?',
+        [pet.pet_species_id]
+      );
+      
+      if (speciesRows.length > 0) {
+        const species = speciesRows[0];
+        const base = {
+          hp: parseInt(species.base_hp),
+          mp: parseInt(species.base_mp),
+          str: parseInt(species.base_str),
+          def: parseInt(species.base_def),
+          intelligence: parseInt(species.base_intelligence),
+          spd: parseInt(species.base_spd),
+        };
+        
+        const iv = {
+          iv_hp: pet.iv_hp,
+          iv_mp: pet.iv_mp,
+          iv_str: pet.iv_str,
+          iv_def: pet.iv_def,
+          iv_intelligence: pet.iv_intelligence,
+          iv_spd: pet.iv_spd,
+        };
+        
+        updatedStats = calculateFinalStats(base, iv, newLevel);
+      }
+    }
+
+    // Update database với stats mới nếu level up
+    if (updatedStats) {
+      await pool.promise().query(
+        `UPDATE pets SET 
+          current_exp = ?, 
+          level = ?, 
+          hp = ?, 
+          max_hp = ?, 
+          mp = ?, 
+          max_mp = ?, 
+          str = ?, 
+          def = ?, 
+          intelligence = ?, 
+          spd = ?, 
+          final_stats = ? 
+        WHERE id = ?`,
+        [
+          newExp, newLevel,
+          updatedStats.hp, updatedStats.hp,
+          updatedStats.mp, updatedStats.mp,
+          updatedStats.str, updatedStats.def, updatedStats.intelligence, updatedStats.spd,
+          JSON.stringify(updatedStats),
+          petId
+        ]
+      );
+    } else {
+      // Chỉ update exp nếu không level up
+      await pool.promise().query(
+        'UPDATE pets SET current_exp = ? WHERE id = ?',
+        [newExp, petId]
+      );
+    }
+
+    console.log(`Pet ${petId} gained ${expGain} EXP. Level: ${pet.level} -> ${newLevel}`);
+    if (updatedStats) {
+      console.log(`Stats updated for level up:`, updatedStats);
+    }
+    
+    return {
+      level_up: newLevel > pet.level,
+      old_level: pet.level,
+      new_level: newLevel,
+      exp_gained: expGain,
+      stats_updated: !!updatedStats,
+      new_stats: updatedStats
+    };
+  } catch (error) {
+    console.error('Error in handleExpGainWithLevelUp:', error);
+    throw error;
+  }
+}

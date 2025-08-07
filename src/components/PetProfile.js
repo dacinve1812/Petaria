@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import './PetProfile.css';
-import Sidebar from './Sidebar';
-import Navbar from './Navbar';
+// import Sidebar from './Sidebar';
+// import Navbar from './Navbar';
 import BackButton from './BackButton';
 import expTable from '../data/exp_table_petaria.json';
 
@@ -55,7 +55,7 @@ function PetProfile() {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const [currentUserId, setCurrentUserId] = useState(null);
-  const isAdmin = localStorage.getItem('isAdmin') === 'true';
+  // const isAdmin = localStorage.getItem('isAdmin') === 'true'
   
   // New state for detail modals
   const [showSpiritDetail, setShowSpiritDetail] = useState(false);
@@ -134,11 +134,11 @@ function PetProfile() {
     }
   }, [pet?.id, API_BASE_URL]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('isAdmin');
-    navigate('/login');
-  };
+  // const handleLogout = () => {
+  //   localStorage.removeItem('token');
+  //   localStorage.removeItem('isAdmin');
+  //   navigate('/login');
+  // };
 
   const handleBack = () => {
     navigate('/myhome');
@@ -351,7 +351,7 @@ function PetProfile() {
   const expToNextLevel = expTable[level + 1] || 1;
   const expProgress = currentExp;
   const expRequired = expToNextLevel - expToThisLevel;
-  const progressPercent = Math.max(Math.floor(((expProgress - expToThisLevel) / expRequired) * 100), 0);
+  // const progressPercent = Math.max(Math.floor(((expProgress - expToThisLevel) / expRequired) * 100), 0);
 
   // Calculate bonus stats
   const bonusStats = calculateBonusStats();
@@ -365,7 +365,7 @@ function PetProfile() {
       <div className="content">
 
         <div className="main-content">
-          <Navbar />
+          {/* <Navbar /> */}
           <div className="pet-profile">
             <div className='pet-header'>Xem thông tin thú cưng</div>
             <div className="pet-details">

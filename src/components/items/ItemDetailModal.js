@@ -1,4 +1,4 @@
-// Updated ItemDetailModal.js with support for unequip
+// Updated ItemDetailModal.js with support for unequip and use item for pets
 import React, { useEffect, useState } from 'react';
 import './ItemDetailModal.css';
 
@@ -7,9 +7,11 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   const [userPets, setUserPets] = useState([]);
   const [selectedPetId, setSelectedPetId] = useState('');
   const [action, setAction] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (item?.type === 'equipment') {
+    // Fetch user pets for both equipment and use actions
+    if (item?.type === 'equipment' || item?.type === 'food' || item?.type === 'consumable' || item?.type === 'booster') {
       const token = localStorage.getItem('token');
       if (!token) return;
       const userId = JSON.parse(atob(token.split('.')[1])).userId;
@@ -65,8 +67,62 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
     }
   };
 
+  const handleUseItem = async () => {
+    if (!selectedPetId) {
+      alert('Vui lòng chọn thú cưng để sử dụng vật phẩm!');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const userId = JSON.parse(atob(token.split('.')[1])).userId;
+
+      const res = await fetch(`${API_BASE_URL}/api/pets/${selectedPetId}/use-item`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          item_id: item.item_id, 
+          quantity: 1, 
+          userId: userId 
+        })
+      });
+      
+      const result = await res.json();
+      if (res.ok) {
+        alert(result.message || 'Sử dụng vật phẩm thành công!');
+        
+        // Update item quantity or remove if quantity becomes 0
+        if (typeof onUpdateItem === 'function') {
+          const newQuantity = item.quantity - 1;
+          if (newQuantity <= 0) {
+            // Item will be removed from inventory
+            onUpdateItem(null); // Signal to remove item
+          } else {
+            onUpdateItem({ ...item, quantity: newQuantity });
+          }
+        }
+        onClose();
+      } else {
+        alert(result.message || 'Sử dụng vật phẩm thất bại.');
+      }
+    } catch (err) {
+      console.error('Lỗi khi sử dụng vật phẩm:', err);
+      alert('Lỗi khi sử dụng vật phẩm.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = () => {
-    if (action === 'equip' && item.type === 'equipment') return;
+    if (action === 'equip' && item.type === 'equipment') {
+      handleEquipItem();
+      return;
+    }
+    if (action === 'use' && (item.type === 'food' || item.type === 'consumable' || item.type === 'booster')) {
+      handleUseItem();
+      return;
+    }
     if (action === 'remove' && item.is_equipped) {
       handleUnequipItem();
       return;
@@ -100,20 +156,28 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
           <>
             <div className="modal-action">
               <select value={action} onChange={(e) => setAction(e.target.value)}>
-                <option value="">Choose an Action</option>
-                <option value="use">Use</option>
-                <option value="equip">Equip</option>
-                {item.is_equipped && <option value="remove">Remove</option>}
-                <option value="sell">Sell</option>
+                <option value="">Chọn hành động</option>
+                {(item.type === 'food' || item.type === 'consumable' || item.type === 'booster') && (
+                  <option value="use">Sử dụng</option>
+                )}
+                {item.type === 'equipment' && (
+                  <option value="equip">Trang bị</option>
+                )}
+                {item.is_equipped && <option value="remove">Gỡ bỏ</option>}
+                <option value="sell">Bán</option>
               </select>
               <button
                 onClick={handleSubmit}
-                disabled={!action || (action === 'equip' && item.type === 'equipment')}
+                disabled={!action || loading || 
+                  (action === 'equip' && item.type === 'equipment' && !selectedPetId) ||
+                  (action === 'use' && (item.type === 'food' || item.type === 'consumable' || item.type === 'booster') && !selectedPetId)
+                }
               >
-                Submit
+                {loading ? 'Đang xử lý...' : 'Xác nhận'}
               </button>
             </div>
 
+            {/* Pet selection for equip action */}
             {action === 'equip' && item.type === 'equipment' && (
               <div className="equip-section">
                 <label>Chọn thú cưng để trang bị:</label>
@@ -125,13 +189,28 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
                     </option>
                   ))}
                 </select>
-                <button disabled={!selectedPetId} onClick={handleEquipItem}>Trang bị</button>
+              </div>
+            )}
+
+            {/* Pet selection for use action */}
+            {action === 'use' && (item.type === 'food' || item.type === 'consumable' || item.type === 'booster') && (
+              <div className="use-section">
+                <label>Chọn thú cưng để sử dụng:</label>
+                <select value={selectedPetId} onChange={(e) => setSelectedPetId(e.target.value)}>
+                  <option value="">-- Chọn thú cưng --</option>
+                  {userPets.map(pet => (
+                    <option key={pet.uuid} value={pet.id}>
+                      {pet.name} (Lv {pet.level})
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
 
             <div className="modal-info">
-              <div><strong>Type:</strong> {item.type}</div>
-              <div><strong>Rarity:</strong> {item.rarity}</div>
+              <div><strong>Loại:</strong> {item.type}</div>
+              <div><strong>Độ hiếm:</strong> {item.rarity}</div>
+              {item.quantity && <div><strong>Số lượng:</strong> {item.quantity}</div>}
             </div>
           </>
         )}

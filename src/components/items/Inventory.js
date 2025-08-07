@@ -93,9 +93,16 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const paginatedItems = sortedItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const updateSingleItemInState = (updatedItem) => {
-    setInventoryItems(prev =>
-      prev.map(it => it.id === updatedItem.id ? updatedItem : it)
-    );
+    if (updatedItem === null) {
+      // Item was removed (quantity = 0), remove it from state
+      setInventoryItems(prev => prev.filter(it => it.id !== selectedItem.id));
+      setSelectedItem(null);
+    } else {
+      // Update item in state
+      setInventoryItems(prev =>
+        prev.map(it => it.id === updatedItem.id ? updatedItem : it)
+      );
+    }
   };
 
   const handleRepairComplete = () => {
