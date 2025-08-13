@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import Navbar from './Navbar';
 import './HuntingWorldPage.css';
 
@@ -17,21 +18,18 @@ function HuntingWorldPage() {
           </div>
           
           <div className="hunting-world-content">
-            <div className="coming-soon-card">
-              <div className="coming-soon-icon">🏹</div>
-              <h3>Tính năng đang phát triển</h3>
-              <p>Thế giới săn bắt sẽ sớm được ra mắt với nhiều tính năng thú vị:</p>
-              <ul>
-                <li>🔍 Khám phá các vùng đất mới</li>
-                <li>🎯 Săn bắt thú cưng hoang dã</li>
-                <li>📦 Thu thập tài nguyên quý hiếm</li>
-                <li>🏆 Thành tích săn bắt</li>
-                <li>🎮 Mini-game săn bắt</li>
-              </ul>
-              <div className="progress-bar">
-                <div className="progress-fill" style={{ width: '25%' }}></div>
-              </div>
-              <p className="progress-text">Tiến độ phát triển: 25%</p>
+            <div className="hunting-grid">
+              {Array.from({ length: 8 }).map((_, idx) => (
+                <Link key={idx} to={`/hunting-world/map/${idx + 1}`} className="hunting-card">
+                  <div className="card-thumb">
+                    <img src={idx === 0 ? '/hunting/maps/forest-map.png' : '/images/icons/background.png'} alt={`Map ${idx + 1}`} />
+                  </div>
+                  <div className="card-body">
+                    <div className="card-title">Map {idx + 1}</div>
+                    <div className="card-desc">Khám phá khu vực {idx + 1}</div>
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
         </div>

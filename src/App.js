@@ -27,6 +27,7 @@ import ArenaBattlePage from './components/battle/ArenaBattlePage';
 import AdminAddPetForBattle from './components/admin/AdminAddPetForBattle';
 import AdminSpiritEditor from './components/admin/AdminSpiritEditor';
 import HomePageVer2 from './components/HomePageVer2';
+import HuntingMap from './components/HuntingMap';
 import PokedexPage from './components/PokedexPage';
 import CultivatePage from './components/CultivatePage';
 import TasksPage from './components/TasksPage';
@@ -113,6 +114,7 @@ function App() {
               <Route path="tasks" element={<TasksPage />} />
               <Route path="team" element={<TeamPage />} />
               <Route path="hunting-world" element={<HuntingWorldPage />} />
+              <Route path="hunting-world/map/:id" element={<HuntingMap />} />
               <Route path="admin/mail-test" element={<AdminMailTest />} />
             </Route>  
           </Routes>

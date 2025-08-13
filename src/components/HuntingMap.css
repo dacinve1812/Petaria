@@ -1,0 +1,18 @@
+:root {
+  --hunting-bg: #0f1220;
+}
+
+.hunting-map-wrapper {
+  width: 100%;
+  min-height: calc(100vh - 120px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--hunting-bg);
+}
+
+.hunting-map-root canvas {
+  image-rendering: pixelated;
+}
+
+
