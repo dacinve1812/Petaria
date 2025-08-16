@@ -19,7 +19,7 @@ export default class PreloadScene extends Phaser.Scene {
 
     // Load hero spritesheet. HERO_FRAME_SIZE defines source frame (e.g., 64),
     // we scale in scene to desired display size.
-    this.load.spritesheet('hero', '/hunting/sprites/hero.png', {
+    this.load.spritesheet('hero', '/hunting/sprites/hero4.png', {
       frameWidth: HERO_FRAME_SIZE,
       frameHeight: HERO_FRAME_SIZE,
     });

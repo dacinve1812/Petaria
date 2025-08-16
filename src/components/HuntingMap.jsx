@@ -15,8 +15,8 @@ function HuntingMap() {
     const config = {
       type: Phaser.AUTO,
       parent: containerRef.current,
-      width: 960,
-      height: 600,
+      width: 1000,
+      height: 700,
       backgroundColor: '#1b1f2a',
       pixelArt: true,
       physics: {
