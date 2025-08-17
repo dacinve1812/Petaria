@@ -17,6 +17,9 @@ export default class PreloadScene extends Phaser.Scene {
     // Place your forest map image under public/hunting/maps/forest-map.png
     this.load.image('forest-map', '/hunting/maps/forest-map.png');
 
+    // Load foreground layer for forest map
+    this.load.image('forest-map-foreground', '/hunting/maps/forest-map-forground.png');
+
     // Load hero spritesheet. HERO_FRAME_SIZE defines source frame (e.g., 64),
     // we scale in scene to desired display size.
     this.load.spritesheet('hero', '/hunting/sprites/hero4.png', {

@@ -13,6 +13,6 @@ export const HERO_COLLIDER_SIZE = TILE_SIZE === 16 ? 16 : 32;
 export const HERO_COLLIDER_OFFSET = TILE_SIZE === 16 ? { x: 0, y: 16 } : { x: 0, y: 32 };
 
 // Camera zoom recommendation by tile size
-export const CAMERA_ZOOM = TILE_SIZE <= 16 ? 2 : 2;
+export const CAMERA_ZOOM = TILE_SIZE <= 16 ? 2.5 : 2;
 
 

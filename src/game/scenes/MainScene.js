@@ -32,6 +32,7 @@ export default class MainScene extends Phaser.Scene {
     // Display large forest-map image as a temporary background.
     // Later we will switch to a Tiled JSON tilemap with collisions.
     const bg = this.add.image(0, 0, 'forest-map').setOrigin(0, 0);
+    bg.setDepth(0); // Background layer - lowest depth
 
     // Enable world bounds to image size
     const worldWidth = bg.width;
@@ -61,6 +62,9 @@ export default class MainScene extends Phaser.Scene {
     }
     this.player.setCollideWorldBounds(true);
     this.player.setSize(HERO_COLLIDER_SIZE, HERO_COLLIDER_SIZE).setOffset(HERO_COLLIDER_OFFSET.x, HERO_COLLIDER_OFFSET.y);
+    
+    // Set player depth to be above background but below foreground
+    this.player.setDepth(1);
 
     // Simple 4-direction animations if spritesheet exists
     if (hasHeroSheet) {
@@ -91,6 +95,14 @@ export default class MainScene extends Phaser.Scene {
     // Camera follow
     this.cameras.main.startFollow(this.player, true, 0.15, 0.15);
     this.cameras.main.setZoom(CAMERA_ZOOM);
+
+    // Add foreground layer LAST so it renders on top of everything
+    // Foreground is exported at 250% zoom to match camera zoom 2.5x
+    const foreground = this.add.image(0, 0, 'forest-map-foreground').setOrigin(0, 0);
+    foreground.setDepth(2); // Foreground layer - highest depth (above hero)
+    
+    // Force depth sorting to ensure correct layer order
+    this.children.sort('depth');
 
     // Input
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -181,16 +193,6 @@ export default class MainScene extends Phaser.Scene {
     const currentTileX = Math.floor(this.player.x / this.tileSize) * this.tileSize + (this.tileSize / 2);
     const currentTileY = Math.floor(this.player.y / this.tileSize) * this.tileSize + (this.tileSize / 2) - 8;
     
-    // Debug: Log player position every 60 frames (1 second at 60fps)
-    // if (this.game.loop.frame % 60 === 0) {
-    //   console.log('Player position:', {
-    //     actual: { x: this.player.x, y: this.player.y },
-    //     tileCenter: { x: currentTileX, y: currentTileY },
-    //     offset: { x: this.player.x - currentTileX, y: this.player.y - currentTileY },
-    //     isMoving: this.isMoving
-    //   });
-    // }
-    
     // Only snap player to tile center if they're not moving and are significantly off-center
     if (!this.isMoving && (Math.abs(this.player.x - currentTileX) > 2 || Math.abs(this.player.y - currentTileY) > 2)) {
       console.log('Snapping player to tile center:', { from: { x: this.player.x, y: this.player.y }, to: { x: currentTileX, y: currentTileY } });
@@ -200,9 +202,6 @@ export default class MainScene extends Phaser.Scene {
 
     // Handle new input for movement
     this.handleMovementInput(currentTileX, currentTileY);
-
-    // Visual debugging: Update player collision box
-    // this.drawPlayerCollisionBox();
 
          // Handle standing animation - only when completely stopped
      if (this.hasHeroAnimations && !this.isMoving) {
@@ -288,14 +287,6 @@ export default class MainScene extends Phaser.Scene {
       const targetTileGridX = Math.floor(targetTileX / this.tileSize);
       const targetTileGridY = Math.floor(targetTileY / this.tileSize);
       
-      // console.log('Movement input detected:', {
-      //   currentTile: { x: currentTileX, y: currentTileY },
-      //   targetTile: { x: targetTileX, y: targetTileY },
-      //   gridCoords: { x: targetTileGridX, y: targetTileGridY },
-      //   isWalkable: this.isTileWalkable(targetTileGridX, targetTileGridY),
-      //   isMoving: this.isMoving
-      // });
-      
       if (this.isTileWalkable(targetTileGridX, targetTileGridY)) {
         this.startMovement(targetTileX, targetTileY, anim);
       } else {
@@ -311,12 +302,6 @@ export default class MainScene extends Phaser.Scene {
     this.targetTileY = Math.floor(targetTileY / this.tileSize) * this.tileSize + (this.tileSize / 2) - 8;
     this.isMoving = true;
     
-    // console.log('Starting movement:', {
-    //   from: { x: this.player.x, y: this.player.y },
-    //   to: { x: this.targetTileX, y: this.targetTileY },
-    //   anim: anim
-    // });
-    
          // Start walking animation - don't restart if already playing the same animation
      if (this.hasHeroAnimations && anim) {
        if (!this.player.anims.isPlaying || this.player.anims.currentAnim.key !== anim) {
@@ -325,16 +310,15 @@ export default class MainScene extends Phaser.Scene {
      }
   }
 
-     // Stop movement
-   stopMovement() {
-     // console.log('Stopping movement at:', { x: this.player.x, y: this.player.y });
-     this.isMoving = false;
-     this.targetTileX = null;
-     this.targetTileY = null;
-     
-     // Don't stop animation immediately - let it continue smoothly
-     // Animation will be handled in update() when player stops moving
-   }
+      // Stop movement
+    stopMovement() {
+      this.isMoving = false;
+      this.targetTileX = null;
+      this.targetTileY = null;
+      
+      // Don't stop animation immediately - let it continue smoothly
+      // Animation will be handled in update() when player stops moving
+    }
 
   // Visual debugging: Draw collision blocks
   drawCollisionBlocks() {
