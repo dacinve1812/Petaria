@@ -1,0 +1,53 @@
+.flash-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #000000;
+  z-index: 9998;
+  pointer-events: none;
+  transition: opacity 0.15s ease-in-out;
+}
+
+/* Flash States - 3 lần screen đen thực sự */
+.flash-0 {
+  opacity: 0; /* Bắt đầu - không hiển thị */
+}
+
+.flash-1 {
+  opacity: 1; /* Flash 1 - screen đen hoàn toàn */
+}
+
+.flash-2 {
+  opacity: 0; /* Giữa flash 1 và 2 - trong suốt */
+}
+
+.flash-3 {
+  opacity: 1; /* Flash 2 - screen đen hoàn toàn */
+}
+
+.flash-4 {
+  opacity: 0; /* Giữa flash 2 và 3 - trong suốt */
+}
+
+.flash-5 {
+  opacity: 1; /* Flash 3 - screen đen hoàn toàn */
+}
+
+.flash-6 {
+  opacity: 0; /* Flash cuối cùng - trong suốt để screen sạch */
+}
+
+/* Alternative: You can also use the ID selector */
+#flashOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #000000;
+  z-index: 9998;
+  pointer-events: none;
+  transition: opacity 0.15s ease-in-out;
+}

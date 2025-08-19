@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CAMERA_ZOOM, HERO_COLLIDER_OFFSET, HERO_COLLIDER_SIZE, HERO_SCALE } from '../config/huntingConfig';
 import { PLAYER_CONFIG, getPlayerSpeed } from '../config/playerConfig';
 import { collisions } from '../../../src/game/map/forest/collisions.js';
+import { EncounterManager } from '../managers/EncounterManager.js';
 
 export default class MainScene extends Phaser.Scene {
   constructor(initData = {}) {
@@ -16,12 +17,16 @@ export default class MainScene extends Phaser.Scene {
     this.collisionMap = null;
     this.tileSize = PLAYER_CONFIG.TILE_SIZE; // Use config tile size
     
-         // Player movement state
-     this.isMoving = false;
-     this.targetTileX = null;
-     this.targetTileY = null;
-     this.currentSpeed = getPlayerSpeed('WALK'); // Default speed
-     this.animationStopTimer = null; // Timer for smooth animation transitions
+    // Player movement state
+    this.isMoving = false;
+    this.targetTileX = null;
+    this.targetTileY = null;
+    this.currentSpeed = getPlayerSpeed('WALK'); // Default speed
+    this.animationStopTimer = null; // Timer for smooth animation transitions
+    
+    // Encounter system
+    this.encounterManager = null;
+    this.isEncounterModalOpen = false; // Flag to track encounter modal state
   }
 
   init(data) {
@@ -109,6 +114,27 @@ export default class MainScene extends Phaser.Scene {
     
     // Add speed control keys (optional)
     this.addSpeedControls();
+
+    // Initialize encounter manager
+    this.encounterManager = new EncounterManager(this);
+    
+    // Set up encounter callback to communicate with React
+    this.encounterManager.setEncounterCallback((wildPet) => {
+      // Disable player movement when encounter modal is open
+      this.isEncounterModalOpen = true;
+      
+      // Dispatch custom event to communicate with React
+      const encounterEvent = new CustomEvent('wildPetEncounter', {
+        detail: { wildPet }
+      });
+      window.dispatchEvent(encounterEvent);
+    });
+    
+    // Listen for encounter modal close to re-enable movement
+    window.addEventListener('encounterModalClosed', () => {
+      this.isEncounterModalOpen = false;
+      // console.log('🎯 Encounter modal closed - movement re-enabled');
+    });
   }
 
   // Add keyboard controls for speed adjustment
@@ -116,22 +142,60 @@ export default class MainScene extends Phaser.Scene {
     // Speed control keys
     this.input.keyboard.on('keydown-ONE', () => {
       this.setPlayerSpeed('SLOW');
-      console.log('Speed set to SLOW:', this.currentSpeed);
+      // console.log('Speed set to SLOW:', this.currentSpeed);
     });
     
     this.input.keyboard.on('keydown-TWO', () => {
       this.setPlayerSpeed('WALK');
-      console.log('Speed set to WALK:', this.currentSpeed);
+      // console.log('Speed set to WALK:', this.currentSpeed);
     });
     
     this.input.keyboard.on('keydown-THREE', () => {
       this.setPlayerSpeed('FAST');
-      console.log('Speed set to FAST:', this.currentSpeed);
+      // console.log('Speed set to FAST:', this.currentSpeed);
     });
     
     this.input.keyboard.on('keydown-FOUR', () => {
       this.setPlayerSpeed('RUN');
-      console.log('Speed set to RUN:', this.currentSpeed);
+      // console.log('Speed set to RUN:', this.currentSpeed);
+    });
+    
+    // DEBUG: Test encounter system
+    this.input.keyboard.on('keydown-E', () => {
+      // console.log('🎯 Testing encounter system...');
+      if (this.encounterManager) {
+        const cooldownStatus = this.encounterManager.getCooldownStatus();
+        // console.log('Cooldown status:', cooldownStatus);
+        
+        // Force encounter for testing
+        const currentTileX = Math.floor(this.player.x / this.tileSize);
+        const currentTileY = Math.floor(this.player.y / this.tileSize);
+        // console.log('Current tile position:', { x: currentTileX, y: currentTileY });
+        
+        const isBattleZone = this.encounterManager.isInBattleZone(currentTileX, currentTileY);
+        // console.log('Is in battle zone:', isBattleZone);
+        
+        if (isBattleZone) {
+          // console.log('🎯 Player is in battle zone - checking for encounter...');
+          this.encounterManager.checkForEncounter(currentTileX, currentTileY);
+        } else {
+          // console.log('❌ Player is NOT in battle zone');
+        }
+      }
+    });
+    
+    // DEBUG: Show encounter info
+    this.input.keyboard.on('keydown-I', () => {
+      if (this.encounterManager) {
+        //  console.log('📊 ENCOUNTER SYSTEM INFO:');
+        // console.log('Current zone:', this.encounterManager.currentZone);
+        // console.log('Base encounter rate:', this.encounterManager.currentZone.baseEncounterRate);
+        // console.log('Cooldown seconds:', this.encounterManager.currentZone.cooldownSeconds);
+        // console.log('Available pets:', this.encounterManager.currentZone.availablePetIds);
+        
+        const cooldownStatus = this.encounterManager.getCooldownStatus();
+        // console.log('Cooldown status:', cooldownStatus);
+      }
     });
   }
 
@@ -195,7 +259,7 @@ export default class MainScene extends Phaser.Scene {
     
     // Only snap player to tile center if they're not moving and are significantly off-center
     if (!this.isMoving && (Math.abs(this.player.x - currentTileX) > 2 || Math.abs(this.player.y - currentTileY) > 2)) {
-      console.log('Snapping player to tile center:', { from: { x: this.player.x, y: this.player.y }, to: { x: currentTileX, y: currentTileY } });
+      // console.log('Snapping player to tile center:', { from: { x: this.player.x, y: this.player.y }, to: { x: currentTileX, y: currentTileY } });
       this.player.x = currentTileX;
       this.player.y = currentTileY;
     }
@@ -254,6 +318,11 @@ export default class MainScene extends Phaser.Scene {
 
   // Handle movement input and set target tile
   handleMovementInput(currentTileX, currentTileY) {
+    // Don't allow movement if encounter modal is open
+    if (this.isEncounterModalOpen) {
+      return;
+    }
+    
     let targetTileX = currentTileX;
     let targetTileY = currentTileY;
     let anim = null;
@@ -290,7 +359,7 @@ export default class MainScene extends Phaser.Scene {
       if (this.isTileWalkable(targetTileGridX, targetTileGridY)) {
         this.startMovement(targetTileX, targetTileY, anim);
       } else {
-        console.log('Target tile is not walkable!');
+        // console.log('Target tile is not walkable!');
       }
     }
   }
@@ -302,23 +371,38 @@ export default class MainScene extends Phaser.Scene {
     this.targetTileY = Math.floor(targetTileY / this.tileSize) * this.tileSize + (this.tileSize / 2) - 8;
     this.isMoving = true;
     
-         // Start walking animation - don't restart if already playing the same animation
-     if (this.hasHeroAnimations && anim) {
-       if (!this.player.anims.isPlaying || this.player.anims.currentAnim.key !== anim) {
-         this.player.anims.play(anim, true);
-       }
-     }
+    // Start walking animation - don't restart if already playing the same animation
+    if (this.hasHeroAnimations && anim) {
+      if (!this.player.anims.isPlaying || this.player.anims.currentAnim.key !== anim) {
+        this.player.anims.play(anim, true);
+      }
+    }
   }
 
-      // Stop movement
-    stopMovement() {
-      this.isMoving = false;
-      this.targetTileX = null;
-      this.targetTileY = null;
-      
-      // Don't stop animation immediately - let it continue smoothly
-      // Animation will be handled in update() when player stops moving
-    }
+  // Stop movement
+  stopMovement() {
+    this.isMoving = false;
+    this.targetTileX = null;
+    this.targetTileY = null;
+    
+    // Don't stop animation immediately - let it continue smoothly
+    // Animation will be handled in update() when player stops moving
+    
+    // Check for encounter when player stops moving
+    this.checkForEncounter();
+  }
+
+  // Check for encounter at current position
+  checkForEncounter() {
+    if (!this.encounterManager) return;
+    
+    // Get current tile position
+    const currentTileX = Math.floor(this.player.x / this.tileSize);
+    const currentTileY = Math.floor(this.player.y / this.tileSize);
+    
+    // Check for encounter
+    this.encounterManager.checkForEncounter(currentTileX, currentTileY);
+  }
 
   // Visual debugging: Draw collision blocks
   drawCollisionBlocks() {

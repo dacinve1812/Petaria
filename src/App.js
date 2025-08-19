@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { UserContext } from './UserContext';
 import MainLayout from './components/MainLayout';
-
+import EncounterModalContainer from './components/EncounterModalContainer';
 import HomePage from './components/HomePage';
 import Auth from './components/Auth';
 import Orphanage from './components/Orphanage';
@@ -35,7 +35,7 @@ import TeamPage from './components/TeamPage';
 import HuntingWorldPage from './components/HuntingWorldPage';
 
 function App() {
-  const [user, setUser] = useState(undefined);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -84,6 +84,9 @@ function App() {
     <BrowserRouter>
       <UserContext.Provider value={user}>
         <div className="App">
+          {/* Global Encounter Modal - always available */}
+          <EncounterModalContainer />
+
           <Routes>
             <Route path="/login" element={<Auth onLoginSuccess={handleLoginSuccess} />} />
             <Route path="/" element={<MainLayout />}>
