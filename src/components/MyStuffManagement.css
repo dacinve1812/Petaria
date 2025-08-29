@@ -1,55 +1,111 @@
+/* MyStuffManagement.css */
 .my-stuff-management {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 30px 20px;
-  font-family: 'Arial', sans-serif;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  min-height: 100vh;
 }
 
-.management-header {
+/* Banner section - Same as MyHome */
+.management-banner {
+  height: 150px;
+  max-height: 15dvh;
+  background-image: url('../../public/images/background/pet-bg.jpg');
+  background-size: cover;
+  background-position: 70% 70%;
+  color: white;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.banner-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  position: relative;
+}
+
+.banner-center {
   text-align: center;
-  margin-bottom: 50px;
-  padding: 40px;
-  background: white;
-  border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-  border: 2px solid #e0e0e0;
 }
 
-.management-header h1 {
-  color: #2c3e50;
-  margin: 0 0 15px 0;
-  font-size: 3rem;
-  font-weight: 700;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+.banner-center h2 {
+  margin: 0 0 5px 0;
+  font-weight: 600;
+  color: #ffffff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
 }
 
-.management-header p {
-  color: #7f8c8d;
+.banner-center p {
   margin: 0;
-  font-size: 1.3rem;
-  font-weight: 500;
+  font-size: 0.8rem;
+  color: #95a5a6;
 }
 
+/* Main content */
+.management-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  padding: 20px;
+}
+
+/* Management Grid */
 .management-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 25px;
-  margin-bottom: 40px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 45px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: #888 #f1f1f1;
 }
 
+.management-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.management-grid::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.management-grid::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.management-grid::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Management Item with Background Image */
 .management-item {
-  background: white;
-  border: 2px solid #e0e0e0;
-  border-radius: 15px;
-  padding: 30px 25px;
-  text-align: center;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.08);
   position: relative;
   overflow: hidden;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 2px solid transparent;
 }
 
 .management-item::before {
@@ -58,114 +114,163 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-  transform: scaleX(0);
-  transition: transform 0.3s ease;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.15);
+  transition: background 0.3s ease;
 }
 
 .management-item:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 15px 35px rgba(0,0,0,0.15);
-  border-color: #667eea;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+  /* border-color: #ffae00; */
 }
 
 .management-item:hover::before {
-  transform: scaleX(1);
+  background: rgba(0, 0, 0, 0.2);
 }
 
-.item-icon {
-  font-size: 4rem;
-  margin-bottom: 20px;
-  display: block;
-  transition: transform 0.3s ease;
-}
-
-.management-item:hover .item-icon {
-  transform: scale(1.1);
+/* Item Overlay */
+.item-overlay {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  color: black;
+  padding: 20px;
+  width: 100%;
+  background-color:rgba(255, 255, 255, 0.1);
 }
 
 .item-title {
-  color: #2c3e50;
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 700;
-  margin-bottom: 15px;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+  margin-bottom: 10px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 1);
+  color: rgb(255, 255, 255);
 }
 
 .item-description {
-  color: #7f8c8d;
-  font-size: 1rem;
-  line-height: 1.5;
-  margin: 0;
-}
-
-.management-footer {
-  text-align: center;
-  padding: 30px;
-  background: white;
-  border-radius: 15px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-  border: 2px solid #e0e0e0;
-}
-
-.back-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  padding: 15px 30px;
-  border-radius: 25px;
-  cursor: pointer;
-  font-size: 1.1rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-}
-
-.back-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 1);
+  color: rgb(255, 255, 255);
+  min-width: 0px !important;
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .my-stuff-management {
+    max-width: 100%;
+  }
+
+  .management-banner {
+    height: 150px;
+    padding: 0 15px;
+  }
+
+  .management-main {
+    padding: 15px;
+  }
+
   .management-grid {
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 25px;
+    padding: 5px;
   }
-  
-  .management-header h1 {
-    font-size: 2.2rem;
+
+  .management-item {
+    min-height: 180px;
   }
-  
-  .management-header p {
-    font-size: 1.1rem;
-  }
-  
-  .item-icon {
-    font-size: 3rem;
-  }
-  
+
   .item-title {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
+  }
+
+  .item-description {
+    font-size: 0.8rem;
   }
 }
 
 @media (max-width: 480px) {
+  .management-banner {
+    height: 150px;
+    padding: 0 10px;
+  }
+
+  .management-main {
+    padding: 10px;
+  }
+
+  .management-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .management-item {
+    min-height: 160px;
+  }
+
+  .banner-center h2 {
+    font-size: 1.3rem;
+  }
+
+  .item-title {
+    font-size: 1.1rem;
+  }
+
+  .item-description {
+    font-size: 0.75rem;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 340px) {
   .management-grid {
     grid-template-columns: 1fr;
-    gap: 15px;
+    gap: 10px;
   }
-  
-  .management-header {
-    padding: 25px 20px;
-  }
-  
-  .management-header h1 {
-    font-size: 1.8rem;
-  }
-  
+
   .management-item {
-    padding: 25px 20px;
+    min-height: 140px;
+  }
+
+  .item-title {
+    font-size: 1rem;
+  }
+
+  .item-description {
+    font-size: 0.7rem;
+  }
+}
+
+/* Desktop enhancements */
+@media (min-width: 1024px) {
+  .management-banner {
+    height: 150px;
+  }
+
+  .banner-center h2 {
+    font-size: 1.6rem;
+  }
+
+  .management-main {
+    padding: 25px;
+  }
+
+  .management-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 45px;
+    padding: 15px;
+  }
+
+  .management-item {
+    min-height: 220px;
+  }
+
+  .item-title {
+    font-size: 1.5rem;
+  }
+
+  .item-description {
+    font-size: 1rem;
   }
 }

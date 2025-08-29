@@ -1,73 +1,82 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import BackButton from './BackButton';
 import './MyStuffManagement.css';
 
 function MyStuffManagement() {
   const navigate = useNavigate();
 
   const managementItems = [
+    
     {
-      id: 'shop',
+      id: 'myshop',
       title: 'My Shop',
-      icon: '🏪',
-      path: '/shop',
-      description: 'Quản lý cửa hàng và mua bán'
+      backgroundImage: '/images/background/myshop.jpg',
+      path: '/myshop',
+      description: 'Quản lý cửa hàng'
     },
     {
       id: 'buddies',
       title: 'My Buddies',
-      icon: '👥',
+      backgroundImage: '/images/background/mybuddies.jpg',
       path: '/buddies',
       description: 'Quản lý bạn bè và liên lạc'
     },
     {
       id: 'club',
       title: 'My Club',
-      icon: '🏆',
+      backgroundImage: '/images/background/myclub.jpg',
       path: '/club',
       description: 'Quản lý câu lạc bộ và nhóm'
     },
     {
       id: 'inventory',
       title: 'My Inventory',
-      icon: '📦',
+      backgroundImage: '/images/background/inventory3.jpg',
       path: '/inventory',
       description: 'Quản lý kho đồ và vật phẩm'
     },
     {
       id: 'pets',
       title: 'My Pets',
-      icon: '🐾',
-      path: '/pets',
+      backgroundImage: '/images/background/mypet2.jpg',
+      path: '/myhome',
       description: 'Quản lý thú cưng của bạn'
     },
     {
       id: 'profile',
       title: 'My Profile',
-      icon: '👤',
+      backgroundImage: '/images/background/myprofile.jpg',
       path: '/profile',
       description: 'Thông tin cá nhân và cài đặt'
     },
     {
       id: 'scheduled-jobs',
       title: 'My Scheduled Jobs',
-      icon: '📅',
+      backgroundImage: '/images/background/myschedule.jpg',
       path: '/scheduled-jobs',
       description: 'Quản lý công việc đã lên lịch'
     },
     {
       id: 'arena',
       title: 'Arena',
-      icon: '⚔️',
-      path: '/arena',
+      backgroundImage: '/images/background/myarena.jpg',
+      path: '/battle/pve',
       description: 'Đấu trường và PvP'
     },
     {
       id: 'hunting',
       title: 'Hunting',
-      icon: '🎯',
-      path: '/hunting',
+      backgroundImage: '/images/background/myhunting.jpg',
+      path: '/hunting-world',
       description: 'Săn bắt và khám phá'
+    },
+    {
+      id: 'shop',
+      title: 'vShop',
+      backgroundImage: '/images/background/myshop2.jpg',
+      path: '/shop',
+      description: 'Cửa hàng mua bán'
     }
   ];
 
@@ -75,40 +84,45 @@ function MyStuffManagement() {
     navigate(item.path);
   };
 
+  const handleBack = () => {
+    navigate(-1);
+  };
+
   return (
     <div className="my-stuff-management">
-      <div className="management-header">
-        <h1>My Stuff Management Panel</h1>
-        <p>Quản lý tất cả các tính năng và dịch vụ của bạn</p>
-      </div>
-
-      <div className="management-grid">
-        {managementItems.map(item => (
-          <div 
-            key={item.id}
-            className="management-item"
-            onClick={() => handleItemClick(item)}
-          >
-            <div className="item-icon">
-              {item.icon}
-            </div>
-            <div className="item-title">
-              {item.title}
-            </div>
-            <div className="item-description">
-              {item.description}
-            </div>
+      {/* Banner section */}
+      <div className="management-banner">
+        <BackButton onClick={handleBack} />
+        <div className="banner-content">
+          <div className="banner-center">
+            <h2>My Stuff Management</h2>
           </div>
-        ))}
+        </div>
       </div>
 
-      <div className="management-footer">
-        <button 
-          className="back-btn"
-          onClick={() => navigate(-1)}
-        >
-          ← Quay lại
-        </button>
+      {/* Main content */}
+      <div className="management-main">
+        <div className="management-grid">
+          {managementItems.map(item => (
+            <div 
+              key={item.id}
+              className="management-item"
+              onClick={() => handleItemClick(item)}
+              style={{
+                backgroundImage: `url(${item.backgroundImage})`
+              }}
+            >
+              <div className="item-overlay">
+                <div className="item-title">
+                  {item.title}
+                </div>
+                <div className="item-description">
+                  {item.description}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
