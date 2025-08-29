@@ -90,6 +90,212 @@ const upload = multer({ storage: storage });
 
 // API endpoints sẽ được thêm vào đây
 
+// Site Configuration API Endpoints
+app.get('/api/site-config/pages', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM site_pages ORDER BY created_at ASC');
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching site pages:', error);
+    res.status(500).json({ error: 'Failed to fetch site pages' });
+  }
+});
+
+app.get('/api/site-config/pages/:path', async (req, res) => {
+  try {
+    const { path } = req.params;
+    const [rows] = await db.query('SELECT * FROM site_pages WHERE path = ?', [path]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Page not found' });
+    }
+    
+    const page = rows[0];
+    
+    // Lấy custom elements cho trang này
+    const [elementRows] = await db.query(
+      'SELECT * FROM site_custom_elements WHERE page_id = ? ORDER BY sort_order ASC',
+      [page.id]
+    );
+    
+    res.json({
+      ...page,
+      customElements: elementRows
+    });
+  } catch (error) {
+    console.error('Error fetching page config:', error);
+    res.status(500).json({ error: 'Failed to fetch page config' });
+  }
+});
+
+app.post('/api/site-config/pages', async (req, res) => {
+  try {
+
+    const { id, path, name, component, config } = req.body;
+    
+    const [result] = await db.query(
+      `INSERT INTO site_pages (id, path, name, component, config) 
+       VALUES (?, ?, ?, ?, ?) 
+       ON DUPLICATE KEY UPDATE 
+       name = VALUES(name), 
+       component = VALUES(component), 
+       config = VALUES(config),
+       updated_at = CURRENT_TIMESTAMP`,
+      [id, path, name, component, JSON.stringify(config)]
+    );
+    
+    res.json({ success: true, id });
+  } catch (error) {
+    console.error('Error saving page config:', error);
+    res.status(500).json({ error: 'Failed to save page config' });
+  }
+});
+
+app.post('/api/site-config/elements', async (req, res) => {
+  try {
+    const { pageId, elements } = req.body;
+    
+    // Xóa elements cũ
+    await db.query('DELETE FROM site_custom_elements WHERE page_id = ?', [pageId]);
+    
+    // Thêm elements mới
+    if (elements && elements.length > 0) {
+      const values = elements.map((element, index) => [
+        element.id,
+        pageId,
+        element.type,
+        element.content || null,
+        element.imageSrc || null,
+        element.imageAlt || null,
+        JSON.stringify(element.styles),
+        index
+      ]);
+      
+      await db.query(
+        `INSERT INTO site_custom_elements 
+         (id, page_id, element_type, content, image_src, image_alt, styles, sort_order) 
+         VALUES ?`,
+        [values]
+      );
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving custom elements:', error);
+    res.status(500).json({ error: 'Failed to save custom elements' });
+  }
+});
+
+app.get('/api/site-config/saved-configs', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT sc.*, sp.name as page_name 
+      FROM site_saved_configs sc
+      JOIN site_pages sp ON sc.page_id = sp.id
+      ORDER BY sc.created_at DESC
+    `);
+    
+    // Parse JSON fields
+    const parsedRows = rows.map(row => ({
+      ...row,
+      config: typeof row.config === 'string' ? JSON.parse(row.config) : row.config,
+      customElements: typeof row.custom_elements === 'string' ? JSON.parse(row.custom_elements) : row.custom_elements
+    }));
+    
+    res.json(parsedRows);
+  } catch (error) {
+    console.error('Error fetching saved configs:', error);
+    res.status(500).json({ error: 'Failed to fetch saved configs' });
+  }
+});
+
+app.post('/api/site-config/saved-configs', async (req, res) => {
+  try {
+
+    const { id, name, pageId, config, customElements } = req.body;
+    
+    const [result] = await db.query(
+      `INSERT INTO site_saved_configs (id, name, page_id, config, custom_elements, created_at) 
+       VALUES (?, ?, ?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE 
+       name = VALUES(name),
+       page_id = VALUES(page_id),
+       config = VALUES(config),
+       custom_elements = VALUES(custom_elements)`,
+      [id, name, pageId, JSON.stringify(config), JSON.stringify(customElements)]
+    );
+    
+    res.json({ success: true, id });
+  } catch (error) {
+    console.error('Error saving config:', error);
+    res.status(500).json({ error: 'Failed to save config' });
+  }
+});
+
+app.delete('/api/site-config/saved-configs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query('DELETE FROM site_saved_configs WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting saved config:', error);
+    res.status(500).json({ error: 'Failed to delete saved config' });
+  }
+});
+
+// Navbar Configuration API Endpoints
+app.get('/api/site-config/navbar', async (req, res) => {
+  try {
+    const query = 'SELECT config FROM site_navbar_config ORDER BY id DESC LIMIT 1';
+    const [rows] = await db.execute(query);
+    
+    if (rows.length > 0) {
+      const config = typeof rows[0].config === 'string' 
+        ? JSON.parse(rows[0].config) 
+        : rows[0].config;
+      res.json(config);
+    } else {
+      // Return default configuration if no config exists
+      const defaultNavbarConfig = {
+        bottomNavbar: {
+          visible: true,
+          showMenuOnly: false
+        },
+        floatingButtons: {
+          visible: true
+        }
+      };
+      res.json(defaultNavbarConfig);
+    }
+  } catch (error) {
+    console.error('Error fetching navbar config:', error);
+    res.status(500).json({ error: 'Failed to fetch navbar config' });
+  }
+});
+
+app.post('/api/site-config/navbar', async (req, res) => {
+  try {
+    const config = req.body;
+    
+    // Insert or update navbar configuration
+    const query = `
+      INSERT INTO site_navbar_config (config) 
+      VALUES (?) 
+      ON DUPLICATE KEY UPDATE 
+      config = VALUES(config),
+      updated_at = CURRENT_TIMESTAMP
+    `;
+    
+    await db.execute(query, [JSON.stringify(config)]);
+    
+    console.log('Navbar config updated:', config);
+    res.json({ message: 'Navbar config updated successfully' });
+  } catch (error) {
+    console.error('Error updating navbar config:', error);
+    res.status(500).json({ error: 'Failed to update navbar config' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });

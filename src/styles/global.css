@@ -37,6 +37,9 @@ html, body, #root {
   scrollbar-width: none; /* Firefox */
   position: relative;
 }
+.main-content{
+  height: 100vh;
+}
 
 .container::-webkit-scrollbar {
   display: none; /* Chrome, Safari */

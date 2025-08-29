@@ -65,6 +65,13 @@ function Admin() {
             <li><Link to="/admin/mail-test">Gửi Test Mail</Link></li>
           </ul>
         </div>
+
+        <div className="admin-section">
+          <h2>Quản lý Site</h2>
+          <ul>
+            <li><Link to="/admin/site-management">Quản lý Site & Homepage</Link></li>
+          </ul>
+        </div>
       </div>
     </div>
   );

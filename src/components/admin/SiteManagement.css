@@ -1,0 +1,961 @@
+.site-management {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: 'Arial', sans-serif;
+}
+
+.site-management-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.site-management-header h1 {
+  color: #333;
+  margin: 0;
+  font-size: 2.5rem;
+}
+
+.back-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s;
+}
+
+.back-btn:hover {
+  background: #5a6268;
+}
+
+/* Management Tabs */
+.management-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 20px;
+}
+
+.tab-btn {
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 2px solid #e0e0e0;
+  padding: 12px 24px;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.3s;
+  border-bottom: none;
+}
+
+.tab-btn:hover {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.tab-btn.active {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+/* Navbar Management */
+.navbar-management {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 30px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+}
+
+.navbar-management-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.navbar-management-header h2 {
+  color: #333;
+  margin: 0 0 10px 0;
+  font-size: 2.2rem;
+}
+
+.navbar-management-header p {
+  color: #666;
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.navbar-config-section {
+  background: white;
+  padding: 25px;
+  margin-bottom: 25px;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.navbar-config-section h3 {
+  color: #333;
+  margin: 0 0 20px 0;
+  font-size: 1.5rem;
+  border-bottom: 2px solid #007bff;
+  padding-bottom: 10px;
+}
+
+.navbar-actions {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.save-navbar-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 500;
+  transition: all 0.3s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.save-navbar-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.site-management-content {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 30px;
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.site-management-content.pages-collapsed {
+  grid-template-columns: 0fr 1fr;
+}
+
+.page-editor {
+  transition: all 0.3s ease;
+}
+
+.pages-list.collapsed + .page-editor {
+  margin-left: 0;
+}
+
+/* Pages List Section */
+.pages-list {
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.pages-list.collapsed {
+  width: 0;
+  min-width: 0;
+  opacity: 0;
+}
+
+.pages-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.pages-list h2 {
+  color: #333;
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.toggle-pages-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s;
+  min-width: 40px;
+}
+
+.toggle-pages-btn:hover {
+  background: #5a6268;
+  transform: scale(1.05);
+}
+
+.pages-grid {
+  display: grid;
+  gap: 15px;
+}
+
+.page-card {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.page-card:hover {
+  border-color: #007bff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,123,255,0.2);
+}
+
+.page-card.selected {
+  border-color: #007bff;
+  background: #f8f9ff;
+  box-shadow: 0 4px 16px rgba(0,123,255,0.3);
+}
+
+.page-card h3 {
+  color: #333;
+  margin: 0 0 10px 0;
+  font-size: 1.3rem;
+}
+
+.page-card p {
+  color: #666;
+  margin: 5px 0;
+  font-size: 0.9rem;
+}
+
+/* Page Editor Section */
+.page-editor {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.editor-header {
+  background: #f8f9fa;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.editor-header h2 {
+  color: #333;
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.edit-btn, .save-btn, .cancel-btn, .save-config-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  flex: 1;
+  min-width: 100px;
+  max-width: 150px;
+  text-align: center;
+}
+
+.edit-btn:hover, .save-btn:hover, .cancel-btn:hover, .save-config-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.edit-btn {
+  background: #007bff;
+  color: white;
+}
+
+.edit-btn:hover {
+  background: #0056b3;
+}
+
+.save-btn {
+  background: #28a745;
+  color: white;
+}
+
+.save-btn:hover {
+  background: #218838;
+}
+
+.cancel-btn {
+  background: #6c757d;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: #545b62;
+}
+
+
+
+.save-config-btn {
+  background: #17a2b8;
+  color: white;
+}
+
+.save-config-btn:hover {
+  background: #117a8b;
+}
+
+
+
+/* Editor Content */
+.editor-content {
+  padding: 20px;
+  max-height: 800px;
+  overflow-y: auto;
+}
+
+.config-section {
+  margin-bottom: 25px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+}
+
+.config-section h3 {
+  color: #333;
+  margin: 0 0 15px 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  gap: 15px;
+}
+
+.config-row label {
+  min-width: 120px;
+  color: #555;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.config-row input[type="text"],
+.config-row input[type="number"],
+.config-row textarea,
+.config-row select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.3s;
+}
+
+.config-row input[type="text"]:focus,
+.config-row input[type="number"]:focus,
+.config-row textarea:focus,
+.config-row select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.config-row input[type="range"] {
+  flex: 1;
+  margin-right: 10px;
+}
+
+.config-row span {
+  min-width: 40px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.config-section h4 {
+  margin: 20px 0 10px 0;
+  color: #444;
+  font-size: 1rem;
+  font-weight: 600;
+  border-bottom: 1px solid #e9ecef;
+  padding-bottom: 5px;
+}
+
+.banner-preview {
+  margin: 15px 0;
+}
+
+.preview-banner {
+  border: 2px solid #e9ecef;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+}
+
+.preview-banner:hover {
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.preview-info {
+  margin-top: 8px;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.config-row input[type="color"] {
+  width: 50px;
+  height: 40px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.config-row input[type="checkbox"] {
+  margin-right: 8px;
+  transform: scale(1.2);
+}
+
+.config-row textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Preview Section */
+.preview-section {
+  margin-top: 30px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #28a745;
+}
+
+.preview-section h3 {
+  color: #333;
+  margin: 0 0 15px 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.preview-container {
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  background: white;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Saved Configurations Section */
+.saved-configs-section {
+  border-left-color: #17a2b8;
+}
+
+.saved-configs-grid {
+  display: grid;
+  gap: 15px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.saved-config-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+}
+
+.saved-config-card:hover {
+  border-color: #17a2b8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(23,162,184,0.2);
+}
+
+.config-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.saved-config-info h4 {
+  color: #333;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  flex: 1;
+}
+
+.rename-icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  font-size: 14px;
+  opacity: 0.6;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.rename-icon-btn:hover {
+  opacity: 1;
+  background: rgba(255, 193, 7, 0.1);
+  transform: scale(1.1);
+}
+
+.saved-config-info p {
+  color: #666;
+  margin: 5px 0;
+  font-size: 0.9rem;
+}
+
+.saved-config-date {
+  color: #999 !important;
+  font-size: 0.8rem !important;
+  font-style: italic;
+}
+
+.config-apply-section {
+  margin: 15px 0 10px 0;
+  padding-top: 15px;
+  border-top: 1px solid #e9ecef;
+}
+
+.apply-config-btn {
+  width: 100%;
+  padding: 10px 16px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+}
+
+.apply-config-btn:hover {
+  background: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+}
+
+.saved-config-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.load-config-btn, .edit-config-btn, .delete-config-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.3s;
+  flex: 1;
+}
+
+.load-config-btn {
+  background: #28a745;
+  color: white;
+}
+
+.load-config-btn:hover:not(:disabled) {
+  background: #1e7e34;
+}
+
+.load-config-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.edit-config-btn {
+  background: #17a2b8;
+  color: white;
+}
+
+.edit-config-btn:hover {
+  background: #138496;
+}
+
+
+
+.delete-config-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.delete-config-btn:hover {
+  background: #c82333;
+}
+
+/* Toggle Pages Float Button */
+.toggle-pages-float {
+  position: fixed;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1000;
+}
+
+.toggle-pages-float-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 15px 10px;
+  border-radius: 8px 0 0 8px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: bold;
+  transition: all 0.3s;
+  box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+}
+
+.toggle-pages-float-btn:hover {
+  background: #0056b3;
+  transform: translateX(5px);
+}
+
+/* Custom Elements Section */
+.custom-elements-section {
+  border-left-color: #6f42c1;
+}
+
+.add-elements-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.add-element-btn {
+  background: #6f42c1;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.add-element-btn:hover:not(:disabled) {
+  background: #5a32a3;
+  transform: translateY(-2px);
+}
+
+.add-element-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.custom-elements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.custom-element-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.element-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.element-header h4 {
+  color: #333;
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.element-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.move-element-btn, .delete-element-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.3s;
+}
+
+.move-element-btn:hover:not(:disabled) {
+  background: #5a6268;
+}
+
+.move-element-btn:disabled {
+  background: #adb5bd;
+  cursor: not-allowed;
+}
+
+.delete-element-btn {
+  background: #dc3545;
+}
+
+.delete-element-btn:hover {
+  background: #c82333;
+}
+
+.element-content {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.element-config-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.element-config-row label {
+  min-width: 100px;
+  color: #555;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.element-config-row input, .element-config-row textarea {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.element-config-row textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.element-styles {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.style-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.style-row label {
+  min-width: 80px;
+  color: #555;
+  font-weight: 500;
+  font-size: 0.8rem;
+}
+
+.style-row input, .style-row select {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.style-row input[type="color"] {
+  width: 50px;
+  height: 35px;
+  padding: 2px;
+}
+
+.preview-content {
+  width: 100%;
+  text-align: center;
+}
+
+.preview-video {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+
+/* .preview-text removed - use Custom Elements instead */
+
+.preview-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .site-management-content {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .pages-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+
+  .saved-configs-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+
+  .saved-config-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .load-config-btn, .edit-config-btn, .delete-config-btn {
+    width: 100%;
+  }
+
+  .apply-config-btn {
+    padding: 8px 14px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .site-management {
+    padding: 15px;
+  }
+  
+  .site-management-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  
+  .site-management-header h1 {
+    font-size: 2rem;
+  }
+  
+  .editor-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  
+  .editor-actions {
+    justify-content: center;
+  }
+  
+  .config-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .config-row label {
+    min-width: auto;
+  }
+  
+  .config-row input[type="text"],
+  .config-row input[type="number"],
+  .config-row textarea,
+  .config-row select {
+    width: 100%;
+  }
+
+  .add-elements-buttons {
+    justify-content: center;
+  }
+
+  .element-config-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .editor-actions {
+    gap: 6px;
+    flex-direction: column;
+  }
+
+  .edit-btn, .save-btn, .cancel-btn, .save-config-btn {
+    padding: 8px 16px;
+    font-size: 0.75rem;
+    min-width: auto;
+    flex: none;
+  }
+
+  .style-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .toggle-pages-float {
+    left: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .site-management-header h1 {
+    font-size: 1.8rem;
+  }
+  
+  .editor-content {
+    padding: 15px;
+  }
+  
+  .config-section {
+    padding: 15px;
+  }
+  
+  .preview-container {
+    padding: 15px;
+  }
+}

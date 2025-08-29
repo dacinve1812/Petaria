@@ -31,7 +31,7 @@ function Sidebar({ userId, handleLogout, isAdmin, className = 'sidebar' }) {
             <li><a href="/"><img src="/images/buttons/mainpage.png" alt="mainpage"/></a></li>   
             <li><a href="/"><img src="/images/buttons/world.png" alt="world"/></a></li> 
             <li><a href="/home-ver2"><img src="/images/buttons/homepage.png" alt="homepage"/></a></li> 
-            <li><a href="/"><img src="/images/buttons/management.png" alt="management"/></a></li>
+            <li><a href="/management"><img src="/images/buttons/management.png" alt="management"/></a></li>
             <li><a href="/"><img src="/images/buttons/analysis.png" alt="analysis"/></a></li>
         </ul>
       </nav>

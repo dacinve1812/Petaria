@@ -5,6 +5,10 @@ import './FloatingActionButtons.css';
 function FloatingActionButtons({ userId, onOpenMail }) {
   const navigate = useNavigate();
   const [unclaimedCount, setUnclaimedCount] = useState(0);
+  const [navbarConfig, setNavbarConfig] = useState({
+    bottomNavbar: { visible: true, showMenuOnly: false },
+    floatingButtons: { visible: true }
+  });
 
   // Fetch unclaimed mail count
   useEffect(() => {
@@ -26,6 +30,36 @@ function FloatingActionButtons({ userId, onOpenMail }) {
     return () => clearInterval(interval);
   }, [userId]);
 
+  // Fetch initial navbar config and listen for updates
+  useEffect(() => {
+    const fetchNavbarConfig = async () => {
+      try {
+        const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
+        const response = await fetch(`${API_BASE_URL}/api/site-config/navbar`);
+        if (response.ok) {
+          const config = await response.json();
+          setNavbarConfig(config);
+        }
+      } catch (error) {
+        console.error('Error fetching navbar config:', error);
+      }
+    };
+
+    const handleNavbarConfigUpdate = (event) => {
+      setNavbarConfig(event.detail);
+    };
+
+    // Fetch initial config
+    fetchNavbarConfig();
+
+    // Listen for updates from admin panel
+    window.addEventListener('navbarConfigUpdated', handleNavbarConfigUpdate);
+    
+    return () => {
+      window.removeEventListener('navbarConfigUpdated', handleNavbarConfigUpdate);
+    };
+  }, []);
+
   const handleArenaClick = () => {
     navigate('/battle/pve');
   };
@@ -37,6 +71,11 @@ function FloatingActionButtons({ userId, onOpenMail }) {
   const handleMailClick = () => {
     if (onOpenMail) onOpenMail();
   };
+
+  // Don't render if hidden by admin
+  if (!navbarConfig.floatingButtons.visible) {
+    return null;
+  }
 
   return (
     <div className="floating-action-buttons">

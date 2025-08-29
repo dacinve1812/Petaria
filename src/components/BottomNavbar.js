@@ -9,6 +9,40 @@ const BottomNavbar = ({ onToggleSidebar, sidebarOpen }) => {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [submenuPosition, setSubmenuPosition] = useState({ x: 0, y: 0 });
   const navItemRefs = useRef({});
+  const [navbarConfig, setNavbarConfig] = useState({
+    bottomNavbar: { visible: true, showMenuOnly: false },
+    floatingButtons: { visible: true }
+  });
+
+  // Fetch initial navbar config and listen for updates
+  React.useEffect(() => {
+    const fetchNavbarConfig = async () => {
+      try {
+        const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
+        const response = await fetch(`${API_BASE_URL}/api/site-config/navbar`);
+        if (response.ok) {
+          const config = await response.json();
+          setNavbarConfig(config);
+        }
+      } catch (error) {
+        console.error('Error fetching navbar config:', error);
+      }
+    };
+
+    const handleNavbarConfigUpdate = (event) => {
+      setNavbarConfig(event.detail);
+    };
+
+    // Fetch initial config
+    fetchNavbarConfig();
+
+    // Listen for updates from admin panel
+    window.addEventListener('navbarConfigUpdated', handleNavbarConfigUpdate);
+    
+    return () => {
+      window.removeEventListener('navbarConfigUpdated', handleNavbarConfigUpdate);
+    };
+  }, []);
 
   // Check if current page is home page (where BottomNavbar should be shown)
   const isHomePage = () => {
@@ -16,8 +50,8 @@ const BottomNavbar = ({ onToggleSidebar, sidebarOpen }) => {
     return homePaths.includes(location.pathname);
   };
 
-  // Don't render BottomNavbar if not on home page
-  if (!isHomePage()) {
+  // Don't render BottomNavbar if not on home page or if hidden by admin
+  if (!isHomePage() || !navbarConfig.bottomNavbar.visible) {
     return null;
   }
 
@@ -121,7 +155,7 @@ const BottomNavbar = ({ onToggleSidebar, sidebarOpen }) => {
           <span className="nav-label">Menu</span>
         </div>
         
-        {navItems.map((item) => (
+        {!navbarConfig.bottomNavbar.showMenuOnly && navItems.map((item) => (
           <div
             key={item.id}
             ref={(el) => (navItemRefs.current[item.id] = el)}

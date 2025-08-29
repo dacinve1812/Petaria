@@ -26,6 +26,7 @@ import PveSelectPage from './components/battle/PveSelectPage';
 import ArenaBattlePage from './components/battle/ArenaBattlePage';
 import AdminAddPetForBattle from './components/admin/AdminAddPetForBattle';
 import AdminSpiritEditor from './components/admin/AdminSpiritEditor';
+import SiteManagement from './components/admin/SiteManagement';
 import HomePageVer2 from './components/HomePageVer2';
 import HuntingMap from './components/HuntingMap';
 import PokedexPage from './components/PokedexPage';
@@ -33,6 +34,7 @@ import CultivatePage from './components/CultivatePage';
 import TasksPage from './components/TasksPage';
 import TeamPage from './components/TeamPage';
 import HuntingWorldPage from './components/HuntingWorldPage';
+import MyStuffManagement from './components/MyStuffManagement';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -110,6 +112,8 @@ function App() {
               <Route path="battle/pve/arena" element={<ArenaPage />} />
               <Route path="admin/create-arena-pet" element={<AdminAddPetForBattle />} />
               <Route path="admin/spirits" element={<AdminSpiritEditor />} />
+              <Route path="admin/site-management" element={<SiteManagement />} />
+              <Route path="management" element={<MyStuffManagement />} />
               <Route path="battle/pve/arena/arenabattle" element={<ArenaBattlePage />} />
               <Route path="home-ver2" element={<HomePage />} />
               <Route path="pokedex" element={<PokedexPage />} />
