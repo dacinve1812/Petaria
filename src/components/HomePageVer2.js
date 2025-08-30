@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import NavigationMenu from './NavigationMenu';
 import './HomePageVer2.css';
 import { resolveAssetPath } from '../utils/pathUtils';
 
@@ -237,6 +238,9 @@ function HomePageVer2() {
           </div>
         </div>
       )}
+
+      {/* Navigation Menu */}
+      <NavigationMenu />
 
       {/* Main content */}
       <div className="map-container" style={{
