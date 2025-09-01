@@ -2,12 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import './Inventory.css';
-import Sidebar from '../Sidebar';
-import Navbar from '../Navbar';
 import ItemCard from './ItemCard';
 import ItemDetailModal from './ItemDetailModal';
 import RepairButton from './RepairButton';
-import BackButton from '../BackButton';
+import GlobalBanner from '../GlobalBanner';
+import { resolveAssetPath } from '../../utils/pathUtils';
+import NavigationMenu from '../NavigationMenu';
 
 function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -124,14 +124,14 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   return (
     <div className="inventory-page">
       {/* Banner section */}
-      <div className="inventory-banner">
-        <BackButton onClick={handleBack} />
-        <div className="banner-content">
-          <div className="banner-center">
-            <h2>Kho vật phẩm</h2>
-          </div>
-        </div>
-      </div>
+      <GlobalBanner
+        backgroundImage={resolveAssetPath("/images/background/inventory2.png")}
+        title={false}
+        showBackButton={true}
+        className="small"
+        backgroundPosition="70% 70%"
+      />
+      <NavigationMenu />
 
       {/* Main content */}
       <div className="inventory-main">

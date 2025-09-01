@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './HomePage.css';
-import Sidebar from './Sidebar';
+import GlobalBanner from './GlobalBanner';
+import { resolveAssetPath } from '../utils/pathUtils';
+import NavigationMenu from './NavigationMenu';
 
 function Orphanage() {
     const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
@@ -88,19 +90,21 @@ function Orphanage() {
         }
     };
 
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        navigate('/login');
-    };
-    const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
     return (
         <div className="container">
-            <header>
-                <img src="/images/buttons/banner.jpeg" alt="Banner Petaria" />
-            </header>
-            <div className="content">
-                <Sidebar userId={userId} handleLogout={handleLogout} isAdmin={isAdmin} />
+            
+
+
+            <div>  
+            <GlobalBanner
+                backgroundImage={resolveAssetPath("/images/background/pet-bg-3.jpg")}
+                title={false}
+                showBackButton={true}
+                className="small"
+                backgroundPosition="70% 70%"
+            />
+            <NavigationMenu />   
                 <div className="main-content">
                     <h2>Trại Mồ Côi</h2>
                     <div className="notice" > <p> Bạn có thể nhận nuôi một thú cưng bất kì</p></div>
@@ -114,9 +118,6 @@ function Orphanage() {
                                 <div className="pet-info">
                                     <p>{pet.name} (Lv.{pet.level})</p>
                                     <p>Type: {pet.type}</p>
-                                    <p>HP: {pet.hp} | MP: {pet.mp}</p>
-                                    <p>STR: {pet.str} | DEF: {pet.def}</p>
-                                    <p>INT: {pet.intelligence} | SPD: {pet.spd}</p>
                                 </div>
                             </div>
                         ))}

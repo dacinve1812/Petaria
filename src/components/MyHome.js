@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import BackButton from './BackButton';
 import SpiritManagement from './SpiritManagement';
 import './MyHome.css';
+import GlobalBanner from './GlobalBanner';
+import { resolveAssetPath } from '../utils/pathUtils';
+import NavigationMenu from './NavigationMenu';
 
 function MyHome({isLoggedIn, onLogoutSuccess }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
@@ -91,14 +93,14 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
   return (
     <div className="myhome-page">
       {/* Banner section */}
-      <div className="myhome-banner">
-        <BackButton onClick={handleBack} />
-        <div className="banner-content">
-          <div className="banner-center">
-            <h2>My Home</h2>
-          </div>
-        </div>
-      </div>
+      <GlobalBanner
+        backgroundImage={resolveAssetPath("/images/background/pet-bg-2.jpg")}
+        title={false}
+        showBackButton={true}
+        className="small"
+        backgroundPosition="70% 70%"
+      />
+      <NavigationMenu />
 
       {/* Main content */}
       <div className="myhome-main">

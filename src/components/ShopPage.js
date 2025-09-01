@@ -4,8 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../UserContext';
 import ShopItemList from './ShopItemList';
 import ItemDetailModal from './items/ItemDetailModal';
+import GlobalBanner from './GlobalBanner';
+import { resolveAssetPath } from '../utils/pathUtils';
 import './css/ShopPage.css';
-import BackButton from './BackButton';
+import NavigationMenu from './NavigationMenu';
 
 function ShopPage() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -88,9 +90,6 @@ function ShopPage() {
     }
   };
   
-  const handleBack = () => {
-    navigate('/');
-  };
 
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
@@ -140,15 +139,14 @@ function ShopPage() {
 
   return (
     <div className='shop-page-container'>
-      <div className='shop-header'>
-        <BackButton onClick={handleBack} />
-        <div className='shop-banner'>
-          <img src={getBannerImage(selectedShop?.code)} alt="Shop Banner" />
-          <div className='banner-overlay'>
-            <h1>{getBannerTitle(selectedShop)}</h1>
-          </div>
-        </div>
-      </div>
+      {/* Banner section */}
+      <GlobalBanner
+        backgroundImage={resolveAssetPath(getBannerImage(selectedShop?.code))}
+        title={getBannerTitle(selectedShop)}
+        showBackButton={true}
+        className="small"
+      />
+      <NavigationMenu />
 
       <div className='shop-content'>
         <div className='shop-items-section'>

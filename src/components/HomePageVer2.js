@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import NavigationMenu from './NavigationMenu';
+import GlobalBanner from './GlobalBanner';
 import './HomePageVer2.css';
 import { resolveAssetPath } from '../utils/pathUtils';
 
@@ -205,39 +206,11 @@ function HomePageVer2() {
   return (
     <div className="homepage-container">
       {/* Banner section */}
-      {pageConfig?.banner?.visible !== false && (
-        <div 
-          className="homepage-banner"
-          style={{
-            ...(pageConfig?.banner?.image?.src ? {
-              // If image is provided, use image as background
-              backgroundImage: `url(${resolveAssetPath(pageConfig.banner.image.src)})`,
-              backgroundPosition: pageConfig.banner.image.position || 'center center',
-              backgroundSize: pageConfig.banner.image.size || 'cover',
-              backgroundRepeat: pageConfig.banner.image.repeat || 'no-repeat'
-            } : {
-              // If no image, use background color/gradient
-              background: pageConfig?.banner?.background || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-            }),
-            opacity: pageConfig?.banner?.image?.opacity || 1,
-            // Dimensions
-            height: pageConfig?.banner?.dimensions?.height || '400px',
-            maxHeight: pageConfig?.banner?.dimensions?.maxHeight || '600px',
-            minHeight: pageConfig?.banner?.dimensions?.minHeight || '200px'
-          }}
-        >
-          <div className="banner-content">
-            <div className="banner-center">
-              <h2 style={{
-                color: pageConfig?.banner?.textColor || '#ffffff',
-                fontSize: pageConfig?.banner?.fontSize || '2.5rem'
-              }}>
-                {pageConfig?.banner?.title || 'Welcome to Petaria'}
-              </h2>
-            </div>
-          </div>
-        </div>
-      )}
+        <GlobalBanner
+          backgroundImage={resolveAssetPath('/images/background/banner-1.jpeg')}
+          className="small"
+          overlay={false}
+        />
 
       {/* Navigation Menu */}
       <NavigationMenu />

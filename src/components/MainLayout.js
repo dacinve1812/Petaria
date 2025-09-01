@@ -7,6 +7,8 @@ import HomeFloatingButtons from './HomeFloatingButtons';
 import MailModal from './MailModal';
 import { Outlet } from 'react-router-dom';
 import '../styles/global.css';
+import GlobalBanner from './GlobalBanner';
+import { resolveAssetPath } from '../utils/pathUtils';
 
 function MainLayout() {
     const navigate = useNavigate();
@@ -57,12 +59,13 @@ function MainLayout() {
 
     // Check if current page should show CurrencyDisplay
     const shouldShowCurrencyDisplay = () => {
-        const currencyDisplayPaths = ['/', '/home', '/home-ver2', '/shop', '/inventory'];
+        const currencyDisplayPaths = ['/shop', '/inventory']
         return currencyDisplayPaths.includes(location.pathname);
     };
 
     return (
         <div className="container">
+
             <div className="content">
                 <Sidebar 
                     userId={userId} 
@@ -78,6 +81,7 @@ function MainLayout() {
                 </div>
                 
                 {/* Mail Modal - Hiển thị khi cần */}
+                
                 <MailModal 
                     isOpen={isMailModalOpen}
                     onClose={handleCloseMail}

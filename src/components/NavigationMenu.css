@@ -57,7 +57,7 @@
 
 .nav-icon {
   width: 12px;
-  height: 10px;
+  /* height: 10px; */
   background-image: url('../../public/images/icons/circle-point.png');
   background-size: contain;
   background-repeat: no-repeat;
