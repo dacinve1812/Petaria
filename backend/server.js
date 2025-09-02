@@ -367,13 +367,14 @@ app.post('/login', async (req, res) => {
                 }
 
                 const token = jwt.sign({ userId: user.id }, 'your_secret_key', {
-                  expiresIn: '1h',
+                  expiresIn: '23h',
                 });
                 const isAdmin = username === 'admin'; // Kiểm tra username
                 res.json({
                   message: 'User logged in successfully',
                   token: token,
                   isAdmin: isAdmin, // Trả về isAdmin
+                  hasPet: user.hasPet // Trả về hasPet status
                 });
               }
             );
@@ -392,33 +393,51 @@ app.post('/login', async (req, res) => {
 // API Lấy Danh Sách Thú Cưng Của Người Dùng
 app.get('/users/:userId/pets', (req, res) => {
   const userId = req.params.userId;
+  const token = req.headers.authorization?.split(' ')[1]; // Lấy token từ header
 
-  pool.query(`
-    SELECT
-      p.id,
-      p.uuid,
-      p.name,
-      ps.name AS species_name,
-      ps.image,
-      p.level,
-      p.hp,
-      p.mp,
-      p.str,
-      p.def,
-      p.intelligence,
-      p.spd,
-      p.final_stats
-    FROM pets p
-    JOIN pet_species ps ON p.pet_species_id = ps.id
-    WHERE p.owner_id = ?
-  `, [userId], (err, results) => {
-    if (err) {
-      console.error('Error fetching user pets: ', err);
-      res.status(500).json({ message: 'Error fetching user pets' });
-    } else {
-      res.json(results);
-    }
-  });
+  if (!token) {
+      return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  try {
+      const decodedToken = jwt.verify(token, 'your_secret_key'); // Xác thực token
+      const tokenUserId = decodedToken.userId;
+
+      // Kiểm tra xem user có quyền truy cập pets của userId này không
+      if (tokenUserId !== parseInt(userId)) {
+          return res.status(403).json({ message: 'Forbidden: You can only access your own pets' });
+      }
+
+      pool.query(`
+        SELECT
+          p.id,
+          p.uuid,
+          p.name,
+          ps.name AS species_name,
+          ps.image,
+          p.level,
+          p.hp,
+          p.mp,
+          p.str,
+          p.def,
+          p.intelligence,
+          p.spd,
+          p.final_stats
+        FROM pets p
+        JOIN pet_species ps ON p.pet_species_id = ps.id
+        WHERE p.owner_id = ?
+      `, [userId], (err, results) => {
+        if (err) {
+          console.error('Error fetching user pets: ', err);
+          res.status(500).json({ message: 'Error fetching user pets' });
+        } else {
+          res.json(results);
+        }
+      });
+  } catch (err) {
+      console.error('Error verifying token: ', err);
+      return res.status(401).json({ message: 'Invalid token' });
+  }
 });
 
 
@@ -610,11 +629,30 @@ app.delete('/api/pets/:uuid/release', (req, res) => {
           }
 
           // Nếu là chủ sở hữu, tiến hành xóa (phóng thích)
-          pool.query('DELETE FROM pets WHERE uuid = ?', [uuid], (deleteErr, deleteResults) => {
+          pool.query('DELETE FROM pets WHERE uuid = ?', [uuid], async (deleteErr, deleteResults) => {
               if (deleteErr) {
                   console.error('Error releasing pet: ', deleteErr);
                   return res.status(500).json({ message: 'Error releasing pet' });
               } else if (deleteResults.affectedRows > 0) {
+                  // Check if user still has any pets after releasing this one
+                  try {
+                      const [remainingPets] = await pool.promise().query(
+                          'SELECT COUNT(*) as count FROM pets WHERE owner_id = ?',
+                          [userId]
+                      );
+                      
+                      // Update hasPet status to FALSE if user has no pets left
+                      if (remainingPets[0].count === 0) {
+                          await pool.promise().query(
+                              'UPDATE users SET hasPet = FALSE WHERE id = ?',
+                              [userId]
+                          );
+                      }
+                  } catch (updateErr) {
+                      console.error('Error updating hasPet status:', updateErr);
+                      // Don't fail the release operation if hasPet update fails
+                  }
+                  
                   res.json({ message: 'Pet released successfully' });
               } else {
                   res.status(404).json({ message: 'Pet not found (during deletion)' }); // Trường hợp hiếm
@@ -680,9 +718,23 @@ app.get('/api/orphanage-pets', async (req, res) => {
 
 app.post('/api/adopt-pet', async (req, res) => {
   const { tempId, owner_id, petName } = req.body;
+  const token = req.headers.authorization?.split(' ')[1]; // Lấy token từ header
 
-  const tempPet = orphanagePets.find(pet => pet.tempId === tempId);
-  if (!tempPet) return res.status(400).json({ message: 'Invalid temporary pet ID' });
+  if (!token) {
+      return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  try {
+      const decodedToken = jwt.verify(token, 'your_secret_key'); // Xác thực token
+      const tokenUserId = decodedToken.userId;
+
+      // Kiểm tra xem user có quyền adopt pet cho owner_id này không
+      if (tokenUserId !== parseInt(owner_id)) {
+          return res.status(403).json({ message: 'Forbidden: You can only adopt pets for yourself' });
+      }
+
+      const tempPet = orphanagePets.find(pet => pet.tempId === tempId);
+      if (!tempPet) return res.status(400).json({ message: 'Invalid temporary pet ID' });
 
   const {
     pet_species_id, iv_hp, iv_mp, iv_str, iv_def,
@@ -723,11 +775,21 @@ app.post('/api/adopt-pet', async (req, res) => {
       ]
     );
 
+    // Update user's hasPet status to TRUE when they adopt their first pet
+    await pool.promise().query(
+      'UPDATE users SET hasPet = TRUE WHERE id = ? AND hasPet = FALSE',
+      [owner_id]
+    );
+
     orphanagePets = orphanagePets.filter(pet => pet.tempId !== tempId);
     res.json({ message: 'Pet adopted successfully', uuid: petUuid });
   } catch (error) {
     console.error('Error adopting pet:', error);
     res.status(500).json({ message: 'Error adopting pet' });
+  }
+  } catch (err) {
+      console.error('Error verifying token: ', err);
+      return res.status(401).json({ message: 'Invalid token' });
   }
 });
 

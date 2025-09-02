@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import NavigationMenu from './NavigationMenu';
 import GlobalBanner from './GlobalBanner';
+import PetNotice from './PetNotice';
 import './HomePageVer2.css';
 import { resolveAssetPath } from '../utils/pathUtils';
 

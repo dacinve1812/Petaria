@@ -43,15 +43,16 @@ function Auth({ onLoginSuccess }) {
       const data = await response.json();
 
       if (response.ok) {
-        if (isLogin) {
-          console.log('Login successful:', data);
-          if (data.token) {
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('isAdmin', String(data.isAdmin));
-            onLoginSuccess();
-          }
-          navigate('/');
-        } else {
+                  if (isLogin) {
+            console.log('Login successful:', data);
+            if (data.token) {
+              localStorage.setItem('token', data.token);
+              localStorage.setItem('isAdmin', String(data.isAdmin));
+              localStorage.setItem('hasPet', String(data.hasPet)); // Save hasPet status
+              onLoginSuccess();
+            }
+            navigate('/');
+          } else {
           console.log('Registration successful:', data);
           setSuccessMessage(data.message || 'Registration successful'); // Hiển thị thông báo thành công
           setIsLogin(true);

@@ -6,6 +6,7 @@ import GlobalBanner from './GlobalBanner';
 import { resolveAssetPath } from '../utils/pathUtils';
 import NavigationMenu from './NavigationMenu';
 
+
 function MyHome({isLoggedIn, onLogoutSuccess }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
   const [userPets, setUserPets] = useState([]);
@@ -20,15 +21,30 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
     const token = localStorage.getItem('token');
     if (!token) {
       navigate('/login');
-    } else {
-      try {
-        const decodedToken = JSON.parse(atob(token.split('.')[1]));
-        setUserId(decodedToken.userId);
-      } catch (err) {
-        console.error('Error decoding token:', err);
-        setError('Invalid token');
+      return;
+    }
+    
+    try {
+      const decodedToken = JSON.parse(atob(token.split('.')[1]));
+      const currentTime = Date.now() / 1000;
+      
+      // Check if token is expired
+      if (decodedToken.exp < currentTime) {
+        localStorage.removeItem('token');
+        setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
         return;
       }
+      
+      setUserId(decodedToken.userId);
+    } catch (err) {
+      console.error('Error decoding token:', err);
+      setError('Token không hợp lệ');
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     }
   }, [navigate]);
 
@@ -46,7 +62,13 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
       if (userId && selectedOption === 'pet') {
         setIsLoading(true);
         try {
-          const response = await fetch(`${API_BASE_URL}/users/${userId}/pets`);
+          const token = localStorage.getItem('token');
+          const response = await fetch(`${API_BASE_URL}/users/${userId}/pets`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
           if (response.ok) {
             const data = await response.json();
             // Sort pets: deployed pets first, then by level descending
@@ -57,12 +79,22 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
             });
             setUserPets(sortedPets);
             
+            // Update localStorage hasPet status based on whether user has pets
+            localStorage.setItem('hasPet', String(data.length > 0));
+            
             // Preload first few images for better UX
             const firstFewPets = sortedPets.slice(0, 6);
             firstFewPets.forEach(pet => {
               const img = new Image();
               img.src = `/images/pets/${pet.image}`;
             });
+          } else if (response.status === 401) {
+            // Handle token expiration
+            localStorage.removeItem('token');
+            setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+            setTimeout(() => {
+              navigate('/login');
+            }, 2000);
           } else {
             setError('Failed to fetch pets');
           }
@@ -76,7 +108,7 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
     };
 
     fetchUserPets();
-  }, [userId, selectedOption]);
+  }, [userId, selectedOption, navigate]);
 
   const handleBack = () => {
     navigate('/');

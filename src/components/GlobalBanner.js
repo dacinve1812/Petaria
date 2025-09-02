@@ -19,7 +19,7 @@ const GlobalBanner = ({
     if (onBackClick) {
       onBackClick();
     } else {
-      navigate(-1);
+      navigate('/');
     }
   };
 

@@ -1,0 +1,318 @@
+/* Orphanage.css */
+.orphanage-main-menu {
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.notice {
+  margin-bottom: 30px;
+  padding: 20px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+}
+
+.notice p {
+  margin: 5px 0;
+  color: #856404;
+}
+
+.notice strong {
+  color: #d63031;
+}
+
+.welcome-message {
+  margin-bottom: 40px;
+  color: #2d3436;
+  line-height: 1.6;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.adopt-button,
+.release-button {
+  width: 300px;
+  height: 60px;
+  font-size: 18px !important;
+  font-weight: bold;
+  text-decoration: underline;
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  margin-right: 0px !important;
+}
+
+.adopt-button {
+  background: #f39c12;
+}
+
+.adopt-button:hover {
+  background: #e67e22;
+  transform: translateY(-2px);
+}
+
+.release-button {
+  background: #e74c3c;
+}
+
+.release-button:hover {
+  background: #c0392b;
+  transform: translateY(-2px);
+}
+
+/* Mode Headers */
+.orphanage-mode-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: #f8f9fa;
+}
+
+.orphanage-mode-header h2 {
+  margin: 0;
+  color: #2d3436;
+}
+
+.orphanage-mode-back-button {
+  padding: 10px 20px;
+  background: #6c5ce7;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  margin-bottom: 20px;
+  display: block;
+  width: fit-content;
+}
+
+.orphanage-mode-back-button:hover {
+  background: #5f3dc4;
+  transform: translateX(-2px);
+}
+
+/* Pet List */
+.orphanage-pet-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.orphanage-pet-item {
+  background: white;
+  /* border: 2px solid #ddd; */
+  border-radius: 12px;
+  padding: 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.orphanage-pet-item:hover {
+  transform: translateY(-5px);
+  border-color: #74b9ff;
+}
+
+.orphanage-pet-item.orphanage-selected {
+  background: #e8f5e8;
+  transform: translateY(-5px);
+}
+
+.orphanage-pet-item img {
+  width: 100%;
+  max-width: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.orphanage-pet-info {
+  text-align: center;
+}
+
+.orphanage-pet-info p {
+  margin: 5px 0;
+  color: #2d3436;
+  font-weight: 500;
+}
+
+.orphanage-selected-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #00b894;
+  color: white;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+/* Forms */
+.orphanage-adopt-form,
+.orphanage-release-form {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  margin-top: 20px;
+}
+
+.orphanage-adopt-form h3,
+.orphanage-release-form h3 {
+  margin-bottom: 20px;
+  color: #2d3436;
+  text-align: center;
+}
+
+.orphanage-adopt-form input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+
+.orphanage-adopt-form input:focus {
+  outline: none;
+  border-color: #74b9ff;
+}
+
+.orphanage-adopt-form button,
+.orphanage-release-confirm-button {
+  width: 100%;
+  padding: 15px;
+  background: #00b894;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.orphanage-adopt-form button:hover,
+.orphanage-release-confirm-button:hover {
+  background: #00a085;
+  transform: translateY(-2px);
+}
+
+.orphanage-adopt-form button:disabled,
+.orphanage-release-confirm-button:disabled {
+  background: #b2bec3;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Selected Pets Display */
+.orphanage-selected-pets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+  justify-content: center;
+}
+
+.orphanage-selected-pet-tag {
+  background: #74b9ff;
+  color: white;
+  padding: 8px 15px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Loading and Error States */
+.orphanage-loading {
+  text-align: center;
+  padding: 40px;
+  color: #636e72;
+  font-size: 18px;
+}
+
+.orphanage-error {
+  background: #ff7675;
+  color: white;
+  padding: 15px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.orphanage-no-pets {
+  text-align: center;
+  padding: 40px;
+  color: #636e72;
+  font-size: 16px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .orphanage-main-menu {
+    padding: 20px 15px;
+  }
+
+  .action-buttons {
+    gap: 15px;
+  }
+
+  .adopt-button,
+  .release-button {
+    width: 280px;
+    height: 50px;
+    font-size: 16px;
+  }
+
+  /* .orphanage-pet-list {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+  } */
+
+  .orphanage-mode-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+
+  .orphanage-adopt-form,
+  .orphanage-release-form {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .adopt-button,
+  .release-button {
+    width: 250px;
+    height: 45px;
+    font-size: 14px;
+  }
+
+  /* .orphanage-pet-list {
+    grid-template-columns: 1fr;
+  } */
+
+  .orphanage-pet-item {
+    padding: 10px;
+  }
+
+  .orphanage-pet-item img {
+    height: 100px;
+  }
+}

@@ -35,6 +35,7 @@ import TasksPage from './components/TasksPage';
 import TeamPage from './components/TeamPage';
 import HuntingWorldPage from './components/HuntingWorldPage';
 import MyStuffManagement from './components/MyStuffManagement';
+import DevDashboard from './components/DevDashboard';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -123,6 +124,7 @@ function App() {
               <Route path="hunting-world" element={<HuntingWorldPage />} />
               <Route path="hunting-world/map/:id" element={<HuntingMap />} />
               <Route path="admin/mail-test" element={<AdminMailTest />} />
+              <Route path="dev-dashboard" element={<DevDashboard />} />
             </Route>  
           </Routes>
         </div>

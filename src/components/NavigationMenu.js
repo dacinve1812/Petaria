@@ -7,6 +7,9 @@ const NavigationMenu = () => {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const navRef = useRef(null);
 
+  // Check if user is admin
+  const isAdmin = localStorage.getItem('isAdmin') === 'true';
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -61,7 +64,9 @@ const NavigationMenu = () => {
       submenu: [
         { title: 'Hệ thống người dùng', path: '/system/users' },
         { title: 'Hệ thống vật phẩm', path: '/system/items' },
-        { title: 'Hệ thống kinh nghiệm', path: '/system/experience' }
+        { title: 'Hệ thống kinh nghiệm', path: '/system/experience' },
+        // Chỉ hiển thị Dev Dashboard cho admin
+        ...(isAdmin ? [{ title: 'Dev Dashboard', path: '/dev-dashboard' }] : [])
       ]
     },
     {
@@ -143,10 +148,10 @@ const NavigationMenu = () => {
     <nav className="navigation-menu" ref={navRef}>
       <div className="nav-container">
         {menuItems.map(item => (
-                     <div 
-             key={item.id}
-             className={`nav-item ${activeDropdown === item.id ? 'active' : ''}`}
-           >
+          <div 
+            key={item.id}
+            className={`nav-item ${activeDropdown === item.id ? 'active' : ''}`}
+          >
             <div 
               className="nav-link"
               onClick={(e) => handleItemClick(item, e)}
