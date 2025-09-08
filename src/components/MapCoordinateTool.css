@@ -1,0 +1,379 @@
+.tool-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.tool-header {
+  text-align: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 15px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.tool-header h1 {
+  margin: 0 0 10px 0;
+  font-size: 32px;
+}
+
+.tool-header p {
+  margin: 0;
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.tool-content {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+.map-section {
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.map-area {
+  position: relative;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.map-area img {
+  height: 640px;
+  width: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Responsive adjustments để đồng bộ với HomePage.js */
+@media (max-width: 768px) {
+  .map-area img {
+    height: 480px;
+  }
+}
+
+@media (max-width: 480px) {
+  .map-area img {
+    height: 320px;
+  }
+}
+
+.drawn-area {
+  position: absolute;
+  border: 2px solid #4CAF50;
+  background: rgba(76, 175, 80, 0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.drawn-area:hover {
+  background: rgba(76, 175, 80, 0.4);
+  border-color: #45a049;
+}
+
+.drawing-area {
+  position: absolute;
+  border: 2px solid #F44336;
+  background: rgba(244, 67, 54, 0.2);
+  pointer-events: none;
+}
+
+.coordinates-panel {
+  background: white;
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  height: fit-content;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.panel-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.copy-btn, .clear-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 12px;
+}
+
+.copy-btn {
+  background: #4CAF50;
+  color: white;
+}
+
+.copy-btn:hover {
+  background: #45a049;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.clear-btn {
+  background: #f44336;
+  color: white;
+}
+
+.clear-btn:hover {
+  background: #d32f2f;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
+}
+
+.coordinates-list {
+  margin-bottom: 20px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.no-coordinates {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 20px;
+}
+
+.coordinate-item {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 15px;
+  border: 1px solid #e9ecef;
+  transition: all 0.3s ease;
+}
+
+.coordinate-item:hover {
+  background: #e9ecef;
+  transform: translateX(5px);
+}
+
+.area-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.area-header strong {
+  color: #333;
+  font-size: 14px;
+}
+
+.remove-btn {
+  background: none;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.remove-btn:hover {
+  background: #ffebee;
+  transform: scale(1.1);
+}
+
+.area-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-row label {
+  font-size: 12px;
+  color: #666;
+  min-width: 50px;
+  font-weight: bold;
+}
+
+.detail-row span {
+  font-size: 12px;
+  color: #333;
+  font-weight: bold;
+}
+
+.detail-row code {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #666;
+  background: #f1f3f4;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.path-input, .name-input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+}
+
+.path-input:focus, .name-input:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+.code-preview {
+  margin-bottom: 20px;
+}
+
+.code-preview h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 14px;
+}
+
+.code-block {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 15px;
+  margin: 0;
+  overflow-x: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #333;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.code-block code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+}
+
+.instructions {
+  background: #e3f2fd;
+  border-radius: 10px;
+  padding: 15px;
+  border: 1px solid #bbdefb;
+}
+
+.instructions h4 {
+  margin: 0 0 10px 0;
+  color: #1976d2;
+  font-size: 14px;
+}
+
+.instructions ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.instructions li {
+  margin-bottom: 5px;
+  line-height: 1.4;
+  color: #1976d2;
+  font-size: 12px;
+}
+
+.instructions code {
+  background: #f1f3f4;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #333;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .tool-content {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .coordinates-panel {
+    order: -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .tool-container {
+    padding: 15px;
+  }
+  
+  .tool-header {
+    padding: 15px;
+  }
+  
+  .tool-header h1 {
+    font-size: 24px;
+  }
+  
+  .panel-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .panel-actions {
+    justify-content: center;
+  }
+  
+  .coordinates-list {
+    max-height: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tool-container {
+    padding: 10px;
+  }
+  
+  .tool-header {
+    padding: 10px;
+  }
+  
+  .tool-header h1 {
+    font-size: 20px;
+  }
+  
+  .coordinates-panel {
+    padding: 15px;
+  }
+  
+  .copy-btn, .clear-btn {
+    font-size: 11px;
+    padding: 6px 12px;
+  }
+}

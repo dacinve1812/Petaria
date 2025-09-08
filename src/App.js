@@ -36,6 +36,7 @@ import TeamPage from './components/TeamPage';
 import HuntingWorldPage from './components/HuntingWorldPage';
 import MyStuffManagement from './components/MyStuffManagement';
 import DevDashboard from './components/DevDashboard';
+import MapCoordinateTool from './components/MapCoordinateTool';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -125,6 +126,7 @@ function App() {
               <Route path="hunting-world/map/:id" element={<HuntingMap />} />
               <Route path="admin/mail-test" element={<AdminMailTest />} />
               <Route path="dev-dashboard" element={<DevDashboard />} />
+              <Route path="map-tool" element={<MapCoordinateTool />} />
             </Route>  
           </Routes>
         </div>

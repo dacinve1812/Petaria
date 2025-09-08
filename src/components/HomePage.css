@@ -29,25 +29,185 @@ header img {
     margin-bottom: 20px;
 }
 
-.map-scroll-container {
+/* Interactive Map Styles */
+.map-interactive-container {
+  width: 100%;
+  margin: 16px auto;
+}
 
+/* Map Controls */
+.map-controls {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+  gap: 10px;
+}
+
+.toggle-areas-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-areas-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.toggle-areas-btn:active {
+  transform: translateY(0);
+}
+
+.map-scroll-container {
   width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   white-space: nowrap;
   position: relative;
-  margin: 16px auto 16px auto;
   scrollbar-width: none;
 }
+
 .map-scroll-container::-webkit-scrollbar {
   display: none;
 }
+
+.map-wrapper {
+  position: relative;
+  display: inline-block;
+  min-width: 100%;
+}
+
+/* Test different map sizes - HTML Map Tag will work with ALL sizes! */
 .map-img {
-  height: 640px;
+  height: 640px; /* Default size */
   width: auto;
   display: block;
   margin: 0 auto;
+}
 
+/* Test: Small size */
+.map-img.small {
+  height: 320px;
+}
+
+/* Test: Large size */
+.map-img.large {
+  height: 960px;
+}
+
+/* Test: Extra large size */
+.map-img.xlarge {
+  height: 1280px;
+}
+
+/* Test: Responsive sizes */
+@media (max-width: 768px) {
+  .map-img {
+    height: 480px;
+  }
+}
+
+@media (max-width: 480px) {
+  .map-img {
+    height: 320px;
+  }
+}
+
+/* HTML Map Tag works with ALL these sizes automatically! */
+
+/* HTML Map Styles */
+map {
+  cursor: pointer;
+}
+
+area {
+  cursor: pointer;
+}
+
+/* Visual Overlay for Areas */
+.areas-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.area-visual {
+  position: absolute;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  opacity: 0.6;
+}
+
+.area-visual:hover {
+  opacity: 0.8;
+  border-color: rgba(255, 255, 255, 1);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Specific area positions - these should match the coords in the map tag */
+.shop-area {
+  left: 200px;
+  top: 300px;
+  width: 150px;
+  height: 150px;
+  border-color: rgba(76, 175, 80, 0.8);
+}
+
+.orphanage-area {
+  left: 500px;
+  top: 200px;
+  width: 200px;
+  height: 200px;
+  border-color: rgba(255, 152, 0, 0.8);
+}
+
+.myhome-area {
+  left: 800px;
+  top: 350px;
+  width: 150px;
+  height: 150px;
+  border-color: rgba(33, 150, 243, 0.8);
+}
+
+.battle-area {
+  left: 1200px;
+  top: 150px;
+  width: 150px;
+  height: 200px;
+  border-color: rgba(244, 67, 54, 0.8);
+}
+
+/* Responsive adjustments for visual overlay */
+@media (max-width: 768px) {
+  .area-visual {
+    border-width: 1px;
+    border-radius: 4px;
+  }
+  
+  .toggle-areas-btn {
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .toggle-areas-btn {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
 }
 
 .links {
