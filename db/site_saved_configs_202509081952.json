@@ -1,0 +1,27 @@
+{
+"site_saved_configs": [
+	{
+		"id" : "1756273275958",
+		"name" : "beta video",
+		"page_id" : "homepage",
+		"config" : "{\"text\": {\"color\": \"#000000\", \"margin\": \"0\", \"content\": \"Welcome to Petaria!\", \"fontSize\": \"24px\", \"textAlign\": \"center\", \"fontFamily\": \"Arial, sans-serif\", \"fontWeight\": \"bold\"}, \"image\": {\"alt\": \"\", \"src\": \"\", \"width\": \"100%\", \"height\": \"auto\", \"margin\": \"0\"}, \"video\": {\"src\": \"test.mp4\", \"loop\": true, \"muted\": true, \"autoPlay\": true, \"playsInline\": true}, \"layout\": {\"margin\": \"0\", \"padding\": \"20px\", \"backgroundColor\": \"#ffffff\"}, \"displayType\": \"video\"}",
+		"custom_elements" : "[]",
+		"created_at" : "2025-08-27 00:41:15"
+	},
+	{
+		"id" : "1756339587640",
+		"name" : "background-video-no banner",
+		"page_id" : "homepage",
+		"config" : "{\"text\": {\"color\": \"#000000\", \"margin\": \"0\", \"content\": \"Welcome to Petaria!\", \"fontSize\": \"24px\", \"textAlign\": \"center\", \"fontFamily\": \"Arial, sans-serif\", \"fontWeight\": \"bold\"}, \"image\": {\"alt\": \"\", \"src\": \"\", \"width\": \"100%\", \"height\": \"auto\", \"margin\": \"0\"}, \"video\": {\"src\": \"test.mp4\", \"loop\": true, \"muted\": true, \"autoPlay\": true, \"playsInline\": true}, \"banner\": {\"visible\": false}, \"layout\": {\"margin\": \"0\", \"padding\": \"20px\", \"backgroundColor\": \"#ffffff\"}, \"displayType\": \"video\"}",
+		"custom_elements" : "[]",
+		"created_at" : "2025-08-27 19:06:27"
+	},
+	{
+		"id" : "1756341336698",
+		"name" : "Original VNPET",
+		"page_id" : "homepage",
+		"config" : "{\"text\": {\"color\": \"#000000\", \"margin\": \"0\", \"content\": \"Welcome to Petaria!\", \"fontSize\": \"24px\", \"textAlign\": \"center\", \"fontFamily\": \"Arial, sans-serif\", \"fontWeight\": \"bold\"}, \"image\": {\"alt\": \"\", \"src\": \"\", \"width\": \"100%\", \"height\": \"auto\", \"margin\": \"0\"}, \"video\": {\"src\": \"test.mp4\", \"loop\": true, \"muted\": true, \"autoPlay\": true, \"playsInline\": true}, \"banner\": {\"image\": {\"src\": \"@\/public\/images\/background\/banner.jpeg\", \"size\": \"cover\", \"opacity\": 1}, \"title\": \" \", \"visible\": true, \"background\": \"\", \"dimensions\": {\"height\": \"200px\", \"maxHeight\": \"300px\", \"minHeight\": \"150px\", \"heightUnit\": \"px\"}, \"responsive\": {\"mobile\": {\"height\": \"150px\"}, \"tablet\": {\"height\": \"180px\"}}}, \"layout\": {\"margin\": \"0\", \"padding\": \"20px\", \"backgroundColor\": \"#ffffff\"}, \"displayType\": \"text\"}",
+		"custom_elements" : "[{\"id\": \"1756353833556\", \"type\": \"h1\", \"styles\": {\"color\": \"#ffd500\", \"width\": \"auto\", \"height\": \"auto\", \"fontSize\": \"24px\", \"marginTop\": \"10px\", \"textAlign\": \"center\", \"fontFamily\": \"Arial, sans-serif\", \"fontWeight\": \"bold\", \"marginLeft\": \"10px\", \"marginRight\": \"10px\", \"marginBottom\": \"10px\"}, \"content\": \"PETARIA – VƯƠNG QUỐC THÚ ẢO\", \"imageAlt\": \"\", \"imageSrc\": \"\"}, {\"id\": \"1756353865311\", \"type\": \"p\", \"styles\": {\"color\": \"#092181\", \"width\": \"auto\", \"height\": \"auto\", \"fontSize\": \"16px\", \"marginTop\": \"20px\", \"textAlign\": \"justify\", \"fontFamily\": \"Arial, sans-serif\", \"fontWeight\": \"normal\", \"marginLeft\": \"10px\", \"marginRight\": \"10px\", \"marginBottom\": \"10px\"}, \"content\": \"Chào mừng các bạn đã đến với game nuôi thú ảo Petaria – một thế giới thần thoại nơi hội tụ những loài thú cưng kỳ diệu và đáng yêu.\\nTại đây, bạn sẽ được tham gia vào chuỗi hoạt động phong phú như nuôi dưỡng, huấn luyện, chăm sóc thú cưng, mở cửa hàng buôn bán vật phẩm, tham gia các mô phỏng phát triển lãnh thổ, sưu tầm và mua sắm những món đồ độc đáo.\", \"imageAlt\": \"\", \"imageSrc\": \"\"}, {\"id\": \"1756353924614\", \"type\": \"p\", \"styles\": {\"color\": \"#092181\", \"width\": \"auto\", \"height\": \"auto\", \"fontSize\": \"16px\", \"marginTop\": \"10px\", \"textAlign\": \"justify\", \"fontFamily\": \"Arial, sans-serif\", \"fontWeight\": \"normal\", \"marginLeft\": \"10px\", \"marginRight\": \"10px\", \"marginBottom\": \"10px\"}, \"content\": \"Không chỉ dừng lại ở giải trí, Petaria còn mang đến cho bạn cơ hội đóng góp vào sự phát triển chung của thế giới thú ảo, cùng nhau xây dựng nên một vương quốc ảo đầy màu sắc và thú vị.\", \"imageAlt\": \"\", \"imageSrc\": \"\"}, {\"id\": \"1756353968455\", \"type\": \"p\", \"styles\": {\"color\": \"#092181\", \"width\": \"auto\", \"height\": \"auto\", \"fontSize\": \"16px\", \"marginTop\": \"10px\", \"textAlign\": \"left\", \"fontFamily\": \"Arial, sans-serif\", \"fontWeight\": \"normal\", \"marginLeft\": \"10px\", \"marginRight\": \"10px\", \"marginBottom\": \"10px\"}, \"content\": \"<strong>Thể loại<\/strong>: Game nuôi thú ảo, web-based, text-based.\\n\\nKhông cần tải về, chơi trực tiếp trên website.\\n\\nHệ thống phong phú, dễ tiếp cận, phù hợp với mọi lứa tuổi.\", \"imageAlt\": \"\", \"imageSrc\": \"\"}]",
+		"created_at" : "2025-08-27 19:35:36"
+	}
+]}

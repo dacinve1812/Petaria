@@ -1,0 +1,115 @@
+{
+"spirit_stats": [
+	{
+		"id" : 3,
+		"spirit_id" : 1,
+		"stat_type" : "hp",
+		"stat_value" : 50,
+		"stat_modifier" : "flat"
+	},
+	{
+		"id" : 4,
+		"spirit_id" : 1,
+		"stat_type" : "mp",
+		"stat_value" : 30,
+		"stat_modifier" : "flat"
+	},
+	{
+		"id" : 5,
+		"spirit_id" : 2,
+		"stat_type" : "str",
+		"stat_value" : 25,
+		"stat_modifier" : "flat"
+	},
+	{
+		"id" : 6,
+		"spirit_id" : 2,
+		"stat_type" : "def",
+		"stat_value" : 20,
+		"stat_modifier" : "flat"
+	},
+	{
+		"id" : 7,
+		"spirit_id" : 2,
+		"stat_type" : "spd",
+		"stat_value" : 15,
+		"stat_modifier" : "flat"
+	},
+	{
+		"id" : 8,
+		"spirit_id" : 3,
+		"stat_type" : "hp",
+		"stat_value" : 20,
+		"stat_modifier" : "flat"
+	},
+	{
+		"id" : 9,
+		"spirit_id" : 3,
+		"stat_type" : "str",
+		"stat_value" : 10,
+		"stat_modifier" : "flat"
+	},
+	{
+		"id" : 10,
+		"spirit_id" : 4,
+		"stat_type" : "def",
+		"stat_value" : 15,
+		"stat_modifier" : "flat"
+	},
+	{
+		"id" : 11,
+		"spirit_id" : 4,
+		"stat_type" : "intelligence",
+		"stat_value" : 10,
+		"stat_modifier" : "flat"
+	},
+	{
+		"id" : 16,
+		"spirit_id" : 6,
+		"stat_type" : "str",
+		"stat_value" : 35,
+		"stat_modifier" : "flat"
+	},
+	{
+		"id" : 17,
+		"spirit_id" : 6,
+		"stat_type" : "spd",
+		"stat_value" : 25,
+		"stat_modifier" : "flat"
+	},
+	{
+		"id" : 18,
+		"spirit_id" : 6,
+		"stat_type" : "intelligence",
+		"stat_value" : 20,
+		"stat_modifier" : "flat"
+	},
+	{
+		"id" : 23,
+		"spirit_id" : 5,
+		"stat_type" : "hp",
+		"stat_value" : 15,
+		"stat_modifier" : "percentage"
+	},
+	{
+		"id" : 24,
+		"spirit_id" : 5,
+		"stat_type" : "str",
+		"stat_value" : 50,
+		"stat_modifier" : "flat"
+	},
+	{
+		"id" : 25,
+		"spirit_id" : 5,
+		"stat_type" : "def",
+		"stat_value" : 40,
+		"stat_modifier" : "flat"
+	},
+	{
+		"id" : 26,
+		"spirit_id" : 5,
+		"stat_type" : "spd",
+		"stat_value" : 30,
+		"stat_modifier" : "flat"
+	}
+]}

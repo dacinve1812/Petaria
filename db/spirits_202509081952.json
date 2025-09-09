@@ -1,0 +1,57 @@
+{
+"spirits": [
+	{
+		"id" : 1,
+		"name" : "Angel Puss",
+		"description" : "Linh thú thiên thần với sức mạnh chữa lành",
+		"image_url" : "angelpuss.gif",
+		"rarity" : "rare",
+		"max_stats_count" : 2,
+		"created_at" : "2025-08-04 23:44:54"
+	},
+	{
+		"id" : 2,
+		"name" : "Babaa Starry",
+		"description" : "Linh thú cừu sao với khả năng tăng sức mạnh",
+		"image_url" : "babaa_starry.gif",
+		"rarity" : "epic",
+		"max_stats_count" : 3,
+		"created_at" : "2025-08-04 23:44:54"
+	},
+	{
+		"id" : 3,
+		"name" : "Petpet Babyca",
+		"description" : "Linh thú nhỏ bé nhưng mạnh mẽ",
+		"image_url" : "petpet_babyca.gif",
+		"rarity" : "common",
+		"max_stats_count" : 2,
+		"created_at" : "2025-08-04 23:44:54"
+	},
+	{
+		"id" : 4,
+		"name" : "Pets Babaa",
+		"description" : "Linh thú cừu thông thường",
+		"image_url" : "pets_babaa.gif",
+		"rarity" : "common",
+		"max_stats_count" : 2,
+		"created_at" : "2025-08-04 23:44:54"
+	},
+	{
+		"id" : 5,
+		"name" : "Pet Advent 2004",
+		"description" : "Linh thú cổ xưa với sức mạnh bí ẩn",
+		"image_url" : "pet_advent_2004.gif",
+		"rarity" : "legendary",
+		"max_stats_count" : 4,
+		"created_at" : "2025-08-04 23:44:54"
+	},
+	{
+		"id" : 6,
+		"name" : "Snicklebeast Black",
+		"description" : "Linh thú bóng đêm với sức mạnh tối tăm",
+		"image_url" : "snicklebeast_black.gif",
+		"rarity" : "epic",
+		"max_stats_count" : 3,
+		"created_at" : "2025-08-04 23:44:54"
+	}
+]}

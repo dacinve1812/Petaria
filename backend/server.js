@@ -296,8 +296,281 @@ app.post('/api/site-config/navbar', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+// ======================================================== BANK SYSTEM ========================================================
+
+// GET /api/bank/account/:userId - Lấy thông tin tài khoản ngân hàng
+app.get('/api/bank/account/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Lấy thông tin tài khoản ngân hàng
+    const [accountRows] = await db.query(`
+      SELECT * FROM bank_accounts WHERE user_id = ?
+    `, [userId]);
+
+    if (!accountRows.length) {
+      return res.status(404).json({ error: 'Chưa có tài khoản ngân hàng' });
+    }
+
+    const account = accountRows[0];
+
+    // Kiểm tra xem đã thu lãi hôm nay chưa
+    const today = new Date().toISOString().split('T')[0];
+    const [interestRows] = await db.query(`
+      SELECT * FROM bank_interest_logs 
+      WHERE user_id = ? AND interest_date = ?
+    `, [userId, today]);
+
+    const interestCollectedToday = interestRows.length > 0;
+
+    res.json({
+      ...account,
+      interest_collected_today: interestCollectedToday
+    });
+  } catch (err) {
+    console.error('Lỗi khi lấy thông tin tài khoản ngân hàng:', err);
+    res.status(500).json({ error: 'Lỗi khi lấy thông tin tài khoản ngân hàng' });
+  }
+});
+
+// POST /api/bank/create-account - Tạo tài khoản ngân hàng
+app.post('/api/bank/create-account', async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    // Kiểm tra xem đã có tài khoản chưa
+    const [existingRows] = await db.query(`
+      SELECT id FROM bank_accounts WHERE user_id = ?
+    `, [userId]);
+
+    if (existingRows.length > 0) {
+      return res.status(400).json({ error: 'Đã có tài khoản ngân hàng' });
+    }
+
+    // Tạo tài khoản mới
+    await db.query(`
+      INSERT INTO bank_accounts (user_id, gold_balance, petagold_balance, interest_rate)
+      VALUES (?, 0.00, 0.00, 5.00)
+    `, [userId]);
+
+    res.json({ success: true, message: 'Tạo tài khoản ngân hàng thành công' });
+  } catch (err) {
+    console.error('Lỗi khi tạo tài khoản ngân hàng:', err);
+    res.status(500).json({ error: 'Lỗi khi tạo tài khoản ngân hàng' });
+  }
+});
+
+// POST /api/bank/collect-interest - Thu lãi suất hàng ngày
+app.post('/api/bank/collect-interest', async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    // Lấy thông tin tài khoản
+    const [accountRows] = await db.query(`
+      SELECT * FROM bank_accounts WHERE user_id = ?
+    `, [userId]);
+
+    if (!accountRows.length) {
+      return res.status(404).json({ error: 'Chưa có tài khoản ngân hàng' });
+    }
+
+    const account = accountRows[0];
+
+    // Kiểm tra xem đã thu lãi hôm nay chưa
+    const today = new Date().toISOString().split('T')[0];
+    const [interestRows] = await db.query(`
+      SELECT * FROM bank_interest_logs 
+      WHERE user_id = ? AND interest_date = ?
+    `, [userId, today]);
+
+    if (interestRows.length > 0) {
+      return res.status(400).json({ error: 'Đã thu lãi suất hôm nay rồi' });
+    }
+
+    // Tính lãi suất
+    const goldInterest = Math.round((account.gold_balance * (account.interest_rate / 100)) / 365);
+    const petagoldInterest = Math.round((account.petagold_balance * (account.interest_rate / 100)) / 365);
+
+    if (goldInterest <= 0 && petagoldInterest <= 0) {
+      return res.status(400).json({ error: 'Không có lãi suất để thu' });
+    }
+
+    // Cập nhật số dư và thêm vào user balance
+    await db.query('START TRANSACTION');
+
+    // Cập nhật số dư trong ngân hàng
+    await db.query(`
+      UPDATE bank_accounts 
+      SET gold_balance = gold_balance + ?, petagold_balance = petagold_balance + ?
+      WHERE user_id = ?
+    `, [goldInterest, petagoldInterest, userId]);
+
+    // Thêm vào user balance
+    await db.query(`
+      UPDATE users 
+      SET gold = gold + ?, petagold = petagold + ?
+      WHERE id = ?
+    `, [goldInterest, petagoldInterest, userId]);
+
+    // Ghi log thu lãi
+    await db.query(`
+      INSERT INTO bank_interest_logs (user_id, interest_date, gold_interest, petagold_interest)
+      VALUES (?, ?, ?, ?)
+    `, [userId, today, goldInterest, petagoldInterest]);
+
+    await db.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: `Đã thu ${goldInterest} Gold và ${petagoldInterest} PetaGold lãi suất`,
+      interestAmount: goldInterest + petagoldInterest
+    });
+  } catch (err) {
+    await db.query('ROLLBACK');
+    console.error('Lỗi khi thu lãi suất:', err);
+    res.status(500).json({ error: 'Lỗi khi thu lãi suất' });
+  }
+});
+
+// POST /api/bank/transaction - Thực hiện giao dịch (gửi/rút tiền)
+app.post('/api/bank/transaction', async (req, res) => {
+  const { userId, type, amount, currencyType } = req.body;
+
+  try {
+    // Validation
+    if (!['deposit', 'withdraw'].includes(type)) {
+      return res.status(400).json({ error: 'Loại giao dịch không hợp lệ' });
+    }
+
+    if (!['gold', 'petagold'].includes(currencyType)) {
+      return res.status(400).json({ error: 'Loại tiền không hợp lệ' });
+    }
+
+    if (!amount || amount <= 0 || !Number.isInteger(amount)) {
+      return res.status(400).json({ error: 'Số tiền không hợp lệ' });
+    }
+
+    // Lấy thông tin tài khoản ngân hàng
+    const [accountRows] = await db.query(`
+      SELECT * FROM bank_accounts WHERE user_id = ?
+    `, [userId]);
+
+    if (!accountRows.length) {
+      return res.status(404).json({ error: 'Chưa có tài khoản ngân hàng' });
+    }
+
+    const account = accountRows[0];
+
+    // Lấy thông tin user
+    const [userRows] = await db.query(`
+      SELECT gold, petagold FROM users WHERE id = ?
+    `, [userId]);
+
+    if (!userRows.length) {
+      return res.status(404).json({ error: 'Người dùng không tồn tại' });
+    }
+
+    const user = userRows[0];
+
+    await db.query('START TRANSACTION');
+
+    if (type === 'deposit') {
+      // Gửi tiền vào ngân hàng
+      const userBalance = currencyType === 'gold' ? user.gold : user.petagold;
+      const bankBalance = currencyType === 'gold' ? account.gold_balance : account.petagold_balance;
+
+      if (amount > userBalance) {
+        await db.query('ROLLBACK');
+        return res.status(400).json({ error: 'Không đủ tiền để gửi' });
+      }
+
+      // Trừ tiền từ user, cộng vào ngân hàng
+      await db.query(`
+        UPDATE users SET ${currencyType} = ${currencyType} - ? WHERE id = ?
+      `, [amount, userId]);
+
+      await db.query(`
+        UPDATE bank_accounts SET ${currencyType}_balance = ${currencyType}_balance + ? WHERE user_id = ?
+      `, [amount, userId]);
+
+      // Ghi log giao dịch
+      await db.query(`
+        INSERT INTO bank_transactions (user_id, transaction_type, currency_type, amount, balance_before, balance_after)
+        VALUES (?, 'deposit', ?, ?, ?, ?)
+      `, [userId, currencyType, amount, bankBalance, bankBalance + amount]);
+
+      res.json({
+        success: true,
+        message: `Đã gửi ${amount} ${currencyType === 'gold' ? 'Gold' : 'PetaGold'} vào ngân hàng`
+      });
+
+    } else if (type === 'withdraw') {
+      // Rút tiền từ ngân hàng
+      const bankBalance = currencyType === 'gold' ? account.gold_balance : account.petagold_balance;
+
+      if (amount > bankBalance) {
+        await db.query('ROLLBACK');
+        return res.status(400).json({ error: 'Không đủ tiền trong tài khoản ngân hàng' });
+      }
+
+      // Trừ tiền từ ngân hàng, cộng vào user
+      await db.query(`
+        UPDATE bank_accounts SET ${currencyType}_balance = ${currencyType}_balance - ? WHERE user_id = ?
+      `, [amount, userId]);
+
+      await db.query(`
+        UPDATE users SET ${currencyType} = ${currencyType} + ? WHERE id = ?
+      `, [amount, userId]);
+
+      // Ghi log giao dịch
+      await db.query(`
+        INSERT INTO bank_transactions (user_id, transaction_type, currency_type, amount, balance_before, balance_after)
+        VALUES (?, 'withdraw', ?, ?, ?, ?)
+      `, [userId, currencyType, amount, bankBalance, bankBalance - amount]);
+
+      res.json({
+        success: true,
+        message: `Đã rút ${amount} ${currencyType === 'gold' ? 'Gold' : 'PetaGold'} từ ngân hàng`
+      });
+    }
+
+    await db.query('COMMIT');
+  } catch (err) {
+    await db.query('ROLLBACK');
+    console.error('Lỗi khi thực hiện giao dịch:', err);
+    res.status(500).json({ error: 'Lỗi khi thực hiện giao dịch' });
+  }
+});
+
+// GET /api/bank/transactions/:userId - Lấy lịch sử giao dịch
+app.get('/api/bank/transactions/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { page = 1, limit = 20 } = req.query;
+
+  try {
+    const offset = (page - 1) * limit;
+
+    const [transactions] = await db.query(`
+      SELECT * FROM bank_transactions 
+      WHERE user_id = ? 
+      ORDER BY created_at DESC 
+      LIMIT ? OFFSET ?
+    `, [userId, parseInt(limit), parseInt(offset)]);
+
+    const [countRows] = await db.query(`
+      SELECT COUNT(*) as total FROM bank_transactions WHERE user_id = ?
+    `, [userId]);
+
+    res.json({
+      transactions,
+      total: countRows[0].total,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
+  } catch (err) {
+    console.error('Lỗi khi lấy lịch sử giao dịch:', err);
+    res.status(500).json({ error: 'Lỗi khi lấy lịch sử giao dịch' });
+  }
 });
 
 // API Register
@@ -3474,3 +3747,7 @@ async function handleExpGainWithLevelUp(petId, expGain) {
     throw error;
   }
 }
+
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});

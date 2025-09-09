@@ -1,0 +1,30 @@
+{
+"site_pages": [
+	{
+		"id" : "battle",
+		"path" : "\/battle",
+		"name" : "Battle Page",
+		"component" : "BattlePage",
+		"config" : "{\"displayType\": \"default\", \"customStyles\": {}}",
+		"created_at" : "2025-08-27 00:05:13",
+		"updated_at" : "2025-08-27 00:05:13"
+	},
+	{
+		"id" : "homepage",
+		"path" : "\/",
+		"name" : "Homepage",
+		"component" : "HomePageVer2",
+		"config" : "{\"text\": {\"color\": \"#000000\", \"margin\": \"0\", \"content\": \"Welcome to Petaria!\", \"fontSize\": \"24px\", \"textAlign\": \"center\", \"fontFamily\": \"Arial, sans-serif\", \"fontWeight\": \"bold\"}, \"image\": {\"alt\": \"\", \"src\": \"\", \"width\": \"100%\", \"height\": \"auto\", \"margin\": \"0\"}, \"video\": {\"src\": \"test.mp4\", \"loop\": true, \"muted\": true, \"autoPlay\": true, \"playsInline\": true}, \"banner\": {\"image\": {\"src\": \"@\/public\/images\/background\/banner.jpeg\", \"size\": \"cover\", \"opacity\": 1}, \"title\": \" \", \"visible\": true, \"background\": \"\", \"dimensions\": {\"height\": \"200px\", \"maxHeight\": \"300px\", \"minHeight\": \"150px\", \"heightUnit\": \"px\"}, \"responsive\": {\"mobile\": {\"height\": \"150px\"}, \"tablet\": {\"height\": \"180px\"}}}, \"layout\": {\"margin\": \"0\", \"padding\": \"20px\", \"backgroundColor\": \"#ffffff\"}, \"displayType\": \"text\"}",
+		"created_at" : "2025-08-27 00:04:13",
+		"updated_at" : "2025-08-29 01:37:18"
+	},
+	{
+		"id" : "shop",
+		"path" : "\/shop",
+		"name" : "Shop Page",
+		"component" : "ShopPage",
+		"config" : "{\"displayType\": \"default\", \"customStyles\": {}}",
+		"created_at" : "2025-08-27 00:05:13",
+		"updated_at" : "2025-08-27 00:05:13"
+	}
+]}

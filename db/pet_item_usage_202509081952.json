@@ -1,0 +1,183 @@
+{
+"pet_item_usage": [
+	{
+		"id" : 1,
+		"pet_id" : 27,
+		"item_id" : 27,
+		"used_count" : 0,
+		"max_usage" : 10,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 2,
+		"pet_id" : 27,
+		"item_id" : 28,
+		"used_count" : 0,
+		"max_usage" : 10,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 3,
+		"pet_id" : 27,
+		"item_id" : 29,
+		"used_count" : 0,
+		"max_usage" : 10,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 4,
+		"pet_id" : 27,
+		"item_id" : 30,
+		"used_count" : 0,
+		"max_usage" : 10,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 5,
+		"pet_id" : 27,
+		"item_id" : 31,
+		"used_count" : 0,
+		"max_usage" : 10,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 6,
+		"pet_id" : 27,
+		"item_id" : 32,
+		"used_count" : 0,
+		"max_usage" : 5,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 7,
+		"pet_id" : 27,
+		"item_id" : 33,
+		"used_count" : 0,
+		"max_usage" : 5,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 8,
+		"pet_id" : 27,
+		"item_id" : 34,
+		"used_count" : 0,
+		"max_usage" : 5,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 9,
+		"pet_id" : 27,
+		"item_id" : 35,
+		"used_count" : 0,
+		"max_usage" : 5,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 10,
+		"pet_id" : 27,
+		"item_id" : 36,
+		"used_count" : 0,
+		"max_usage" : 5,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 11,
+		"pet_id" : 44,
+		"item_id" : 27,
+		"used_count" : 0,
+		"max_usage" : 10,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 12,
+		"pet_id" : 44,
+		"item_id" : 28,
+		"used_count" : 0,
+		"max_usage" : 10,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 13,
+		"pet_id" : 44,
+		"item_id" : 29,
+		"used_count" : 0,
+		"max_usage" : 10,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 14,
+		"pet_id" : 44,
+		"item_id" : 30,
+		"used_count" : 0,
+		"max_usage" : 10,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 15,
+		"pet_id" : 44,
+		"item_id" : 31,
+		"used_count" : 0,
+		"max_usage" : 10,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 16,
+		"pet_id" : 44,
+		"item_id" : 32,
+		"used_count" : 0,
+		"max_usage" : 5,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 17,
+		"pet_id" : 44,
+		"item_id" : 33,
+		"used_count" : 0,
+		"max_usage" : 5,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 18,
+		"pet_id" : 44,
+		"item_id" : 34,
+		"used_count" : 0,
+		"max_usage" : 5,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 19,
+		"pet_id" : 44,
+		"item_id" : 35,
+		"used_count" : 0,
+		"max_usage" : 5,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	},
+	{
+		"id" : 20,
+		"pet_id" : 44,
+		"item_id" : 36,
+		"used_count" : 0,
+		"max_usage" : 5,
+		"last_used" : null,
+		"created_at" : "2025-08-06 19:26:36"
+	}
+]}

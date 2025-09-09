@@ -69,7 +69,8 @@ function Admin() {
         <div className="admin-section">
           <h2>Quản lý Site</h2>
           <ul>
-            <li><Link to="/admin/site-management">Quản lý Site & Homepage</Link></li>
+            <li><Link to="/admin/site-management">Quản lý Homepage</Link></li>
+            <li><Link to="/map-tool">Map tool</Link></li>
           </ul>
         </div>
       </div>

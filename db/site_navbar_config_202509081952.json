@@ -1,0 +1,111 @@
+{
+"site_navbar_config": [
+	{
+		"id" : 1,
+		"config" : "{\"bottomNavbar\": {\"visible\": true, \"showMenuOnly\": false}, \"floatingButtons\": {\"visible\": true}}",
+		"created_at" : "2025-08-28 00:24:49",
+		"updated_at" : "2025-08-28 00:24:49"
+	},
+	{
+		"id" : 2,
+		"config" : "{\"bottomNavbar\": {\"visible\": false, \"showMenuOnly\": false}, \"floatingButtons\": {\"visible\": false}}",
+		"created_at" : "2025-08-28 00:32:29",
+		"updated_at" : "2025-08-28 00:32:29"
+	},
+	{
+		"id" : 3,
+		"config" : "{\"bottomNavbar\": {\"visible\": false, \"showMenuOnly\": false}, \"floatingButtons\": {\"visible\": false}}",
+		"created_at" : "2025-08-28 00:32:30",
+		"updated_at" : "2025-08-28 00:32:30"
+	},
+	{
+		"id" : 4,
+		"config" : "{\"bottomNavbar\": {\"visible\": false, \"showMenuOnly\": false}, \"floatingButtons\": {\"visible\": false}}",
+		"created_at" : "2025-08-28 00:32:31",
+		"updated_at" : "2025-08-28 00:32:31"
+	},
+	{
+		"id" : 5,
+		"config" : "{\"bottomNavbar\": {\"visible\": false, \"showMenuOnly\": false}, \"floatingButtons\": {\"visible\": false}}",
+		"created_at" : "2025-08-28 00:32:31",
+		"updated_at" : "2025-08-28 00:32:31"
+	},
+	{
+		"id" : 6,
+		"config" : "{\"bottomNavbar\": {\"visible\": false, \"showMenuOnly\": false}, \"floatingButtons\": {\"visible\": false}}",
+		"created_at" : "2025-08-28 00:32:34",
+		"updated_at" : "2025-08-28 00:32:34"
+	},
+	{
+		"id" : 7,
+		"config" : "{\"bottomNavbar\": {\"visible\": false, \"showMenuOnly\": false}, \"floatingButtons\": {\"visible\": false}}",
+		"created_at" : "2025-08-28 00:32:34",
+		"updated_at" : "2025-08-28 00:32:34"
+	},
+	{
+		"id" : 8,
+		"config" : "{\"bottomNavbar\": {\"visible\": false, \"showMenuOnly\": false}, \"floatingButtons\": {\"visible\": false}}",
+		"created_at" : "2025-08-28 00:32:35",
+		"updated_at" : "2025-08-28 00:32:35"
+	},
+	{
+		"id" : 9,
+		"config" : "{\"bottomNavbar\": {\"visible\": false, \"showMenuOnly\": false}, \"floatingButtons\": {\"visible\": false}}",
+		"created_at" : "2025-08-28 00:32:38",
+		"updated_at" : "2025-08-28 00:32:38"
+	},
+	{
+		"id" : 10,
+		"config" : "{\"bottomNavbar\": {\"visible\": true, \"showMenuOnly\": false}, \"floatingButtons\": {\"visible\": false}}",
+		"created_at" : "2025-08-28 00:32:48",
+		"updated_at" : "2025-08-28 00:32:48"
+	},
+	{
+		"id" : 11,
+		"config" : "{\"bottomNavbar\": {\"visible\": false, \"showMenuOnly\": false}, \"floatingButtons\": {\"visible\": false}}",
+		"created_at" : "2025-08-28 00:32:51",
+		"updated_at" : "2025-08-28 00:32:51"
+	},
+	{
+		"id" : 12,
+		"config" : "{\"bottomNavbar\": {\"visible\": false, \"showMenuOnly\": false}, \"floatingButtons\": {\"visible\": false}}",
+		"created_at" : "2025-08-28 00:36:03",
+		"updated_at" : "2025-08-28 00:36:03"
+	},
+	{
+		"id" : 13,
+		"config" : "{\"bottomNavbar\": {\"visible\": true, \"showMenuOnly\": true}, \"floatingButtons\": {\"visible\": false}}",
+		"created_at" : "2025-08-28 00:36:11",
+		"updated_at" : "2025-08-28 00:36:11"
+	},
+	{
+		"id" : 14,
+		"config" : "{\"bottomNavbar\": {\"visible\": true, \"showMenuOnly\": true}, \"floatingButtons\": {\"visible\": true}}",
+		"created_at" : "2025-08-28 00:37:34",
+		"updated_at" : "2025-08-28 00:37:34"
+	},
+	{
+		"id" : 15,
+		"config" : "{\"bottomNavbar\": {\"visible\": true, \"showMenuOnly\": true}, \"floatingButtons\": {\"visible\": false}}",
+		"created_at" : "2025-08-28 00:37:40",
+		"updated_at" : "2025-08-28 00:37:40"
+	},
+	{
+		"id" : 16,
+		"config" : "{\"bottomNavbar\": {\"visible\": true, \"showMenuOnly\": false}, \"floatingButtons\": {\"visible\": true}}",
+		"created_at" : "2025-08-28 21:08:52",
+		"updated_at" : "2025-08-28 21:08:52"
+	},
+	{
+		"id" : 17,
+		"config" : "{\"bottomNavbar\": {\"visible\": true, \"showMenuOnly\": true}, \"floatingButtons\": {\"visible\": true}}",
+		"created_at" : "2025-08-29 01:34:12",
+		"updated_at" : "2025-08-29 01:34:12"
+	},
+	{
+		"id" : 18,
+		"config" : "{\"bottomNavbar\": {\"visible\": true, \"showMenuOnly\": true}, \"floatingButtons\": {\"visible\": false}}",
+		"created_at" : "2025-08-29 01:34:21",
+		"updated_at" : "2025-08-29 01:34:21"
+	}
+]}

@@ -1,0 +1,51 @@
+{
+"site_custom_elements": [
+	{
+		"id" : "1756353833556",
+		"page_id" : "homepage",
+		"element_type" : "h1",
+		"content" : "PETARIA – VƯƠNG QUỐC THÚ ẢO",
+		"image_src" : null,
+		"image_alt" : null,
+		"styles" : "{\"color\": \"#ffd500\", \"width\": \"auto\", \"height\": \"auto\", \"fontSize\": \"24px\", \"marginTop\": \"10px\", \"textAlign\": \"center\", \"fontFamily\": \"Arial, sans-serif\", \"fontWeight\": \"bold\", \"marginLeft\": \"10px\", \"marginRight\": \"10px\", \"marginBottom\": \"10px\"}",
+		"sort_order" : 0,
+		"created_at" : "2025-08-29 01:37:18",
+		"updated_at" : "2025-08-29 01:37:18"
+	},
+	{
+		"id" : "1756353865311",
+		"page_id" : "homepage",
+		"element_type" : "p",
+		"content" : "Chào mừng các bạn đã đến với game nuôi thú ảo Petaria – một thế giới thần thoại nơi hội tụ những loài thú cưng kỳ diệu và đáng yêu.\nTại đây, bạn sẽ được tham gia vào chuỗi hoạt động phong phú như nuôi dưỡng, huấn luyện, chăm sóc thú cưng, mở cửa hàng buôn bán vật phẩm, tham gia các mô phỏng phát triển lãnh thổ, sưu tầm và mua sắm những món đồ độc đáo.",
+		"image_src" : null,
+		"image_alt" : null,
+		"styles" : "{\"color\": \"#092181\", \"width\": \"auto\", \"height\": \"auto\", \"fontSize\": \"16px\", \"marginTop\": \"20px\", \"textAlign\": \"justify\", \"fontFamily\": \"Arial, sans-serif\", \"fontWeight\": \"normal\", \"marginLeft\": \"10px\", \"marginRight\": \"10px\", \"marginBottom\": \"10px\"}",
+		"sort_order" : 1,
+		"created_at" : "2025-08-29 01:37:18",
+		"updated_at" : "2025-08-29 01:37:18"
+	},
+	{
+		"id" : "1756353924614",
+		"page_id" : "homepage",
+		"element_type" : "p",
+		"content" : "Không chỉ dừng lại ở giải trí, Petaria còn mang đến cho bạn cơ hội đóng góp vào sự phát triển chung của thế giới thú ảo, cùng nhau xây dựng nên một vương quốc ảo đầy màu sắc và thú vị.",
+		"image_src" : null,
+		"image_alt" : null,
+		"styles" : "{\"color\": \"#092181\", \"width\": \"auto\", \"height\": \"auto\", \"fontSize\": \"16px\", \"marginTop\": \"10px\", \"textAlign\": \"justify\", \"fontFamily\": \"Arial, sans-serif\", \"fontWeight\": \"normal\", \"marginLeft\": \"10px\", \"marginRight\": \"10px\", \"marginBottom\": \"10px\"}",
+		"sort_order" : 2,
+		"created_at" : "2025-08-29 01:37:18",
+		"updated_at" : "2025-08-29 01:37:18"
+	},
+	{
+		"id" : "1756353968455",
+		"page_id" : "homepage",
+		"element_type" : "p",
+		"content" : "<strong>Thể loại<\/strong>: Game nuôi thú ảo, web-based, text-based.\n\nKhông cần tải về, chơi trực tiếp trên website.\n\nHệ thống phong phú, dễ tiếp cận, phù hợp với mọi lứa tuổi.",
+		"image_src" : null,
+		"image_alt" : null,
+		"styles" : "{\"color\": \"#092181\", \"width\": \"auto\", \"height\": \"auto\", \"fontSize\": \"16px\", \"marginTop\": \"10px\", \"textAlign\": \"left\", \"fontFamily\": \"Arial, sans-serif\", \"fontWeight\": \"normal\", \"marginLeft\": \"10px\", \"marginRight\": \"10px\", \"marginBottom\": \"10px\"}",
+		"sort_order" : 3,
+		"created_at" : "2025-08-29 01:37:18",
+		"updated_at" : "2025-08-29 01:37:18"
+	}
+]}
