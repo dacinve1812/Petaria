@@ -1,20 +1,31 @@
-import React, { useContext } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import './HomePage.css';
-import { UserContext } from '../UserContext';
+import { useUser } from '../../UserContext';
+import '../HomePage.css';
 
 function Admin() {
-  const user = useContext(UserContext);
+  const { user, logout, isLoading } = useUser();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    // Only redirect if not loading and user is not admin
+    if (!isLoading && (!user || !user.isAdmin)) {
+      navigate('/login');
+    }
+  }, [user, isLoading, navigate]);
+
+  // Show loading while checking authentication
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  // Show nothing if not admin (will redirect in useEffect)
   if (!user || !user.isAdmin) {
-    navigate('/login');
     return null;
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('isAdmin');
+    logout();
     navigate('/login');
   };
 
@@ -58,11 +69,18 @@ function Admin() {
             <li><Link to="/admin/spirits">Quản lý Linh Thú</Link></li>
           </ul>
         </div>
+        <div className="admin-section">
+          <h2>Quản lý User</h2>
+          <ul>
+            <li><Link to="/admin/user-management">Hệ thống User</Link></li>
+          </ul>
+        </div>
 
         <div className="admin-section">
-          <h2>Hệ thống Mail</h2>
+          <h2>Hệ thống</h2>
           <ul>
             <li><Link to="/admin/mail-test">Gửi Test Mail</Link></li>
+            <li><Link to="/admin/bank-management">Hệ thống Bank</Link></li>
           </ul>
         </div>
 

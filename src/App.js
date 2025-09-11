@@ -1,15 +1,14 @@
-
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { UserContext } from './UserContext';
+import { UserProvider } from './UserContext';
 import MainLayout from './components/MainLayout';
 import EncounterModalContainer from './components/EncounterModalContainer';
 import HomePage from './components/HomePage';
 import Auth from './components/Auth';
 import Orphanage from './components/Orphanage';
 import MyHome from './components/MyHome';
-import Admin from './components/Admin';
-import AdminMailTest from './components/AdminMailTest';
+import Admin from './components/admin/Admin';
+import AdminMailTest from './components/admin/AdminMailTest';
 import UserProfile from './components/UserProfile';
 import PetProfile from './components/PetProfile';
 import Inventory from './components/items/Inventory';
@@ -38,66 +37,23 @@ import MyStuffManagement from './components/MyStuffManagement';
 import DevDashboard from './components/DevDashboard';
 import MapCoordinateTool from './components/MapCoordinateTool';
 import Bank from './components/Bank';
+import AdminBankManagement from './components/admin/AdminBankManagement';
+import AdminUserManagement from './components/admin/AdminUserManagement';
 
 function App() {
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const isAdmin = localStorage.getItem('isAdmin') === 'true';
-    if (token) {
-      try {
-        const decoded = JSON.parse(atob(token.split('.')[1]));
-        setUser({
-          userId: decoded.userId,
-          isAdmin,
-          token,
-        });
-      } catch (err) {
-        console.error('Invalid token');
-        setUser(null);
-      }
-    } else {
-      setUser(null);
-    }
-  }, []);
-
-  const handleLoginSuccess = () => {
-    const token = localStorage.getItem('token');
-    const isAdmin = localStorage.getItem('isAdmin') === 'true';
-    if (token) {
-      try {
-        const decoded = JSON.parse(atob(token.split('.')[1]));
-        setUser({
-          userId: decoded.userId,
-          isAdmin,
-          token,
-        });
-      } catch (err) {
-        console.error('Invalid token');
-      }
-    }
-  };
-
-  const handleLogoutSuccess = () => {
-    setUser(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('isAdmin');
-  };
-
   return (
     <BrowserRouter>
-      <UserContext.Provider value={user}>
+      <UserProvider>
         <div className="App">
           {/* Global Encounter Modal - always available */}
           <EncounterModalContainer />
 
           <Routes>
-            <Route path="/login" element={<Auth onLoginSuccess={handleLoginSuccess} />} />
+            <Route path="/login" element={<Auth />} />
             <Route path="/" element={<MainLayout />}>
-              <Route index element={user ? <HomePageVer2 isLoggedIn={true} onLogoutSuccess={handleLogoutSuccess} /> : <Auth onLoginSuccess={handleLoginSuccess} />} />
+              <Route index element={<HomePageVer2 />} />
               <Route path="orphanage" element={<Orphanage />} />
-              <Route path="myhome" element={<MyHome isLoggedIn={!!user} onLogoutSuccess={handleLogoutSuccess} />} />
+              <Route path="myhome" element={<MyHome />} />
               <Route path="admin" element={<Admin />} />
               <Route path="profile/:userId" element={<UserProfile />} />
               <Route path="profile" element={<UserProfile />} />
@@ -126,13 +82,15 @@ function App() {
               <Route path="hunting-world" element={<HuntingWorldPage />} />
               <Route path="hunting-world/map/:id" element={<HuntingMap />} />
               <Route path="admin/mail-test" element={<AdminMailTest />} />
+              <Route path="admin/bank-management" element={<AdminBankManagement />} />
+              <Route path="admin/user-management" element={<AdminUserManagement />} />
               <Route path="dev-dashboard" element={<DevDashboard />} />
               <Route path="map-tool" element={<MapCoordinateTool />} />
               <Route path="bank" element={<Bank />} />
             </Route>  
           </Routes>
         </div>
-      </UserContext.Provider>
+      </UserProvider>
     </BrowserRouter>
   );
 }

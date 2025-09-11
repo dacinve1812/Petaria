@@ -1,15 +1,15 @@
 // File: EditItemEffects.js
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../Sidebar';
 import Navbar from '../Navbar';
-import { UserContext } from '../../UserContext';
+import { useUser } from '../../UserContext';
 
 function EditItemEffects() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const navigate = useNavigate();
   const location = useLocation();
-  const user = useContext(UserContext);
+  const { user, isLoading } = useUser();
 
   const [items, setItems] = useState([]);
   const [effects, setEffects] = useState([]);
@@ -23,13 +23,14 @@ function EditItemEffects() {
   const [editId, setEditId] = useState(null);
 
   useEffect(() => {
-    if (user === undefined) return;
-    if (!user || !user.isAdmin) navigate('/login');
-    else {
-      fetchItems();
-      fetchEffects();
+    if (isLoading) return;
+    if (!user || !user.isAdmin) {
+      navigate('/login');
+      return;
     }
-  }, [navigate, user]);
+    fetchItems();
+    fetchEffects();
+  }, [navigate, user, isLoading]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);

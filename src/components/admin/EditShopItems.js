@@ -1,13 +1,13 @@
 // File: EditShopItems.js
-import React, { useState, useEffect, useContext } from 'react';
-import { UserContext } from '../../UserContext';
+import React, { useState, useEffect } from 'react';
+import { useUser } from '../../UserContext';
 import Sidebar from '../Sidebar';
 import Navbar from '../Navbar';
 import '../css/ShopPage.css';
 
 function EditShopItems() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-  const user = useContext(UserContext);
+  const { user, isLoading } = useUser();
 
   const [shops, setShops] = useState([]);
   const [selectedShop, setSelectedShop] = useState(null);
@@ -20,12 +20,18 @@ function EditShopItems() {
   const [editData, setEditData] = useState({ custom_price: '', stock_limit: '', restock_interval: 'none', available_from: '', available_until: '' });
 
   useEffect(() => {
+    if (isLoading) return;
+    if (!user || !user.isAdmin) {
+      window.location.href = '/login';
+      return;
+    }
+    
     fetch(`${API_BASE_URL}/api/shops`, {
       headers: { 'Authorization': `Bearer ${user.token}` }
     })
       .then(res => res.json())
       .then(data => setShops(data));
-  }, [API_BASE_URL, user.token]);
+  }, [API_BASE_URL, user, isLoading]);
 
   useEffect(() => {
     if (!selectedShop) return;

@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserContext } from '../../UserContext';
+import { useUser } from '../../UserContext';
 import './EditPetTypes.css';
 
 function EditPetTypes() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const navigate = useNavigate();
-  const user = useContext(UserContext);
+  const { user, isLoading } = useUser();
 
   const [formData, setFormData] = useState({
     name: '', image: '', type: '', description: '', rarity: '',
@@ -44,8 +44,17 @@ function EditPetTypes() {
     }
   }, [showList]);
 
+  useEffect(() => {
+    if (!isLoading && (!user || !user.isAdmin)) {
+      navigate('/login');
+    }
+  }, [user, isLoading, navigate]);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
   if (!user || !user.isAdmin) {
-    navigate('/login');
     return null;
   }
 

@@ -314,24 +314,86 @@ app.get('/api/bank/account/:userId', async (req, res) => {
 
     const account = accountRows[0];
 
-    // Kiểm tra xem đã thu lãi hôm nay chưa
-    const today = new Date().toISOString().split('T')[0];
-    const [interestRows] = await db.query(`
-      SELECT * FROM bank_interest_logs 
-      WHERE user_id = ? AND interest_date = ?
-    `, [userId, today]);
+    // Tự động cộng lãi suất hàng ngày (compound interest)
+    await calculateAndAddDailyInterest(userId, account);
 
-    const interestCollectedToday = interestRows.length > 0;
+    // Lấy lại thông tin tài khoản sau khi cộng lãi
+    const [updatedAccountRows] = await db.query(`
+      SELECT ba.*, u.is_vip,
+             bir_peta.interest_rate as petagold_interest_rate
+      FROM bank_accounts ba
+      JOIN users u ON ba.user_id = u.id
+      LEFT JOIN bank_interest_rates bir_peta ON bir_peta.currency_type = 'petagold' AND bir_peta.is_active = TRUE
+      WHERE ba.user_id = ?
+    `, [userId]);
+
+    const updatedAccount = updatedAccountRows[0];
 
     res.json({
-      ...account,
-      interest_collected_today: interestCollectedToday
+      ...updatedAccount,
+      interest_collected_today: true // Luôn true vì lãi được tự động cộng
     });
   } catch (err) {
     console.error('Lỗi khi lấy thông tin tài khoản ngân hàng:', err);
     res.status(500).json({ error: 'Lỗi khi lấy thông tin tài khoản ngân hàng' });
   }
 });
+
+// Helper function để tính và cộng lãi suất hàng ngày
+async function calculateAndAddDailyInterest(userId, account) {
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Kiểm tra xem đã cộng lãi hôm nay chưa
+  const [interestRows] = await db.query(`
+    SELECT * FROM bank_interest_logs 
+    WHERE user_id = ? AND interest_date = ?
+  `, [userId, today]);
+
+  if (interestRows.length > 0) {
+    return; // Đã cộng lãi hôm nay rồi
+  }
+
+  // Lấy thông tin VIP và lãi suất
+  const [userRows] = await db.query(`
+    SELECT is_vip FROM users WHERE id = ?
+  `, [userId]);
+  
+  const isVip = userRows[0]?.is_vip || false;
+
+  // Tính lãi kép cho Peta
+  const goldInterest = (account.gold_balance * (account.interest_rate / 100)) / 365;
+
+  // Tính lãi kép cho PetaGold (chỉ VIP)
+  let petagoldInterest = 0;
+  if (isVip && account.petagold_balance > 0) {
+    const [rateRows] = await db.query(`
+      SELECT interest_rate FROM bank_interest_rates 
+      WHERE currency_type = 'petagold' AND is_active = TRUE
+    `);
+    
+    if (rateRows.length > 0) {
+      const petagoldRate = rateRows[0].interest_rate;
+      petagoldInterest = (account.petagold_balance * (petagoldRate / 100)) / 365;
+    }
+  }
+
+  if (goldInterest <= 0 && petagoldInterest <= 0) {
+    return; // Không có lãi để cộng
+  }
+
+  // Cộng lãi vào tài khoản ngân hàng
+  await db.query(`
+    UPDATE bank_accounts 
+    SET gold_balance = gold_balance + ?, petagold_balance = petagold_balance + ?
+    WHERE user_id = ?
+  `, [goldInterest, petagoldInterest, userId]);
+
+  // Ghi log
+  await db.query(`
+    INSERT INTO bank_interest_logs (user_id, interest_date, gold_interest, petagold_interest)
+    VALUES (?, ?, ?, ?)
+  `, [userId, today, goldInterest, petagoldInterest]);
+}
 
 // POST /api/bank/create-account - Tạo tài khoản ngân hàng
 app.post('/api/bank/create-account', async (req, res) => {
@@ -360,77 +422,7 @@ app.post('/api/bank/create-account', async (req, res) => {
   }
 });
 
-// POST /api/bank/collect-interest - Thu lãi suất hàng ngày
-app.post('/api/bank/collect-interest', async (req, res) => {
-  const { userId } = req.body;
-
-  try {
-    // Lấy thông tin tài khoản
-    const [accountRows] = await db.query(`
-      SELECT * FROM bank_accounts WHERE user_id = ?
-    `, [userId]);
-
-    if (!accountRows.length) {
-      return res.status(404).json({ error: 'Chưa có tài khoản ngân hàng' });
-    }
-
-    const account = accountRows[0];
-
-    // Kiểm tra xem đã thu lãi hôm nay chưa
-    const today = new Date().toISOString().split('T')[0];
-    const [interestRows] = await db.query(`
-      SELECT * FROM bank_interest_logs 
-      WHERE user_id = ? AND interest_date = ?
-    `, [userId, today]);
-
-    if (interestRows.length > 0) {
-      return res.status(400).json({ error: 'Đã thu lãi suất hôm nay rồi' });
-    }
-
-    // Tính lãi suất
-    const goldInterest = Math.round((account.gold_balance * (account.interest_rate / 100)) / 365);
-    const petagoldInterest = Math.round((account.petagold_balance * (account.interest_rate / 100)) / 365);
-
-    if (goldInterest <= 0 && petagoldInterest <= 0) {
-      return res.status(400).json({ error: 'Không có lãi suất để thu' });
-    }
-
-    // Cập nhật số dư và thêm vào user balance
-    await db.query('START TRANSACTION');
-
-    // Cập nhật số dư trong ngân hàng
-    await db.query(`
-      UPDATE bank_accounts 
-      SET gold_balance = gold_balance + ?, petagold_balance = petagold_balance + ?
-      WHERE user_id = ?
-    `, [goldInterest, petagoldInterest, userId]);
-
-    // Thêm vào user balance
-    await db.query(`
-      UPDATE users 
-      SET gold = gold + ?, petagold = petagold + ?
-      WHERE id = ?
-    `, [goldInterest, petagoldInterest, userId]);
-
-    // Ghi log thu lãi
-    await db.query(`
-      INSERT INTO bank_interest_logs (user_id, interest_date, gold_interest, petagold_interest)
-      VALUES (?, ?, ?, ?)
-    `, [userId, today, goldInterest, petagoldInterest]);
-
-    await db.query('COMMIT');
-
-    res.json({
-      success: true,
-      message: `Đã thu ${goldInterest} Gold và ${petagoldInterest} PetaGold lãi suất`,
-      interestAmount: goldInterest + petagoldInterest
-    });
-  } catch (err) {
-    await db.query('ROLLBACK');
-    console.error('Lỗi khi thu lãi suất:', err);
-    res.status(500).json({ error: 'Lỗi khi thu lãi suất' });
-  }
-});
+// Note: collect-interest API removed - interest is now automatically added daily
 
 // POST /api/bank/transaction - Thực hiện giao dịch (gửi/rút tiền)
 app.post('/api/bank/transaction', async (req, res) => {
@@ -639,14 +631,12 @@ app.post('/login', async (req, res) => {
                   // Xử lý lỗi cập nhật online_status (tùy chọn)
                 }
 
-                const token = jwt.sign({ userId: user.id }, 'your_secret_key', {
+                const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'your-secret-key', {
                   expiresIn: '23h',
                 });
-                const isAdmin = username === 'admin'; // Kiểm tra username
                 res.json({
                   message: 'User logged in successfully',
                   token: token,
-                  isAdmin: isAdmin, // Trả về isAdmin
                   hasPet: user.hasPet // Trả về hasPet status
                 });
               }
@@ -662,6 +652,78 @@ app.post('/login', async (req, res) => {
   );
 });
 
+// API Refresh Token
+app.post('/refresh-token', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    // Verify the token (even if expired, we can still decode it)
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', { ignoreExpiration: true });
+    
+    // Check if user still exists and is active
+    const [users] = await db.query('SELECT id, username, role, hasPet FROM users WHERE id = ?', [decoded.userId]);
+    
+    if (users.length === 0) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const user = users[0];
+    const isAdmin = user.role === 'admin'; // ✅ Check role từ database
+    
+    // Generate new token
+    const newToken = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'your-secret-key', {
+      expiresIn: '23h',
+    });
+
+    res.json({
+      message: 'Token refreshed successfully',
+      token: newToken,
+      isAdmin: isAdmin,
+      hasPet: user.hasPet || false
+    });
+    
+  } catch (err) {
+    console.error('Error refreshing token:', err);
+    res.status(401).json({ message: 'Invalid token' });
+  }
+});
+
+// API Get User Profile
+app.get('/api/user/profile', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    
+    const [users] = await db.query('SELECT id, username, role, hasPet FROM users WHERE id = ?', [decoded.userId]);
+    
+    if (users.length === 0) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const user = users[0];
+    
+    res.json({
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      isAdmin: user.role === 'admin',
+      hasPet: user.hasPet || false
+    });
+    
+  } catch (err) {
+    console.error('Error getting user profile:', err);
+    res.status(401).json({ message: 'Invalid token' });
+  }
+});
 
 // API Lấy Danh Sách Thú Cưng Của Người Dùng
 app.get('/users/:userId/pets', (req, res) => {
@@ -673,7 +735,7 @@ app.get('/users/:userId/pets', (req, res) => {
   }
 
   try {
-      const decodedToken = jwt.verify(token, 'your_secret_key'); // Xác thực token
+      const decodedToken = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key'); // Xác thực token
       const tokenUserId = decodedToken.userId;
 
       // Kiểm tra xem user có quyền truy cập pets của userId này không
@@ -881,7 +943,7 @@ app.delete('/api/pets/:uuid/release', (req, res) => {
   }
 
   try {
-      const decodedToken = jwt.verify(token, 'your_secret_key'); // Xác thực token
+      const decodedToken = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key'); // Xác thực token
       const userId = decodedToken.userId;
 
       // Kiểm tra xem thú cưng có thuộc sở hữu của người dùng này không
@@ -998,7 +1060,7 @@ app.post('/api/adopt-pet', async (req, res) => {
   }
 
   try {
-      const decodedToken = jwt.verify(token, 'your_secret_key'); // Xác thực token
+      const decodedToken = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key'); // Xác thực token
       const tokenUserId = decodedToken.userId;
 
       // Kiểm tra xem user có quyền adopt pet cho owner_id này không
@@ -3747,6 +3809,154 @@ async function handleExpGainWithLevelUp(petId, expGain) {
     throw error;
   }
 }
+
+// Admin API endpoints
+
+// Middleware để check admin role
+const checkAdminRole = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const [rows] = await db.query('SELECT role FROM users WHERE id = ?', [decoded.userId]);
+    
+    if (!rows.length || rows[0].role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    req.user = { userId: decoded.userId };
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
+// GET /api/admin/bank/interest-rates - Lấy lãi suất hiện tại
+app.get('/api/admin/bank/interest-rates', checkAdminRole, async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT currency_type, interest_rate, is_active
+      FROM bank_interest_rates
+      ORDER BY currency_type, is_active DESC
+    `);
+
+    const rates = {
+      peta: { normal: 5.00, vip: 8.00 },
+      petagold: { normal: 0.00, vip: 5.00 }
+    };
+
+    rows.forEach(row => {
+      if (row.currency_type === 'peta') {
+        if (row.is_active) rates.peta.normal = row.interest_rate;
+        else rates.peta.vip = row.interest_rate;
+      } else if (row.currency_type === 'petagold') {
+        if (row.is_active) rates.petagold.normal = row.interest_rate;
+        else rates.petagold.vip = row.interest_rate;
+      }
+    });
+
+    res.json(rates);
+  } catch (err) {
+    console.error('Error fetching interest rates:', err);
+    res.status(500).json({ error: 'Failed to fetch interest rates' });
+  }
+});
+
+// PUT /api/admin/bank/interest-rates - Cập nhật lãi suất
+app.put('/api/admin/bank/interest-rates', checkAdminRole, async (req, res) => {
+  const { currency_type, user_type, interest_rate } = req.body;
+
+  try {
+    const isActive = user_type === 'normal';
+    
+    await db.query(`
+      UPDATE bank_interest_rates 
+      SET interest_rate = ?, updated_at = NOW()
+      WHERE currency_type = ? AND is_active = ?
+    `, [interest_rate, currency_type, isActive]);
+
+    res.json({ message: 'Interest rate updated successfully' });
+  } catch (err) {
+    console.error('Error updating interest rate:', err);
+    res.status(500).json({ error: 'Failed to update interest rate' });
+  }
+});
+
+// GET /api/admin/users - Lấy danh sách users với pagination
+app.get('/api/admin/users', checkAdminRole, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    // Get total count
+    const [countRows] = await db.query(`
+      SELECT COUNT(*) as total FROM users
+    `);
+    const totalUsers = countRows[0].total;
+    const totalPages = Math.ceil(totalUsers / limit);
+
+    // Get users with pagination
+    const [rows] = await db.query(`
+      SELECT id, username, role, is_vip, registration_date as created_at
+      FROM users
+      ORDER BY registration_date DESC
+      LIMIT ? OFFSET ?
+    `, [limit, offset]);
+
+    res.json({
+      users: rows,
+      currentPage: page,
+      totalPages: totalPages,
+      totalUsers: totalUsers,
+      usersPerPage: limit
+    });
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// PUT /api/admin/users/:userId/role - Cập nhật role user
+app.put('/api/admin/users/:userId/role', checkAdminRole, async (req, res) => {
+  const { userId } = req.params;
+  const { role } = req.body;
+
+  try {
+    await db.query(`
+      UPDATE users 
+      SET role = ?
+      WHERE id = ?
+    `, [role, userId]);
+
+    res.json({ message: 'User role updated successfully' });
+  } catch (err) {
+    console.error('Error updating user role:', err);
+    res.status(500).json({ error: 'Failed to update user role' });
+  }
+});
+
+// PUT /api/admin/users/:userId/vip - Toggle VIP status
+app.put('/api/admin/users/:userId/vip', checkAdminRole, async (req, res) => {
+  const { userId } = req.params;
+  const { is_vip } = req.body;
+
+  try {
+    await db.query(`
+      UPDATE users 
+      SET is_vip = ?
+      WHERE id = ?
+    `, [is_vip, userId]);
+
+    res.json({ message: 'VIP status updated successfully' });
+  } catch (err) {
+    console.error('Error updating VIP status:', err);
+    res.status(500).json({ error: 'Failed to update VIP status' });
+  }
+});
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

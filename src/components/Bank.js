@@ -7,7 +7,7 @@ import { resolveAssetPath } from '../utils/pathUtils';
 import './Bank.css';
 
 function Bank() {
-  const user = React.useContext(UserContext);
+  const { user, isLoading } = React.useContext(UserContext);
   const navigate = useNavigate();
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
   
@@ -22,6 +22,8 @@ function Bank() {
   const [showTransactionLogs, setShowTransactionLogs] = useState(false);
   const [transactionLogs, setTransactionLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [dailyInterest, setDailyInterest] = useState({ gold: 0, petagold: 0 });
+  const [isVip, setIsVip] = useState(false);
 
   // Fetch bank account info
   const fetchBankAccount = async () => {
@@ -37,6 +39,16 @@ function Bank() {
       if (response.ok) {
         const data = await response.json();
         setBankAccount(data);
+        setIsVip(data.is_vip || false);
+        
+        // Calculate daily interest for display
+        if (data.gold_balance && data.interest_rate) {
+          const goldInterest = (data.gold_balance * (data.interest_rate / 100)) / 365;
+          const petagoldInterest = data.is_vip && data.petagold_balance && data.petagold_interest_rate 
+            ? (data.petagold_balance * (data.petagold_interest_rate / 100)) / 365 
+            : 0;
+          setDailyInterest({ gold: goldInterest, petagold: petagoldInterest });
+        }
       } else if (response.status === 404) {
         // User doesn't have bank account yet
         setBankAccount(null);
@@ -69,34 +81,8 @@ function Bank() {
     }
   };
 
-  // Collect daily interest
-  const collectInterest = async () => {
-    if (!user?.userId || !bankAccount) return;
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/bank/collect-interest`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}`
-        },
-        body: JSON.stringify({ userId: user.userId })
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setSuccess(`Đã thu ${data.interestAmount} ${currencyType === 'gold' ? 'Gold' : 'PetaGold'} lãi suất!`);
-        fetchBankAccount(); // Refresh bank account
-        fetchUserBalance(); // Refresh user balance
-      } else {
-        const errorData = await response.json();
-        setError(errorData.message || 'Không thể thu lãi suất');
-      }
-    } catch (err) {
-      console.error('Error collecting interest:', err);
-      setError('Lỗi khi thu lãi suất');
-    }
-  };
+  // Note: Interest is now automatically added to bank account daily
+  // No need for manual collection
 
   // Handle transaction
   const handleTransaction = async (e) => {
@@ -219,10 +205,10 @@ function Bank() {
   const formatTransactionLog = (transaction) => {
     const date = new Date(transaction.created_at).toLocaleString('vi-VN');
     const type = transaction.transaction_type === 'deposit' ? 'Gửi' : 'Rút';
-    const currency = transaction.currency_type === 'gold' ? 'Gold' : 'PetaGold';
-    const amount = Math.round(transaction.amount).toLocaleString();
+    const currency = transaction.currency_type === 'gold' ? 'Peta' : 'PetaGold';
+    const amount = transaction.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     
-    return `${date} - ${type} ${amount} ${currency} (Từ: ${Math.round(transaction.balance_before).toLocaleString()} → ${Math.round(transaction.balance_after).toLocaleString()})`;
+    return `${date} - ${type} ${amount} ${currency} (Từ: ${transaction.balance_before.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} → ${transaction.balance_after.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
   };
 
   // Get transaction type class for styling
@@ -231,11 +217,11 @@ function Bank() {
   };
 
   useEffect(() => {
-    if (user === undefined) return;
+    if (isLoading) return; // Wait for user context to load
     if (!user) {
       navigate('/login');
     }
-  }, [navigate, user]);
+  }, [navigate, user, isLoading]);
 
   useEffect(() => {
     if (!user) return;
@@ -258,6 +244,23 @@ function Bank() {
       return () => clearTimeout(timer);
     }
   }, [success]);
+
+  if (isLoading) {
+    return (
+      <div className="bank-page-container">
+        <GlobalBanner
+          backgroundImage={resolveAssetPath('/images/background/bank.jpg')}
+          title="Ngân Hàng"
+          showBackButton={true}
+          className="small"
+        />
+        <NavigationMenu />
+        <div className="bank-content">
+          <div className="loading">Đang tải...</div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -298,7 +301,7 @@ function Bank() {
       {/* Banner section */}
       <GlobalBanner
         backgroundImage={resolveAssetPath("/images/background/pet-bg-2.jpg")}
-        title="Ngân hàng Petaria"
+        title={false}
         showBackButton={true}
         className="small"
         backgroundPosition="70% 70%"
@@ -321,45 +324,65 @@ function Bank() {
           </div>
         </div>
       ) : (
+        <>
+          {/* Bank Info */}
+      <div className="bank-info">
+      <h3>Ngân Hàng Petaria</h3>
+      <div>Chào mừng bạn đến tới ngân hàng Petaria. Tại đây bạn có thể <strong>Gửi tiền</strong> và <strong>Rút tiền</strong> vào ngân hàng với lãi suất hấp dẫn!</div>
+      <div>Bạn nên ghé ngân hàng mỗi ngày để nhận tiền lãi của ngày hôm trước nhé !!</div>
+      
+    </div>
         
-        <div className="bank-main-grid">
+        {/* Daily Interest Notification */}
+        {(dailyInterest.gold > 0 || (isVip && dailyInterest.petagold > 0)) && (
+          <div className="daily-interest-notification">
+            Your {dailyInterest.gold.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Peta{dailyInterest.petagold > 0 ? ` and ${dailyInterest.petagold.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PetaGold` : ''} daily interest has been collected and added to your bank account!
+          </div>
+        )}
 
+        <div className="bank-main-grid">
+          
         
           {/* Account Info */}
           <div className="account-info">
-            <h2>Thông Tin Tài Khoản</h2>
+            <h2>Bank</h2>
             <div className="balance-display">
               <div className="balance-item">
-                <span className="balance-label">Số dư Gold:</span>
-                <span className="balance-value">{Math.round(bankAccount.gold_balance).toLocaleString()} Gold</span>
+                <span className="balance-label">Số dư Peta:</span>
+                <span className="balance-value">{bankAccount.gold_balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Peta</span>
               </div>
+              {isVip && (
+                <div className="balance-item">
+                  <span className="balance-label">Số dư PetaGold:</span>
+                  <span className="balance-value">{bankAccount.petagold_balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PetaGold</span>
+                </div>
+              )}
               <div className="balance-item">
-                <span className="balance-label">Số dư PetaGold:</span>
-                <span className="balance-value">{Math.round(bankAccount.petagold_balance).toLocaleString()} PetaGold</span>
-              </div>
-              <div className="balance-item">
-                <span className="balance-label">Lãi suất:</span>
+                <span className="balance-label">Lãi suất Peta:</span>
                 <span className="balance-value">{bankAccount.interest_rate}%/năm</span>
               </div>
+              {isVip && bankAccount.petagold_interest_rate && (
+                <div className="balance-item">
+                  <span className="balance-label">Lãi suất PetaGold:</span>
+                  <span className="balance-value">{bankAccount.petagold_interest_rate}%/năm</span>
+                </div>
+              )}
               <div className="balance-item">
-                <span className="balance-label">Lãi hàng ngày:</span>
+                <span className="balance-label">Lãi hàng ngày Peta:</span>
                 <span className="balance-value">
-                  {Math.round((bankAccount.gold_balance * (bankAccount.interest_rate / 100)) / 365).toLocaleString()} Gold
+                  {((bankAccount.gold_balance * (bankAccount.interest_rate / 100)) / 365).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Peta
                 </span>
               </div>
+              {isVip && bankAccount.petagold_interest_rate && (
+                <div className="balance-item">
+                  <span className="balance-label">Lãi hàng ngày PetaGold:</span>
+                  <span className="balance-value">
+                    {((bankAccount.petagold_balance * (bankAccount.petagold_interest_rate / 100)) / 365).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PetaGold
+                  </span>
+                </div>
+              )}
             </div>
             
-            {!bankAccount.interest_collected_today && (
-              <button onClick={collectInterest} className="collect-interest-btn">
-                💰 Thu Lãi Suất Hôm Nay
-              </button>
-            )}
-            
-            {bankAccount.interest_collected_today && (
-              <div className="interest-collected">
-                ✅ Đã thu lãi suất hôm nay
-              </div>
-            )}
             
             <button onClick={handleShowTransactionLogs} className="view-logs-btn">
               📋 Xem Lịch Sử Giao Dịch
@@ -368,18 +391,20 @@ function Bank() {
 
           {/* Transaction Form */}
           <div className="transaction-section">
-            <h2>Giao Dịch</h2>
+            <h2>Transaction</h2>
             <div className="user-balance">
               <h3>Số dư hiện tại:</h3>
               <div className="balance-display">
                 <div className="balance-item">
-                  <span className="balance-label">Gold:</span>
-                  <span className="balance-value">{Math.round(userBalance.gold).toLocaleString()} Gold</span>
+                  <span className="balance-label">Peta:</span>
+                  <span className="balance-value">{userBalance.gold.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Peta</span>
                 </div>
-                <div className="balance-item">
-                  <span className="balance-label">PetaGold:</span>
-                  <span className="balance-value">{Math.round(userBalance.petagold).toLocaleString()} PetaGold</span>
-                </div>
+                {isVip && (
+                  <div className="balance-item">
+                    <span className="balance-label">PetaGold:</span>
+                    <span className="balance-value">{userBalance.petagold.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PetaGold</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -391,8 +416,8 @@ function Bank() {
                   onChange={(e) => setCurrencyType(e.target.value)}
                   className="currency-select"
                 >
-                  <option value="gold">Gold</option>
-                  <option value="petagold">PetaGold</option>
+                  <option value="gold">Peta</option>
+                  {isVip && <option value="petagold">PetaGold</option>}
                 </select>
               </div>
 
@@ -440,18 +465,10 @@ function Bank() {
           </div>
 
         </div>
+        </>
       )}
       
-      {/* Bank Info */}
-      <div className="bank-info">
-        <h3>💡 Thông tin quan trọng:</h3>
-        <ul>
-          <li>Lãi suất được tính hàng ngày và có thể thu một lần mỗi ngày</li>
-          <li>Hãy nhớ quay lại mỗi ngày để thu lãi suất!</li>
-          <li>Bạn có thể gửi/rút cả Gold và PetaGold</li>
-          <li>Số tiền trong ngân hàng được bảo vệ an toàn</li>
-        </ul>
-      </div>
+
       </div>
 
       {/* Transaction Logs Modal */}

@@ -1,7 +1,7 @@
 // File: ShopPage.js
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserContext } from '../UserContext';
+import { useUser } from '../UserContext';
 import ShopItemList from './ShopItemList';
 import ItemDetailModal from './items/ItemDetailModal';
 import GlobalBanner from './GlobalBanner';
@@ -11,7 +11,7 @@ import NavigationMenu from './NavigationMenu';
 
 function ShopPage() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-  const user = useContext(UserContext);
+  const { user, isLoading } = useUser();
   const navigate = useNavigate();
 
   const [shops, setShops] = useState([]);
@@ -20,11 +20,11 @@ function ShopPage() {
   const [selectedItem, setSelectedItem] = useState(null);
 
   useEffect(() => {
-    if (user === undefined) return;
+    if (isLoading) return;
     if (!user) {
       navigate('/login');
     }
-  }, [navigate, user]);
+  }, [navigate, user, isLoading]);
 
   useEffect(() => {
     if (!user) return;

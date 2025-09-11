@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '../UserContext';
 import './Auth.css';
 
-function Auth({ onLoginSuccess }) {
+function Auth() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
@@ -10,6 +11,7 @@ function Auth({ onLoginSuccess }) {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null); // Thêm state successMessage
   const navigate = useNavigate();
+  const { login } = useUser();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -46,10 +48,7 @@ function Auth({ onLoginSuccess }) {
                   if (isLogin) {
             console.log('Login successful:', data);
             if (data.token) {
-              localStorage.setItem('token', data.token);
-              localStorage.setItem('isAdmin', String(data.isAdmin));
-              localStorage.setItem('hasPet', String(data.hasPet)); // Save hasPet status
-              onLoginSuccess();
+              login(data.token, data.hasPet);
             }
             navigate('/');
           } else {

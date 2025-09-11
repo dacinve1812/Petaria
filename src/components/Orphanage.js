@@ -245,7 +245,7 @@ function Orphanage() {
     const renderMainMenu = () => (
         <div className="orphanage-main-menu">
             <PetNotice />
-            
+            <h2 className="orphanage-title">Trại Mồ Côi</h2>
             <div className="welcome-message">
                 <p>Xin chào mừng bạn đã đến với Trung tâm thú cưng, tại đây bạn có thể nhân nuôi thú cưng cho riêng mình hoặc phóng thích thú cưng của mình.</p>
             </div>
@@ -379,8 +379,6 @@ function Orphanage() {
             <div className="main-content">
             <GlobalBanner
                 backgroundImage={resolveAssetPath("/images/background/pet-bg-3.jpg")}
-                title="Trại Mồ Côi"
-                subtitle="Nơi những thú cưng tìm được mái ấm mới"
                 showBackButton={true}
                 className="small"
                 backgroundPosition="70% 70%"

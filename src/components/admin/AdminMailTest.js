@@ -1,10 +1,10 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserContext } from '../UserContext';
+import { useUser } from '../../UserContext';
 import './AdminMailTest.css';
 
 const AdminMailTest = () => {
-  const user = useContext(UserContext);
+  const { user, isLoading } = useUser();
   const navigate = useNavigate();
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedMailType, setSelectedMailType] = useState('1');
@@ -128,8 +128,17 @@ const AdminMailTest = () => {
     }
   }, [selectedMailType, customMode]);
 
+  useEffect(() => {
+    if (!isLoading && (!user || !user.isAdmin)) {
+      navigate('/login');
+    }
+  }, [user, isLoading, navigate]);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
   if (!user || !user.isAdmin) {
-    navigate('/login');
     return null;
   }
 

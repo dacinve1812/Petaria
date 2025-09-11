@@ -1,15 +1,15 @@
 // File: EditEquipmentStats.js
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../Sidebar';
 import Navbar from '../Navbar';
-import { UserContext } from '../../UserContext';
+import { useUser } from '../../UserContext';
 
 function EditEquipmentStats() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const navigate = useNavigate();
   const location = useLocation();
-  const user = useContext(UserContext);
+  const { user, isLoading } = useUser();
 
   const [equipmentItems, setEquipmentItems] = useState([]);
   const [equipmentStats, setEquipmentStats] = useState([]);
@@ -19,13 +19,14 @@ function EditEquipmentStats() {
   const [editId, setEditId] = useState(null);
 
   useEffect(() => {
-    if (user === undefined) return; // đợi UserContext load xong
-    if (!user || !user.isAdmin) navigate('/login');
-    else {
-      fetchEquipmentItems();
-      fetchEquipmentStats();
+    if (isLoading) return;
+    if (!user || !user.isAdmin) {
+      navigate('/login');
+      return;
     }
-  }, [navigate, user]);
+    fetchEquipmentItems();
+    fetchEquipmentStats();
+  }, [navigate, user, isLoading]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);

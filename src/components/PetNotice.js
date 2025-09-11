@@ -1,22 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import './PetNotice.css';
+import { useUser } from '../UserContext';
 
 const PetNotice = () => {
-  const [hasPets, setHasPets] = useState(null);
+  const { user, isLoading } = useUser();
 
-  useEffect(() => {
-    // Get hasPet status from localStorage (set during login)
-    const hasPetStatus = localStorage.getItem('hasPet');
-    if (hasPetStatus !== null) {
-      setHasPets(hasPetStatus === 'true');
-    } else {
-      // Fallback: if not in localStorage, assume user has pets (safer default)
-      setHasPets(true);
-    }
-  }, []);
+  // Don't show anything while loading
+  if (isLoading) {
+    return null;
+  }
 
   // Don't show anything if user has pets
-  if (hasPets) {
+  if (user && user.hasPet) {
     return null;
   }
 

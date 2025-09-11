@@ -4,6 +4,13 @@
   padding: 40px 20px;
 }
 
+.orphanage-title {
+  margin-bottom: 20px;
+  color: #2d3436;
+  text-align: center;
+}
+
+
 .notice {
   margin-bottom: 30px;
   padding: 20px;
@@ -81,6 +88,7 @@
 }
 
 .orphanage-mode-back-button {
+  margin-left: 20px;
   padding: 10px 20px;
   background: #6c5ce7;
   color: white;
