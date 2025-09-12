@@ -77,6 +77,42 @@ pool.getConnection((err, connection) => {
 app.use(cors());
 app.use(bodyParser.json());
 
+// Import auction routes
+const auctionRoutes = require('./routes/auctions');
+app.use('/api/auctions', auctionRoutes);
+
+// User Items API (for auction system)
+app.get('/api/user/items', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+
+    const [items] = await db.query(`
+      SELECT ui.id, ui.quantity, i.name, i.description, i.image_url, i.rarity, i.type
+      FROM user_items ui
+      JOIN items i ON ui.item_id = i.id
+      WHERE ui.user_id = ? 
+        AND ui.quantity > 0
+        AND ui.item_id NOT IN (
+          SELECT DISTINCT item_id 
+          FROM auctions 
+          WHERE seller_id = ? AND status = 'active'
+        )
+      ORDER BY i.name
+    `, [userId, userId]);
+
+    res.json({ items });
+  } catch (error) {
+    console.error('Error fetching user items:', error);
+    res.status(500).json({ message: 'Error fetching user items' });
+  }
+});
+
 // Thêm multer để xử lý upload ảnh (khai báo và khởi tạo trước khi sử dụng)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -320,7 +356,7 @@ app.get('/api/bank/account/:userId', async (req, res) => {
     // Lấy lại thông tin tài khoản sau khi cộng lãi
     const [updatedAccountRows] = await db.query(`
       SELECT ba.*, u.is_vip,
-             bir_peta.interest_rate as petagold_interest_rate
+              bir_peta.interest_rate as petagold_interest_rate
       FROM bank_accounts ba
       JOIN users u ON ba.user_id = u.id
       LEFT JOIN bank_interest_rates bir_peta ON bir_peta.currency_type = 'petagold' AND bir_peta.is_active = TRUE
@@ -361,7 +397,7 @@ async function calculateAndAddDailyInterest(userId, account) {
   const isVip = userRows[0]?.is_vip || false;
 
   // Tính lãi kép cho Peta
-  const goldInterest = (account.gold_balance * (account.interest_rate / 100)) / 365;
+  const petaInterest = (account.peta_balance * (account.interest_rate / 100)) / 365;
 
   // Tính lãi kép cho PetaGold (chỉ VIP)
   let petagoldInterest = 0;
@@ -377,22 +413,22 @@ async function calculateAndAddDailyInterest(userId, account) {
     }
   }
 
-  if (goldInterest <= 0 && petagoldInterest <= 0) {
+  if (petaInterest <= 0 && petagoldInterest <= 0) {
     return; // Không có lãi để cộng
   }
 
   // Cộng lãi vào tài khoản ngân hàng
   await db.query(`
     UPDATE bank_accounts 
-    SET gold_balance = gold_balance + ?, petagold_balance = petagold_balance + ?
+    SET peta_balance = peta_balance + ?, petagold_balance = petagold_balance + ?
     WHERE user_id = ?
-  `, [goldInterest, petagoldInterest, userId]);
+  `, [petaInterest, petagoldInterest, userId]);
 
   // Ghi log
   await db.query(`
-    INSERT INTO bank_interest_logs (user_id, interest_date, gold_interest, petagold_interest)
+    INSERT INTO bank_interest_logs (user_id, interest_date, peta_interest, petagold_interest)
     VALUES (?, ?, ?, ?)
-  `, [userId, today, goldInterest, petagoldInterest]);
+  `, [userId, today, petaInterest, petagoldInterest]);
 }
 
 // POST /api/bank/create-account - Tạo tài khoản ngân hàng
@@ -411,7 +447,7 @@ app.post('/api/bank/create-account', async (req, res) => {
 
     // Tạo tài khoản mới
     await db.query(`
-      INSERT INTO bank_accounts (user_id, gold_balance, petagold_balance, interest_rate)
+      INSERT INTO bank_accounts (user_id, peta_balance, petagold_balance, interest_rate)
       VALUES (?, 0.00, 0.00, 5.00)
     `, [userId]);
 
@@ -434,7 +470,7 @@ app.post('/api/bank/transaction', async (req, res) => {
       return res.status(400).json({ error: 'Loại giao dịch không hợp lệ' });
     }
 
-    if (!['gold', 'petagold'].includes(currencyType)) {
+    if (!['peta', 'petagold'].includes(currencyType)) {
       return res.status(400).json({ error: 'Loại tiền không hợp lệ' });
     }
 
@@ -455,7 +491,7 @@ app.post('/api/bank/transaction', async (req, res) => {
 
     // Lấy thông tin user
     const [userRows] = await db.query(`
-      SELECT gold, petagold FROM users WHERE id = ?
+      SELECT peta, petagold FROM users WHERE id = ?
     `, [userId]);
 
     if (!userRows.length) {
@@ -468,8 +504,8 @@ app.post('/api/bank/transaction', async (req, res) => {
 
     if (type === 'deposit') {
       // Gửi tiền vào ngân hàng
-      const userBalance = currencyType === 'gold' ? user.gold : user.petagold;
-      const bankBalance = currencyType === 'gold' ? account.gold_balance : account.petagold_balance;
+      const userBalance = currencyType === 'peta' ? user.peta : user.petagold;
+      const bankBalance = currencyType === 'peta' ? account.peta_balance : account.petagold_balance;
 
       if (amount > userBalance) {
         await db.query('ROLLBACK');
@@ -493,12 +529,12 @@ app.post('/api/bank/transaction', async (req, res) => {
 
       res.json({
         success: true,
-        message: `Đã gửi ${amount} ${currencyType === 'gold' ? 'Gold' : 'PetaGold'} vào ngân hàng`
+        message: `Đã gửi ${amount} ${currencyType === 'peta' ? 'Peta' : 'PetaGold'} vào ngân hàng`
       });
 
     } else if (type === 'withdraw') {
       // Rút tiền từ ngân hàng
-      const bankBalance = currencyType === 'gold' ? account.gold_balance : account.petagold_balance;
+      const bankBalance = currencyType === 'peta' ? account.peta_balance : account.petagold_balance;
 
       if (amount > bankBalance) {
         await db.query('ROLLBACK');
@@ -522,7 +558,7 @@ app.post('/api/bank/transaction', async (req, res) => {
 
       res.json({
         success: true,
-        message: `Đã rút ${amount} ${currencyType === 'gold' ? 'Gold' : 'PetaGold'} từ ngân hàng`
+        message: `Đã rút ${amount} ${currencyType === 'peta' ? 'Peta' : 'PetaGold'} từ ngân hàng`
       });
     }
 
@@ -703,7 +739,7 @@ app.get('/api/user/profile', async (req, res) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
     
-    const [users] = await db.query('SELECT id, username, role, hasPet FROM users WHERE id = ?', [decoded.userId]);
+    const [users] = await db.query('SELECT id, username, role, hasPet, peta, petagold FROM users WHERE id = ?', [decoded.userId]);
     
     if (users.length === 0) {
       return res.status(401).json({ message: 'User not found' });
@@ -716,7 +752,9 @@ app.get('/api/user/profile', async (req, res) => {
       username: user.username,
       role: user.role,
       isAdmin: user.role === 'admin',
-      hasPet: user.hasPet || false
+      hasPet: user.hasPet || false,
+      peta: user.peta || 0,
+      petagold: user.petagold || 0
     });
     
   } catch (err) {
@@ -1139,7 +1177,7 @@ app.get('/users/:userId', (req, res) => {
     return;
   }
 
-  pool.query('SELECT username, gold, petagold, real_name, guild, title, ranking, online_status, birthday, role FROM users WHERE id = ?', [userId], (err, results) => {
+  pool.query('SELECT username, peta, petagold, real_name, guild, title, ranking, online_status, birthday, role FROM users WHERE id = ?', [userId], (err, results) => {
     if (err) {
       console.error('Error fetching user info: ', err);
       res.status(500).json({ message: 'Error fetching user info' });
@@ -1557,7 +1595,7 @@ app.post('/api/admin/shop-items/bulk-add', async (req, res) => {
 
   try {
     const placeholders = item_ids.map(() => '(?, ?, ?, ?)').join(', ');
-    const flatValues = item_ids.flatMap(itemId => [shop_id, itemId, custom_price ?? null, currency_type ?? 'gold']);
+    const flatValues = item_ids.flatMap(itemId => [shop_id, itemId, custom_price ?? null, currency_type ?? 'peta']);
 
     const sql = `INSERT INTO shop_items (shop_id, item_id, custom_price, currency_type) VALUES ${placeholders}`;
     await db.query(sql, flatValues);
@@ -1604,15 +1642,15 @@ app.post('/api/shop/buy', async (req, res) => {
     const price = itemRow.custom_price ?? itemRow.buy_price;
     const currency = itemRow.currency_type;
     
-    if (!currency || !['gold', 'petagold'].includes(currency)) {
+    if (!currency || !['peta', 'petagold'].includes(currency)) {
       return res.status(400).json({ error: 'Loại tiền không hợp lệ' });
     }
 
     // 4. Lấy thông tin người dùng
-    const [userRow] = await db.query(`SELECT gold, petagold FROM users WHERE id = ?`, [user_id]);
+    const [userRow] = await db.query(`SELECT peta, petagold FROM users WHERE id = ?`, [user_id]);
     if (!userRow) return res.status(404).json({ error: 'Người dùng không tồn tại' });
 
-    const userBalance = currency === 'gold' ? userRow.gold : userRow.petagold;
+    const userBalance = currency === 'peta' ? userRow.peta : userRow.petagold;
     if (userBalance < price) return res.status(400).json({ error: 'Không đủ tiền' });
 
     // 5. Trừ tiền
@@ -2312,7 +2350,7 @@ app.post('/api/inventory/:id/repair-with-blacksmith', async (req, res) => {
 
     // Kiểm tra tiền của user
     const [userRows] = await pool.promise().query(
-      'SELECT gold FROM users WHERE id = ?',
+      'SELECT peta FROM users WHERE id = ?',
       [user_id]
     );
 
@@ -2320,15 +2358,15 @@ app.post('/api/inventory/:id/repair-with-blacksmith', async (req, res) => {
       return res.status(404).json({ message: 'User không tồn tại' });
     }
 
-    if (userRows[0].gold < repairCost) {
+    if (userRows[0].peta < repairCost) {
       return res.status(400).json({ 
-        message: `Không đủ tiền. Cần ${repairCost} gold để sửa chữa` 
+        message: `Không đủ tiền. Cần ${repairCost} peta để sửa chữa` 
       });
     }
 
     // Trừ tiền và sửa chữa
     await pool.promise().query(
-      'UPDATE users SET gold = gold - ? WHERE id = ?',
+      'UPDATE users SET peta = peta - ? WHERE id = ?',
       [repairCost, user_id]
     );
 
@@ -2693,7 +2731,7 @@ app.post('/api/mails/claim/:mailId', async (req, res) => {
 
     // 2. Cập nhật currency nếu có
     if (rewards.peta) {
-      await db.query(`UPDATE users SET gold = gold + ? WHERE id = ?`, [rewards.peta, userId]);
+      await db.query(`UPDATE users SET peta = peta + ? WHERE id = ?`, [rewards.peta, userId]);
     }
     if (rewards.peta_gold) {
       await db.query(`UPDATE users SET petagold = petagold + ? WHERE id = ?`, [rewards.peta_gold, userId]);
@@ -2840,7 +2878,7 @@ app.post('/api/mails/claim-all/:userId', async (req, res) => {
 
     // 3. Cập nhật currency
     if (totalPeta > 0) {
-      await db.query(`UPDATE users SET gold = gold + ? WHERE id = ?`, [totalPeta, targetUserId]);
+      await db.query(`UPDATE users SET peta = peta + ? WHERE id = ?`, [totalPeta, targetUserId]);
     }
     if (totalPetaGold > 0) {
       await db.query(`UPDATE users SET petagold = petagold + ? WHERE id = ?`, [totalPetaGold, targetUserId]);

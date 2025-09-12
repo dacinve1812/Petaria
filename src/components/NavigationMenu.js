@@ -47,7 +47,7 @@ const NavigationMenu = () => {
         { title: 'Thú cưng', path: '/myhome' },
         { title: 'Ngân Hàng', path: '/bank' },
         { title: 'Mua sắm', path: '/shop' },
-        { title: 'Đấu giá', path: '/' },
+        { title: 'Đấu giá', path: '/auction' },
         { title: 'Nhà hàng', path: '/' },
         { title: 'Bưu điện', path: '/' },
         { title: 'Viện mồ côi', path: '/orphanage' },

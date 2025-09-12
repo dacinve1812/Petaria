@@ -39,6 +39,9 @@ import MapCoordinateTool from './components/MapCoordinateTool';
 import Bank from './components/Bank';
 import AdminBankManagement from './components/admin/AdminBankManagement';
 import AdminUserManagement from './components/admin/AdminUserManagement';
+import AuctionList from './components/auction/AuctionList';
+import AuctionDetail from './components/auction/AuctionDetail';
+import CreateAuction from './components/auction/CreateAuction';
 
 function App() {
   return (
@@ -87,6 +90,9 @@ function App() {
               <Route path="dev-dashboard" element={<DevDashboard />} />
               <Route path="map-tool" element={<MapCoordinateTool />} />
               <Route path="bank" element={<Bank />} />
+              <Route path="auction" element={<AuctionList />} />
+              <Route path="auction/:id" element={<AuctionDetail />} />
+              <Route path="auction/create" element={<CreateAuction />} />
             </Route>  
           </Routes>
         </div>

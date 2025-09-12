@@ -12,17 +12,17 @@ function Bank() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
   
   const [bankAccount, setBankAccount] = useState(null);
-  const [userBalance, setUserBalance] = useState({ gold: 0, petagold: 0 });
+  const [userBalance, setUserBalance] = useState({ peta: 0, petagold: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [transactionAmount, setTransactionAmount] = useState('');
   const [transactionType, setTransactionType] = useState('deposit');
-  const [currencyType, setCurrencyType] = useState('gold');
+  const [currencyType, setCurrencyType] = useState('peta');
   const [showTransactionLogs, setShowTransactionLogs] = useState(false);
   const [transactionLogs, setTransactionLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
-  const [dailyInterest, setDailyInterest] = useState({ gold: 0, petagold: 0 });
+  const [dailyInterest, setDailyInterest] = useState({ peta: 0, petagold: 0 });
   const [isVip, setIsVip] = useState(false);
 
   // Fetch bank account info
@@ -42,12 +42,12 @@ function Bank() {
         setIsVip(data.is_vip || false);
         
         // Calculate daily interest for display
-        if (data.gold_balance && data.interest_rate) {
-          const goldInterest = (data.gold_balance * (data.interest_rate / 100)) / 365;
+        if (data.peta_balance && data.interest_rate) {
+          const petaInterest = (data.peta_balance * (data.interest_rate / 100)) / 365;
           const petagoldInterest = data.is_vip && data.petagold_balance && data.petagold_interest_rate 
             ? (data.petagold_balance * (data.petagold_interest_rate / 100)) / 365 
             : 0;
-          setDailyInterest({ gold: goldInterest, petagold: petagoldInterest });
+          setDailyInterest({ peta: petaInterest, petagold: petagoldInterest });
         }
       } else if (response.status === 404) {
         // User doesn't have bank account yet
@@ -74,7 +74,7 @@ function Bank() {
       
       if (response.ok) {
         const data = await response.json();
-        setUserBalance({ gold: data.gold || 0, petagold: data.petagold || 0 });
+        setUserBalance({ peta: data.peta || 0, petagold: data.petagold || 0 });
       }
     } catch (err) {
       console.error('Error fetching user balance:', err);
@@ -93,13 +93,13 @@ function Bank() {
     const amount = parseInt(transactionAmount);
     
     // Validation
-    if (!amount || amount <= 0 || isNaN(amount)) {
-      setError('Vui lòng nhập số tiền hợp lệ');
+    if (!amount || amount < 1 || isNaN(amount) || !Number.isInteger(Number(amount))) {
+      setError('Vui lòng nhập số tiền nguyên dương (1, 2, 3...)');
       return;
     }
     
-    const currentBalance = currencyType === 'gold' ? userBalance.gold : userBalance.petagold;
-    const bankBalance = currencyType === 'gold' ? bankAccount.gold_balance : bankAccount.petagold_balance;
+    const currentBalance = currencyType === 'peta' ? userBalance.peta : userBalance.petagold;
+    const bankBalance = currencyType === 'peta' ? bankAccount.peta_balance : bankAccount.petagold_balance;
     
     if (transactionType === 'deposit' && amount > currentBalance) {
       setError('Không đủ tiền để gửi');
@@ -205,7 +205,7 @@ function Bank() {
   const formatTransactionLog = (transaction) => {
     const date = new Date(transaction.created_at).toLocaleString('vi-VN');
     const type = transaction.transaction_type === 'deposit' ? 'Gửi' : 'Rút';
-    const currency = transaction.currency_type === 'gold' ? 'Peta' : 'PetaGold';
+    const currency = transaction.currency_type === 'peta' ? 'Peta' : 'PetaGold';
     const amount = transaction.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     
     return `${date} - ${type} ${amount} ${currency} (Từ: ${transaction.balance_before.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} → ${transaction.balance_after.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
@@ -334,9 +334,9 @@ function Bank() {
     </div>
         
         {/* Daily Interest Notification */}
-        {(dailyInterest.gold > 0 || (isVip && dailyInterest.petagold > 0)) && (
+        {(dailyInterest.peta > 0 || (isVip && dailyInterest.petagold > 0)) && (
           <div className="daily-interest-notification">
-            Your {dailyInterest.gold.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Peta{dailyInterest.petagold > 0 ? ` and ${dailyInterest.petagold.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PetaGold` : ''} daily interest has been collected and added to your bank account!
+            Your {dailyInterest.peta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Peta{dailyInterest.petagold > 0 ? ` and ${dailyInterest.petagold.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PetaGold` : ''} daily interest has been collected and added to your bank account!
           </div>
         )}
 
@@ -349,7 +349,7 @@ function Bank() {
             <div className="balance-display">
               <div className="balance-item">
                 <span className="balance-label">Số dư Peta:</span>
-                <span className="balance-value">{bankAccount.gold_balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Peta</span>
+                <span className="balance-value">{bankAccount.peta_balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Peta</span>
               </div>
               {isVip && (
                 <div className="balance-item">
@@ -370,7 +370,7 @@ function Bank() {
               <div className="balance-item">
                 <span className="balance-label">Lãi hàng ngày Peta:</span>
                 <span className="balance-value">
-                  {((bankAccount.gold_balance * (bankAccount.interest_rate / 100)) / 365).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Peta
+                  {((bankAccount.peta_balance * (bankAccount.interest_rate / 100)) / 365).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Peta
                 </span>
               </div>
               {isVip && bankAccount.petagold_interest_rate && (
@@ -397,7 +397,7 @@ function Bank() {
               <div className="balance-display">
                 <div className="balance-item">
                   <span className="balance-label">Peta:</span>
-                  <span className="balance-value">{userBalance.gold.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Peta</span>
+                  <span className="balance-value">{userBalance.peta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Peta</span>
                 </div>
                 {isVip && (
                   <div className="balance-item">
@@ -416,7 +416,7 @@ function Bank() {
                   onChange={(e) => setCurrencyType(e.target.value)}
                   className="currency-select"
                 >
-                  <option value="gold">Peta</option>
+                  <option value="peta">Peta</option>
                   {isVip && <option value="petagold">PetaGold</option>}
                 </select>
               </div>

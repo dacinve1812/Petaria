@@ -66,7 +66,7 @@ function MainLayout() {
     return (
         <div className="container">
 
-            <div className="content">
+            {/* <div className="content"> */}
                 <Sidebar 
                     userId={userId} 
                     handleLogout={handleLogout} 
@@ -93,7 +93,7 @@ function MainLayout() {
                 )}
                 {isHomePage() && <HomeFloatingButtons userId={userId} onOpenMail={handleOpenMail} />}
                 {userId && shouldShowCurrencyDisplay() && <CurrencyDisplay userId={userId} onCurrencyUpdate={currencyUpdateTrigger} />}
-            </div>
+            {/* </div> */}
         </div>
     );
 }

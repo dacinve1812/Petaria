@@ -268,7 +268,7 @@ function Orphanage() {
     );
 
     const renderAdoptMode = () => (
-        <div className="orphanage-adopt-mode">
+        <div className="page-container">
             <div className="orphanage-mode-header">
                 <h2>Nhận nuôi thú cưng</h2>
             </div>
@@ -314,7 +314,7 @@ function Orphanage() {
     );
 
     const renderReleaseMode = () => (
-        <div className="orphanage-release-mode">
+        <div className="page-container">
             <div className="orphanage-mode-header">
                 <h2>Phóng thích thú cưng</h2>
             </div>
@@ -375,20 +375,20 @@ function Orphanage() {
     );
 
     return (
-        <div className="container">
-            <div className="main-content">
-            <GlobalBanner
-                backgroundImage={resolveAssetPath("/images/background/pet-bg-3.jpg")}
-                showBackButton={true}
-                className="small"
-                backgroundPosition="70% 70%"
-            />
-            <NavigationMenu />   
-                {currentMode === 'main' && renderMainMenu()}
-                {currentMode === 'adopt' && renderAdoptMode()}
-                {currentMode === 'release' && renderReleaseMode()}
-            </div>
-        </div>
+
+    <>
+    <GlobalBanner
+        backgroundImage={resolveAssetPath("/images/background/pet-bg-3.jpg")}
+        showBackButton={true}
+        className="small"
+        backgroundPosition="70% 70%"
+    />
+    <NavigationMenu />   
+        {currentMode === 'main' && renderMainMenu()}
+        {currentMode === 'adopt' && renderAdoptMode()}
+        {currentMode === 'release' && renderReleaseMode()}
+    </>
+
     );
 }
 

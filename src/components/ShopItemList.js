@@ -72,7 +72,7 @@ function ShopItemList({ items = [], onItemClick }) {
               Còn lại: {item.stock_limit === null ? '0' : item.stock_limit}
             </div>
             <div className="item-price">
-              Giá: {item.price.toLocaleString()} {item.currency_type === 'gem' ? 'petaGold' : 'peta'}
+              Giá: {item.price.toLocaleString()} {item.currency_type === 'petagold' ? 'petaGold' : 'peta'}
             </div>
             {status && status.type !== 'sold-out' && (
               <div className={`item-status ${status.type}`}>

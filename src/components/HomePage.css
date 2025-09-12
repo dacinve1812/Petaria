@@ -274,6 +274,7 @@ area {
     padding: 8px 12px;
     margin-right: 5px;
     cursor: pointer;
+    font-family: 'Lexend', sans-serif;
   }
   
   button:last-child {
