@@ -112,21 +112,6 @@
   max-width: 300px;
 }
 
-.search-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 2px solid #e0e0e0;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  transition: border-color 0.2s;
-  background: white;
-  box-sizing: border-box;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #667eea;
-}
 
 .sort-controls {
   display: flex;
@@ -316,10 +301,6 @@
     max-width: 200px;
   }
 
-  .search-input {
-    padding: 6px 8px;
-    font-size: 0.7rem;
-  }
 
   .sort-controls {
     gap: 4px;
@@ -400,10 +381,6 @@
     gap: 8px;
   }
 
-  .search-input {
-    padding: 4px 6px;
-    font-size: 0.6rem;
-  }
 
   .sort-label {
     font-size: 0.6rem;
@@ -474,10 +451,6 @@
     gap: 16px;
   }
 
-  .search-input {
-    padding: 10px 14px;
-    font-size: 1rem;
-  }
 
   .sort-label {
     font-size: 0.9rem;

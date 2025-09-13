@@ -42,6 +42,7 @@ import AdminUserManagement from './components/admin/AdminUserManagement';
 import AuctionList from './components/auction/AuctionList';
 import AuctionDetail from './components/auction/AuctionDetail';
 import CreateAuction from './components/auction/CreateAuction';
+import ExampleTemplatePage from './components/template/ExampleTemplatePage';
 
 function App() {
   return (
@@ -93,6 +94,7 @@ function App() {
               <Route path="auction" element={<AuctionList />} />
               <Route path="auction/:id" element={<AuctionDetail />} />
               <Route path="auction/create" element={<CreateAuction />} />
+              <Route path="example/*" element={<ExampleTemplatePage />} />
             </Route>  
           </Routes>
         </div>

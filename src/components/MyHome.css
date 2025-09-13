@@ -100,22 +100,6 @@
   max-width: 300px;
 }
 
-.search-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 2px solid #e0e0e0;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  transition: border-color 0.2s;
-  background: white;
-  box-sizing: border-box;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
 .filter-controls {
   display: flex;
   align-items: center;
@@ -738,10 +722,6 @@
     max-width: 150px;
   }
 
-  .search-input {
-    padding: 4px 6px;
-    font-size: 0.6rem;
-  }
 
   .filter-label {
     font-size: 0.6rem;
@@ -871,10 +851,6 @@
     gap: 20px;
   }
 
-  .search-input {
-    padding: 10px 14px;
-    font-size: 1rem;
-  }
 
   .filter-label {
     font-size: 0.9rem;

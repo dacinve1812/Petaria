@@ -88,11 +88,6 @@ function HomePage({ isLoggedIn, onLogoutSuccess }) {
     };
   }, []);
 
-  const handleLogout = () => {
-    onLogoutSuccess();
-    localStorage.removeItem('token');
-    navigate('/login');
-  };
 
   const handleAreaClick = (path) => {
     console.log(`Navigating to: ${path}`);
@@ -101,13 +96,7 @@ function HomePage({ isLoggedIn, onLogoutSuccess }) {
 
   return (
     <div>
-      {/* Banner section */}
-      <GlobalBanner
-        backgroundImage={resolveAssetPath('/images/background/banner-1.jpeg')}
-        className="small"
-        overlay={false}
-      />
-
+      
       {/* Navigation Menu */}
       <PetNotice />
       

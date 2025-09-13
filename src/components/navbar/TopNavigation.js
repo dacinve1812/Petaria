@@ -36,7 +36,9 @@ const TopNavigation = () => {
         {/* Logo */}
         <div className="sgw-nav-logo">
           <Link to="/">
-            <img src="/images/icons/logo.png" alt="Petaria Logo" className="sgw-logo-img" />
+            <img src="/images/icons/logo2.png" alt="Petaria Logo" className="sgw-logo-img" />
+          </Link>
+          <Link to="/home-ver2">
             <span className="sgw-logo-text">Petaria</span>
           </Link>
         </div>
@@ -45,7 +47,7 @@ const TopNavigation = () => {
          <div className="sgw-nav-links">
            {/* Quản lý Link */}
            <Link to="/management" className="sgw-nav-link">
-             BẢNG QUẢN LÝ
+                BẢNG QUẢN LÝ
            </Link>
 
            {/* Login/Signup or User Menu */}
@@ -71,6 +73,13 @@ const TopNavigation = () => {
                          <span className="sgw-dropdown-icon"><img className="sgw-dropdown-icon-img" src="/images/icons/2.png" alt="user"/></span>
                          My Account
                        </Link>
+                        {/* Admin Board Link - Only for admin users */}
+                        {!isLoading && user && user.role === 'admin' && (
+                            <Link to="/admin" className="sgw-dropdown-item">
+                                <span className="sgw-dropdown-icon"><img className="sgw-dropdown-icon-img" src="/images/icons/6.png" alt="user"/></span>
+                                Admin Board
+                            </Link>
+                        )}
                        <Link to="/support-ticket" className="sgw-dropdown-item">
                          <span className="sgw-dropdown-icon"><img className="sgw-dropdown-icon-img" src="/images/icons/3.png" alt="support"/></span>
                          Send Support Ticket

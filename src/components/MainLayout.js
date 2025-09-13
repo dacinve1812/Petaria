@@ -9,7 +9,6 @@ import TopNavigation from './navbar/TopNavigation';
 import NavigationMenu from './navbar/NavigationMenu';
 import { Outlet } from 'react-router-dom';
 import '../styles/global.css';
-import GlobalBanner from './GlobalBanner';
 import { resolveAssetPath } from '../utils/pathUtils';
 
 function MainLayout() {
@@ -83,7 +82,8 @@ function MainLayout() {
             '/quest': 'NHIỆM VỤ',
             '/management': 'QUẢN LÝ',
             '/admin': 'ADMIN PANEL',
-            '/dev-dashboard': 'DEV DASHBOARD'
+            '/dev-dashboard': 'DEV DASHBOARD',
+            '/example': 'BẢNG XẾP HẠNG'
         };
         
         return titleMap[pathname] || 'PETARIA';
