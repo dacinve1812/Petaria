@@ -204,17 +204,8 @@ function HomePageVer2() {
   }
 
   return (
-    <div className="homepage-container">
-      {/* Banner section */}
-        <GlobalBanner
-          backgroundImage={resolveAssetPath('/images/background/banner-1.jpeg')}
-          className="small"
-          overlay={false}
-        />
-
-      {/* Navigation Menu */}
-
-      {/* Main content */}
+    <div>
+      
       <div className="map-container" style={{
         backgroundColor: pageConfig?.layout?.backgroundColor || '#000000',
         padding: pageConfig?.layout?.padding || '20px',

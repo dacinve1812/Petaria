@@ -65,6 +65,30 @@ function MainLayout() {
         return currencyDisplayPaths.includes(location.pathname);
     };
 
+    // Get page title based on current path
+    const getPageTitle = (pathname) => {
+        const titleMap = {
+            '/': 'PETARIA',
+            '/home': 'PETARIA',
+            '/home-ver2': 'KINH THÀNH',
+            '/inventory': 'TRANG BỊ',
+            '/myhome': 'THÚ CƯNG',
+            '/bank': 'NGÂN HÀNG',
+            '/shop': 'MUA SẮM',
+            '/auction': 'ĐẤU GIÁ',
+            '/orphanage': 'VIỆN MỒ CÔI',
+            '/battle/pve': 'ĐẤU TRƯỜNG',
+            '/hunting-world': 'ĐI SĂN',
+            '/guild': 'BANG HỘI',
+            '/quest': 'NHIỆM VỤ',
+            '/management': 'QUẢN LÝ',
+            '/admin': 'ADMIN PANEL',
+            '/dev-dashboard': 'DEV DASHBOARD'
+        };
+        
+        return titleMap[pathname] || 'PETARIA';
+    };
+
     return (
         <>
        
@@ -73,38 +97,43 @@ function MainLayout() {
         
         {/* Second Navigation Menu */}
         <NavigationMenu />
-       
-        <div className="container">
-
-            {/* <div className="content"> */}
-                <Sidebar 
-                    userId={userId} 
-                    handleLogout={handleLogout} 
-                    isAdmin={isAdmin}
-                    className={sidebarOpen ? 'sidebar open' : 'sidebar'}
-                />
-                {sidebarOpen && (
-                    <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>
-                )}
-                <div className="main-content">
+        
+        {/* Main Content Area - Similar to cf-sub */}
+        <div id="peta-sub">
+            <section className="container">
+                <h1 className="peta-sectiontitle">
+                    {getPageTitle(location.pathname)}
+                </h1>
+                <main className="container_fixed" id="peta-body">
                     <Outlet />
-                </div>
-                
-                {/* Mail Modal - Hiển thị khi cần */}
-                
-                <MailModal 
-                    isOpen={isMailModalOpen}
-                    onClose={handleCloseMail}
-                    userId={userId}
-                    onCurrencyUpdate={handleCurrencyUpdate}
-                />
-                {isHomePage() && (
-                    <BottomNavbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
-                )}
-                {isHomePage() && <HomeFloatingButtons userId={userId} onOpenMail={handleOpenMail} />}
-                {userId && shouldShowCurrencyDisplay() && <CurrencyDisplay userId={userId} onCurrencyUpdate={currencyUpdateTrigger} />}
-            {/* </div> */}
+                </main>
+            </section>
         </div>
+        
+        {/* Sidebar - Overlay component */}
+        <Sidebar 
+            userId={userId} 
+            handleLogout={handleLogout} 
+            isAdmin={isAdmin}
+            className={sidebarOpen ? 'sidebar open' : 'sidebar'}
+        />
+        {sidebarOpen && (
+            <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>
+        )}
+        
+        {/* Mail Modal - Hiển thị khi cần */}
+        <MailModal 
+            isOpen={isMailModalOpen}
+            onClose={handleCloseMail}
+            userId={userId}
+            onCurrencyUpdate={handleCurrencyUpdate}
+        />
+        {isHomePage() && (
+            <BottomNavbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
+        )}
+        {isHomePage() && <HomeFloatingButtons userId={userId} onOpenMail={handleOpenMail} />}
+        {userId && shouldShowCurrencyDisplay() && <CurrencyDisplay userId={userId} onCurrencyUpdate={currencyUpdateTrigger} />}
+        
         </>
     );
 }
