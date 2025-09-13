@@ -14,13 +14,14 @@
     --spacing-xl: 32px;
   
     /* Colors */
-    --color-bg: #fafafa;
+    --color-bg: #ffffff;
     --color-text: #222;
     /* --color-accent: #ffcc00;
     --color-border: #ddd; */
   
     /* Layout */
-    --max-width: 1200px;
+    /* --max-width: 1200px; */
+    --max-width: 88.75rem;
     /* --max-width: 430px; */
 
     --color-bg-main: #f6faff;

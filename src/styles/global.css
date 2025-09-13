@@ -15,15 +15,25 @@ html, body, #root {
   font-optical-sizing: auto;
   font-weight: 300;
   font-size: var(--font-sm);
-  background-color: var(--color-bg);
+  /* background-color: var(--color-bg);
   background-image: url("../../public/images/background_body.png");
   background-repeat: no-repeat;
-  background-size: cover;
+  background-size: cover; */
+
+  background-image: url("../../public/images/background/Untitled-1.png");
+  background-repeat: no-repeat;
+  background-size: 100% auto;
+  background-position: top center;
+  background-color: var(--color-bg);
+  
+
+
+  
 
   color: var(--color-text);
 
   /* để test mobile UI sạch */
-  overflow: hidden;
+  /* overflow: hidden; */
 }
 
 
@@ -33,12 +43,13 @@ html, body, #root {
   height: 100dvh;
   margin: 0 auto;
   overflow-y: auto;
-  background-color: #ffffff;
+  background-color: transparent;
   scrollbar-width: none; /* Firefox */
   position: relative;
+  padding-top: 50px; /* Space for top navigation */
 }
 .main-content{
-  height: 100dvh;
+  height: calc(100dvh - 50px); /* Subtract top navigation height */
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -104,5 +115,241 @@ div {
 @media (max-width: 480px) {
   div, button {
     font-size: var(--font-sm) !important;
+  }
+}
+
+/* ===== TOP NAVIGATION BAR ===== */
+#sgw-top-navigation {
+  background-color: rgb(0, 0, 0);
+  height: 50px;
+  transition: transform 250ms ease-in-out;
+  z-index: 15;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  font-family: "Open Sans", sans-serif;
+}
+
+.sgw-top-navigation {
+  background-color: black;
+  height: 50px;
+  transition: transform 250ms ease-in-out;
+  z-index: 15;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+}
+
+.sgw-top-nav-container {
+  max-width: var(--max-width);
+  height: 100%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* padding: 0 20px; */
+}
+
+.sgw-nav-logo {
+  display: flex;
+  align-items: center;
+}
+
+.sgw-nav-logo a {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: white;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.sgw-logo-img {
+  height: 30px;
+  width: auto;
+  margin-right: 8px;
+}
+
+.sgw-logo-text {
+  color: white;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+}
+
+.sgw-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 100%;
+}
+
+.sgw-nav-link {
+  color: white;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s ease;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+}
+.gnb-user-hello{
+  color: #ccc;
+}
+.gnb-user-name{
+  color: #64b7ff;
+}
+
+
+.sgw-nav-dropdown {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sgw-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sgw-dropdown-arrow {
+  font-size: 10px;
+  display: inline-block;
+  width:0;
+  height:0;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 5px solid #ffffff;
+  transition: transform 0.2s ease;
+}
+
+.sgw-nav-dropdown:hover .sgw-dropdown-arrow,
+.sgw-nav-dropdown.show .sgw-dropdown-arrow {
+  transform: rotate(180deg);
+}
+
+.sgw-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: white;
+  min-width: 200px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  padding: 8px 0;
+  z-index: 1000;
+}
+
+/* User Dropdown Menu - Dark Theme */
+.sgw-user-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: #2c2c2c;
+  min-width: 220px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-radius: 0;
+  padding: 8px 0;
+  z-index: 9999;
+  
+  /* Animation Properties */
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95);
+  transition: all 0.2s ease-out;
+  pointer-events: none;
+}
+
+/* Animation when dropdown is shown */
+.sgw-user-dropdown-menu.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.sgw-dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  color: #333;
+  text-decoration: none;
+  font-size: 12px;
+  transition: background-color 0.2s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.sgw-dropdown-icon-img{
+  display: inline-block;
+  height: 22px;
+  width: 22px;
+  margin-right: 9px;
+}
+
+.sgw-user-dropdown-menu .sgw-dropdown-item {
+  color: white;
+  padding: 12px 16px;
+}
+
+.sgw-dropdown-item:hover {
+  background-color: #f5f5f5;
+  color: #ff6b6b;
+}
+
+.sgw-user-dropdown-menu .sgw-dropdown-item:hover {
+  background-color: #404040;
+  color: white;
+}
+
+.sgw-dropdown-icon {
+  margin-right: 12px;
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+
+/* Removed old user menu styles - now using dropdown */
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .sgw-top-nav-container {
+    padding: 0 15px;
+  }
+  
+  .sgw-nav-links {
+    gap: 15px;
+  }
+  
+  .sgw-nav-link {
+    font-size: 12px;
+  }
+  
+  .sgw-logo-text {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sgw-nav-links {
+    gap: 10px;
+  }
+  
+  .sgw-nav-link {
+    font-size: 11px;
+  }
+  
+  .sgw-dropdown-menu {
+    min-width: 150px;
   }
 }

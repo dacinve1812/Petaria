@@ -146,7 +146,7 @@ const CreateAuction = () => {
   }
 
   return (
-    <div>
+    <>
       {/* Global Banner */}
       <GlobalBanner
         backgroundImage="/images/background/banner-1.jpeg"
@@ -161,7 +161,7 @@ const CreateAuction = () => {
       {/* Navigation Menu */}
       <NavigationMenu />
 
-      <div className="create-auction-container">
+      <div className="page-container">
         <div className="create-auction-header">
           <button onClick={() => navigate('/auction')} className="create-auction-back-btn">
             ← Back to Auctions
@@ -222,7 +222,7 @@ const CreateAuction = () => {
                 {selectedItem && (
                   <div className="create-auction-item-preview">
                     <img 
-                      src={selectedItem.image_url || '/images/default-item.png'} 
+                      src={`/images/equipments/${selectedItem.image_url}` || '/images/default-item.png'} 
                       alt={selectedItem.name}
                       className="create-auction-item-img"
                     />
@@ -331,7 +331,7 @@ const CreateAuction = () => {
         </form>
       </div>
     </div>
-         </div>   
+  </>   
   );
 };
 
