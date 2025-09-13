@@ -5,22 +5,13 @@ const TemplatePage = ({
   tabs = [], 
   showSearch = true, 
   searchPlaceholder = "Search...",
-  onSearch,
+  onSearch, // Generic search handler
+  searchHandlers = {}, // Object with search handlers for each tab
   children 
 }) => {
   const [searchValue, setSearchValue] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
-
-  // Default title from pathname if not provided
-
-  const handleSearchChange = (e) => {
-    const value = e.target.value;
-    setSearchValue(value);
-    if (onSearch) {
-      onSearch(value);
-    }
-  };
 
   // Get current active tab from URL path
   const getCurrentTab = () => {
@@ -31,6 +22,26 @@ const TemplatePage = ({
   const handleTabClick = (tab) => {
     if (tab.path) {
       navigate(tab.path);
+    }
+  };
+
+  // Enhanced search handler with tab-specific logic
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchValue(value);
+    
+    // Call generic search handler if provided
+    if (onSearch) {
+      onSearch(value);
+    }
+    
+    // Call tab-specific search handler if available
+    const currentTabIndex = getCurrentTab();
+    const tabKey = tabs[currentTabIndex]?.value;
+    const specificHandler = searchHandlers[tabKey];
+    
+    if (specificHandler && typeof specificHandler === 'function') {
+      specificHandler(value);
     }
   };
 
@@ -57,19 +68,17 @@ const TemplatePage = ({
         {showSearch && (
           <div className="tabs__top-group">
             <form id="desk_search" className="search-input" onSubmit={(e) => e.preventDefault()}>
-             
-                <input
-                  type="text"
-                  className="search-input"
-                  id="desk_search_text"
-                  placeholder={searchPlaceholder}
-                  value={searchValue}
-                  onChange={handleSearchChange}
-                />
-                <button type="submit" className="search-button">
-                  <img src="/images/icons/search.png" alt="Search" className="search-icon" />
-                </button>
-              
+              <input
+                type="text"
+                className="search-input"
+                id="desk_search_text"
+                placeholder={searchPlaceholder}
+                value={searchValue}
+                onChange={handleSearchChange}
+              />
+              <button type="submit" className="search-button">
+                <img src="/images/icons/search.png" alt="Search" className="search-icon" />
+              </button>
             </form>
           </div>
         )}

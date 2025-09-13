@@ -11,11 +11,6 @@ const ExampleTemplatePage = () => {
     { label: 'CLAN', value: 'clan', path: '/example/clan' }
   ];
 
-  const handleSearch = (value) => {
-    setSearchValue(value);
-    console.log('Search:', value);
-  };
-
   // Get current tab from URL
   const getCurrentTab = () => {
     const path = window.location.pathname;
@@ -23,6 +18,34 @@ const ExampleTemplatePage = () => {
     if (path.includes('/exp')) return 1;
     if (path.includes('/clan')) return 2;
     return 0; // default to competitive
+  };
+
+  // Tab-specific search handlers
+  const searchHandlers = {
+    competitive: (value) => {
+      // TODO: Implement competitive search API call
+      // Example: searchCompetitivePlayers(value)
+    },
+    exp: (value) => {
+      // TODO: Implement EXP search API call
+      // Example: searchExpLeaderboard(value)
+    },
+    clan: (value) => {
+      // TODO: Implement CLAN search API call
+      // Example: searchClans(value)
+    }
+  };
+
+  // Generic search handler
+  const handleSearch = (value) => {
+    setSearchValue(value);
+    const currentTab = getCurrentTab();
+    const tabValue = tabs[currentTab]?.value;
+    
+    // Call tab-specific search handler
+    if (tabValue && searchHandlers[tabValue]) {
+      searchHandlers[tabValue](value);
+    }
   };
 
   // Example content based on current tab
@@ -84,7 +107,38 @@ const ExampleTemplatePage = () => {
         return (
           <div className="exp-content">
             <h3>Experience Leaderboards</h3>
-            <p>Experience-based rankings will be displayed here.</p>
+            <div className="table-container">
+              <table className="leaderboard-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>PLAYER NAME</th>
+                    <th>LEVEL</th>
+                    <th>EXP POINTS</th>
+                    <th>NEXT LEVEL</th>
+                    <th>CLAN</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>1</td>
+                    <td>ProPlayer</td>
+                    <td>85</td>
+                    <td>1,250,000</td>
+                    <td>1,300,000</td>
+                    <td>EliteGuild</td>
+                  </tr>
+                  <tr>
+                    <td>2</td>
+                    <td>Veteran</td>
+                    <td>82</td>
+                    <td>1,180,000</td>
+                    <td>1,200,000</td>
+                    <td>Masters</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       
@@ -92,7 +146,38 @@ const ExampleTemplatePage = () => {
         return (
           <div className="clan-content">
             <h3>Clan Leaderboards</h3>
-            <p>Clan-based rankings will be displayed here.</p>
+            <div className="table-container">
+              <table className="leaderboard-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>CLAN NAME</th>
+                    <th>MEMBERS</th>
+                    <th>LEVEL</th>
+                    <th>TOTAL EXP</th>
+                    <th>LEADER</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>1</td>
+                    <td>EliteGuild</td>
+                    <td>50</td>
+                    <td>15</td>
+                    <td>5,250,000</td>
+                    <td>ProPlayer</td>
+                  </tr>
+                  <tr>
+                    <td>2</td>
+                    <td>Masters</td>
+                    <td>48</td>
+                    <td>14</td>
+                    <td>4,890,000</td>
+                    <td>Veteran</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       

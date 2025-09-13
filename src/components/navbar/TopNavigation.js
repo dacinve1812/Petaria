@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
 
-const TopNavigation = () => {
+const TopNavigation = ({ className = '' }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const { user, isLoading, logout } = useUser();
   const navigate = useNavigate();
@@ -31,7 +31,7 @@ const TopNavigation = () => {
   }, [showUserDropdown]);
 
   return (
-    <nav id="sgw-top-navigation" className="sgw-top-navigation">
+    <nav id="sgw-top-navigation" className={`sgw-top-navigation ${className}`}>
       <div className="sgw-top-nav-container">
         {/* Logo */}
         <div className="sgw-nav-logo">

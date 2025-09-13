@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const NavigationMenu = () => {
+const NavigationMenu = ({ className = '' }) => {
   const navigate = useNavigate();
   const [activeDropdown, setActiveDropdown] = useState(null);
   const navRef = useRef(null);
@@ -181,7 +181,7 @@ const NavigationMenu = () => {
   };
 
   return (
-    <nav className="navigation-menu" ref={navRef}>
+    <nav className={`navigation-menu ${className}`} ref={navRef}>
       <div className="nav-container">
         {menuItems.map(item => (
           <div 

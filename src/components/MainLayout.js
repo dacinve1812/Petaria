@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import useScrollAnimation from '../hooks/useScrollAnimation';
 import Sidebar from './Sidebar';
 import BottomNavbar from './BottomNavbar';
 import CurrencyDisplay from './CurrencyDisplay';
@@ -18,6 +19,9 @@ function MainLayout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isMailModalOpen, setIsMailModalOpen] = useState(false);
     const [currencyUpdateTrigger, setCurrencyUpdateTrigger] = useState(0);
+    
+    // Scroll animation - hide navs when scrolling down, show when scrolling up
+    const isScrolledDown = useScrollAnimation(100); // 100px threshold
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -93,10 +97,10 @@ function MainLayout() {
         <>
        
         {/* Top Navigation Bar */}
-        <TopNavigation />
+        <TopNavigation className={isScrolledDown ? 'hidden' : ''} />
         
         {/* Second Navigation Menu */}
-        <NavigationMenu />
+        <NavigationMenu className={isScrolledDown ? 'hidden' : ''} />
         
         {/* Main Content Area - Similar to cf-sub */}
         <div id="peta-sub">
