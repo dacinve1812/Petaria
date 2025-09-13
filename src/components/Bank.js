@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../UserContext';
 import GlobalBanner from './GlobalBanner';
-import NavigationMenu from './NavigationMenu';
 import { resolveAssetPath } from '../utils/pathUtils';
 import './Bank.css';
 
@@ -254,7 +253,6 @@ function Bank() {
           showBackButton={true}
           className="small"
         />
-        <NavigationMenu />
         <div className="bank-content">
           <div className="loading">Đang tải...</div>
         </div>
@@ -271,7 +269,6 @@ function Bank() {
           showBackButton={true}
           className="small"
         />
-        <NavigationMenu />
         <div className="bank-content">
           <div className="loading">Đang tải...</div>
         </div>
@@ -288,7 +285,6 @@ function Bank() {
           showBackButton={true}
           className="small"
         />
-        <NavigationMenu />
         <div className="bank-content">
           <div className="error">Vui lòng đăng nhập để sử dụng ngân hàng</div>
         </div>
@@ -306,7 +302,6 @@ function Bank() {
         className="small"
         backgroundPosition="70% 70%"
       />
-      <NavigationMenu />
       
       {/* Bank content */}
       <div className="bank-content">

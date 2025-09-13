@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
 import GlobalBanner from '../GlobalBanner';
-import NavigationMenu from '../NavigationMenu';
 import './CreateAuction.css';
 
 const CreateAuction = () => {
@@ -159,7 +158,6 @@ const CreateAuction = () => {
       />
 
       {/* Navigation Menu */}
-      <NavigationMenu />
 
       <div className="page-container">
         <div className="create-auction-header">

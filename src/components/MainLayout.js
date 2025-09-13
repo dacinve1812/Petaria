@@ -6,6 +6,7 @@ import CurrencyDisplay from './CurrencyDisplay';
 import HomeFloatingButtons from './HomeFloatingButtons';
 import MailModal from './MailModal';
 import TopNavigation from './navbar/TopNavigation';
+import NavigationMenu from './navbar/NavigationMenu';
 import { Outlet } from 'react-router-dom';
 import '../styles/global.css';
 import GlobalBanner from './GlobalBanner';
@@ -66,14 +67,12 @@ function MainLayout() {
 
     return (
         <>
-          {/* <GlobalBanner
-          backgroundImage={resolveAssetPath('/images/background/banner-1.jpeg')}
-          className="small"
-          overlay={false}
-        /> */}
        
         {/* Top Navigation Bar */}
         <TopNavigation />
+        
+        {/* Second Navigation Menu */}
+        <NavigationMenu />
        
         <div className="container">
 

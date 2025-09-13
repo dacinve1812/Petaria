@@ -7,7 +7,6 @@ import ItemDetailModal from './ItemDetailModal';
 import RepairButton from './RepairButton';
 import GlobalBanner from '../GlobalBanner';
 import { resolveAssetPath } from '../../utils/pathUtils';
-import NavigationMenu from '../NavigationMenu';
 
 function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -131,7 +130,6 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
         className="small"
         backgroundPosition="70% 70%"
       />
-      <NavigationMenu />
 
       {/* Main content */}
       <div className="inventory-main">

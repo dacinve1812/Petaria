@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
 import GlobalBanner from '../GlobalBanner';
-import NavigationMenu from '../NavigationMenu';
 import './AuctionList.css';
 
 const AuctionList = () => {
@@ -212,7 +211,6 @@ const AuctionList = () => {
       />
 
       {/* Navigation Menu */}
-      <NavigationMenu />
 
       <div className="auction-list-container">
         {/* Tooltip */}

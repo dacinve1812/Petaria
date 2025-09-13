@@ -4,7 +4,6 @@ import SpiritManagement from './SpiritManagement';
 import './MyHome.css';
 import GlobalBanner from './GlobalBanner';
 import { resolveAssetPath } from '../utils/pathUtils';
-import NavigationMenu from './NavigationMenu';
 
 
 function MyHome({isLoggedIn, onLogoutSuccess }) {
@@ -132,7 +131,6 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
         className="small"
         backgroundPosition="70% 70%"
       />
-      <NavigationMenu />
 
       {/* Main content */}
       <div className="myhome-main">

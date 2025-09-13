@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import './Orphanage.css';
 import GlobalBanner from './GlobalBanner';
 import { resolveAssetPath } from '../utils/pathUtils';
-import NavigationMenu from './NavigationMenu';
 import PetNotice from './PetNotice';
 
 
@@ -383,7 +382,6 @@ function Orphanage() {
         className="small"
         backgroundPosition="70% 70%"
     />
-    <NavigationMenu />   
         {currentMode === 'main' && renderMainMenu()}
         {currentMode === 'adopt' && renderAdoptMode()}
         {currentMode === 'release' && renderReleaseMode()}

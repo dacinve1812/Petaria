@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './NavigationMenu.css';
 
 const NavigationMenu = () => {
   const navigate = useNavigate();
@@ -15,10 +14,11 @@ const NavigationMenu = () => {
     const handleClickOutside = (event) => {
       if (navRef.current && !navRef.current.contains(event.target)) {
         setActiveDropdown(null);
-        // Remove show class
+        // Remove show class and reset width
         const dropdown = document.querySelector('.dropdown-menu');
         if (dropdown) {
           dropdown.classList.remove('show');
+          dropdown.style.width = ''; // Reset width to default
         }
       }
     };
@@ -114,17 +114,52 @@ const NavigationMenu = () => {
           if (dropdown) {
             // Calculate position
             const viewportWidth = window.innerWidth;
-            const dropdownWidth = 200; // min-width
-            let left = rect.left + rect.width / 2 - dropdownWidth / 2;
+            const viewportHeight = window.innerHeight;
             
-            // Keep dropdown within viewport
-            if (left < 10) left = 10;
-            if (left + dropdownWidth > viewportWidth - 10) {
-              left = viewportWidth - dropdownWidth - 10;
+            // Get actual dropdown dimensions
+            const dropdownRect = dropdown.getBoundingClientRect();
+            let dropdownWidth = dropdownRect.width || 200; // fallback to min-width
+            const dropdownHeight = dropdownRect.height || 200; // fallback height
+            
+            // Adjust width for mobile devices
+            if (viewportWidth <= 480) {
+              dropdownWidth = Math.max(dropdownWidth, 120); // min-width for mobile
+            } else if (viewportWidth <= 768) {
+              dropdownWidth = Math.max(dropdownWidth, 150); // min-width for tablet
+            }
+            
+            // Calculate center position relative to nav item
+            let left = rect.left + rect.width / 2 - dropdownWidth / 2;
+            let top = rect.bottom + 5;
+            
+            // Keep dropdown within viewport horizontally
+            const margin = 10;
+            if (left < margin) {
+              left = margin;
+            } else if (left + dropdownWidth > viewportWidth - margin) {
+              left = viewportWidth - dropdownWidth - margin;
+            }
+            
+            // If dropdown is still too wide for viewport, adjust width
+            if (dropdownWidth > viewportWidth - (margin * 2)) {
+              dropdownWidth = viewportWidth - (margin * 2);
+              dropdown.style.width = `${dropdownWidth}px`;
+              // Recalculate left position with new width
+              left = rect.left + rect.width / 2 - dropdownWidth / 2;
+              if (left < margin) left = margin;
+              if (left + dropdownWidth > viewportWidth - margin) {
+                left = viewportWidth - dropdownWidth - margin;
+              }
+            }
+            
+            // Keep dropdown within viewport vertically
+            if (top + dropdownHeight > viewportHeight - margin) {
+              // Position above the nav item if not enough space below
+              top = rect.top - dropdownHeight - 5;
             }
             
             dropdown.style.left = `${left}px`;
-            dropdown.style.top = `${rect.bottom + 5}px`;
+            dropdown.style.top = `${top}px`;
             dropdown.classList.add('show');
           }
         }, 10);
@@ -137,10 +172,11 @@ const NavigationMenu = () => {
   const handleSubmenuClick = (submenuItem) => {
     navigate(submenuItem.path);
     setActiveDropdown(null);
-    // Remove show class
+    // Remove show class and reset width
     const dropdown = document.querySelector('.dropdown-menu');
     if (dropdown) {
       dropdown.classList.remove('show');
+      dropdown.style.width = ''; // Reset width to default
     }
   };
 

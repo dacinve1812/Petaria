@@ -3,7 +3,6 @@ import { useNavigate, Outlet } from 'react-router-dom';
 import PetNotice from './PetNotice';
 import './HomePage.css';
 import GlobalBanner from './GlobalBanner';
-import NavigationMenu from './NavigationMenu';
 import { resolveAssetPath } from '../utils/pathUtils';
 
 function HomePage({ isLoggedIn, onLogoutSuccess }) {
@@ -110,7 +109,6 @@ function HomePage({ isLoggedIn, onLogoutSuccess }) {
       />
 
       {/* Navigation Menu */}
-      <NavigationMenu />
       <PetNotice />
       
       {/* Interactive Map Container */}

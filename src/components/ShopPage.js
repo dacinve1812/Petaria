@@ -7,7 +7,6 @@ import ItemDetailModal from './items/ItemDetailModal';
 import GlobalBanner from './GlobalBanner';
 import { resolveAssetPath } from '../utils/pathUtils';
 import './css/ShopPage.css';
-import NavigationMenu from './NavigationMenu';
 
 function ShopPage() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -146,7 +145,6 @@ function ShopPage() {
         showBackButton={true}
         className="small"
       />
-      <NavigationMenu />
 
       <div className='shop-content'>
         <div className='shop-items-section'>

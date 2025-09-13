@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
 import GlobalBanner from '../GlobalBanner';
-import NavigationMenu from '../NavigationMenu';
 import './AuctionDetail.css';
 
 const AuctionDetail = () => {
@@ -261,7 +260,6 @@ const AuctionDetail = () => {
       />
 
       {/* Navigation Menu */}
-      <NavigationMenu />
 
       <div className="auction-detail-container">
         <div className="auction-detail-header">

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import NavigationMenu from './NavigationMenu';
 import GlobalBanner from './GlobalBanner';
 import PetNotice from './PetNotice';
 import './HomePageVer2.css';
@@ -214,7 +213,6 @@ function HomePageVer2() {
         />
 
       {/* Navigation Menu */}
-      <NavigationMenu />
 
       {/* Main content */}
       <div className="map-container" style={{
