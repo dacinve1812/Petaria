@@ -58,6 +58,7 @@ function App() {
               <Route index element={<HomePageVer2 />} />
               <Route path="orphanage" element={<Orphanage />} />
               <Route path="myhome" element={<MyHome />} />
+              <Route path="myhome/spirits" element={<MyHome />} />
               <Route path="admin" element={<Admin />} />
               <Route path="profile/:userId" element={<UserProfile />} />
               <Route path="profile" element={<UserProfile />} />

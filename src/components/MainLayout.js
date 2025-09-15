@@ -76,6 +76,7 @@ function MainLayout() {
             '/home-ver2': 'KINH THÀNH',
             '/inventory': 'TRANG BỊ',
             '/myhome': 'THÚ CƯNG',
+            '/myhome/spirits': 'LINH THÚ',
             '/bank': 'NGÂN HÀNG',
             '/shop': 'MUA SẮM',
             '/auction': 'ĐẤU GIÁ',

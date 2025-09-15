@@ -7,17 +7,13 @@ const TemplatePage = ({
   searchPlaceholder = "Search...",
   onSearch, // Generic search handler
   searchHandlers = {}, // Object with search handlers for each tab
+  additionalControls, // Additional controls to show in second tab group
+  currentTab = 0, // Current active tab index from parent
   children 
 }) => {
   const [searchValue, setSearchValue] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
-
-  // Get current active tab from URL path
-  const getCurrentTab = () => {
-    const currentPath = location.pathname;
-    return tabs.findIndex(tab => currentPath.includes(tab.path)) || 0;
-  };
 
   const handleTabClick = (tab) => {
     if (tab.path) {
@@ -36,8 +32,7 @@ const TemplatePage = ({
     }
     
     // Call tab-specific search handler if available
-    const currentTabIndex = getCurrentTab();
-    const tabKey = tabs[currentTabIndex]?.value;
+    const tabKey = tabs[currentTab]?.value;
     const specificHandler = searchHandlers[tabKey];
     
     if (specificHandler && typeof specificHandler === 'function') {
@@ -55,7 +50,7 @@ const TemplatePage = ({
             {tabs.map((tab, index) => (
               <button
                 key={index}
-                className={`tabs__top-button ${getCurrentTab() === index ? 'active' : ''}`}
+                className={`tabs__top-button ${currentTab === index ? 'active' : ''}`}
                 onClick={() => handleTabClick(tab)}
               >
                 {tab.label}
@@ -80,8 +75,14 @@ const TemplatePage = ({
                 <img src="/images/icons/search.png" alt="Search" className="search-icon" />
               </button>
             </form>
+            {additionalControls && (
+              <div className="tabs__top-group">
+                {additionalControls}
+              </div>
+            )}
           </div>
         )}
+
       </nav>
 
       {/* Main Content Area */}
