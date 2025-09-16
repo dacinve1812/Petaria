@@ -1881,6 +1881,9 @@ h1.peta-sectiontitle {
     margin-bottom: 15px;
     padding-bottom: 10px;
   }
+  .pet-header {
+    margin-bottom: 0px;
+  }
   .spirit-detail-modal-header, .detail-header{
     padding: 8px 20px;
   }
@@ -1907,5 +1910,393 @@ h1.peta-sectiontitle {
   }
   .equipped-text{
     font-size: 0.8rem;
+  }
+}
+
+/* Pet Profile Styles */
+
+/* Animation delays for pet details */
+.pet-detail-name { animation-delay: 0.02s; }
+.pet-detail-evolved { animation-delay: 0.04s; }
+.pet-detail-level { animation-delay: 0.06s; }
+.pet-detail-birthday { animation-delay: 0.08s; }
+.pet-detail-rank { animation-delay: 0.1s; }
+.pet-detail-exp { animation-delay: 0.12s; }
+.pet-detail-progress { animation-delay: 0.13s; }
+.pet-detail-hp { animation-delay: 0.14s; }
+.pet-detail-mp { animation-delay: 0.16s; }
+.pet-detail-str { animation-delay: 0.18s; }
+.pet-detail-def { animation-delay: 0.2s; }
+.pet-detail-int { animation-delay: 0.22s; }
+.pet-detail-spd { animation-delay: 0.24s; }
+.pet-detail-status { animation-delay: 0.26s; }
+.pet-detail-battles { animation-delay: 0.28s; }
+
+/* Bonus stats styling */
+.bonus-stats {
+  color: var(--bonus-stats-color);
+  font-weight: var(--bonus-stats-weight);
+}
+
+/* Equipped spirits section */
+.equipped-spirits, .equipped-items {
+  display: flex;
+  gap: var(--equipped-spirits-gap);
+  margin: 15px 0;
+}
+
+.equipped-spirits-title { animation-delay: 0.3s; }
+.equipped-spirits-empty { animation-delay: 0.31s; }
+
+.equipped-spirit-item, .equipped-item{
+  position: relative;
+}
+
+.pet-spirit-image {
+  height: var(--spirit-image-size);
+  object-fit: contain;
+  cursor: pointer;
+}
+
+/* Equipped items section */
+.equipped-items {
+  display: flex;
+  gap: var(--equipped-items-gap);
+  flex-wrap: wrap;
+}
+
+.equipped-items-title { animation-delay: 0.32s; }
+.equipped-items-empty { animation-delay: 0.34s; }
+
+.equipped-item-image {
+  width: min(var(--item-image-size), 90%);
+  height: var(--item-image-size);
+  object-fit: contain;
+  cursor: pointer;
+}
+
+/* Animation delays for spirits and items */
+.spirit-item:nth-child(1) .pet-spirit-image,
+.spirit-item:nth-child(1) .remove-button { animation-delay: 0.31s; }
+.spirit-item:nth-child(2) .pet-spirit-image,
+.spirit-item:nth-child(2) .remove-button { animation-delay: 0.33s; }
+.spirit-item:nth-child(3) .pet-spirit-image,
+.spirit-item:nth-child(3) .remove-button { animation-delay: 0.35s; }
+.spirit-item:nth-child(4) .pet-spirit-image,
+.spirit-item:nth-child(4) .remove-button { animation-delay: 0.37s; }
+
+.equipped-item-image:nth-child(1),
+.remove-button:nth-child(1) { animation-delay: 0.34s; }
+.equipped-item-image:nth-child(2),
+.remove-button:nth-child(2) { animation-delay: 0.36s; }
+.equipped-item-image:nth-child(3),
+.remove-button:nth-child(3) { animation-delay: 0.38s; }
+.equipped-item-image:nth-child(4),
+.remove-button:nth-child(4) { animation-delay: 0.4s; }
+
+/* Pet list */
+.pet-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.pet-item {
+  padding: 10px;
+  text-align: center;
+  transition: transform 0.3s ease;
+}
+
+.pet-item img {
+  max-width: 100%;
+  height: 180px;
+  transition: transform 0.3s ease;
+}
+
+.pet-item:hover{
+  transform: scale(1.1, 1.1);
+}
+
+.pet-info {
+  margin-top: 10px;
+  color: #333;
+}
+
+.pet-info>p {
+  margin-top: 5px;
+}
+
+/* Pet Details */
+.pet-profile {
+  display: grid;
+  grid-template-areas:
+  "pet-header pet-header"
+  "pet-details pet-details-right";
+  grid-template-columns: 1fr 2fr;
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  margin: auto;
+  margin-top: 0px;
+  width: min(700px,95%);
+  justify-content: center;
+  height: min(800px,100%);
+}
+
+.pet-header {
+  grid-area: pet-header;
+  width: 100%;
+  text-align: center;
+  background-color: var(--pet-info);
+  font-size: 1.7rem;
+  font-weight: 600;
+  color: #67606a;
+  padding: 7px 0;
+}
+
+.pet-details{
+  grid-area: pet-details;
+  text-align: left;
+  background-color: var(--pet-detail);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-left: 5px;
+}
+
+.pet-details-right{
+  grid-area: pet-details-right;
+  background-color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 15px;
+}
+
+.pet-image {
+  width: min(300px, 90%);
+  object-fit: cover;
+  animation: fadeInUp 0.3s ease-out;
+  animation-fill-mode: both;
+  animation-delay: 0.1s;
+}
+
+.pet-header h2 {
+  margin-top: 0;
+  color: #333;
+  animation: fadeInUp 0.3s ease-out;
+  animation-fill-mode: both;
+  animation-delay: 0.2s;
+}
+
+.pet-species {
+  color: #777;
+  margin-top:0;
+  /* animation: fadeInUp 0.3s ease-out;
+  animation-fill-mode: both;
+  animation-delay: 0.1s; */
+}
+
+.pet-details p {
+  margin: 3px;
+  color: var(--pet-detail-text);
+  font-weight: 400;
+  /* font-family: "Poppins", sans-serif; */
+  font-optical-sizing: auto;
+  animation: fadeInUp 0.3s ease-out;
+  animation-fill-mode: both;
+}
+
+.pet-details > p > spam{
+  color: #c7271d;
+}
+
+.pet-actions{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.release-button {
+  padding: 20px 40px;
+  font-size: 15px;
+}
+
+.remove-button{
+  position: absolute;
+  top: -10px;
+  right: -20px;
+  cursor: pointer;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 5px;
+  z-index: 1;
+}
+
+.remove-button > .icon-button-1 {
+  width: 12px;
+  height: 12px;
+}
+
+/* Animation for equipped items */
+.pet-spirit-image {
+  animation: fadeInUp 0.3s ease-out !important;
+  animation-fill-mode: both !important;
+}
+.equipped-item-image {
+  animation: fadeInUp 0.3s ease-out !important;
+  animation-fill-mode: both !important;
+}
+
+.remove-button {
+  animation: fadeInUp 0.3s ease-out !important;
+  animation-fill-mode: both !important;
+}
+
+/* Animation for progress bar */
+progress {
+  animation: fadeInUp 0.3s ease-out !important;
+  animation-fill-mode: both !important;
+}
+
+/* Animation for pet profile elements */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Pet Profile Responsive Design */
+@media (max-width: 768px) {
+  .pet-header {
+    font-size: 1.3rem;
+    padding: 10px 0;
+  }
+
+  .pet-details {
+    padding: 15px;
+  }
+
+  .pet-details p {
+    font-size: 0.9rem;
+  }
+
+  .pet-details-right {
+    height: auto;
+    padding: 20px 10px;
+  }
+
+  .equipped-items {
+    justify-content: center;
+  }
+
+  .equipped-item-image {
+    margin-top: 10px;
+    width: 50px !important;
+    height: 50px !important;
+  }
+
+  .remove-button > .icon-button-1 {
+    width: 12px !important;
+    height: 12px !important;  
+  }
+
+  .release-button {
+    padding: 15px 30px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pet-profile {
+    width: 98%;
+  }
+
+  .pet-header {
+    font-size: 1.1rem;
+    padding: 8px 0;
+  }
+
+  .pet-details {
+    padding: 10px;
+  }
+
+  .pet-details p {
+    font-size: 0.8rem;
+  }
+
+  .pet-details-right {
+    padding: 15px 5px;
+  }
+
+  .equipped-item-image {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .release-button {
+    padding: 12px 25px;
+    font-size: 13px;
+  }
+
+  .remove-button {
+    top: -5px;
+    right: -10px;
+    padding: 1px 3px;
+  }
+
+  .icon-button-1 {
+    width: 12px;
+    height: 12px;
+  }
+
+  .pet-spirit-image {
+    height: var(--spirit-image-size-small);
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 340px) {
+  .pet-profile {
+    width: 100%;
+    margin-top: 5px;
+  }
+
+  .pet-header {
+    font-size: 1rem;
+    padding: 6px 0;
+  }
+
+  .pet-details {
+    padding: 8px;
+  }
+
+  .pet-details p {
+    margin: 4px 0;
+    font-size: 0.75rem;
+  }
+
+  .pet-details-right {
+    padding: 10px 3px;
+  }
+
+  .release-button {
+    padding: 10px 20px;
+    font-size: 12px;
+  }
+
+  .pet-spirit-image {
+    height: var(--spirit-image-size-xsmall);
+  }
+
+  .equipped-spirits {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }

@@ -1,9 +1,7 @@
 // Updated PetProfile.js with remove item icon
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import './PetProfile.css';
-// import Sidebar from './Sidebar';
-// import Navbar from './Navbar';
+import TemplatePage from './template/TemplatePage';
 import BackButton from './BackButton';
 import expTable from '../data/exp_table_petaria.json';
 
@@ -47,15 +45,14 @@ const HungerStatusDisplay = ({ hungerStatus, canBattle }) => {
 function PetProfile() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const { uuid } = useParams();
+  const navigate = useNavigate();
   const [pet, setPet] = useState(null);
   const [equippedItems, setEquippedItems] = useState([]);
   const [equippedSpirits, setEquippedSpirits] = useState([]);
   const [hungerStatus, setHungerStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const navigate = useNavigate();
   const [currentUserId, setCurrentUserId] = useState(null);
-  // const isAdmin = localStorage.getItem('isAdmin') === 'true'
   
   // New state for detail modals
   const [showSpiritDetail, setShowSpiritDetail] = useState(false);
@@ -144,31 +141,6 @@ function PetProfile() {
     navigate('/myhome');
   };
 
-  const handleReleasePet = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn phóng thích thú cưng này?')) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/release`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        alert('Phóng thích thú cưng thành công!');
-        navigate('/myhome');
-      } else {
-        const errorData = await response.json();
-        alert(errorData.error || 'Lỗi khi phóng thích thú cưng');
-      }
-    } catch (error) {
-      console.error('Error releasing pet:', error);
-      alert('Lỗi khi phóng thích thú cưng');
-    }
-  };
 
   const handleUnequip = async (itemId) => {
     try {
@@ -197,23 +169,39 @@ function PetProfile() {
     }
   };
 
+
+  // New handlers for detail modals
+  const openSpiritDetail = (spirit) => {
+    setSelectedSpirit(spirit);
+    setShowSpiritDetail(true);
+  };
+
   const handleUnequipSpirit = async (userSpiritId) => {
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/api/spirits/unequip`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ userSpiritId })
       });
       if (response.ok) {
         // Refresh equipped spirits
-        const spiritsResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/spirits`);
+        const spiritsResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/spirits`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         if (spiritsResponse.ok) {
           const spiritsData = await spiritsResponse.json();
           if (Array.isArray(spiritsData)) setEquippedSpirits(spiritsData);
         }
         alert('Tháo linh thú thành công!');
+        // Close modal after successful unequip
+        setShowSpiritDetail(false);
+        setSelectedSpirit(null);
       } else {
         const errorData = await response.json();
         alert(errorData.error || 'Lỗi khi tháo linh thú');
@@ -222,12 +210,6 @@ function PetProfile() {
       console.error('Error unequipping spirit:', error);
       alert('Lỗi khi tháo linh thú');
     }
-  };
-
-  // New handlers for detail modals
-  const openSpiritDetail = (spirit) => {
-    setSelectedSpirit(spirit);
-    setShowSpiritDetail(true);
   };
 
   const openItemDetail = (item) => {
@@ -356,155 +338,155 @@ function PetProfile() {
   // Calculate bonus stats
   const bonusStats = calculateBonusStats();
 
-  return (
-    <div className="container">
-      <header>
-        <BackButton onClick={handleBack} />
-        <img src="/images/buttons/banner.jpeg" alt="Banner Petaria" />
-      </header>
-      <div className="content">
+  // Tab configuration for TemplatePage
+  const tabs = [
+    { label: '← Thú cưng', value: 'pet-profile', path: `/myhome` }
+  ];
 
-        <div className="main-content">
-          {/* <Navbar /> */}
-          <div className="pet-profile">
-            <div className='pet-header'>Xem thông tin thú cưng</div>
-            <div className="pet-details">
-              <p className="pet-detail-name">Tên: {pet.name}</p>
-              <p className="pet-detail-evolved"><span className='extra-stats'>{isEvolved ? 'Đã tiến hóa' : 'Chưa tiến hóa'}</span></p>
-              <p className="pet-detail-level">Đẳng cấp: {pet.level}</p>
-              <p className="pet-detail-birthday">Sinh Nhật: {pet.created_date ? new Date(pet.created_date).toLocaleDateString() : 'N/A'}</p>
-              <p className="pet-detail-rank">Hạng: {pet.rank || 'N/A'}</p>
-              <p className="pet-detail-exp">EXP: {expProgress} / {expToNextLevel}</p>
-              <progress className="pet-detail-progress" value={(expProgress - expToThisLevel)} max={expRequired}></progress>
-              <p className="pet-detail-hp">
-                Sức Khỏe: {pet.hp}/{pet.max_hp}
-                {bonusStats.hp > 0 && (
-                  <span className="bonus-stats">
-                    {' '}+ {bonusStats.hp}
-                  </span>
-                )}
-              </p>
-              <p className="pet-detail-mp">
-                Năng Lượng: {pet.mp}/{pet.max_mp}
-                {bonusStats.mp > 0 && (
-                  <span className="bonus-stats">
-                    {' '}+ {bonusStats.mp}
-                  </span>
-                )}
-              </p>
-              <p className="pet-detail-str">
-                Sức Mạnh: {pet.str}
-                {bonusStats.str > 0 && (
-                  <span className="bonus-stats">
-                    {' '}+ {bonusStats.str}
-                  </span>
-                )}
-              </p>
-              <p className="pet-detail-def">
-                Phòng Thủ: {pet.def}
-                {bonusStats.def > 0 && (
-                  <span className="bonus-stats">
-                    {' '}+ {bonusStats.def}
-                  </span>
-                )}
-              </p>
-              <p className="pet-detail-int">
-                Thông Minh: {pet.intelligence}
-                {bonusStats.intelligence > 0 && (
-                  <span className="bonus-stats">
-                    {' '}+ {bonusStats.intelligence}
-                  </span>
-                )}
-              </p>
-              <p className="pet-detail-spd">
-                Tốc Độ: {pet.spd}
-                {bonusStats.spd > 0 && (
-                  <span className="bonus-stats">
-                    {' '}+ {bonusStats.spd}
-                  </span>
-                )}
-              </p>
-              <p className="pet-detail-status">Tình Trạng: {hungerStatus ? <HungerStatusDisplay 
-                    hungerStatus={hungerStatus.hunger_status}
-                    canBattle={hungerStatus.can_battle}
-                  /> : 'Ổn định'}</p>
-              
-              <br />
-              <p className="pet-detail-battles">Chiến đấu thắng: {pet.battles_won || 'N/A'}</p>
+  // Additional controls for the header
+  const additionalControls = (
+    <BackButton onClick={handleBack} />
+  );
+
+  return (
+    <>
+      <TemplatePage
+        tabs={tabs}
+        showSearch={false}
+        additionalControls={additionalControls}
+        currentTab={0}
+      >
+        <div className="pet-profile">
+          <div className='pet-header'>Xem thông tin thú cưng</div>
+          <div className="pet-details">
+            <p className="pet-detail-name">Tên: {pet.name}</p>
+            <p className="pet-detail-evolved"><span className='extra-stats'>{isEvolved ? 'Đã tiến hóa' : 'Chưa tiến hóa'}</span></p>
+            <p className="pet-detail-level">Đẳng cấp: {pet.level}</p>
+            <p className="pet-detail-birthday">Sinh Nhật: {pet.created_date ? new Date(pet.created_date).toLocaleDateString() : 'N/A'}</p>
+            <p className="pet-detail-rank">Hạng: {pet.rank || 'N/A'}</p>
+            <p className="pet-detail-exp">EXP: {expProgress} / {expToNextLevel}</p>
+            <progress className="pet-detail-progress" value={(expProgress - expToThisLevel)} max={expRequired}></progress>
+            <p className="pet-detail-hp">
+              Sức Khỏe: {pet.hp}/{pet.max_hp}
+              {bonusStats.hp > 0 && (
+                <span className="bonus-stats">
+                  {' '}+ {bonusStats.hp}
+                </span>
+              )}
+            </p>
+            <p className="pet-detail-mp">
+              Năng Lượng: {pet.mp}/{pet.max_mp}
+              {bonusStats.mp > 0 && (
+                <span className="bonus-stats">
+                  {' '}+ {bonusStats.mp}
+                </span>
+              )}
+            </p>
+            <p className="pet-detail-str">
+              Sức Mạnh: {pet.str}
+              {bonusStats.str > 0 && (
+                <span className="bonus-stats">
+                  {' '}+ {bonusStats.str}
+                </span>
+              )}
+            </p>
+            <p className="pet-detail-def">
+              Phòng Thủ: {pet.def}
+              {bonusStats.def > 0 && (
+                <span className="bonus-stats">
+                  {' '}+ {bonusStats.def}
+                </span>
+              )}
+            </p>
+            <p className="pet-detail-int">
+              Thông Minh: {pet.intelligence}
+              {bonusStats.intelligence > 0 && (
+                <span className="bonus-stats">
+                  {' '}+ {bonusStats.intelligence}
+                </span>
+              )}
+            </p>
+            <p className="pet-detail-spd">
+              Tốc Độ: {pet.spd}
+              {bonusStats.spd > 0 && (
+                <span className="bonus-stats">
+                  {' '}+ {bonusStats.spd}
+                </span>
+              )}
+            </p>
+            <p className="pet-detail-status">Tình Trạng: {hungerStatus ? <HungerStatusDisplay 
+                  hungerStatus={hungerStatus.hunger_status}
+                  canBattle={hungerStatus.can_battle}
+                /> : 'Ổn định'}</p>
+            
+            <br />
+            <p className="pet-detail-battles">Chiến đấu thắng: {pet.battles_won || 'N/A'}</p>
+          </div>
+          <div className="pet-details-right">
+            <img src={`/images/pets/${pet.image}`} alt={pet.name || pet.pet_types_name} className="pet-image" />
+            <h2>{pet.name || pet.pet_types_name}</h2>
+            <p className="pet-species">Loài: {pet.pet_types_name}</p>
+            <p className="equipped-spirits-title">Linh thú trang bị:</p>
+            <div className="equipped-spirits">
+              {equippedSpirits.length === 0 && <p className="equipped-spirits-empty">(Không có linh thú nào)</p>}
+              {equippedSpirits.map((spirit, index) => (
+                <div key={spirit.id} className="equipped-spirit-item">
+                  <img
+                    src={`/images/spirit/${spirit.image_url}`}
+                    alt={spirit.name}
+                    title={`${spirit.name} (${spirit.rarity})`}
+                    className="pet-spirit-image"
+                    onClick={() => openSpiritDetail(spirit)}
+                  />
+                </div>
+              ))}
             </div>
-            <div className="pet-details-right">
-              <img src={`/images/pets/${pet.image}`} alt={pet.name || pet.pet_types_name} className="pet-image" />
-              <h2>{pet.name || pet.pet_types_name}</h2>
-              <p className="pet-species">Loài: {pet.pet_types_name}</p>
-              <p className="equipped-spirits-title">Linh thú trang bị:</p>
-              <div className="equipped-spirits">
-                {equippedSpirits.length === 0 && <p className="equipped-spirits-empty">(Không có linh thú nào)</p>}
-                {equippedSpirits.map((spirit, index) => (
-                  <div key={spirit.id} className="equipped-spirit-item">
-                    <img
-                      src={`/images/spirit/${spirit.image_url}`}
-                      alt={spirit.name}
-                      title={`${spirit.name} (${spirit.rarity})`}
-                      className="spirit-image"
-                      onClick={() => openSpiritDetail(spirit)}
-                    />
-                    {currentUserId === pet.owner_id && (
-                      <button
-                        onClick={() => handleUnequipSpirit(spirit.id)}
-                        className="remove-button"
-                        title="Gỡ linh thú"
-                      >
-                        <img className="icon-button-1" src="/images/icons/delete.png" alt="remove" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              
-              <p className="equipped-items-title">Vật phẩm trang bị:</p>
-              <div className="equipped-items">
-                {equippedItems.length === 0 && <p className="equipped-items-empty">(Không có item nào)</p>}
-                {equippedItems.map((item, index) => (
-                  <div key={item.id} className="equipped-item">
-                    <img
-                      src={`/images/equipments/${item.image_url}`}
-                      alt={item.item_name}
-                      title={`${item.item_name} (Durability: ${item.durability})`}
-                      className="equipped-item-image"
-                      onClick={() => openItemDetail(item)}
-                    />
-                    {currentUserId === pet.owner_id && (
-                      <button
-                        onClick={() => handleUnequip(item.id)}
-                        className="remove-button"
-                        title="Gỡ vật phẩm"
-                      >
-                        <img className="icon-button-1" src="/images/icons/delete.png" alt="remove" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+            
+            <p className="equipped-items-title">Vật phẩm trang bị:</p>
+            <div className="equipped-items">
+              {equippedItems.length === 0 && <p className="equipped-items-empty">(Không có item nào)</p>}
+              {equippedItems.map((item, index) => (
+                <div key={item.id} className="equipped-item">
+                  <img
+                    src={`/images/equipments/${item.image_url}`}
+                    alt={item.item_name}
+                    title={`${item.item_name} (Durability: ${item.durability})`}
+                    className="equipped-item-image"
+                    onClick={() => openItemDetail(item)}
+                  />
+                  {currentUserId === pet.owner_id && (
+                    <button
+                      onClick={() => handleUnequip(item.id)}
+                      className="remove-button"
+                      title="Gỡ vật phẩm"
+                    >
+                      <img className="icon-button-1" src="/images/icons/delete.png" alt="remove" />
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
-          {currentUserId === pet.owner_id && (
-            <div className="pet-actions">
-              <button className="release-button" onClick={handleReleasePet}>
-                Phóng thích thú cưng
-              </button>
-            </div>
-          )}
         </div>
-      </div>
+
+      </TemplatePage>
 
       {/* Spirit Detail Modal */}
       {showSpiritDetail && selectedSpirit && (
-        <div className="detail-modal-overlay">
-          <div className="detail-modal">
-            <div className="detail-header">
+        <div 
+          className="detail-modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowSpiritDetail(false);
+              setSelectedSpirit(null);
+            }
+          }}
+        >
+          <div className="spirit-detail-modal">
+            <div className="spirit-detail-modal-header">
               <h3>{selectedSpirit.name}</h3>
               <button 
-                className="close-btn"
+                className="spirit-detail-close-btn"
                 onClick={() => {
                   setShowSpiritDetail(false);
                   setSelectedSpirit(null);
@@ -514,42 +496,61 @@ function PetProfile() {
               </button>
             </div>
             
-            <div className="detail-content">
-              <div className="detail-image">
-                <img 
-                  src={`/images/spirit/${selectedSpirit.image_url}`} 
-                  alt={selectedSpirit.name}
-                  onError={(e) => {
-                    e.target.src = '/images/spirit/angelpuss.gif';
-                  }}
-                />
-              </div>
-              
-              <div className="detail-info">
-                <div className="detail-rarity">
+            <div className="spirit-detail-modal-content">
+              <div className="spirit-detail-left-section">
+                {/* Rarity Badge above image */}
+                <div className="spirit-detail-rarity-section">
                   <span 
-                    className="rarity-badge"
+                    className="spirit-detail-rarity-badge"
                     style={{ color: getRarityColor(selectedSpirit.rarity) }}
                   >
                     {getRarityText(selectedSpirit.rarity)}
                   </span>
                 </div>
                 
-                <div className="detail-description">
+                {/* Spirit Image */}
+                <div className="spirit-image">
+                  <img 
+                    src={`/images/spirit/${selectedSpirit.image_url}`} 
+                    alt={selectedSpirit.name}
+                    onError={(e) => {
+                      e.target.src = '/images/spirit/angelpuss.gif';
+                    }}
+                  />
+                </div>
+              </div>
+              
+              <div className="spirit-detail-right-section">
+                <h4>Mô tả:</h4>
+                <div className="spirit-detail-description-section">
                   <p>{selectedSpirit.description}</p>
                 </div>
                 
-                <div className="detail-stats">
+                <div className="spirit-detail-stats-section">
                   <h4>Chỉ số:</h4>
-                  <div className="stats-grid">
+                  <div className="spirit-detail-stats-grid">
                     {selectedSpirit.stats && selectedSpirit.stats.map((stat, index) => (
-                      <div key={index} className="stat-item">
+                      <div key={index} className="spirit-detail-stat-item">
                         {formatStatValue(stat)}
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
+            </div>
+            
+            {/* Actions Section */}
+            <div className="spirit-detail-actions-section">
+              {currentUserId === pet.owner_id && (
+                <div className="spirit-detail-unequip-section">
+                  <button 
+                    className="spirit-detail-unequip-btn"
+                    onClick={() => handleUnequipSpirit(selectedSpirit.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -624,7 +625,7 @@ function PetProfile() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 

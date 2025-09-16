@@ -40,5 +40,22 @@
     --color-secondary: #00c6a7;
     --color-white: #fff;
     --color-overlay: rgba(0,0,0,0.18);
+
+
+    /* Pet Profile */
+    --pet-detail: #48ceff;
+    /* --pet-detail: #ededed; */
+    --pet-info: #fec200;
+    --pet-detail-text: #00338f;
+    --bonus-stats-color: rgb(170, 0, 0);
+    --bonus-stats-weight: 400;
+    --equipped-spirits-gap: 8px;
+    --equipped-items-gap: 10px;
+    --spirit-image-size: 64px;
+    --spirit-image-size-small: 45px;
+    --spirit-image-size-xsmall: 45px;
+    --item-image-size: 64px;
+    --animation-delay-base: 0.02s;
+    --animation-delay-increment: 0.02s;
   }
 
