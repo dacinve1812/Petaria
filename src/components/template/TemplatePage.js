@@ -16,7 +16,9 @@ const TemplatePage = ({
   const navigate = useNavigate();
 
   const handleTabClick = (tab) => {
-    if (tab.path) {
+    if (tab.onClick) {
+      tab.onClick();
+    } else if (tab.path) {
       navigate(tab.path);
     }
   };

@@ -1488,6 +1488,36 @@ app.get('/api/admin/item-effects', (req, res) => {
   });
 });
 
+// Get item effects for a specific item
+app.get('/api/item-effects/:itemId', (req, res) => {
+  const { itemId } = req.params;
+  const sql = `SELECT * FROM item_effects WHERE item_id = ?`;
+  pool.query(sql, [itemId], (err, results) => {
+    if (err) {
+      console.error('Error fetching item effects:', err);
+      return res.status(500).json({ message: 'Error fetching item effects' });
+    }
+    res.json(results);
+  });
+});
+
+// Get equipment data for a specific item
+app.get('/api/equipment-data/:itemId', (req, res) => {
+  const { itemId } = req.params;
+  const sql = `SELECT * FROM equipment_data WHERE item_id = ?`;
+  pool.query(sql, [itemId], (err, results) => {
+    if (err) {
+      console.error('Error fetching equipment data:', err);
+      return res.status(500).json({ message: 'Error fetching equipment data' });
+    }
+    if (results.length > 0) {
+      res.json(results[0]); // Return first result as object
+    } else {
+      res.status(404).json({ message: 'Equipment data not found' });
+    }
+  });
+});
+
 app.post('/api/admin/item-effects', (req, res) => {
   const {
     item_id, effect_target, effect_type,
@@ -1613,7 +1643,7 @@ app.post('/api/admin/shop-items/bulk-add', async (req, res) => {
 
 // POST /api/shop/buy
 app.post('/api/shop/buy', async (req, res) => {
-  const { shop_code, item_id, user_id } = req.body;
+  const { shop_code, item_id, user_id, quantity = 1 } = req.body;
 
   try {
     // 1. Lấy shop ID từ code
@@ -1650,11 +1680,12 @@ app.post('/api/shop/buy', async (req, res) => {
     const [userRow] = await db.query(`SELECT peta, petagold FROM users WHERE id = ?`, [user_id]);
     if (!userRow) return res.status(404).json({ error: 'Người dùng không tồn tại' });
 
+    const totalPrice = price * quantity;
     const userBalance = currency === 'peta' ? userRow.peta : userRow.petagold;
-    if (userBalance < price) return res.status(400).json({ error: 'Không đủ tiền' });
+    if (userBalance < totalPrice) return res.status(400).json({ error: 'Không đủ tiền' });
 
     // 5. Trừ tiền
-    await db.query(`UPDATE users SET ${currency} = ${currency} - ? WHERE id = ?`, [price, user_id]);
+    await db.query(`UPDATE users SET ${currency} = ${currency} - ? WHERE id = ?`, [totalPrice, user_id]);
 
     // 6. Thêm item vào inventory
     if (itemRow.type === 'equipment') {
@@ -1665,10 +1696,13 @@ app.post('/api/shop/buy', async (req, res) => {
 
       const durability = (equipInfo.length > 0) ? equipInfo[0].durability : 1;
 
-      await db.query(`
-        INSERT INTO inventory (player_id, item_id, quantity, is_equipped, durability_left)
-        VALUES (?, ?, 1, 0, ?)
-      `, [user_id, item_id, durability]);
+      // Equipment items can only be bought one at a time
+      for (let i = 0; i < quantity; i++) {
+        await db.query(`
+          INSERT INTO inventory (player_id, item_id, quantity, is_equipped, durability_left)
+          VALUES (?, ?, 1, 0, ?)
+        `, [user_id, item_id, durability]);
+      }
     } else {
       const [invRows] = await db.query(`
         SELECT id, quantity FROM inventory
@@ -1677,12 +1711,12 @@ app.post('/api/shop/buy', async (req, res) => {
 
       if (invRows.length > 0) {
         const inv = invRows[0];
-        await db.query(`UPDATE inventory SET quantity = quantity + 1 WHERE id = ?`, [inv.id]);
+        await db.query(`UPDATE inventory SET quantity = quantity + ? WHERE id = ?`, [quantity, inv.id]);
       } else {
         await db.query(`
           INSERT INTO inventory (player_id, item_id, quantity)
-          VALUES (?, ?, 1)
-        `, [user_id, item_id]);
+          VALUES (?, ?, ?)
+        `, [user_id, item_id, quantity]);
       }
     }
 
@@ -1771,10 +1805,13 @@ app.get('/api/users/:userId/inventory', async (req, res) => {
 
   try {
     const [rows] = await db.query(`
-        SELECT i.*, it.name, it.image_url, it.type, it.rarity, p.name AS pet_name, p.level AS pet_level
+        SELECT i.*, it.name, it.description, it.image_url, it.type, it.rarity, 
+               p.name AS pet_name, p.level AS pet_level,
+               ed.power, ed.durability AS max_durability
         FROM inventory i
         JOIN items it ON i.item_id = it.id
         LEFT JOIN pets p ON i.equipped_pet_id = p.id
+        LEFT JOIN equipment_data ed ON it.id = ed.item_id
         WHERE i.player_id = ?
     `, [userId]);
 

@@ -22,7 +22,6 @@
 .pet-card {
   background: white;
   border-radius: 12px;
-  padding: 20px 15px;
   text-align: center;
   font-size: 0.85rem;
   transition: all 0.3s ease;
@@ -217,7 +216,6 @@
   }
 
   .pet-card {
-    padding: 15px 10px;
     font-size: 0.75rem;
   }
 
@@ -255,7 +253,6 @@
   }
 
   .pet-card {
-    padding: 12px 8px;
     font-size: 0.7rem;
   }
 
@@ -291,7 +288,6 @@
   }
 
   .pet-card {
-    padding: 8px 4px;
     font-size: 0.65rem;
   }
 
@@ -334,7 +330,6 @@
 
 
   .pet-card {
-    padding: 25px 20px;
     font-size: 0.9rem;
   }
 

@@ -41,6 +41,12 @@
     --color-white: #fff;
     --color-overlay: rgba(0,0,0,0.18);
 
+    --color-modal-header: #ededed;
+    --color-modal-header-text: #333;
+    --color-modal-power-text: #ea6e39;
+    --color-modal-remove-text: #7d1212;
+    --color-modal-remove-bg: #ffe1e1;
+
 
     /* Pet Profile */
     --pet-detail: #48ceff;

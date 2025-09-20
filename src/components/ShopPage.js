@@ -62,8 +62,9 @@ function ShopPage() {
     fetchShopItems(selectedShop.code);
   }, [API_BASE_URL, selectedShop, user]);
 
-  const handleBuy = async (item) => {
-    const confirm = window.confirm(`Bạn muốn mua ${item.name} với giá ${item.price} ${item.currency_type}?`);
+  const handleBuy = async (item, quantity = 1) => {
+    const totalPrice = item.price * quantity;
+    const confirm = window.confirm(`Bạn muốn mua ${quantity}x ${item.name} với tổng giá ${totalPrice.toLocaleString()} ${item.currency_type}?`);
     if (!confirm) return;
 
     const res = await fetch(`${API_BASE_URL}/api/shop/buy`, {
@@ -75,7 +76,8 @@ function ShopPage() {
       body: JSON.stringify({
         user_id: user.userId,
         shop_code: selectedShop.code,
-        item_id: item.id
+        item_id: item.id,
+        quantity: quantity
       })
     });
 
