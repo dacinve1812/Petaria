@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useUser } from '../../UserContext';
 import Sidebar from '../Sidebar';
 import Navbar from '../Navbar';
-import '../css/ShopPage.css';
 
 function EditShopItems() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;

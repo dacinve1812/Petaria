@@ -4,9 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext';
 import ShopItemList from './ShopItemList';
 import ItemDetailModal from './items/ItemDetailModal';
-import GlobalBanner from './GlobalBanner';
+import TemplatePage from './template/TemplatePage';
 import { resolveAssetPath } from '../utils/pathUtils';
-import './css/ShopPage.css';
 
 function ShopPage() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -16,7 +15,9 @@ function ShopPage() {
   const [shops, setShops] = useState([]);
   const [selectedShop, setSelectedShop] = useState(null);
   const [shopItems, setShopItems] = useState([]);
+  const [filteredShopItems, setFilteredShopItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [currentTab, setCurrentTab] = useState(0);
 
   useEffect(() => {
     if (isLoading) return;
@@ -51,6 +52,7 @@ function ShopPage() {
       .then(res => res.json())
       .then(data => {
         setShopItems(data);
+        setFilteredShopItems(data);
       })
       .catch(error => {
         console.error('Error loading shop items:', error);
@@ -114,49 +116,32 @@ function ShopPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const getBannerImage = (shopCode) => {
-    switch (shopCode) {
-      case 'food_shop':
-        return '/images/background/enemy-card1.jpg';
-      case 'consumable_shop':
-        return '/images/background/enemy-card2.jpg';
-      case 'equipment_shop':
-        return '/images/background/enemy-card3.jpg';
-      case 'booster_shop':
-        return '/images/background/enemy-card3.jpg';
-      case 'premium_shop':
-        return '/images/background/enemy-card3.jpg';
-      case 'mystic_shop':
-        return '/images/background/enemy-card3.jpg';
-      default:
-        return '/images/background/pvp.jpg';
-    }
-  };
 
-  const getBannerTitle = (shop) => {
-    if (!shop) return 'Shop';
-    return shop.name;
-  };
+  // Convert shops to tabs format for TemplatePage
+  const shopTabs = shops.map((shop, index) => ({
+    label: shop.name,
+    value: shop.code,
+    onClick: () => {
+      setSelectedShop(shop);
+      setCurrentTab(index);
+    }
+  }));
+
 
   return (
-    <div className='shop-page-container'>
-      {/* Banner section */}
-      <GlobalBanner
-        backgroundImage={resolveAssetPath(getBannerImage(selectedShop?.code))}
-        title={getBannerTitle(selectedShop)}
-        showBackButton={true}
-        className="small"
-      />
+    <>
 
-      <div className='shop-content'>
+
+      <TemplatePage
+        tabs={shopTabs}
+        showSearch={false}
+        currentTab={currentTab}
+      >
         <div className='shop-items-section'>
           {selectedShop && (
             <>
               <div className='shop-info'>
                 <p>{selectedShop.description}</p>
-              </div>
-              
-              <div className='shop-controls'>
                 <div className='shop-timer'>
                   <span className='timer-icon'>⏰</span>
                   <span>{formatTime(timeLeft)}</span>
@@ -164,26 +149,12 @@ function ShopPage() {
               </div>
               
               <div className='items-grid-container'>
-                <ShopItemList items={shopItems} onItemClick={(item) => setSelectedItem(item)} />
+                <ShopItemList items={filteredShopItems} onItemClick={(item) => setSelectedItem(item)} />
               </div>
             </>
           )}
         </div>
-
-        <div className='shop-navigation'>
-          <div className='shop-container'>
-            {Array.isArray(shops) && shops.map(shop => (
-              <button
-                key={shop.id}
-                onClick={() => setSelectedShop(shop)}
-                className={`shop-title ${selectedShop?.id === shop.id ? 'active' : ''}`}
-              >
-                {shop.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      </TemplatePage>
 
       {selectedItem && (
         <ItemDetailModal
@@ -193,7 +164,7 @@ function ShopPage() {
           mode="shop"
         />
       )}
-    </div>
+    </>
   );
 }
 

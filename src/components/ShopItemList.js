@@ -1,6 +1,5 @@
 // File: ShopItemList.js
 import React from 'react';
-import './css/ShopPage.css';
 
 function ShopItemList({ items = [], onItemClick }) {
   const getItemStatus = (item) => {

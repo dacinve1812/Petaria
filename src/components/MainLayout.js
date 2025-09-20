@@ -78,7 +78,7 @@ function MainLayout() {
             '/myhome': 'THÚ CƯNG',
             '/myhome/spirits': 'LINH THÚ',
             '/bank': 'NGÂN HÀNG',
-            '/shop': 'MUA SẮM',
+            '/shop': 'CỬA HÀNG',
             '/auction': 'ĐẤU GIÁ',
             '/orphanage': 'VIỆN MỒ CÔI',
             '/battle/pve': 'ĐẤU TRƯỜNG',
