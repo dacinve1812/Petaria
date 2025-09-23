@@ -16,8 +16,8 @@
     /* Colors */
     --color-bg: #ffffff;
     --color-text: #222;
-    /* --color-accent: #ffcc00;
-    --color-border: #ddd; */
+    --color-tabs-bg: #282828;
+    --color-tabs-text: #fff;
   
     /* Layout */
     /* --max-width: 1200px; */
@@ -63,5 +63,23 @@
     --item-image-size: 64px;
     --animation-delay-base: 0.02s;
     --animation-delay-increment: 0.02s;
+
+
+    /* Shop Item Card */
+    --w: 220px;
+    --radius: 14px;
+    --panel-radius: 10px;
+    --card-bg: #f9f9f970;
+    --card-stroke: #cfcfcf;
+    --inner-outline: rgba(255,255,255,.9);
+    --panel-stroke: #d7d7d7;
+    --panel-bg-top: #e9e9e9;
+    --panel-bg-bottom: #dcdcdc;
+    --stock-pill: #3b3b3b87;
+    --name-color: #ffffff;
+    --name-stroke: #1a1a1a;
+    --price-color: #101010;
+    --color-sub-nav-bg: #33312f;
+    --color-sub-nav-text: #fef5dd;
   }
 

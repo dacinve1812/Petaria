@@ -1,27 +1,8 @@
 // File: ShopItemList.js
 import React from 'react';
+import ShopItemCard from './ShopItemCard';
 
-function ShopItemList({ items = [], onItemClick }) {
-  const getItemStatus = (item) => {
-    if (item.stock_limit === 0 || item.stock_limit === null) {
-      return { type: 'sold-out', text: 'Sold Out' };
-    }
-    if (item.stock_limit <= 2) {
-      return { type: 'limited', text: 'Limited' };
-    }
-    return null;
-  };
-
-  const getItemTag = (item) => {
-    // Logic để xác định tag dựa trên item properties
-    if (item.price > 100000) {
-      return { type: 'super-value', text: 'Super Value' };
-    }
-    if (item.name.includes('Ticket') || item.name.includes('Summon')) {
-      return { type: 'must-buy', text: 'Must-Buy' };
-    }
-    return null;
-  };
+function ShopItemList({ items = [], onItemClick, subTabValue = 'peta' }) {
 
   if (!Array.isArray(items)) {
     return (
@@ -34,10 +15,37 @@ function ShopItemList({ items = [], onItemClick }) {
   }
 
   if (items.length === 0) {
+    const getEmptyMessage = (subTabValue) => {
+      switch (subTabValue) {
+        case 'peta':
+          return 'Không có vật phẩm nào trong shop này';
+        case 'petagold':
+          return 'Chưa có vật phẩm cho PetaGold';
+        case 'arena':
+          return 'Chưa có vật phẩm cho Arena';
+        case 'honor':
+          return 'Chưa có vật phẩm cho Honor';
+        case 'guild':
+          return 'Chưa có vật phẩm cho Guild';
+        case 'guildwar':
+          return 'Chưa có vật phẩm cho Guild War';
+        case 'monthly':
+          return 'Chưa có vật phẩm cho Monthly Subscription';
+        case 'special':
+          return 'Chưa có vật phẩm cho Special';
+        case 'limited':
+          return 'Chưa có vật phẩm cho Limited Time';
+        case 'daily':
+          return 'Chưa có vật phẩm cho Daily Shop';
+        default:
+          return 'Không có vật phẩm nào trong shop này';
+      }
+    };
+
     return (
       <div className='item-list-container'>
         <div className='empty-message'>
-          Không có vật phẩm nào trong shop này
+          {getEmptyMessage(subTabValue)}
         </div>
       </div>
     );
@@ -45,42 +53,16 @@ function ShopItemList({ items = [], onItemClick }) {
 
   return (
     <div className='item-list-container'>
-      {items.map((item, index) => {
-        const status = getItemStatus(item);
-        const tag = getItemTag(item);
-        
-        return (
-          <div
-            key={`${item.id}-${index}`}
-            className={`item-list-detail ${status?.type || ''}`}
-            onClick={() => onItemClick && onItemClick(item)}
-          >
-            {status && status.type === 'sold-out' && (
-              <div className={`item-status-overlay ${status.type}`}>
-                {status.text}
-              </div>
-            )}
-            {tag && (
-              <div className={`item-tag ${tag.type}`}>
-                {tag.text}
-              </div>
-            )}
-            <img src={`/images/equipments/${item.image_url}`} alt={item.name} />
-            <strong>{item.name}</strong>
-            <div className="item-stock">
-              Còn lại: {item.stock_limit === null ? '0' : item.stock_limit}
-            </div>
-            <div className="item-price">
-              Giá: {item.price.toLocaleString()} {item.currency_type === 'petagold' ? 'petaGold' : 'peta'}
-            </div>
-            {status && status.type !== 'sold-out' && (
-              <div className={`item-status ${status.type}`}>
-                {status.text}
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {items.map((item, index) => (
+        <ShopItemCard
+          key={`${item.id}-${index}`}
+          stock={item.stock_limit}
+          item={item}
+          currency={item.currency_type}
+          price={item.price}
+          onItemClick={onItemClick}
+        />
+      ))}
     </div>
   );
 }

@@ -12,12 +12,47 @@ function ShopPage() {
   const { user, isLoading } = useUser();
   const navigate = useNavigate();
 
+  // Main shop tabs
+  const [currentMainTab, setCurrentMainTab] = useState(0);
+  const [currentSubTab, setCurrentSubTab] = useState(0);
+  
+  // Data states
   const [shops, setShops] = useState([]);
   const [selectedShop, setSelectedShop] = useState(null);
   const [shopItems, setShopItems] = useState([]);
   const [filteredShopItems, setFilteredShopItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [currentTab, setCurrentTab] = useState(0);
+
+  // Shop configuration
+  const mainTabs = [
+    { 
+      label: 'Exchange Shop', 
+      value: 'exchange',
+      subTabs: [
+        { label: 'Peta', value: 'peta' },
+        { label: 'PetaGold', value: 'petagold' },
+        { label: 'Arena', value: 'arena' },
+        { label: 'Honor', value: 'honor' },
+        { label: 'Guild', value: 'guild' },
+        { label: 'Guild War', value: 'guildwar' }
+      ]
+    },
+    { 
+      label: 'Premium', 
+      value: 'premium',
+      subTabs: [
+        { label: 'Monthly Subscription', value: 'monthly' },
+        { label: 'Special', value: 'special' },
+        { label: 'Limited Time', value: 'limited' },
+        { label: 'Daily Shop', value: 'daily' }
+      ]
+    },
+    { 
+      label: 'General', 
+      value: 'general',
+      subTabs: []
+    }
+  ];
 
   useEffect(() => {
     if (isLoading) return;
@@ -44,6 +79,33 @@ function ShopPage() {
       });
   }, [API_BASE_URL, user]);
 
+  // Handle main tab change
+  const handleMainTabChange = (index) => {
+    setCurrentMainTab(index);
+    setCurrentSubTab(0); // Reset sub tab when changing main tab
+  };
+
+  // Handle sub tab change
+  const handleSubTabChange = (index) => {
+    setCurrentSubTab(index);
+    // Filter items based on selected sub tab
+    const currentSubTabData = mainTabs[currentMainTab]?.subTabs?.[index];
+    if (currentSubTabData) {
+      filterItemsBySubTab(currentSubTabData.value);
+    }
+  };
+
+  // Filter items by sub tab
+  const filterItemsBySubTab = (subTabValue) => {
+    if (subTabValue === 'peta') {
+      // Show actual items for Peta tab
+      setFilteredShopItems(shopItems);
+    } else {
+      // Show placeholder for other tabs
+      setFilteredShopItems([]);
+    }
+  };
+
   const fetchShopItems = (shopCode) => {
     if (!user) return;
     fetch(`${API_BASE_URL}/api/shop/${shopCode}`, {
@@ -62,7 +124,7 @@ function ShopPage() {
   useEffect(() => {
     if (!selectedShop || !user) return;
     fetchShopItems(selectedShop.code);
-  }, [API_BASE_URL, selectedShop, user]);
+  }, [selectedShop, user]);
 
   const handleBuy = async (item, quantity = 1) => {
     const totalPrice = item.price * quantity;
@@ -93,7 +155,6 @@ function ShopPage() {
     }
   };
   
-
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -101,7 +162,7 @@ function ShopPage() {
   };
 
   // Mock timer - in real app this would come from API
-  const [timeLeft, setTimeLeft] = useState(11 * 3600 + 36 * 60); // 11h 36m
+  const [timeLeft, setTimeLeft] = useState(4 * 3600); // 4h
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -116,43 +177,59 @@ function ShopPage() {
     return () => clearInterval(timer);
   }, []);
 
-
-  // Convert shops to tabs format for TemplatePage
-  const shopTabs = shops.map((shop, index) => ({
-    label: shop.name,
-    value: shop.code,
-    onClick: () => {
-      setSelectedShop(shop);
-      setCurrentTab(index);
-    }
+  // Convert main tabs to format for TemplatePage
+  const mainTabsForTemplate = mainTabs.map((tab, index) => ({
+    label: tab.label,
+    value: tab.value,
+    onClick: () => handleMainTabChange(index)
   }));
 
+  const currentMainTabData = mainTabs[currentMainTab];
+  const currentSubTabData = currentMainTabData?.subTabs?.[currentSubTab];
 
   return (
     <>
-
-
       <TemplatePage
-        tabs={shopTabs}
+        tabs={mainTabsForTemplate}
         showSearch={false}
-        currentTab={currentTab}
+        currentTab={currentMainTab}
       >
-        <div className='shop-items-section'>
-          {selectedShop && (
-            <>
-              <div className='shop-info'>
-                <p>{selectedShop.description}</p>
-                <div className='shop-timer'>
-                  <span className='timer-icon'>⏰</span>
-                  <span>{formatTime(timeLeft)}</span>
-                </div>
+        <div className='shop-page-container'>
+          {/* Two-panel layout */}
+          <div className='shop-layout'>
+            {/* Left panel - Sub tabs navigation */}
+            {currentMainTabData?.subTabs?.length > 0 && (
+              <div className='shop-sub-nav'>
+                {currentMainTabData.subTabs.map((subTab, index) => (
+                  <button
+                    key={index}
+                    className={`shop-sub-nav-item ${currentSubTab === index ? 'active' : ''}`}
+                    onClick={() => handleSubTabChange(index)}
+                  >
+                    {subTab.label}
+                  </button>
+                ))}
               </div>
-              
-              <div className='items-grid-container'>
-                <ShopItemList items={filteredShopItems} onItemClick={(item) => setSelectedItem(item)} />
+            )}
+
+            {/* Right panel - Items container with timer */}
+            <div className='shop-items-container'>
+              {/* Timer */}
+              <div className='shop-timer'>
+                <span className='timer-icon'>⏰</span>
+                <span>{formatTime(timeLeft)}</span>
               </div>
-            </>
-          )}
+
+              {/* Items grid */}
+              <div className='shop-items-grid'>
+                <ShopItemList 
+                  items={filteredShopItems} 
+                  onItemClick={(item) => setSelectedItem(item)}
+                  subTabValue={currentSubTabData?.value || 'peta'}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </TemplatePage>
 
