@@ -520,7 +520,7 @@ div {
   color: #34495e;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   border-bottom: 1px solid rgba(194, 196, 128, 0.3);
   font-size: 13px;
   position: relative;
@@ -653,6 +653,84 @@ div {
     padding: 8px 10px;
     font-size: 11px;
   }
+}
+/* ================================ GLOBAL BUTTON ANIMATIONS ================================ */
+
+/* Global Button Click Animation - Mobile Game Style */
+@keyframes buttonClickAnimation {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Alternative bounce animation for variety */
+@keyframes buttonBounceAnimation {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.15);
+  }
+  60% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Pulse animation for special buttons */
+@keyframes buttonPulseAnimation {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.1);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Global Button Styles with Animation */
+button, .btn, [role="button"] {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+button:active, .btn:active, [role="button"]:active {
+  animation: buttonClickAnimation 0.2s ease-out;
+}
+
+/* Enhanced button hover effects */
+button:hover, .btn:hover, [role="button"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Special animation classes for different button types */
+.btn-bounce:active {
+  animation: buttonBounceAnimation 0.2s ease-out;
+}
+
+.btn-pulse:active {
+  animation: buttonPulseAnimation 0.3s ease-out;
+}
+
+/* Disable animation for disabled buttons */
+button:disabled:active, .btn:disabled:active, [role="button"]:disabled:active {
+  animation: none;
+  transform: none;
 }
 
 /* ===== MAIN CONTENT LAYOUT (PETA-SUB) ===== */
@@ -3238,6 +3316,8 @@ progress {
   background: linear-gradient(135deg, #218838, #1ea085);
 }
 
+
+
 /* ================================ SHOP PAGE STYLES ================================ */
 
 /* Shop Page Container */
@@ -3302,15 +3382,24 @@ progress {
   transition: all 0.2s ease;
   text-align: left;
   white-space: wrap;
+  position: relative;
+  overflow: hidden;
 }
 
+.shop-sub-nav-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.shop-sub-nav-item:active {
+  animation: buttonClickAnimation 0.15s ease-out;
+}
 
 .shop-sub-nav-item.active {
   background: var(--color-sub-nav-text);
   color: var(--color-sub-nav-bg);
   outline: 1px solid var(--color-sub-nav-bg);
   outline-offset: -5px;
-
 }
 
 /* Right Panel - Items Container */
@@ -3375,11 +3464,11 @@ progress {
   transition: all 0.3s ease;
   z-index: 5;
 }
-/* 
+
 .item-list-detail:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 25px rgba(0,0,0,.25);
-} */
+  box-shadow: 0 8px 20px rgba(0,0,0,.15);
+}
 
 .item-list-detail.is-out, .item-list-detail.sold-out {
   opacity: 0.8;
@@ -3454,7 +3543,7 @@ progress {
   padding: 0 6px;
   width: 70%;
   /* font-weight: 700; */
-  font-size: 15px;
+  font-size: var(--font-sm);
   line-height: 1.2;
   text-align: center;
   color: #333;
@@ -3576,17 +3665,16 @@ progress {
     /* gap: 12px; */
   }
   
-  /* .shop-sub-nav {
-    width: 100%;
-    flex-direction: column;
-    padding: 12px;
-    gap: 6px;
-  } */
+  /* Mobile sub-nav styles commented out for current design */
   
   .shop-sub-nav-item {
     text-align: center;
-    padding: 8px 16px;
-    font-size: var(--font-xs);
+    padding: 12px 16px;
+    /* font-size: var(--font-xs); */
+  }
+  
+  .shop-sub-nav-item:active {
+    animation: buttonClickAnimation 0.15s ease-out;
   }
   
   .shop-items-grid {
@@ -3617,7 +3705,7 @@ progress {
   }
   
   .item-price {
-    font-size: 18px;
+    font-size: var(--font-sm);
   }
   
   .item-price-icon {
@@ -3720,6 +3808,10 @@ progress {
     padding: 3px 15px;
     font-size: var(--font-xs);
     border-bottom-right-radius: var(--radius);
+  }
+  
+  .shop-sub-nav-item:active {
+    animation: buttonClickAnimation 0.15s ease-out;
   }
 }
   
