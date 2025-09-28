@@ -48,7 +48,7 @@ const TemplatePage = ({
       <nav className="tabs__top">
         {/* Tabs Group */}
         {tabs.length > 0 && (
-          <div className="tabs__top-group" expanded>
+          <div className="tabs__top-group" expanded="true">
             {tabs.map((tab, index) => (
               <button
                 key={index}

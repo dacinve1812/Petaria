@@ -9,7 +9,8 @@ function ShopItemCard({
   onItemClick,
   className = '',
   showTag = true,
-  showStock = true 
+  showStock = true,
+  isAdmin = false
 }) {
   const getItemStatus = (stock) => {
     if (stock === 0 || stock === null) {

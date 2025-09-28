@@ -19,6 +19,7 @@ const AuctionList = () => {
   const [messageType, setMessageType] = useState('');
   const [userCurrency, setUserCurrency] = useState({ peta: 0, petagold: 0 });
   const [tooltip, setTooltip] = useState({ show: false, text: '', x: 0, y: 0 });
+  const [isLoadingAuctions, setIsLoadingAuctions] = useState(false);
 
   // Debounce search term
   useEffect(() => {
@@ -30,14 +31,17 @@ const AuctionList = () => {
   }, [searchTerm]);
 
   useEffect(() => {
-    fetchAuctions();
+    if (isLoadingAuctions) return;
+    
+    setIsLoadingAuctions(true);
+    fetchAuctions().finally(() => setIsLoadingAuctions(false));
   }, [debouncedSearchTerm, sortBy, order, currentPage]);
 
   useEffect(() => {
-    if (user) {
+    if (user?.userId) {
       fetchUserCurrency();
     }
-  }, [user]);
+  }, [user?.userId]); // Use specific property instead of user object
 
   const fetchAuctions = async () => {
     try {

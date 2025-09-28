@@ -1,11 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useUser } from '../../UserContext';
+import GlobalConfigModal from './GlobalConfigModal';
 import '../HomePage.css';
 
 function Admin() {
   const { user, logout, isLoading } = useUser();
   const navigate = useNavigate();
+  const [isGlobalConfigModalOpen, setIsGlobalConfigModalOpen] = useState(false);
 
   useEffect(() => {
     // Only redirect if not loading and user is not admin
@@ -81,6 +83,24 @@ function Admin() {
           <ul>
             <li><Link to="/admin/mail-test">Gửi Test Mail</Link></li>
             <li><Link to="/admin/bank-management">Hệ thống Bank</Link></li>
+            <li>
+              <button 
+                className="config-btn"
+                onClick={() => setIsGlobalConfigModalOpen(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                🔧 Global Configuration
+              </button>
+            </li>
           </ul>
         </div>
 
@@ -92,6 +112,17 @@ function Admin() {
           </ul>
         </div>
       </div>
+
+      {/* Global Configuration Modal */}
+      {isGlobalConfigModalOpen && (
+        <GlobalConfigModal
+          onClose={() => setIsGlobalConfigModalOpen(false)}
+          onConfigUpdated={() => {
+            // Could trigger a refresh of shop timers if needed
+            console.log('Global config updated');
+          }}
+        />
+      )}
     </div>
   );
 }

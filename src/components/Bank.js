@@ -22,6 +22,7 @@ function Bank() {
   const [transactionLogs, setTransactionLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [dailyInterest, setDailyInterest] = useState({ peta: 0, petagold: 0 });
+  const [isLoadingBankData, setIsLoadingBankData] = useState(false);
   const [isVip, setIsVip] = useState(false);
 
   // Fetch bank account info
@@ -223,10 +224,13 @@ function Bank() {
   }, [navigate, user, isLoading]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.userId || isLoadingBankData) return;
+    
+    setIsLoadingBankData(true);
     fetchBankAccount();
     fetchUserBalance();
     setLoading(false);
+    setIsLoadingBankData(false);
   }, [user?.userId]);
 
   // Clear messages after 3 seconds

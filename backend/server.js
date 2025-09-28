@@ -1599,12 +1599,26 @@ app.get('/api/shop/:shop_code', async (req, res) => {
 
     const [items] = await db.query(`
       SELECT 
-        i.id, i.name, i.description, i.type, i.rarity, i.image_url,
-        COALESCE(si.custom_price, i.buy_price) AS price,
-        si.currency_type, si.stock_limit, si.available_from, si.available_until
+        si.id,
+        si.item_id,
+        si.shop_id,
+        si.custom_price,
+        si.currency_type,
+        si.stock_limit,
+        si.restock_interval,
+        si.available_from,
+        si.available_until,
+        i.name,
+        i.description,
+        i.type,
+        i.rarity,
+        i.image_url,
+        i.sell_price,
+        COALESCE(si.custom_price, i.buy_price) AS price
       FROM shop_items si
       JOIN items i ON si.item_id = i.id
       WHERE si.shop_id = ?
+      ORDER BY si.id DESC
     `, [shop.id]);
 
     res.json(items);
@@ -4030,6 +4044,331 @@ app.put('/api/admin/users/:userId/vip', checkAdminRole, async (req, res) => {
   } catch (err) {
     console.error('Error updating VIP status:', err);
     res.status(500).json({ error: 'Failed to update VIP status' });
+  }
+});
+
+// ================================ ADMIN SHOP MANAGEMENT ================================
+
+// GET /api/admin/shops - Lấy danh sách shops cho admin
+app.get('/api/admin/shops', checkAdminRole, async (req, res) => {
+  try {
+    const [shops] = await db.query(`
+      SELECT * FROM shop_definitions 
+      ORDER BY parent_category, sort_order
+    `);
+    res.json(shops);
+  } catch (error) {
+    console.error('Error fetching shops:', error);
+    res.status(500).json({ error: 'Failed to fetch shops' });
+  }
+});
+
+// POST /api/admin/shops/add - Thêm shop mới
+app.post('/api/admin/shops/add', checkAdminRole, async (req, res) => {
+  const { name, code, description, type_filter, currency_type, parent_category, sort_order } = req.body;
+
+  try {
+    // Check if code already exists
+    const [existing] = await db.query('SELECT id FROM shop_definitions WHERE code = ?', [code]);
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'Shop code already exists' });
+    }
+
+    await db.query(`
+      INSERT INTO shop_definitions (name, code, description, type_filter, currency_type, parent_category, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [name, code, description, type_filter, currency_type, parent_category, sort_order]);
+
+    res.json({ message: 'Shop added successfully' });
+  } catch (error) {
+    console.error('Error adding shop:', error);
+    res.status(500).json({ error: 'Failed to add shop' });
+  }
+});
+
+// GET /api/admin/shop/:shop_code - Lấy items của shop cho admin
+app.get('/api/admin/shop/:shop_code', checkAdminRole, async (req, res) => {
+  const { shop_code } = req.params;
+
+  try {
+    const [shopRows] = await db.query(
+      'SELECT id FROM shop_definitions WHERE code = ?',
+      [shop_code]
+    );
+
+    if (!shopRows.length) {
+      return res.status(404).json({ error: 'Shop không tồn tại' });
+    }
+
+    const shop = shopRows[0];
+
+    const [items] = await db.query(`
+      SELECT 
+        si.*,
+        i.name,
+        i.image_url,
+        i.sell_price,
+        i.type,
+        sd.code as shop_code,
+        sd.name as shop_name,
+        sd.currency_type as shop_currency
+      FROM shop_items si
+      JOIN items i ON si.item_id = i.id
+      JOIN shop_definitions sd ON si.shop_id = sd.id
+      WHERE si.shop_id = ?
+      ORDER BY si.id DESC
+    `, [shop.id]);
+
+    res.json(items);
+  } catch (error) {
+    console.error('Error fetching shop items:', error);
+    res.status(500).json({ error: 'Failed to fetch shop items' });
+  }
+});
+
+// POST /api/admin/shop-items/add - Thêm item vào shop
+app.post('/api/admin/shop-items/add', checkAdminRole, async (req, res) => {
+  const { shop_code, item_id, custom_price, currency_type, stock_limit, restock_interval, available_from, available_until } = req.body;
+
+  try {
+    // Get shop ID
+    const [shopRows] = await db.query('SELECT id FROM shop_definitions WHERE code = ?', [shop_code]);
+    if (!shopRows.length) {
+      return res.status(404).json({ error: 'Shop không tồn tại' });
+    }
+    const shopId = shopRows[0].id;
+
+    // Check if item already exists in shop
+    const [existing] = await db.query('SELECT id FROM shop_items WHERE shop_id = ? AND item_id = ?', [shopId, item_id]);
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'Item already exists in this shop' });
+    }
+
+    await db.query(`
+      INSERT INTO shop_items (shop_id, item_id, custom_price, currency_type, stock_limit, restock_interval, available_from, available_until)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [shopId, item_id, custom_price, currency_type, stock_limit || 9999, restock_interval, available_from, available_until]);
+
+    res.json({ message: 'Item added to shop successfully' });
+  } catch (error) {
+    console.error('Error adding item to shop:', error);
+    res.status(500).json({ error: 'Failed to add item to shop' });
+  }
+});
+
+// PUT /api/admin/shop-items/:shop_id/:item_id - Cập nhật item trong shop
+app.put('/api/admin/shop-items/:shop_id/:item_id', checkAdminRole, async (req, res) => {
+  const { shop_id, item_id } = req.params;
+  const { custom_price, currency_type, stock_limit, restock_interval, available_from, available_until } = req.body;
+
+  try {
+    await db.query(`
+      UPDATE shop_items 
+      SET custom_price = ?, currency_type = ?, stock_limit = ?, restock_interval = ?, available_from = ?, available_until = ?
+      WHERE shop_id = ? AND item_id = ?
+    `, [custom_price, currency_type, stock_limit || 9999, restock_interval, available_from, available_until, shop_id, item_id]);
+
+    res.json({ message: 'Item updated successfully' });
+  } catch (error) {
+    console.error('Error updating item:', error);
+    res.status(500).json({ error: 'Failed to update item' });
+  }
+});
+
+// DELETE /api/admin/shop-items/:shop_id/:item_id - Xóa item khỏi shop
+app.delete('/api/admin/shop-items/:shop_id/:item_id', checkAdminRole, async (req, res) => {
+  const { shop_id, item_id } = req.params;
+
+  console.log('🗑️ Admin deleting item:', {
+    shop_id,
+    item_id
+  });
+
+  try {
+    const [result] = await db.query('DELETE FROM shop_items WHERE shop_id = ? AND item_id = ?', [shop_id, item_id]);
+    
+    console.log('📊 Delete result:', {
+      affectedRows: result.affectedRows,
+      shop_id,
+      item_id
+    });
+    
+    if (result.affectedRows === 0) {
+      console.log('❌ No rows affected - item not found');
+      return res.status(404).json({ error: 'Item not found in shop' });
+    }
+
+    res.json({ message: 'Item removed from shop successfully' });
+  } catch (error) {
+    console.error('Error removing item from shop:', error);
+    res.status(500).json({ error: 'Failed to remove item from shop' });
+  }
+});
+
+// PUT /api/admin/shops/:shop_id/restock-interval - Cập nhật restock interval cho shop
+app.put('/api/admin/shops/:shop_id/restock-interval', checkAdminRole, async (req, res) => {
+  const { shop_id } = req.params;
+  const { shop_restock_interval } = req.body;
+
+  try {
+    await db.query(`
+      UPDATE shop_definitions 
+      SET shop_restock_interval = ?
+      WHERE id = ?
+    `, [shop_restock_interval, shop_id]);
+
+    res.json({ message: 'Shop restock interval updated successfully' });
+  } catch (error) {
+    console.error('Error updating shop restock interval:', error);
+    res.status(500).json({ error: 'Failed to update shop restock interval' });
+  }
+});
+
+// GET /api/admin/shops/:shop_id/restock-interval - Lấy restock interval của shop
+app.get('/api/admin/shops/:shop_id/restock-interval', checkAdminRole, async (req, res) => {
+  const { shop_id } = req.params;
+
+  try {
+    const [rows] = await db.query(`
+      SELECT shop_restock_interval 
+      FROM shop_definitions 
+      WHERE id = ?
+    `, [shop_id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Shop not found' });
+    }
+
+    res.json({ shop_restock_interval: rows[0].shop_restock_interval });
+  } catch (error) {
+    console.error('Error fetching shop restock interval:', error);
+    res.status(500).json({ error: 'Failed to fetch shop restock interval' });
+  }
+});
+
+// GET /api/admin/items - Lấy danh sách tất cả items cho admin
+app.get('/api/admin/items', checkAdminRole, async (req, res) => {
+  try {
+    const [items] = await db.query(`
+      SELECT id, name, image_url, sell_price, type, description
+      FROM items 
+      ORDER BY type, name
+    `);
+    res.json(items);
+  } catch (error) {
+    console.error('Error fetching items:', error);
+    res.status(500).json({ error: 'Failed to fetch items' });
+  }
+});
+
+// GET /api/shop/:shop_code/last-restock - Lấy thời gian restock cuối cùng của shop
+app.get('/api/shop/:shop_code/last-restock', async (req, res) => {
+  const { shop_code } = req.params;
+
+  try {
+    const [rows] = await db.query(`
+      SELECT last_restock_time 
+      FROM shop_definitions 
+      WHERE code = ?
+    `, [shop_code]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Shop not found' });
+    }
+
+    res.json({ 
+      last_restock_time: rows[0].last_restock_time,
+      shop_code: shop_code 
+    });
+  } catch (error) {
+    console.error('Error fetching last restock time:', error);
+    res.status(500).json({ error: 'Failed to fetch last restock time' });
+  }
+});
+
+// PUT /api/admin/shops/:shop_id/last-restock - Cập nhật thời gian restock cuối cùng (admin only)
+app.put('/api/admin/shops/:shop_id/last-restock', checkAdminRole, async (req, res) => {
+  const { shop_id } = req.params;
+  const { last_restock_time } = req.body;
+
+  try {
+    await db.query(`
+      UPDATE shop_definitions 
+      SET last_restock_time = ?
+      WHERE id = ?
+    `, [last_restock_time, shop_id]);
+
+    res.json({ message: 'Last restock time updated successfully' });
+  } catch (error) {
+    console.error('Error updating last restock time:', error);
+    res.status(500).json({ error: 'Failed to update last restock time' });
+  }
+});
+
+// ================================ GLOBAL CONFIG MANAGEMENT ================================
+
+// GET /api/admin/global-config - Lấy tất cả global config
+app.get('/api/admin/global-config', checkAdminRole, async (req, res) => {
+  try {
+    const [configs] = await db.query(`
+      SELECT config_key, config_value, description, updated_at
+      FROM global_config 
+      ORDER BY config_key
+    `);
+    
+    // Convert array to object for easier access
+    const configObject = {};
+    configs.forEach(config => {
+      configObject[config.config_key] = {
+        value: config.config_value,
+        description: config.description,
+        updated_at: config.updated_at
+      };
+    });
+    
+    res.json(configObject);
+  } catch (error) {
+    console.error('Error fetching global config:', error);
+    res.status(500).json({ error: 'Failed to fetch global config' });
+  }
+});
+
+// PUT /api/admin/global-config/:config_key - Cập nhật global config
+app.put('/api/admin/global-config/:config_key', checkAdminRole, async (req, res) => {
+  const { config_key } = req.params;
+  const { config_value } = req.body;
+
+  try {
+    await db.query(`
+      UPDATE global_config 
+      SET config_value = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE config_key = ?
+    `, [config_value, config_key]);
+
+    res.json({ message: 'Global config updated successfully' });
+  } catch (error) {
+    console.error('Error updating global config:', error);
+    res.status(500).json({ error: 'Failed to update global config' });
+  }
+});
+
+// GET /api/global-reset-time - Lấy global reset time (public endpoint)
+app.get('/api/global-reset-time', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT config_value 
+      FROM global_config 
+      WHERE config_key = 'global_reset_time'
+    `);
+
+    if (rows.length === 0) {
+      return res.json({ global_reset_time: '06:00' }); // Default fallback
+    }
+
+    res.json({ global_reset_time: rows[0].config_value });
+  } catch (error) {
+    console.error('Error fetching global reset time:', error);
+    res.status(500).json({ error: 'Failed to fetch global reset time' });
   }
 });
 

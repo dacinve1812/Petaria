@@ -120,7 +120,7 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
     };
 
     fetchUserPets();
-  }, [userId, navigate]);
+  }, [userId]); // Remove navigate from dependencies
 
   // Fetch spirits when userId is available
   useEffect(() => {
