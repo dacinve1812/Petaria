@@ -1,7 +1,7 @@
 // ArenaBattlePage.js - Trang chiến đấu PvE
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import Navbar from '../Navbar';
+import TemplatePage from '../template/TemplatePage';
 import '../css/BattlePage.css';
 import '../css/ArenaBattlePage.css';
 import expTable from '../../data/exp_table_petaria.json';
@@ -11,8 +11,8 @@ function ArenaBattlePage() {
     const navigate = useNavigate();
     const { playerPet, enemyPet } = location.state || {};
   
-    const [player, setPlayer] = useState({ ...playerPet, current_hp: playerPet?.final_stats?.hp });
-    const [enemy, setEnemy] = useState({ ...enemyPet, current_hp: enemyPet?.final_stats?.hp });
+    const [player, setPlayer] = useState({ ...playerPet, current_hp: playerPet?.current_hp || playerPet?.final_stats?.hp });
+    const [enemy, setEnemy] = useState({ ...enemyPet, current_hp: enemyPet?.current_hp || enemyPet?.final_stats?.hp });
     const [turn, setTurn] = useState(0);
     const [log, setLog] = useState([]);
     const [autoMode, setAutoMode] = useState(false);
@@ -282,9 +282,26 @@ function ArenaBattlePage() {
         }
       };
     
+      // Save HP to database after battle
+      const savePlayerHP = async () => {
+        try {
+          await fetch(`${API_BASE_URL}/api/pets/${player.id}/update-hp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ current_hp: player.current_hp })
+          });
+        } catch (err) {
+          console.error('Error saving player HP:', err);
+        }
+      };
+
       useEffect(() => {
-        if (battleEnded && player.current_hp > 0) {
-          gainExpIfVictory();
+        if (battleEnded) {
+          if (player.current_hp > 0) {
+            gainExpIfVictory();
+          }
+          // Save HP after battle ends
+          savePlayerHP();
         }
       }, [battleEnded]);
 
@@ -292,9 +309,9 @@ function ArenaBattlePage() {
         // ✅ Sử dụng stats hiện tại của player (có thể đã level up)
         const newPlayer = { 
           ...player, 
-          current_hp: player.final_stats.hp 
+          current_hp: player.current_hp || player.final_stats.hp 
         };
-        const newEnemy = { ...enemyPet, current_hp: enemyPet.final_stats.hp };
+        const newEnemy = { ...enemyPet, current_hp: enemyPet.current_hp || enemyPet.final_stats.hp };
         setPlayer(newPlayer);
         setEnemy(newEnemy);
         setTurn(0);
@@ -319,9 +336,8 @@ function ArenaBattlePage() {
       }, [location.state?._refresh]);
 
     return (
-        <><Navbar />
-        <div className={`battle-page container ${resultEffect === 'win' ? 'battle-win' : resultEffect === 'lose' ? 'battle-lose' : ''}`}>
-          <header><img src="/images/buttons/banner.jpeg" alt="Banner" /></header>
+        <TemplatePage showSearch={false} showTabs={false}>
+        <div className={`battle-page-container ${resultEffect === 'win' ? 'battle-win' : resultEffect === 'lose' ? 'battle-lose' : ''}`}>
     
           <div className="battle-area">
             <div className="pet-side">
@@ -393,7 +409,7 @@ function ArenaBattlePage() {
               {player.current_hp > 0 ? '🎉 Thắng lợi!' : '💀 Thất bại!'}
               <div style={{ marginTop: '20px', textAlign: 'center' }}>
               <button onClick={() => {
-                navigate('/battle/pve/arena/arenabattle', {
+                navigate('/battle/arena/arenabattle', {
                     state: { playerPet: player, enemyPet, _refresh: Date.now() }
                         });
                     }}>
@@ -404,10 +420,14 @@ function ArenaBattlePage() {
             
           )}
 
-            <li><Link to="/battle/pve/arena">Quay lại Đấu trường</Link></li>
+            <div style={{ marginTop: '20px', textAlign: 'center' }}>
+              <Link to="/battle/arena" className="back-to-arena-btn">
+                ← Quay lại Đấu trường
+              </Link>
+            </div>
             
         </div>
-        </>
+        </TemplatePage>
       );
     }
 

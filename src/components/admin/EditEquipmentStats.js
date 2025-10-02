@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../Sidebar';
-import Navbar from '../Navbar';
 import { useUser } from '../../UserContext';
 
 function EditEquipmentStats() {
@@ -98,7 +97,6 @@ function EditEquipmentStats() {
       <div className="content">
         <Sidebar userId={user?.userId} isAdmin={user?.isAdmin} handleLogout={handleLogout} />
         <div className="main-content">
-          <Navbar />
           <h1>Quản lý chỉ số Equipment</h1>
             
           <form onSubmit={handleSubmit} className="admin-form-container">

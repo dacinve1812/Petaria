@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import './AdminUserManagement.css';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '../../UserContext';
+
 const AdminUserManagement = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading } = useUser();
   const [users, setUsers] = useState([]);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
@@ -17,72 +18,27 @@ const AdminUserManagement = () => {
   const [usersPerPage] = useState(10);
 
   useEffect(() => {
-    // Load user info
-    const token = localStorage.getItem('token');
-    const isAdmin = localStorage.getItem('isAdmin') === 'true';
-    
-    if (token) {
-      try {
-        const decoded = JSON.parse(atob(token.split('.')[1]));
-        setUser({
-          userId: decoded.userId,
-          isAdmin,
-          token,
-          role: isAdmin ? 'admin' : 'user'
-        });
-      } catch (err) {
-        console.error('Invalid token');
-        setUser(null);
-      }
-    } else {
-      setUser(null);
+    if (isLoading) return;
+    if (!user || !user.isAdmin) {
+      navigate('/login');
     }
-    
-    setLoading(false);
-  }, []);
+  }, [user, isLoading, navigate]);
 
   useEffect(() => {
-    if (user && user.isAdmin) {
+    if (user && user.isAdmin && user.token) {
       fetchUsers();
     }
-  }, [user, currentPage]);
+  }, [user?.isAdmin, user?.token, currentPage]);
 
   const fetchUsers = async () => {
+    if (!user || !user.token) return;
+    
     try {
-      console.log('Fetching users...');
-      const token = localStorage.getItem('token');
-      console.log('Token:', token);
-      
-      // Check if token exists and is valid
-      if (!token) {
-        setMessage('No authentication token found. Please login again.');
-        setMessageType('error');
-        return;
-      }
-      
-      // Decode token to check if it's valid
-      try {
-        const decoded = JSON.parse(atob(token.split('.')[1]));
-        console.log('Decoded token:', decoded);
-        
-        // Check if token is expired
-        if (decoded.exp && decoded.exp < Date.now() / 1000) {
-          setMessage('Token expired. Please login again.');
-          setMessageType('error');
-          return;
-        }
-      } catch (decodeError) {
-        console.error('Token decode error:', decodeError);
-        setMessage('Invalid token format. Please login again.');
-        setMessageType('error');
-        return;
-      }
-      
       const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
       const offset = (currentPage - 1) * usersPerPage;
       const response = await fetch(`${API_BASE_URL}/api/admin/users?page=${currentPage}&limit=${usersPerPage}&offset=${offset}`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${user.token}`
         }
       });
       
@@ -91,6 +47,14 @@ const AdminUserManagement = () => {
         setUsers(data.users || data);
         setTotalPages(data.totalPages || 1);
         setTotalUsers(data.totalUsers || (data.users ? data.users.length : data.length) || 0);
+      } else if (response.status === 403) {
+        setMessage('Access denied. Admin role required.');
+        setMessageType('error');
+        console.error('403 Forbidden - Not admin');
+      } else if (response.status === 401) {
+        setMessage('Unauthorized. Please login again.');
+        setMessageType('error');
+        console.error('401 Unauthorized - Invalid token');
       } else {
         const errorData = await response.json();
         setMessage(errorData.error || 'Failed to fetch users');
@@ -104,13 +68,15 @@ const AdminUserManagement = () => {
   };
 
   const updateUserRole = async (userId, newRole) => {
+    if (!user || !user.token) return;
+    
     try {
       const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
       const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/role`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${user.token}`
         },
         body: JSON.stringify({ role: newRole })
       });
@@ -131,13 +97,15 @@ const AdminUserManagement = () => {
   };
 
   const toggleVipStatus = async (userId, currentVipStatus) => {
+    if (!user || !user.token) return;
+    
     try {
       const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
       const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/vip`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${user.token}`
         },
         body: JSON.stringify({ is_vip: !currentVipStatus })
       });
@@ -168,7 +136,7 @@ const AdminUserManagement = () => {
   });
 
   // Show loading while user is being loaded
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="admin-user-management">
         <div className="access-denied">
@@ -185,6 +153,11 @@ const AdminUserManagement = () => {
         <div className="access-denied">
           <h2>Access Denied</h2>
           <p>You need admin privileges to access this page.</p>
+          <p className="debug-info">
+            User: {user ? 'Logged in' : 'Not logged in'}<br/>
+            Is Admin: {user?.isAdmin ? 'Yes' : 'No'}<br/>
+            Role: {user?.role || 'N/A'}
+          </p>
         </div>
       </div>
     );
@@ -246,7 +219,7 @@ const AdminUserManagement = () => {
       </div>
 
       <div className="users-table-container">
-        {loading ? (
+        {users.length === 0 ? (
           <div className="loading">Loading users...</div>
         ) : (
           <table className="users-table">

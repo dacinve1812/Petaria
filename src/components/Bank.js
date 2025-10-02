@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../UserContext';
-import GlobalBanner from './GlobalBanner';
+import TemplatePage from './template/TemplatePage';
 import { resolveAssetPath } from '../utils/pathUtils';
 import './Bank.css';
 
@@ -250,65 +250,45 @@ function Bank() {
 
   if (isLoading) {
     return (
-      <div className="bank-page-container">
-        <GlobalBanner
-          backgroundImage={resolveAssetPath('/images/background/bank.jpg')}
-          title="Ngân Hàng"
-          showBackButton={true}
-          className="small"
-        />
-        <div className="bank-content">
-          <div className="loading">Đang tải...</div>
+      <TemplatePage showSearch={false} showTabs={false}>
+        <div className="bank-page-container">
+          <div className="bank-content">
+            <div className="loading">Đang tải...</div>
+          </div>
         </div>
-      </div>
+      </TemplatePage>
     );
   }
 
   if (loading) {
     return (
-      <div className="bank-page-container">
-        <GlobalBanner
-          backgroundImage={resolveAssetPath('/images/background/bank.jpg')}
-          title="Ngân Hàng"
-          showBackButton={true}
-          className="small"
-        />
-        <div className="bank-content">
-          <div className="loading">Đang tải...</div>
+      <TemplatePage showSearch={false} showTabs={false}>
+        <div className="bank-page-container">
+          <div className="bank-content">
+            <div className="loading">Đang tải...</div>
+          </div>
         </div>
-      </div>
+      </TemplatePage>
     );
   }
 
   if (!user) {
     return (
-      <div className="bank-page-container">
-        <GlobalBanner
-          backgroundImage={resolveAssetPath('/images/background/bank.jpg')}
-          title="Ngân Hàng"
-          showBackButton={true}
-          className="small"
-        />
-        <div className="bank-content">
-          <div className="error">Vui lòng đăng nhập để sử dụng ngân hàng</div>
+      <TemplatePage showSearch={false} showTabs={false}>
+        <div className="bank-page-container">
+          <div className="bank-content">
+            <div className="error">Vui lòng đăng nhập để sử dụng ngân hàng</div>
+          </div>
         </div>
-      </div>
+      </TemplatePage>
     );
   }
 
   return (
-    <div className="bank-page-container">
-      {/* Banner section */}
-      <GlobalBanner
-        backgroundImage={resolveAssetPath("/images/background/pet-bg-2.jpg")}
-        title={false}
-        showBackButton={true}
-        className="small"
-        backgroundPosition="70% 70%"
-      />
-      
-      {/* Bank content */}
-      <div className="bank-content">
+    <TemplatePage showSearch={false} showTabs={false}>
+      <div className="bank-page-container">
+        {/* Bank content */}
+        <div className="bank-content">
         {error && <div className="error-message">{error}</div>}
         {success && <div className="success-message">{success}</div>}
 
@@ -326,7 +306,6 @@ function Bank() {
         <>
           {/* Bank Info */}
       <div className="bank-info">
-      <h3>Ngân Hàng Petaria</h3>
       <div>Chào mừng bạn đến tới ngân hàng Petaria. Tại đây bạn có thể <strong>Gửi tiền</strong> và <strong>Rút tiền</strong> vào ngân hàng với lãi suất hấp dẫn!</div>
       <div>Bạn nên ghé ngân hàng mỗi ngày để nhận tiền lãi của ngày hôm trước nhé !!</div>
       
@@ -468,9 +447,9 @@ function Bank() {
       )}
       
 
-      </div>
+        </div>
 
-      {/* Transaction Logs Modal */}
+        {/* Transaction Logs Modal */}
       {showTransactionLogs && (
         <div className="modal-overlay" onClick={() => setShowTransactionLogs(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -511,7 +490,8 @@ function Bank() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </TemplatePage>
   );
 }
 

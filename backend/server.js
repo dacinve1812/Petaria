@@ -3106,34 +3106,6 @@ app.post('/api/admin/mails/send', async (req, res) => {
   }
 });
 
-// POST /api/admin/mails/system-send - System auto send mail
-app.post('/api/admin/mails/system-send', async (req, res) => {
-  const { 
-    user_id, 
-    subject, 
-    message, 
-    attached_rewards,
-    expire_days = 7 
-  } = req.body;
-
-  try {
-    const expireAt = new Date();
-    expireAt.setDate(expireAt.getDate() + expire_days);
-
-    const rewardsJson = attached_rewards ? JSON.stringify(attached_rewards) : null;
-    
-    await db.query(`
-      INSERT INTO mails (user_id, sender_type, sender_name, subject, message, attached_rewards, expire_at)
-      VALUES (?, 'system', 'Hệ thống', ?, ?, ?, ?)
-    `, [user_id, subject, message, rewardsJson, expireAt]);
-
-    res.json({ success: true, message: 'Gửi system mail thành công!' });
-  } catch (err) {
-    console.error('Lỗi khi gửi system mail:', err);
-    res.status(500).json({ error: 'Lỗi khi gửi system mail' });
-  }
-});
-
 // ======================================================== MAIL CLEANUP ========================================================
 
 // Auto cleanup expired mails (có thể chạy bằng cron job)
@@ -3923,6 +3895,93 @@ const checkAdminRole = async (req, res, next) => {
   }
 };
 
+// POST /api/admin/mails/system-send - System auto send mail (single user)
+app.post('/api/admin/mails/system-send', checkAdminRole, async (req, res) => {
+  const { 
+    user_id, 
+    subject, 
+    message, 
+    attached_rewards,
+    expire_days = 7 
+  } = req.body;
+
+  try {
+    // Check if user exists
+    const [userCheck] = await db.query('SELECT id FROM users WHERE id = ?', [user_id]);
+    
+    if (userCheck.length === 0) {
+      return res.status(404).json({ error: `User ID ${user_id} không tồn tại` });
+    }
+
+    const expireAt = new Date();
+    expireAt.setDate(expireAt.getDate() + expire_days);
+
+    const rewardsJson = attached_rewards ? JSON.stringify(attached_rewards) : null;
+    
+    await db.query(`
+      INSERT INTO mails (user_id, sender_type, sender_name, subject, message, attached_rewards, expire_at)
+      VALUES (?, 'system', 'Hệ thống', ?, ?, ?, ?)
+    `, [user_id, subject, message, rewardsJson, expireAt]);
+
+    res.json({ success: true, message: 'Gửi system mail thành công!' });
+  } catch (err) {
+    console.error('Lỗi khi gửi system mail:', err);
+    res.status(500).json({ error: 'Lỗi khi gửi system mail', details: err.message });
+  }
+});
+
+// POST /api/admin/mails/broadcast - Send mail to all users
+app.post('/api/admin/mails/broadcast', checkAdminRole, async (req, res) => {
+  const { 
+    subject, 
+    message, 
+    attached_rewards,
+    expire_days = 7 
+  } = req.body;
+
+  try {
+    // Get all users
+    const [allUsers] = await db.query('SELECT id FROM users');
+    
+    if (allUsers.length === 0) {
+      return res.status(404).json({ error: 'Không có user nào trong hệ thống' });
+    }
+
+    const expireAt = new Date();
+    expireAt.setDate(expireAt.getDate() + expire_days);
+
+    const rewardsJson = attached_rewards ? JSON.stringify(attached_rewards) : null;
+    
+    let sentCount = 0;
+    let errorCount = 0;
+
+    // Send mail to each user
+    for (const user of allUsers) {
+      try {
+        await db.query(`
+          INSERT INTO mails (user_id, sender_type, sender_name, subject, message, attached_rewards, expire_at)
+          VALUES (?, 'system', 'Hệ thống', ?, ?, ?, ?)
+        `, [user.id, subject, message, rewardsJson, expireAt]);
+        sentCount++;
+      } catch (err) {
+        console.error(`Error sending mail to user ${user.id}:`, err);
+        errorCount++;
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: `Gửi mail thành công đến ${sentCount}/${allUsers.length} users`,
+      sent_count: sentCount,
+      error_count: errorCount,
+      total_users: allUsers.length
+    });
+  } catch (err) {
+    console.error('Lỗi khi broadcast mail:', err);
+    res.status(500).json({ error: 'Lỗi khi broadcast mail', details: err.message });
+  }
+});
+
 // GET /api/admin/bank/interest-rates - Lấy lãi suất hiện tại
 app.get('/api/admin/bank/interest-rates', checkAdminRole, async (req, res) => {
   try {
@@ -4369,6 +4428,318 @@ app.get('/api/global-reset-time', async (req, res) => {
   } catch (error) {
     console.error('Error fetching global reset time:', error);
     res.status(500).json({ error: 'Failed to fetch global reset time' });
+  }
+});
+
+// ========================================
+// PERSISTENT HP SYSTEM API ENDPOINTS
+// ========================================
+
+// POST /api/pets/:petId/update-hp - Update pet's current HP
+app.post('/api/pets/:petId/update-hp', async (req, res) => {
+  const { petId } = req.params;
+  const { current_hp } = req.body;
+
+  try {
+    // Validate current_hp
+    if (current_hp === undefined || current_hp < 0) {
+      return res.status(400).json({ error: 'Invalid current_hp value' });
+    }
+
+    // Get pet's max_hp to validate
+    const [petRows] = await db.query(
+      'SELECT final_stats FROM pets WHERE id = ?',
+      [petId]
+    );
+
+    if (petRows.length === 0) {
+      return res.status(404).json({ error: 'Pet not found' });
+    }
+
+    const pet = petRows[0];
+    const maxHp = JSON.parse(pet.final_stats).hp;
+    
+    // Ensure current_hp doesn't exceed max_hp
+    const validCurrentHp = Math.min(current_hp, maxHp);
+
+    // Update current_hp
+    await db.query(
+      'UPDATE pets SET current_hp = ? WHERE id = ?',
+      [validCurrentHp, petId]
+    );
+
+    res.json({ 
+      message: 'HP updated successfully',
+      pet_id: petId,
+      current_hp: validCurrentHp,
+      max_hp: maxHp
+    });
+  } catch (error) {
+    console.error('Error updating pet HP:', error);
+    res.status(500).json({ error: 'Failed to update pet HP' });
+  }
+});
+
+// GET /api/pets/:petId/current-hp - Get pet's current HP
+app.get('/api/pets/:petId/current-hp', async (req, res) => {
+  const { petId } = req.params;
+
+  try {
+    const [rows] = await db.query(
+      'SELECT id, name, current_hp, final_stats FROM pets WHERE id = ?',
+      [petId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Pet not found' });
+    }
+
+    const pet = rows[0];
+    const finalStats = JSON.parse(pet.final_stats);
+    const maxHp = finalStats.hp;
+
+    res.json({
+      pet_id: pet.id,
+      name: pet.name,
+      current_hp: pet.current_hp || maxHp,
+      max_hp: maxHp,
+      hp_percentage: Math.round(((pet.current_hp || maxHp) / maxHp) * 100)
+    });
+  } catch (error) {
+    console.error('Error fetching pet HP:', error);
+    res.status(500).json({ error: 'Failed to fetch pet HP' });
+  }
+});
+
+// ========================================
+// HEALIA RIVER API ENDPOINTS
+// ========================================
+
+// GET /api/healia-river/status - Check if user can use Healia River
+app.get('/api/healia-river/status', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+
+    // Check if user is in battle
+    const [battleRows] = await db.query(
+      'SELECT id FROM one_player_battles2 WHERE userid = ?',
+      [userId]
+    );
+
+    if (battleRows.length > 0) {
+      return res.json({
+        canUse: false,
+        reason: 'battle',
+        message: 'You cannot use this while you\'re in a battle.'
+      });
+    }
+
+    // Check if user is VIP
+    const [userRows] = await db.query(
+      'SELECT is_vip FROM users WHERE id = ?',
+      [userId]
+    );
+    const isVip = userRows.length > 0 && userRows[0].is_vip;
+
+    // Check cooldown (15 min for VIP, 30 min for normal)
+    const [cooldownRows] = await db.query(
+      'SELECT last_used FROM user_cooldowns WHERE user_id = ? AND action_type = ?',
+      [userId, 'healia_river']
+    );
+
+    if (cooldownRows.length === 0) {
+      return res.json({
+        canUse: true,
+        timeLeft: 0,
+        nextAvailable: null
+      });
+    }
+
+    const lastUsed = new Date(cooldownRows[0].last_used);
+    const now = new Date();
+    const cooldownMs = isVip ? 15 * 60 * 1000 : 30 * 60 * 1000; // 15 min VIP, 30 min normal
+    const timeLeft = Math.max(0, cooldownMs - (now - lastUsed));
+
+    if (timeLeft === 0) {
+      return res.json({
+        canUse: true,
+        timeLeft: 0,
+        nextAvailable: null
+      });
+    }
+
+    const nextAvailable = new Date(now.getTime() + timeLeft);
+    const cooldownMinutes = isVip ? 15 : 30;
+
+    return res.json({
+      canUse: false,
+      reason: 'cooldown',
+      timeLeft: Math.ceil(timeLeft / 1000), // seconds
+      nextAvailable: nextAvailable.toISOString(),
+      message: `You can only drink the water from the fountain every ${cooldownMinutes} minutes. Please come back after`
+    });
+  } catch (error) {
+    console.error('Error checking Healia River status:', error);
+    res.status(500).json({ error: 'Failed to check Healia River status' });
+  }
+});
+
+// POST /api/healia-river/heal - Use Healia River to heal pets
+app.post('/api/healia-river/heal', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+
+    // Check if user is in battle
+    const [battleRows] = await db.query(
+      'SELECT id FROM one_player_battles2 WHERE userid = ?',
+      [userId]
+    );
+
+    if (battleRows.length > 0) {
+      return res.status(400).json({ 
+        error: 'You cannot use this while you\'re in a battle.' 
+      });
+    }
+
+    // Check if user is VIP
+    const [userRows] = await db.query(
+      'SELECT is_vip FROM users WHERE id = ?',
+      [userId]
+    );
+    const isVip = userRows.length > 0 && userRows[0].is_vip;
+
+    // Check cooldown (15 min for VIP, 30 min for normal)
+    const [cooldownRows] = await db.query(
+      'SELECT last_used FROM user_cooldowns WHERE user_id = ? AND action_type = ?',
+      [userId, 'healia_river']
+    );
+
+    if (cooldownRows.length > 0) {
+      const lastUsed = new Date(cooldownRows[0].last_used);
+      const now = new Date();
+      const cooldownMs = isVip ? 15 * 60 * 1000 : 30 * 60 * 1000; // 15 min VIP, 30 min normal
+      const timeLeft = Math.max(0, cooldownMs - (now - lastUsed));
+
+      if (timeLeft > 0) {
+        const cooldownMinutes = isVip ? 15 : 30;
+        return res.status(400).json({ 
+          error: `You can only drink the water from the fountain every ${cooldownMinutes} minutes. Please come back later.` 
+        });
+      }
+    }
+
+    // Get user's pets (not NPC/arena pets)
+    console.log('Getting pets for user:', userId);
+    const [petRows] = await db.query(
+      'SELECT id, name, current_hp, final_stats FROM pets WHERE owner_id = ? AND is_npc = 0 AND is_arena_enemy = 0',
+      [userId]
+    );
+    console.log('Found pets:', petRows.length);
+
+    if (petRows.length === 0) {
+      return res.status(400).json({ 
+        error: 'You don\'t have any pets to heal.' 
+      });
+    }
+
+    // Random heal logic (80% chance: heal 85% maxHP, 20% chance: full heal)
+    const randHeal = Math.floor(Math.random() * 5) + 1;
+    let isFullHeal = false;
+
+    if (randHeal <= 4) {
+      // 80% chance: heal 85% of maxHP
+      for (const pet of petRows) {
+        // Handle both JSON string and object
+        let finalStats;
+        if (typeof pet.final_stats === 'string') {
+          finalStats = JSON.parse(pet.final_stats);
+        } else {
+          finalStats = pet.final_stats;
+        }
+        
+        const maxHp = finalStats.hp;
+        const currentHp = pet.current_hp || maxHp;
+        const healAmount = Math.floor(maxHp * 0.85); // 85% of maxHP
+        const newHp = Math.min(currentHp + healAmount, maxHp);
+        
+        await db.query(
+          'UPDATE pets SET current_hp = ? WHERE id = ?',
+          [newHp, pet.id]
+        );
+      }
+    } else {
+      // 20% chance: full heal
+      isFullHeal = true;
+      
+      for (const pet of petRows) {
+        // Handle both JSON string and object
+        let finalStats;
+        if (typeof pet.final_stats === 'string') {
+          finalStats = JSON.parse(pet.final_stats);
+        } else {
+          finalStats = pet.final_stats;
+        }
+        
+        const maxHp = finalStats.hp;
+        
+        await db.query(
+          'UPDATE pets SET current_hp = ? WHERE id = ?',
+          [maxHp, pet.id]
+        );
+      }
+    }
+
+    // Update cooldown
+    const now = new Date();
+    if (cooldownRows.length > 0) {
+      await db.query(
+        'UPDATE user_cooldowns SET last_used = ? WHERE user_id = ? AND action_type = ?',
+        [now, userId, 'healia_river']
+      );
+    } else {
+      await db.query(
+        'INSERT INTO user_cooldowns (user_id, action_type, last_used) VALUES (?, ?, ?)',
+        [userId, 'healia_river', now]
+      );
+    }
+
+    res.json({
+      success: true,
+      isFullHeal,
+      message: isFullHeal 
+        ? 'All of your pets have been fully healed!'
+        : 'All of your pets have been healed a part!',
+      nextAvailable: new Date(now.getTime() + (isVip ? 15 * 60 * 1000 : 30 * 60 * 1000)).toISOString()
+    });
+  } catch (error) {
+    console.error('Error using Healia River:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      errno: error.errno,
+      sqlState: error.sqlState,
+      sqlMessage: error.sqlMessage
+    });
+    res.status(500).json({ 
+      error: 'Failed to use Healia River',
+      details: error.message,
+      code: error.code
+    });
   }
 });
 

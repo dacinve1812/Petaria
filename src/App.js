@@ -19,7 +19,6 @@ import EditItemEffects from './components/admin/EditItemEffects';
 import ShopPage from './components/ShopPage';
 import EditShopItems from './components/admin/EditShopItems';
 import AdminCreatePet from './components/admin/AdminCreatePet';
-import BattlePage from './components/battle/BattlePage';
 import ArenaPage from './components/battle/ArenaPage';
 import PveSelectPage from './components/battle/PveSelectPage';
 import ArenaBattlePage from './components/battle/ArenaBattlePage';
@@ -42,6 +41,8 @@ import AdminUserManagement from './components/admin/AdminUserManagement';
 import AuctionList from './components/auction/AuctionList';
 import AuctionDetail from './components/auction/AuctionDetail';
 import CreateAuction from './components/auction/CreateAuction';
+import MailPage from './components/MailPage';
+import HealiaRiverPage from './components/HealiaRiverPage';
 import ExampleTemplatePage from './components/template/ExampleTemplatePage';
 
 function App() {
@@ -71,14 +72,13 @@ function App() {
               <Route path="shop" element={<ShopPage />} />
               <Route path="admin/edit-shop-items" element={<EditShopItems />} />
               <Route path="admin/create-pet" element={<AdminCreatePet />} />
-              <Route path="battle" element={<BattlePage />} />
-              <Route path="battle/pve" element={<PveSelectPage />} />
-              <Route path="battle/pve/arena" element={<ArenaPage />} />
+              <Route path="battle" element={<PveSelectPage />} />
+              <Route path="battle/arena" element={<ArenaPage />} />
               <Route path="admin/create-arena-pet" element={<AdminAddPetForBattle />} />
               <Route path="admin/spirits" element={<AdminSpiritEditor />} />
               <Route path="admin/site-management" element={<SiteManagement />} />
               <Route path="management" element={<MyStuffManagement />} />
-              <Route path="battle/pve/arena/arenabattle" element={<ArenaBattlePage />} />
+              <Route path="battle/arena/arenabattle" element={<ArenaBattlePage />} />
               <Route path="home-ver2" element={<HomePage />} />
               <Route path="pokedex" element={<PokedexPage />} />
               <Route path="cultivate" element={<CultivatePage />} />
@@ -92,6 +92,8 @@ function App() {
               <Route path="dev-dashboard" element={<DevDashboard />} />
               <Route path="map-tool" element={<MapCoordinateTool />} />
               <Route path="bank" element={<Bank />} />
+              <Route path="mail" element={<MailPage />} />
+              <Route path="healia-river" element={<HealiaRiverPage />} />
               <Route path="auction" element={<AuctionList />} />
               <Route path="auction/:id" element={<AuctionDetail />} />
               <Route path="auction/create" element={<CreateAuction />} />

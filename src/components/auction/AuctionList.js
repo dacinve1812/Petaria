@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
-import GlobalBanner from '../GlobalBanner';
+import TemplatePage from '../template/TemplatePage';
 import './AuctionList.css';
 
 const AuctionList = () => {
@@ -196,26 +196,16 @@ const AuctionList = () => {
 
   if (loading) {
     return (
-      <div className="auction-list-container">
-        <div className="auction-loading">Loading auctions...</div>
-      </div>
+      <TemplatePage showSearch={false} showTabs={false}>
+        <div className="auction-list-container">
+          <div className="auction-loading">Loading auctions...</div>
+        </div>
+      </TemplatePage>
     );
   }
 
   return (
-    <>
-      {/* Global Banner */}
-      <GlobalBanner
-        backgroundImage="/images/background/banner-1.jpeg"
-        title="Auction House"
-        subtitle="Trade your items with other players"
-        showBackButton={true}
-        className="small"
-        overlay={true}
-      />
-
-      {/* Navigation Menu */}
-
+    <TemplatePage showSearch={false} showTabs={false}>
       <div className="auction-list-container">
         {/* Tooltip */}
         {tooltip.show && (
@@ -420,7 +410,7 @@ const AuctionList = () => {
         </div>
       )}
       </div>
-    </>
+    </TemplatePage>
   );
 };
 

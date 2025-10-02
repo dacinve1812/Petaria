@@ -6,6 +6,7 @@ import './AdminMailTest.css';
 const AdminMailTest = () => {
   const { user, isLoading } = useUser();
   const navigate = useNavigate();
+  const [recipientType, setRecipientType] = useState('single'); // 'single' or 'all'
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedMailType, setSelectedMailType] = useState('1');
   const [loading, setLoading] = useState(false);
@@ -205,7 +206,7 @@ const AdminMailTest = () => {
   };
 
   const handleSendMail = async () => {
-    if (!selectedUserId) {
+    if (recipientType === 'single' && !selectedUserId) {
       setMessage('Vui lòng chọn User ID');
       return;
     }
@@ -215,29 +216,52 @@ const AdminMailTest = () => {
 
     try {
       const subject = customMode ? customSubject : mailTemplates.find(t => t.id === selectedMailType)?.subject;
-      const message = customMode ? customMessage : mailTemplates.find(t => t.id === selectedMailType)?.message;
+      const messageText = customMode ? customMessage : mailTemplates.find(t => t.id === selectedMailType)?.message;
       const attached_rewards = getCurrentRewards();
       
-      const response = await fetch(`${API_BASE_URL}/api/admin/mails/system-send`, {
+      // Choose endpoint based on recipient type
+      const endpoint = recipientType === 'all' 
+        ? `${API_BASE_URL}/api/admin/mails/broadcast`
+        : `${API_BASE_URL}/api/admin/mails/system-send`;
+      
+      const body = recipientType === 'all'
+        ? {
+            subject,
+            message: messageText,
+            attached_rewards,
+            expire_days: 30
+          }
+        : {
+            user_id: parseInt(selectedUserId),
+            subject,
+            message: messageText,
+            attached_rewards,
+            expire_days: 30
+          };
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`,
         },
-        body: JSON.stringify({
-          user_id: parseInt(selectedUserId),
-          subject,
-          message,
-          attached_rewards,
-          expire_days: 30
-        }),
+        body: JSON.stringify(body),
       });
 
       if (response.ok) {
         const result = await response.json();
-        setMessage(`✅ Gửi mail thành công: ${subject}`);
+        if (recipientType === 'all') {
+          setMessage(`✅ Gửi mail thành công đến ${result.sent_count || 'tất cả'} users: ${subject}`);
+        } else {
+          setMessage(`✅ Gửi mail thành công: ${subject}`);
+        }
       } else {
         const errorData = await response.json();
-        setMessage(`❌ Lỗi: ${errorData.error || 'Không thể gửi mail'}`);
+        if (response.status === 404) {
+          setMessage(`❌ Lỗi: User ID ${selectedUserId} không tồn tại trong hệ thống`);
+        } else {
+          setMessage(`❌ Lỗi: ${errorData.error || 'Không thể gửi mail'}`);
+        }
       }
     } catch (error) {
       console.error('Error sending mail:', error);
@@ -248,7 +272,7 @@ const AdminMailTest = () => {
   };
 
   const handleSendAllMails = async () => {
-    if (!selectedUserId) {
+    if (recipientType === 'single' && !selectedUserId) {
       setMessage('Vui lòng chọn User ID');
       return;
     }
@@ -268,6 +292,7 @@ const AdminMailTest = () => {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.token}`,
               },
               body: JSON.stringify({
                 user_id: parseInt(selectedUserId),
@@ -295,6 +320,7 @@ const AdminMailTest = () => {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.token}`,
               },
               body: JSON.stringify({
                 user_id: parseInt(selectedUserId),
@@ -338,15 +364,28 @@ const AdminMailTest = () => {
 
       <div className="admin-mail-test-content">
         <div className="form-group">
-          <label>User ID:</label>
-          <input
-            type="number"
-            value={selectedUserId}
-            onChange={(e) => setSelectedUserId(e.target.value)}
-            placeholder="Nhập User ID"
-            min="1"
-          />
+          <label>Gửi đến:</label>
+          <select
+            value={recipientType}
+            onChange={(e) => setRecipientType(e.target.value)}
+          >
+            <option value="single">1 User cụ thể</option>
+            <option value="all">Tất cả Users</option>
+          </select>
         </div>
+
+        {recipientType === 'single' && (
+          <div className="form-group">
+            <label>User ID:</label>
+            <input
+              type="number"
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              placeholder="Nhập User ID"
+              min="1"
+            />
+          </div>
+        )}
 
         <div className="form-group">
           <label>

@@ -1,8 +1,6 @@
 .admin-mail-test {
-  max-width: 800px;
-  margin: 0 auto;
   padding: 20px;
-  font-family: Arial, sans-serif;
+  background: #f8f9fa;
 }
 
 .admin-mail-test-header {

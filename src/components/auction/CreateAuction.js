@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
-import GlobalBanner from '../GlobalBanner';
+import TemplatePage from '../template/TemplatePage';
 import './CreateAuction.css';
 
 const CreateAuction = () => {
@@ -138,27 +138,16 @@ const CreateAuction = () => {
 
   if (loading) {
     return (
-      <div className="create-auction-container">
-        <div className="create-auction-loading">Loading your items...</div>
-      </div>
+      <TemplatePage showSearch={false} showTabs={false}>
+        <div className="create-auction-container">
+          <div className="create-auction-loading">Loading your items...</div>
+        </div>
+      </TemplatePage>
     );
   }
 
   return (
-    <>
-      {/* Global Banner */}
-      <GlobalBanner
-        backgroundImage="/images/background/banner-1.jpeg"
-        title="Create New Auction"
-        subtitle="List your items for sale"
-        showBackButton={true}
-        onBackClick={() => navigate('/auction')}
-        className="small"
-        overlay={true}
-      />
-
-      {/* Navigation Menu */}
-
+    <TemplatePage showSearch={false} showTabs={false}>
       <div className="page-container">
         <div className="create-auction-header">
           <button onClick={() => navigate('/auction')} className="create-auction-back-btn">
@@ -329,7 +318,7 @@ const CreateAuction = () => {
         </form>
       </div>
     </div>
-  </>   
+  </TemplatePage>   
   );
 };
 

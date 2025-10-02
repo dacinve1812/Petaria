@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import BackButton from './BackButton';
+import TemplatePage from './template/TemplatePage';
 import './MyStuffManagement.css';
 
 function MyStuffManagement() {
@@ -61,7 +61,7 @@ function MyStuffManagement() {
       id: 'arena',
       title: 'Arena',
       backgroundImage: '/images/background/myarena.jpg',
-      path: '/battle/pve',
+      path: '/battle',
       description: 'Đấu trường và PvP'
     },
     {
@@ -84,24 +84,11 @@ function MyStuffManagement() {
     navigate(item.path);
   };
 
-  const handleBack = () => {
-    navigate(-1);
-  };
-
   return (
-    <div className="my-stuff-management">
-      {/* Banner section */}
-      <div className="management-banner">
-        <BackButton onClick={handleBack} />
-        <div className="banner-content">
-          <div className="banner-center">
-            <h2>My Stuff Management</h2>
-          </div>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="management-main">
+    <TemplatePage showSearch={false} showTabs={false}>
+      <div className="my-stuff-management">
+        {/* Main content */}
+        <div className="management-main">
         <div className="management-grid">
           {managementItems.map(item => (
             <div 
@@ -123,8 +110,9 @@ function MyStuffManagement() {
             </div>
           ))}
         </div>
+        </div>
       </div>
-    </div>
+    </TemplatePage>
   );
 }
 

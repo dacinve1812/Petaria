@@ -1,101 +1,111 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { UserContext } from '../UserContext';
+import TemplatePage from './template/TemplatePage';
 import './UserProfile.css'; // Tạo file UserProfile.css
-import Navbar from './Navbar';
 
 function UserProfile() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
-  const { userId } = useParams();
-  const [user, setUser] = useState(null);
+  const { userId: urlUserId } = useParams();
+  const { user: currentUser, isLoading } = React.useContext(UserContext);
+  const [profileUser, setProfileUser] = useState(null);
   const navigate = useNavigate();
-  const [currentUserId, setCurrentUserId] = useState(null); // Thêm state currentUserId
-  const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (isLoading) return; // Wait for user context to load
+    if (!currentUser) {
       navigate('/login');
-    } else {
-      try {
-        const decodedToken = JSON.parse(atob(token.split('.')[1]));
-        setCurrentUserId(decodedToken.userId); // Set currentUserId
-        // Nếu userId không được cung cấp trong URL, sử dụng currentUserId
-        const idToFetch = userId ? userId : decodedToken.userId;
-        fetch(`${API_BASE_URL}/users/${idToFetch}`)
-          .then((response) => response.json())
-          .then((data) => setUser(data))
-          .catch((error) => console.error('Error fetching user:', error));
-      } catch (err) {
-        console.error('Error decoding token:', err);
-        navigate('/login');
-      }
+      return;
     }
-  }, [userId, navigate]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
-  };
+    // Nếu userId không được cung cấp trong URL, sử dụng currentUser.userId
+    const idToFetch = urlUserId ? urlUserId : currentUser.userId;
+    
+    fetch(`${API_BASE_URL}/users/${idToFetch}`, {
+      headers: { 'Authorization': `Bearer ${currentUser.token}` }
+    })
+      .then((response) => response.json())
+      .then((data) => setProfileUser(data))
+      .catch((error) => console.error('Error fetching user:', error));
+  }, [urlUserId, currentUser, isLoading, navigate, API_BASE_URL]);
 
-  if (!user) {
-    return <div>Loading...</div>;
+  if (isLoading) {
+    return (
+      <TemplatePage showSearch={false} showTabs={false}>
+        <div className="profile-page-container">
+          <div className="loading">Đang tải...</div>
+        </div>
+      </TemplatePage>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <TemplatePage showSearch={false} showTabs={false}>
+        <div className="profile-page-container">
+          <div className="error">Vui lòng đăng nhập</div>
+        </div>
+      </TemplatePage>
+    );
+  }
+
+  if (!profileUser) {
+    return (
+      <TemplatePage showSearch={false} showTabs={false}>
+        <div className="profile-page-container">
+          <div className="loading">Đang tải thông tin...</div>
+        </div>
+      </TemplatePage>
+    );
   }
 
   return (
-    <div className="container">
-      <header>
-        <img src="/images/buttons/banner.jpeg" alt="Banner Petaria" />
-      </header>
-      <div className="content">
-        {/* <Sidebar userId={currentUserId} handleLogout={handleLogout} isAdmin={isAdmin} /> */}
-        <div className="main-content">
-          <Navbar />
-          <div className="header-free">
-            <p>•❅──────✧❅•๖ۣۜŤOP✮VŇ•✦❅✧──────❅ </p>
-          </div>
-          <div className="user-profile">
+    <TemplatePage showSearch={false} showTabs={false}>
+      <div className="profile-page-container">
+        <div className="header-free">
+          <p>•❅──────✧❅•๖ۣۜŤOP✮VŇ•✦❅✧──────❅ </p>
+        </div>
+        <div className="user-profile">
           <div className="profile-details">
-                <p>
-                <strong>Tài Khoản:</strong> { '⭐⭐'+user.username +'⭐⭐'|| 'Chưa cập nhật'}
-              </p>
-              <p>
-                <strong>Tên thật:</strong> {user.real_name || 'Chưa cập nhật'}
-              </p>
-              <p>
-                <strong>Gold:</strong> {user.gold}
-              </p>
-              <p>
-                <strong>PetaGold:</strong> {user.petagold}
-              </p>
-              <p>
-                <strong>Bang hội:</strong> {user.guild || 'Chưa có'}
-              </p>
-              <p>
-                <strong>Danh hiệu:</strong> {user.title || 'Chưa có'}
-              </p>
-              <p>
-                <strong>Hạng:</strong> {user.ranking || 'Chưa có'}
-              </p>
-              <p>
-                <strong>Tình trạng:</strong> {user.online_status ? 'Online' : 'Offline'}
-              </p>
-              <p>
-                <strong>Ngày sinh:</strong> {user.birthday || 'Chưa cập nhật'}
-              </p>
-            </div>
-            <div className="profile-header">
-              <img
-                src="/images/character/knight_warrior.jpg"
-                alt="Profile"
-                className="profile-picture"
-              />
-              <h2>{user.username}</h2>
-            </div>
-            
+            <p>
+              <strong>Tài Khoản:</strong> { '⭐⭐'+profileUser.username +'⭐⭐'|| 'Chưa cập nhật'}
+            </p>
+            <p>
+              <strong>Tên thật:</strong> {profileUser.real_name || 'Chưa cập nhật'}
+            </p>
+            <p>
+              <strong>Gold:</strong> {profileUser.gold}
+            </p>
+            <p>
+              <strong>PetaGold:</strong> {profileUser.petagold}
+            </p>
+            <p>
+              <strong>Bang hội:</strong> {profileUser.guild || 'Chưa có'}
+            </p>
+            <p>
+              <strong>Danh hiệu:</strong> {profileUser.title || 'Chưa có'}
+            </p>
+            <p>
+              <strong>Hạng:</strong> {profileUser.ranking || 'Chưa có'}
+            </p>
+            <p>
+              <strong>Tình trạng:</strong> {profileUser.online_status ? 'Online' : 'Offline'}
+            </p>
+            <p>
+              <strong>Ngày sinh:</strong> {profileUser.birthday || 'Chưa cập nhật'}
+            </p>
+          </div>
+          <div className="profile-header">
+            <img
+              src="/images/character/knight_warrior.jpg"
+              alt="Profile"
+              className="profile-picture"
+            />
+            <h2>{profileUser.username}</h2>
           </div>
         </div>
       </div>
-    </div>
+    </TemplatePage>
   );
 }
 

@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../css/AdminCreatePet.css';
 import Sidebar from '../Sidebar';
-import Navbar from '../Navbar';
 
 function AdminAddPetForBattle() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
@@ -73,7 +72,6 @@ function AdminAddPetForBattle() {
       <div className="content">
         <Sidebar userId={userId} handleLogout={handleLogout} isAdmin={isAdmin} />
         <div className="main-content">
-          <Navbar />
           <div className="admin-create-pet">
             <h2>Tạo Pet từ Species (NPC/Arena/Boss)</h2>
             {message && <p className="message">{message}</p>}

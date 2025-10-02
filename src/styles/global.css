@@ -4893,6 +4893,867 @@ progress {
   cursor: not-allowed;
 }
 
+/* ==================== MAIL PAGE STYLES ==================== */
+.mail-page-container {
+  width: 100%;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.mail-page-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 600px;
+}
+
+.mail-page-card {
+  background: #f8f9fa;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header */
+.mail-page-header {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  padding: 24px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 20px 20px 0 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.mail-page-count {
+  font-size: 14px;
+  opacity: 0.9;
+  z-index: 1;
+  position: relative;
+}
+
+.mail-page-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.1) 2px, transparent 2px),
+    radial-gradient(circle at 80% 70%, rgba(255,255,255,0.1) 2px, transparent 2px),
+    radial-gradient(circle at 40% 80%, rgba(255,255,255,0.1) 2px, transparent 2px);
+  background-size: 30px 30px, 40px 40px, 25px 25px;
+  pointer-events: none;
+}
+
+.mail-page-header h2 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  z-index: 1;
+  position: relative;
+}
+
+/* Action buttons */
+.mail-page-actions {
+  display: flex;
+  gap: 12px;
+  padding: 15px 30px;
+  background: white;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.mail-page-action-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.mail-page-claim-all {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
+}
+
+.mail-page-claim-all:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(40, 167, 69, 0.3);
+}
+
+.mail-page-claim-all:disabled {
+  background: #e9ecef;
+  color: #adb5bd;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.mail-page-delete-all {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+}
+
+.mail-page-delete-all:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(108, 117, 125, 0.3);
+}
+
+/* Mail list content */
+.mail-page-content {
+  flex: 1;
+  overflow-y: auto;
+  background: white;
+  padding: 20px 30px;
+  max-height: 500px;
+}
+
+.mail-page-loading,
+.mail-page-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6c757d;
+  font-size: 16px;
+}
+
+.mail-page-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Mail item */
+.mail-page-item {
+  background: #ffffff;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mail-page-item:hover {
+  border-color: #dc3545;
+  box-shadow: 0 4px 16px rgba(220, 53, 69, 0.1);
+  transform: translateX(4px);
+}
+
+.mail-page-item.unread {
+  background: linear-gradient(135deg, #fff9e6 0%, #fff3d1 100%);
+  border-color: #ffc107;
+  font-weight: 600;
+}
+
+.mail-page-item.unclaimed {
+  border-left: 4px solid #28a745;
+  background: linear-gradient(135deg, #f0fff4 0%, #e6f9ec 100%);
+}
+
+.mail-page-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+
+.mail-page-subject {
+  font-size: 16px;
+  font-weight: 600;
+  color: #212529;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mail-page-date {
+  font-size: 12px;
+  color: #6c757d;
+  white-space: nowrap;
+}
+
+.mail-page-item-body {
+  font-size: 14px;
+  color: #495057;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  margin-bottom: 8px;
+}
+
+.mail-page-item-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.mail-page-unclaimed-badge {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  padding: 6px 14px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+  animation: pulse 2s infinite;
+  display: inline-block;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(0.95);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .mail-page-container {
+    padding: 10px;
+  }
+
+  .mail-page-card {
+    border-radius: 12px;
+  }
+
+  .mail-page-header {
+    padding: 18px 20px;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .mail-page-header h2 {
+    font-size: 20px;
+  }
+
+  .mail-page-actions {
+    padding: 12px 20px;
+    gap: 8px;
+    flex-direction: column;
+  }
+
+  .mail-page-action-btn {
+    padding: 12px;
+    font-size: 13px;
+  }
+
+  .mail-page-content {
+    padding: 15px 20px;
+    max-height: 400px;
+  }
+
+  .mail-page-item {
+    padding: 14px 16px;
+  }
+
+  .mail-page-item-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .mail-page-subject {
+    font-size: 14px;
+  }
+
+  .mail-page-date {
+    font-size: 11px;
+  }
+
+  .mail-page-item-body {
+    font-size: 13px;
+    -webkit-line-clamp: 3;
+  }
+
+  .mail-page-item-footer {
+    margin-top: 6px;
+  }
+
+  .mail-page-unclaimed-badge {
+    font-size: 10px;
+    padding: 5px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mail-page-container {
+    padding: 5px;
+  }
+
+  .mail-page-header {
+    padding: 16px 18px;
+  }
+
+  .mail-page-header h2 {
+    font-size: 18px;
+  }
+
+  .mail-page-actions {
+    padding: 10px 15px;
+  }
+
+  .mail-page-content {
+    padding: 12px 15px;
+    max-height: 350px;
+  }
+
+  .mail-page-item {
+    padding: 12px 14px;
+  }
+}
+
+/* ========================================
+   HEALIA RIVER PAGE STYLES
+   ======================================== */
+
+.healia-page-container {
+  width: 100%;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.healia-page-card {
+  /* background: linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%); */
+  border-radius: 20px;
+  /* box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); */
+  width: 100%;
+  /* max-width: 800px; */
+  margin: 0 auto;
+  overflow: hidden;
+  /* border: 2px solid #2196f3; */
+}
+
+.healia-page-header {
+  background-image: url("../../public/images/background/healing-river.jpg");
+  background-size: cover;
+  background-position-y: 50%;
+  color: white;
+  padding: 75px 30px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* .healia-page-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="water" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="2" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23water)"/></svg>');
+  opacity: 0.3;
+} */
+
+.healia-page-header h2 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+  font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  z-index: 1;
+  position: relative;
+}
+
+.healia-subtitle {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.9;
+  z-index: 1;
+  position: relative;
+}
+
+.healia-page-content {
+  padding: 30px;
+  background: white;
+}
+
+/* Welcome Section */
+.healia-welcome {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  justify-content: center;
+  gap: 20px;
+  /* background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); */
+  padding: 20px;
+  border-radius: 15px;
+  margin-bottom: 25px;
+  /* border: 2px solid #dee2e6; */
+}
+
+.healia-welcome-icon {
+  font-size: 48px;
+  flex-shrink: 0;
+}
+
+.healia-welcome-text h3 {
+  margin: 0 0 8px 0;
+  color: #2196f3;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.healia-welcome-text p {
+  margin: 0;
+  color: #495057;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+/* Status Section */
+.healia-status-section {
+  margin-bottom: 25px;
+}
+
+.healia-loading {
+  text-align: center;
+  padding: 20px;
+  color: #6c757d;
+}
+
+.healia-status {
+  background: white;
+  border-radius: 15px;
+  padding: 20px;
+  /* border: 2px solid #e9ecef; */
+}
+
+.healia-status-available {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: #28a745;
+}
+
+.healia-status-cooldown {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: #ffc107;
+}
+
+.status-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.status-text h4 {
+  margin: 0 0 5px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.status-text p {
+  margin: 0 0 10px 0;
+  color: #6c757d;
+  /* font-size: 13px; */
+}
+
+.timer-value {
+  /* font-size: 13px !important; */
+  color: #856404;
+  font-weight: 600;
+}
+
+.battle-warning {
+  background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+  padding: 10px 15px;
+  border-radius: 10px;
+  border: 1px solid #dc3545;
+  color: #721c24;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Action Section */
+.healia-action-section {
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+.healia-drink-btn {
+  background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+  color: white;
+  border: none;
+  padding: 16px 32px;
+  /* border-radius: 25px; */
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(33, 150, 243, 0.3);
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 200px;
+  justify-content: center;
+}
+
+.healia-drink-btn:hover:not(.disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(33, 150, 243, 0.4);
+  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+}
+
+.healia-drink-btn.disabled {
+  background: #e9ecef;
+  color: #adb5bd;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.drink-icon {
+  font-size: 20px;
+}
+
+/* Result Section */
+.healia-result {
+  margin-bottom: 25px;
+  border-radius: 15px;
+  padding: 20px;
+  border: 2px solid;
+}
+
+.healia-result.success {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  border-color: #28a745;
+}
+
+.healia-result.error {
+  background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+  border-color: #dc3545;
+}
+
+.result-success,
+.result-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+}
+
+.result-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.result-text h4 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.result-text p {
+  margin: 0 0 15px 0;
+  color: #495057;
+  line-height: 1.5;
+}
+
+.result-message {
+  font-size: 16px;
+  font-weight: 500;
+  color: #28a745;
+}
+
+.affected-pets {
+  background: rgba(255, 255, 255, 0.7);
+  padding: 15px;
+  border-radius: 10px;
+  margin-top: 15px;
+}
+
+.affected-pets h5 {
+  margin: 0 0 10px 0;
+  color: #495057;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pet-heal-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.pet-name {
+  font-weight: 600;
+  color: #495057;
+  font-size: 14px;
+}
+
+.heal-amount {
+  font-size: 12px;
+  color: #6c757d;
+  font-family: 'Courier New', monospace;
+}
+
+.heal-plus {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.next-available {
+  margin-top: 15px;
+  padding: 10px 15px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+/* Info Section */
+.healia-info-section {
+  margin-top: 25px;
+}
+
+.info-card {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 20px;
+  border-radius: 15px;
+  border: 2px solid #dee2e6;
+}
+
+.info-card h4 {
+  margin: 0 0 15px 0;
+  color: #2196f3;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.info-card ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #495057;
+}
+
+.info-card li {
+  margin-bottom: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.info-card strong {
+  color: #2196f3;
+  font-weight: 600;
+}
+
+/* Error State */
+.healia-error {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6c757d;
+}
+
+.healia-error h2 {
+  margin: 0 0 15px 0;
+  color: #dc3545;
+  font-size: 24px;
+}
+
+.healia-error p {
+  margin: 0;
+  font-size: 16px;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .healia-page-container {
+    padding: 10px;
+  }
+
+  .healia-page-card {
+    border-radius: 12px;
+  }
+
+  .healia-page-header {
+    padding: 18px 20px;
+  }
+
+  .healia-page-header h2 {
+    font-size: 22px;
+  }
+
+  .healia-page-content {
+    padding: 20px;
+  }
+
+  .healia-welcome {
+    flex-direction: column;
+    text-align: center;
+    gap: 15px;
+    padding: 15px;
+  }
+
+  .healia-welcome-icon {
+    font-size: 36px;
+  }
+
+  .healia-welcome-text h3 {
+    font-size: 18px;
+  }
+
+  .healia-welcome-text p {
+    font-size: 13px;
+  }
+
+  .healia-status {
+    padding: 15px;
+  }
+
+  .healia-status-available,
+  .healia-status-cooldown {
+    flex-direction: column;
+    /* text-align: center; */
+    gap: 10px;
+  }
+
+  .status-icon {
+    font-size: 24px;
+  }
+
+  .status-text h4 {
+    font-size: 16px;
+  }
+
+  .healia-drink-btn {
+    padding: 14px 24px;
+    font-size: 16px;
+    min-width: 180px;
+  }
+
+  .result-success,
+  .result-error {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+
+  .pet-heal-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .info-card {
+    padding: 15px;
+  }
+
+  .info-card h4 {
+    font-size: 14px;
+  }
+
+  .info-card li {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .healia-page-container {
+    padding: 5px;
+  }
+
+  .healia-page-header {
+    padding: 16px 18px;
+  }
+
+  .healia-page-header h2 {
+    font-size: 20px;
+  }
+
+  .healia-page-content {
+    padding: 15px;
+  }
+
+  .healia-welcome {
+    padding: 12px;
+  }
+
+  .healia-welcome-icon {
+    font-size: 32px;
+  }
+
+  .healia-status {
+    padding: 12px;
+  }
+
+  .healia-drink-btn {
+    padding: 12px 20px;
+    font-size: 14px;
+    min-width: 160px;
+  }
+
+  .result-success,
+  .result-error {
+    padding: 15px;
+  }
+
+  .affected-pets {
+    padding: 12px;
+  }
+
+  .pet-heal-info {
+    padding: 6px 10px;
+  }
+
+  .info-card {
+    padding: 12px;
+  }
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .shop-timer-section {

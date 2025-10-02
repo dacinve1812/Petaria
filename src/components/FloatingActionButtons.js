@@ -61,7 +61,7 @@ function FloatingActionButtons({ userId, onOpenMail }) {
   }, []);
 
   const handleArenaClick = () => {
-    navigate('/battle/pve');
+    navigate('/battle');
   };
 
   const handleHuntingClick = () => {
