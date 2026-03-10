@@ -1,32 +1,30 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
 const NavigationMenu = ({ className = '' }) => {
   const navigate = useNavigate();
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const [triggerRect, setTriggerRect] = useState(null);
   const navRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   // Check if user is admin
   const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside (nav hoặc dropdown portal)
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (navRef.current && !navRef.current.contains(event.target)) {
+      const inNav = navRef.current && navRef.current.contains(event.target);
+      const inDropdown = dropdownRef.current && dropdownRef.current.contains(event.target);
+      if (!inNav && !inDropdown) {
         setActiveDropdown(null);
-        // Remove show class and reset width
-        const dropdown = document.querySelector('.dropdown-menu');
-        if (dropdown) {
-          dropdown.classList.remove('show');
-          dropdown.style.width = ''; // Reset width to default
-        }
+        setTriggerRect(null);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const menuItems = [
@@ -100,120 +98,106 @@ const NavigationMenu = ({ className = '' }) => {
 
   const handleItemClick = (item, event) => {
     if (item.submenu) {
-      // Toggle dropdown
       const newActiveDropdown = activeDropdown === item.id ? null : item.id;
       setActiveDropdown(newActiveDropdown);
-      
-      // Position dropdown
       if (newActiveDropdown) {
-        // Store the rect immediately to avoid null reference
-        const rect = event.currentTarget.getBoundingClientRect();
-        
-        setTimeout(() => {
-          const dropdown = document.querySelector('.dropdown-menu');
-          if (dropdown) {
-            // Calculate position
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            
-            // Get actual dropdown dimensions
-            const dropdownRect = dropdown.getBoundingClientRect();
-            let dropdownWidth = dropdownRect.width || 200; // fallback to min-width
-            const dropdownHeight = dropdownRect.height || 200; // fallback height
-            
-            // Adjust width for mobile devices
-            if (viewportWidth <= 480) {
-              dropdownWidth = Math.max(dropdownWidth, 120); // min-width for mobile
-            } else if (viewportWidth <= 768) {
-              dropdownWidth = Math.max(dropdownWidth, 150); // min-width for tablet
-            }
-            
-            // Calculate center position relative to nav item
-            let left = rect.left + rect.width / 2 - dropdownWidth / 2;
-            let top = rect.bottom + 5;
-            
-            // Keep dropdown within viewport horizontally
-            const margin = 10;
-            if (left < margin) {
-              left = margin;
-            } else if (left + dropdownWidth > viewportWidth - margin) {
-              left = viewportWidth - dropdownWidth - margin;
-            }
-            
-            // If dropdown is still too wide for viewport, adjust width
-            if (dropdownWidth > viewportWidth - (margin * 2)) {
-              dropdownWidth = viewportWidth - (margin * 2);
-              dropdown.style.width = `${dropdownWidth}px`;
-              // Recalculate left position with new width
-              left = rect.left + rect.width / 2 - dropdownWidth / 2;
-              if (left < margin) left = margin;
-              if (left + dropdownWidth > viewportWidth - margin) {
-                left = viewportWidth - dropdownWidth - margin;
-              }
-            }
-            
-            // Keep dropdown within viewport vertically
-            if (top + dropdownHeight > viewportHeight - margin) {
-              // Position above the nav item if not enough space below
-              top = rect.top - dropdownHeight - 5;
-            }
-            
-            dropdown.style.left = `${left}px`;
-            dropdown.style.top = `${top}px`;
-            dropdown.classList.add('show');
-          }
-        }, 10);
+        setTriggerRect(event.currentTarget.getBoundingClientRect());
+      } else {
+        setTriggerRect(null);
       }
     } else if (item.path) {
       navigate(item.path);
     }
   };
 
+  // Position dropdown trong portal (tránh lỗi khi nav có transform .hidden)
+  useLayoutEffect(() => {
+    if (!activeDropdown || !triggerRect || !dropdownRef.current) return;
+    const dropdown = dropdownRef.current;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const margin = 10;
+
+    const dropdownRect = dropdown.getBoundingClientRect();
+    let dropdownWidth = dropdownRect.width || 200;
+    const dropdownHeight = dropdownRect.height || 200;
+
+    if (viewportWidth <= 480) dropdownWidth = Math.max(dropdownWidth, 120);
+    else if (viewportWidth <= 768) dropdownWidth = Math.max(dropdownWidth, 150);
+
+    let left = triggerRect.left + triggerRect.width / 2 - dropdownWidth / 2;
+    let top = triggerRect.bottom + 5;
+
+    if (left < margin) left = margin;
+    else if (left + dropdownWidth > viewportWidth - margin) left = viewportWidth - dropdownWidth - margin;
+
+    if (dropdownWidth > viewportWidth - margin * 2) {
+      dropdownWidth = viewportWidth - margin * 2;
+      dropdown.style.width = `${dropdownWidth}px`;
+      left = triggerRect.left + triggerRect.width / 2 - dropdownWidth / 2;
+      if (left < margin) left = margin;
+      if (left + dropdownWidth > viewportWidth - margin) left = viewportWidth - dropdownWidth - margin;
+    }
+
+    if (top + dropdownHeight > viewportHeight - margin) {
+      top = triggerRect.top - dropdownHeight - 5;
+    }
+
+    dropdown.style.left = `${left}px`;
+    dropdown.style.top = `${top}px`;
+    dropdown.classList.add('show');
+  }, [activeDropdown, triggerRect]);
+
   const handleSubmenuClick = (submenuItem) => {
     navigate(submenuItem.path);
     setActiveDropdown(null);
-    // Remove show class and reset width
-    const dropdown = document.querySelector('.dropdown-menu');
-    if (dropdown) {
-      dropdown.classList.remove('show');
-      dropdown.style.width = ''; // Reset width to default
-    }
+    setTriggerRect(null);
   };
 
+  const activeItem = activeDropdown ? menuItems.find(m => m.id === activeDropdown) : null;
+
   return (
-    <nav className={`navigation-menu ${className}`} ref={navRef}>
-      <div className="nav-container">
-        {menuItems.map(item => (
-          <div 
-            key={item.id}
-            className={`nav-item ${activeDropdown === item.id ? 'active' : ''}`}
-          >
-            <div 
-              className="nav-link"
-              onClick={(e) => handleItemClick(item, e)}
+    <>
+      <nav className={`navigation-menu ${className}`} ref={navRef}>
+        <div className="nav-container">
+          {menuItems.map(item => (
+            <div
+              key={item.id}
+              className={`nav-item ${activeDropdown === item.id ? 'active' : ''}`}
             >
-              <span className="nav-icon"></span>
-              <span className="nav-title">{item.title}</span>
-              <span className="nav-arrow">∨</span>
-            </div>
-            
-            {item.submenu && activeDropdown === item.id && (
-              <div className="dropdown-menu">
-                {item.submenu.map((submenuItem, index) => (
-                  <div
-                    key={index}
-                    className="dropdown-item"
-                    onClick={() => handleSubmenuClick(submenuItem)}
-                  >
-                    {submenuItem.title}
-                  </div>
-                ))}
+              <div
+                className="nav-link"
+                onClick={(e) => handleItemClick(item, e)}
+              >
+                <span className="nav-icon"></span>
+                <span className="nav-title">{item.title}</span>
+                <span className="nav-arrow">∨</span>
               </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </nav>
+            </div>
+          ))}
+        </div>
+      </nav>
+
+      {activeItem?.submenu &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="dropdown-menu"
+            style={{ left: 0, top: 0 }}
+          >
+            {activeItem.submenu.map((submenuItem, index) => (
+              <div
+                key={index}
+                className="dropdown-item"
+                onClick={() => handleSubmenuClick(submenuItem)}
+              >
+                {submenuItem.title}
+              </div>
+            ))}
+          </div>,
+          document.body
+        )}
+    </>
   );
 };
 

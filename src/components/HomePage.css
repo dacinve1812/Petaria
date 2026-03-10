@@ -31,8 +31,36 @@ header img {
 
 /* Interactive Map Styles */
 .map-interactive-container {
+  background-color: #fff;
   width: 100%;
   margin: 16px auto;
+}
+
+/* Kinh thành intro block */
+.kinh-thanh-intro {
+  padding: 20px;
+  /* max-width: 900px; */
+  /* margin: 20px 10px 10px; */
+}
+.kinh-thanh-title {
+  font-size: 30px;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: rgb(255, 213, 0);
+  text-align: center;
+  margin: 10px;
+  letter-spacing: 0.02em;
+  font-family: 'Arial', sans-serif;
+}
+.kinh-thanh-desc {
+  font-size: 0.95rem;
+  color: rgb(9, 33, 129);
+  font-size: 16px;
+  font-family: Arial, sans-serif;
+  font-weight: normal;
+  text-align: justify;
+  line-height: 1.6;
+  margin: 20px 10px 10px;
 }
 
 /* Map Controls */

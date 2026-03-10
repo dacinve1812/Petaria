@@ -1,6 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './SiteManagement.css';
+import { DEFAULT_CONTENT_BLOCKS, CONTENT_BLOCK_KEYS, CONTENT_BLOCK_LABELS, LIST_BLOCK_KEYS } from '../../data/homePageContentBlocks';
+
+const DEFAULT_CONTENT_BLOCKS_STORAGE_KEY = 'petaria_default_content_blocks';
+
+function getDefaultContentBlocks() {
+  try {
+    const saved = localStorage.getItem(DEFAULT_CONTENT_BLOCKS_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object') {
+        return { ...DEFAULT_CONTENT_BLOCKS, ...parsed };
+      }
+    }
+  } catch (e) { /* ignore */ }
+  return { ...DEFAULT_CONTENT_BLOCKS };
+}
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -11,7 +27,6 @@ function SiteManagement() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentConfig, setCurrentConfig] = useState(null);
   const [savedConfigs, setSavedConfigs] = useState([]);
-  const [showPagesList, setShowPagesList] = useState(true);
   const [customElements, setCustomElements] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingConfigId, setEditingConfigId] = useState(null); // Track which config is being edited
@@ -27,6 +42,11 @@ function SiteManagement() {
     }
   });
   const [activeTab, setActiveTab] = useState('pages'); // 'pages' or 'navbar'
+  const [layoutCollapsed, setLayoutCollapsed] = useState(true);
+  const [bannerCollapsed, setBannerCollapsed] = useState(true);
+  const [elementsCollapsed, setElementsCollapsed] = useState(true);
+  const [contentBlockCollapsed, setContentBlockCollapsed] = useState({ notice: true, forum: true, notes: true, worldmap: true });
+  const [elementCardCollapsed, setElementCardCollapsed] = useState({}); // { [elementId]: true = collapsed }
 
   // API Functions
   const initializeDefaultPages = async () => {
@@ -223,6 +243,7 @@ function SiteManagement() {
            padding: '20px',
            margin: '0'
          },
+         contentBlocks: {},
          banner: {
            visible: true,
            title: 'Welcome to Petaria',
@@ -247,26 +268,6 @@ function SiteManagement() {
              tablet: { height: '350px' }
            }
          }
-      }
-    },
-    {
-      id: 'shop',
-      path: '/shop',
-      name: 'Shop Page',
-      component: 'ShopPage',
-      config: {
-        displayType: 'default',
-        customStyles: {}
-      }
-    },
-    {
-      id: 'battle',
-      path: '/battle',
-      name: 'Battle Page',
-      component: 'BattlePage',
-      config: {
-        displayType: 'default',
-        customStyles: {}
       }
     }
   ];
@@ -293,9 +294,28 @@ function SiteManagement() {
     initializeData();
   }, []);
 
+  useEffect(() => {
+    if (activeTab !== 'pages') return;
+    const home = pages.find(p => p.path === '/') || defaultPages[0];
+    if (home && (!selectedPage || selectedPage.path !== '/')) {
+      handlePageSelect(home);
+    }
+  }, [activeTab, pages]);
+
   const handlePageSelect = async (page) => {
     setSelectedPage(page);
-    setCurrentConfig({ ...page.config });
+    const rawConfig = page.config;
+    const config = typeof rawConfig === 'string' ? (() => { try { return JSON.parse(rawConfig); } catch { return {}; } })() : (rawConfig || {});
+    if (page.path === '/' && (!config.contentBlocks || typeof config.contentBlocks !== 'object')) {
+      config.contentBlocks = { ...getDefaultContentBlocks() };
+    } else if (page.path === '/' && config.contentBlocks) {
+      const defaults = getDefaultContentBlocks();
+      config.contentBlocks = CONTENT_BLOCK_KEYS.reduce((acc, key) => ({
+        ...acc,
+        [key]: config.contentBlocks[key] ? { ...defaults[key], ...config.contentBlocks[key] } : defaults[key]
+      }), {});
+    }
+    setCurrentConfig({ ...config });
     setIsEditing(false);
     
     // Fetch custom elements for this page
@@ -319,7 +339,18 @@ function SiteManagement() {
     }
     setEditingConfigId(null); // Reset editing config ID when starting fresh edit
     setIsEditing(true);
-    setShowPagesList(false);
+  };
+
+  const handleSaveAsDefault = () => {
+    const blocks = currentConfig?.contentBlocks && typeof currentConfig.contentBlocks === 'object'
+      ? currentConfig.contentBlocks
+      : {};
+    try {
+      localStorage.setItem(DEFAULT_CONTENT_BLOCKS_STORAGE_KEY, JSON.stringify(blocks));
+      alert('Đã lưu nội dung hiện tại làm mặc định. Các lần mở trang chủ sau sẽ dùng bản mặc định này nếu chưa có cấu hình lưu.');
+    } catch (e) {
+      alert('Không thể lưu mặc định.');
+    }
   };
 
   const handleSavePage = async () => {
@@ -360,7 +391,6 @@ function SiteManagement() {
           setSavedConfigs(updatedSavedConfigs);
           
           setIsEditing(false);
-          setShowPagesList(true);
           setEditingConfigId(null);
           
           alert(`Đã cập nhật cấu hình "${existingConfig.name}" thành công!`);
@@ -393,7 +423,6 @@ function SiteManagement() {
           setSavedConfigs(updatedSavedConfigs);
           
           setIsEditing(false);
-          setShowPagesList(true);
           
           alert(`Đã tạo cấu hình "${configName}" thành công!`);
         } else {
@@ -409,7 +438,6 @@ function SiteManagement() {
   const handleCancelEdit = () => {
     setCurrentConfig({ ...selectedPage.config });
     setIsEditing(false);
-    setShowPagesList(true);
     setEditingConfigId(null); // Reset editing config ID when canceling
   };
 
@@ -550,7 +578,6 @@ function SiteManagement() {
         
         // Auto-enter edit mode when loading a saved config
         setIsEditing(true);
-        setShowPagesList(false);
         
         alert(`Đã load cấu hình "${savedConfig.name}" để chỉnh sửa! Bạn có thể chỉnh sửa và sau đó click "Áp dụng vào Page" để áp dụng thay đổi.`);
       } catch (error) {
@@ -611,10 +638,6 @@ function SiteManagement() {
         alert('Lỗi khi xóa config! Vui lòng thử lại.');
       }
     }
-  };
-
-  const togglePagesList = () => {
-    setShowPagesList(!showPagesList);
   };
 
   // Element Management Functions
@@ -712,7 +735,7 @@ function SiteManagement() {
           className={`tab-btn ${activeTab === 'pages' ? 'active' : ''}`}
           onClick={() => setActiveTab('pages')}
         >
-          📄 Quản lý Trang
+          📄 Quản lý Home Page
         </button>
         <button 
           className={`tab-btn ${activeTab === 'navbar' ? 'active' : ''}`}
@@ -723,53 +746,14 @@ function SiteManagement() {
       </div>
 
       {activeTab === 'pages' && (
-        <div className={`site-management-content ${!showPagesList ? 'pages-collapsed' : ''}`}>
-          <div className={`pages-list ${!showPagesList ? 'collapsed' : ''}`}>
-            <div className="pages-list-header">
-              <h2>Danh sách Trang</h2>
-              <button 
-                className="toggle-pages-btn"
-                onClick={togglePagesList}
-                title={showPagesList ? 'Ẩn danh sách' : 'Hiện danh sách'}
-              >
-                {showPagesList ? '◀' : '▶'}
-              </button>
-            </div>
-          {showPagesList && (
-            <div className="pages-grid">
-              {pages.map(page => (
-                <div 
-                  key={page.id}
-                  className={`page-card ${selectedPage?.id === page.id ? 'selected' : ''}`}
-                  onClick={() => handlePageSelect(page)}
-                >
-                  <h3>{page.name}</h3>
-                  <p>Path: {page.path}</p>
-                  <p>Component: {page.component}</p>
-                  <p>Type: {page.config.displayType}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Toggle Button khi pages-list bị ẩn */}
-        {!showPagesList && (
-          <div className="toggle-pages-float">
-            <button 
-              className="toggle-pages-float-btn"
-              onClick={togglePagesList}
-              title="Hiện danh sách trang"
-            >
-              ▶
-            </button>
-          </div>
-        )}
-
+        <div className="site-management-content">
         {selectedPage && (
           <div className="page-editor">
             <div className="editor-header">
-              <h2>Chỉnh sửa: {selectedPage.name}</h2>
+              <div className="editor-header-info">
+                <h2>Chỉnh sửa: Homepage</h2>
+                <p className="editor-component-info">Component: HomePageVer2.js</p>
+              </div>
               <div className="editor-actions">
                 {!isEditing ? (
                   <button className="edit-btn" onClick={handleEditPage}>
@@ -976,42 +960,38 @@ function SiteManagement() {
                 </div>
               )}
 
-                             <div className="config-section">
-                 <h3>Cấu hình Layout</h3>
-                 <div className="config-row">
-                   <label>Background color:</label>
-                   <input
-                     type="color"
-                     value={currentConfig.layout?.backgroundColor || '#000000'}
-                     onChange={(e) => handleConfigChange('layout', 'backgroundColor', e.target.value)}
-                     disabled={!isEditing}
-                   />
-                 </div>
-                 <div className="config-row">
-                   <label>Padding:</label>
-                   <input
-                     type="text"
-                     value={currentConfig.layout?.padding || '20px'}
-                     onChange={(e) => handleConfigChange('layout', 'padding', e.target.value)}
-                     disabled={!isEditing}
-                     placeholder="20px"
-                   />
-                 </div>
-                 <div className="config-row">
-                   <label>Margin:</label>
-                   <input
-                     type="text"
-                     value={currentConfig.layout?.margin || '0'}
-                     onChange={(e) => handleConfigChange('layout', 'margin', e.target.value)}
-                     disabled={!isEditing}
-                     placeholder="0"
-                   />
-                 </div>
-               </div>
+              {/* Cấu hình Layout - collapsible */}
+              <div className="config-section config-section-collapsible">
+                <button type="button" className="config-section-toggle" onClick={() => setLayoutCollapsed(!layoutCollapsed)} aria-expanded={!layoutCollapsed}>
+                  <span className="config-section-toggle-icon">{layoutCollapsed ? '▶' : '▼'}</span>
+                  <h3>Cấu hình Layout</h3>
+                </button>
+                {!layoutCollapsed && (
+                  <div className="config-section-body">
+                    <div className="config-row">
+                      <label>Background color:</label>
+                      <input type="color" value={currentConfig.layout?.backgroundColor || '#000000'} onChange={(e) => handleConfigChange('layout', 'backgroundColor', e.target.value)} disabled={!isEditing} />
+                    </div>
+                    <div className="config-row">
+                      <label>Padding:</label>
+                      <input type="text" value={currentConfig.layout?.padding || '20px'} onChange={(e) => handleConfigChange('layout', 'padding', e.target.value)} disabled={!isEditing} placeholder="20px" />
+                    </div>
+                    <div className="config-row">
+                      <label>Margin:</label>
+                      <input type="text" value={currentConfig.layout?.margin || '0'} onChange={(e) => handleConfigChange('layout', 'margin', e.target.value)} disabled={!isEditing} placeholder="0" />
+                    </div>
+                  </div>
+                )}
+              </div>
 
-                               {/* Banner Configuration */}
-                <div className="config-section">
-                  <h3>Cấu hình Banner</h3>
+              {/* Banner Configuration - collapsible */}
+                <div className="config-section config-section-collapsible">
+                  <button type="button" className="config-section-toggle" onClick={() => setBannerCollapsed(!bannerCollapsed)} aria-expanded={!bannerCollapsed}>
+                    <span className="config-section-toggle-icon">{bannerCollapsed ? '▶' : '▼'}</span>
+                    <h3>Cấu hình Banner</h3>
+                  </button>
+                {!bannerCollapsed && (
+                <div className="config-section-body">
                   <div className="config-row">
                     <label>
                       <input
@@ -1293,11 +1273,18 @@ function SiteManagement() {
                     </div>
                   </div>
                 </div>
+                )}
+                </div>
 
-              {/* Custom Elements Management */}
-              <div className="config-section custom-elements-section">
-                <h3>Quản lý Elements</h3>
-                <div className="add-elements-buttons">
+              {/* Custom Elements Management - collapsible */}
+              <div className="config-section config-section-collapsible custom-elements-section">
+                <button type="button" className="config-section-toggle" onClick={() => setElementsCollapsed(!elementsCollapsed)} aria-expanded={!elementsCollapsed}>
+                  <span className="config-section-toggle-icon">{elementsCollapsed ? '▶' : '▼'}</span>
+                  <h3>Quản lý Elements</h3>
+                </button>
+                {!elementsCollapsed && (
+                  <div className="config-section-body">
+                    <div className="add-elements-buttons">
                   <button 
                     className="add-element-btn"
                     onClick={() => addCustomElement('h1')}
@@ -1330,11 +1317,20 @@ function SiteManagement() {
 
                 {customElements.length > 0 && (
                   <div className="custom-elements-list">
-                    {customElements.map((element, index) => (
-                      <div key={element.id} className="custom-element-card">
-                                                 <div className="element-header">
-                           <h4>{(element.type || 'div').toUpperCase()} Element</h4>
-                          <div className="element-actions">
+                    {customElements.map((element, index) => {
+                      const cardCollapsed = elementCardCollapsed[element.id] !== false; // default collapsed
+                      const setCardCollapsed = (v) => setElementCardCollapsed(prev => ({ ...prev, [element.id]: v }));
+                      return (
+                      <div key={element.id} className="custom-element-card config-section-collapsible">
+                        <button
+                          type="button"
+                          className="config-section-toggle element-card-toggle"
+                          onClick={() => setCardCollapsed(!cardCollapsed)}
+                          aria-expanded={!cardCollapsed}
+                        >
+                          <span className="config-section-toggle-icon">{cardCollapsed ? '▶' : '▼'}</span>
+                          <h4>{(element.type || 'div').toUpperCase()} Element</h4>
+                          <div className="element-actions" onClick={(e) => e.stopPropagation()}>
                             <button 
                               className="move-element-btn"
                               onClick={() => moveElement(element.id, 'up')}
@@ -1359,9 +1355,10 @@ function SiteManagement() {
                               ×
                             </button>
                           </div>
-                        </div>
+                        </button>
 
-                                                 <div className="element-content">
+                        {!cardCollapsed && (
+                        <div className="element-content config-section-body">
                            {(element.type || 'div') === 'img' ? (
                              <div className="element-config-row">
                                <label>Image Source:</label>
@@ -1510,111 +1507,189 @@ function SiteManagement() {
                              )}
                           </div>
                         </div>
+                        )}
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
+                )}
+
+                {/* Nội dung khối trang chủ (4 block riêng) - chỉ khi chọn Homepage */}
+                {selectedPage?.path === '/' && (
+                  <div className="homepage-content-blocks-editor">
+                    <div className="content-block-editor-actions" style={{ marginBottom: 12 }}>
+                      <button
+                        type="button"
+                        className="toolbar-btn default-btn"
+                        onClick={handleSaveAsDefault}
+                      >
+                        Lưu mặc định
+                      </button>
+                    </div>
+                    {CONTENT_BLOCK_KEYS.map((key) => {
+                      const defaults = getDefaultContentBlocks();
+                      const block = (currentConfig.contentBlocks && currentConfig.contentBlocks[key]) || defaults[key];
+                      const collapsed = contentBlockCollapsed[key];
+                      const setCollapsed = (v) => setContentBlockCollapsed(prev => ({ ...prev, [key]: v }));
+                      const isListBlock = LIST_BLOCK_KEYS.includes(key);
+                      const items = Array.isArray(block?.items) ? block.items : (defaults[key]?.items ? [...defaults[key].items] : []);
+
+                      const setItems = (newItems) => setCurrentConfig(prev => ({
+                        ...prev,
+                        contentBlocks: {
+                          ...(prev.contentBlocks || {}),
+                          [key]: { ...(prev.contentBlocks?.[key] || defaults[key]), items: newItems }
+                        }
+                      }));
+
+                      const updateItem = (index, field, value) => {
+                        const next = items.map((it, i) => i === index ? { ...it, [field]: value } : it);
+                        setItems(next);
+                      };
+
+                      const addItem = () => setItems([...items, { text: '', link: '', color: key === 'notice' ? 'red' : 'orange', isNew: false, prefix: '' }]);
+                      const removeItem = (index) => setItems(items.filter((_, i) => i !== index));
+
+                      return (
+                        <div key={key} className="content-block-editor-card config-section-collapsible">
+                          <button type="button" className="config-section-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>
+                            <span className="config-section-toggle-icon">{collapsed ? '▶' : '▼'}</span>
+                            <h4>{CONTENT_BLOCK_LABELS[key]}</h4>
+                          </button>
+                          {!collapsed && (
+                            <div className="config-section-body">
+                              {isListBlock ? (
+                                <>
+                                  <div className="config-row">
+                                    <label>Danh sách mục (mỗi dòng: text, link, color, isNew, prefix nếu có):</label>
+                                    <button type="button" className="toolbar-btn" disabled={!isEditing} onClick={addItem}>+ Thêm mục</button>
+                                  </div>
+                                  <div className="content-block-items-list">
+                                    {items.map((item, index) => (
+                                      <div key={index} className="content-block-item-row">
+                                        {key === 'notice' && (
+                                          <input
+                                            type="text"
+                                            placeholder="Prefix (VD: Event)"
+                                            value={item.prefix || ''}
+                                            onChange={(e) => updateItem(index, 'prefix', e.target.value)}
+                                            disabled={!isEditing}
+                                            className="item-field item-prefix"
+                                          />
+                                        )}
+                                        <input
+                                          type="text"
+                                          placeholder="Nội dung text"
+                                          value={item.text || ''}
+                                          onChange={(e) => updateItem(index, 'text', e.target.value)}
+                                          disabled={!isEditing}
+                                          className="item-field item-text"
+                                        />
+                                        <input
+                                          type="text"
+                                          placeholder="Link (tùy chọn)"
+                                          value={item.link || ''}
+                                          onChange={(e) => updateItem(index, 'link', e.target.value)}
+                                          disabled={!isEditing}
+                                          className="item-field item-link"
+                                        />
+                                        <input
+                                          type="text"
+                                          placeholder="Color (red/orange)"
+                                          value={item.color || ''}
+                                          onChange={(e) => updateItem(index, 'color', e.target.value)}
+                                          disabled={!isEditing}
+                                          className="item-field item-color"
+                                        />
+                                        <label className="item-new-check">
+                                          <input
+                                            type="checkbox"
+                                            checked={!!item.isNew}
+                                            onChange={(e) => updateItem(index, 'isNew', e.target.checked)}
+                                            disabled={!isEditing}
+                                          />
+                                          New
+                                        </label>
+                                        <button type="button" className="item-remove-btn" onClick={() => removeItem(index)} disabled={!isEditing} title="Xóa mục">×</button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="config-row">
+                                  <label>HTML:</label>
+                                  <textarea
+                                    className="content-block-textarea"
+                                    value={(currentConfig.contentBlocks && currentConfig.contentBlocks[key]?.html) ?? block?.html ?? ''}
+                                    onChange={(e) => setCurrentConfig(prev => ({
+                                      ...prev,
+                                      contentBlocks: {
+                                        ...(prev.contentBlocks || {}),
+                                        [key]: { ...(prev.contentBlocks?.[key] || defaults[key]), html: e.target.value }
+                                      }
+                                    }))}
+                                    disabled={!isEditing}
+                                    rows={6}
+                                    spellCheck={false}
+                                  />
+                                </div>
+                              )}
+                              {!isListBlock && (
+                                <div className="config-row">
+                                  <label>CSS (cho .homepage-block-{key}):</label>
+                                  <textarea
+                                    className="content-block-css-textarea"
+                                    value={(currentConfig.contentBlocks && currentConfig.contentBlocks[key]?.css) ?? block?.css ?? ''}
+                                    onChange={(e) => setCurrentConfig(prev => ({
+                                      ...prev,
+                                      contentBlocks: {
+                                        ...(prev.contentBlocks || {}),
+                                        [key]: { ...(prev.contentBlocks?.[key] || defaults[key]), css: e.target.value }
+                                      }
+                                    }))}
+                                    disabled={!isEditing}
+                                    rows={4}
+                                    spellCheck={false}
+                                    placeholder={'.homepage-block-' + key + ' { }'}
+                                  />
+                                </div>
+                              )}
+                              <div className="content-block-editor-actions">
+                                <button
+                                  type="button"
+                                  className="toolbar-btn"
+                                  disabled={!isEditing}
+                                  onClick={() => setCurrentConfig(prev => ({
+                                    ...prev,
+                                    contentBlocks: {
+                                      ...(prev.contentBlocks || {}),
+                                      [key]: { ...DEFAULT_CONTENT_BLOCKS[key] }
+                                    }
+                                  }))}
+                                >
+                                  Khôi phục mặc định
+                                </button>
+                                <button
+                                  type="button"
+                                  className="toolbar-btn save-btn"
+                                  onClick={handleSavePage}
+                                  disabled={!selectedPage?.id || !currentConfig}
+                                >
+                                  Lưu (lưu cấu hình hiện tại)
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                </div>
                 )}
               </div>
 
-              <div className="preview-section">
-                <h3>Preview</h3>
-                <div className="preview-container">
-                  <div 
-                    className="preview-content"
-                    style={{
-                      backgroundColor: currentConfig?.layout?.backgroundColor || '#000000',
-                      padding: currentConfig?.layout?.padding || '20px',
-                      margin: currentConfig?.layout?.margin || '0'
-                    }}
-                  >
-                    {currentConfig?.displayType === 'video' && currentConfig.video?.src && (
-                      <video
-                        className="preview-video"
-                        autoPlay={currentConfig.video.autoPlay}
-                        loop={currentConfig.video.loop}
-                        muted={currentConfig.video.muted}
-                        playsInline={currentConfig.video.playsInline}
-                      >
-                        <source src={currentConfig.video.src} type="video/mp4" />
-                      </video>
-                    )}
-
-                    {/* Text preview removed - use Custom Elements instead */}
-
-                    {currentConfig?.displayType === 'image' && currentConfig.image?.src && (
-                      <img
-                        className="preview-image"
-                        src={currentConfig.image.src}
-                        alt={currentConfig.image.alt}
-                        style={{
-                          width: currentConfig.image.width,
-                          height: currentConfig.image.height,
-                          margin: currentConfig.image.margin
-                        }}
-                      />
-                    )}
-
-                    {currentConfig?.displayType === 'mixed' && (
-                      <>
-                        {currentConfig.video?.src && (
-                          <video
-                            className="preview-video"
-                            autoPlay={currentConfig.video.autoPlay}
-                            loop={currentConfig.video.loop}
-                            muted={currentConfig.video.muted}
-                            playsInline={currentConfig.video.playsInline}
-                          >
-                            <source src={currentConfig.video.src} type="video/mp4" />
-                          </video>
-                        )}
-                        {/* Text preview removed - use Custom Elements instead */}
-                      </>
-                    )}
-
-                                         {/* Custom Elements Preview */}
-                     {customElements.map(element => (
-                       <div
-                         key={element.id}
-                         style={{
-                           color: element.styles.color,
-                           fontSize: element.styles.fontSize,
-                           fontFamily: element.styles.fontFamily,
-                           fontWeight: element.styles.fontWeight,
-                           textAlign: element.styles.textAlign,
-                           marginTop: element.styles.marginTop,
-                           marginRight: element.styles.marginRight,
-                           marginBottom: element.styles.marginBottom,
-                           marginLeft: element.styles.marginLeft,
-                           width: element.styles.width,
-                           height: element.styles.height
-                         }}
-                       >
-                                                   {(element.type || 'div') === 'img' ? (
-                            <img
-                              src={element.imageSrc || '/images/placeholder.jpg'}
-                              alt={element.imageAlt || 'Image'}
-                              style={{
-                                width: element.styles?.width || 'auto',
-                                height: element.styles?.height || 'auto'
-                              }}
-                            />
-                          ) : (
-                            React.createElement(
-                              element.type && ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'div'].includes(element.type) 
-                                ? element.type 
-                                : 'div', 
-                              {
-                                dangerouslySetInnerHTML: {
-                                  __html: element.content || 'Element'
-                                }
-                              }
-                            )
-                          )}
-                       </div>
-                     ))}
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -1626,34 +1701,7 @@ function SiteManagement() {
         <div className="navbar-management">
           <div className="navbar-management-header">
             <h2>Quản lý Navbar</h2>
-            <p>Điều chỉnh hiển thị của bottom navbar và floating action buttons</p>
-          </div>
-
-          <div className="navbar-config-section">
-            <h3>Bottom Navbar</h3>
-            <div className="config-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={navbarConfig.bottomNavbar.visible}
-                  onChange={(e) => handleNavbarConfigChange('bottomNavbar', 'visible', e.target.checked)}
-                />
-                Hiển thị Bottom Navbar
-              </label>
-            </div>
-            
-            {navbarConfig.bottomNavbar.visible && (
-              <div className="config-row">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={navbarConfig.bottomNavbar.showMenuOnly}
-                    onChange={(e) => handleNavbarConfigChange('bottomNavbar', 'showMenuOnly', e.target.checked)}
-                  />
-                  Chỉ hiển thị Menu button (ẩn các button khác)
-                </label>
-              </div>
-            )}
+            <p>Điều chỉnh hiển thị floating action buttons</p>
           </div>
 
           <div className="navbar-config-section">

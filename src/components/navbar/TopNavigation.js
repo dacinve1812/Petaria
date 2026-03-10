@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
 
-const TopNavigation = ({ className = '' }) => {
+const TopNavigation = ({ className = '', onOpenSidebar }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const { user, isLoading, logout } = useUser();
   const navigate = useNavigate();
@@ -33,11 +33,11 @@ const TopNavigation = ({ className = '' }) => {
   return (
     <nav id="sgw-top-navigation" className={`sgw-top-navigation ${className}`}>
       <div className="sgw-top-nav-container">
-        {/* Logo */}
+        {/* Logo - click mở Sidebar menu */}
         <div className="sgw-nav-logo">
-          <Link to="/">
+          <button type="button" className="sgw-logo-btn" onClick={() => onOpenSidebar?.()} aria-label="Mở menu">
             <img src="/images/icons/logo2.png" alt="Petaria Logo" className="sgw-logo-img" />
-          </Link>
+          </button>
           <Link to="/home-ver2">
             <span className="sgw-logo-text">Petaria</span>
           </Link>
@@ -45,10 +45,7 @@ const TopNavigation = ({ className = '' }) => {
 
          {/* Navigation Links */}
          <div className="sgw-nav-links">
-           {/* Quản lý Link */}
-           <Link to="/management" className="sgw-nav-link">
-                BẢNG QUẢN LÝ
-           </Link>
+          
 
            {/* Login/Signup or User Menu */}
            {!isLoading && (
@@ -80,11 +77,11 @@ const TopNavigation = ({ className = '' }) => {
                                 Admin Board
                             </Link>
                         )}
-                       <Link to="/support-ticket" className="sgw-dropdown-item">
+                       <Link to="/management" className="sgw-dropdown-item">
                          <span className="sgw-dropdown-icon"><img className="sgw-dropdown-icon-img" src="/images/icons/3.png" alt="support"/></span>
-                         Send Support Ticket
+                         Bảng Quản lý
                        </Link>
-                       <Link to="/faq" className="sgw-dropdown-item">
+                       <Link to="/management" className="sgw-dropdown-item">
                          <span className="sgw-dropdown-icon"><img className="sgw-dropdown-icon-img" src="/images/icons/4.png" alt="faq"/></span>
                          FAQ
                        </Link>

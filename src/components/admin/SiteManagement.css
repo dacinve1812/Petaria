@@ -4,6 +4,7 @@
   margin: 0 auto;
   padding: 20px;
   font-family: 'Arial', sans-serif;
+  background-color: #f8f9fa;
 }
 
 .site-management-header {
@@ -138,8 +139,8 @@
 }
 
 .site-management-content {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
+  /* display: grid; */
+  /* grid-template-columns: 1fr 2fr; */
   gap: 30px;
   transition: all 0.3s ease;
   height: 100%;
@@ -255,10 +256,22 @@
   align-items: center;
 }
 
+.editor-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .editor-header h2 {
   color: #333;
   margin: 0;
   font-size: 1.6rem;
+}
+
+.editor-component-info {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #666;
 }
 
 .editor-actions {
@@ -331,8 +344,8 @@
 /* Editor Content */
 .editor-content {
   padding: 20px;
-  max-height: 800px;
-  overflow-y: auto;
+  /* max-height: 800px; */
+  /* overflow-y: auto; */
 }
 
 .config-section {
@@ -444,6 +457,260 @@
 .config-row textarea {
   resize: vertical;
   min-height: 80px;
+}
+
+/* Nội dung trang chủ (HTML block) */
+.content-block-section {
+  border-left: 4px solid #6f42c1;
+}
+
+.content-block-section .config-hint {
+  color: #555;
+  font-size: 0.9rem;
+  margin: 0 0 12px 0;
+  line-height: 1.4;
+}
+
+.content-block-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.content-block-toolbar .toolbar-btn {
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  background: #6f42c1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.content-block-toolbar .toolbar-btn:hover:not(:disabled) {
+  background: #5a32a3;
+}
+
+.content-block-toolbar .toolbar-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.content-block-textarea {
+  width: 100%;
+  min-height: 280px;
+  padding: 12px;
+  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  resize: vertical;
+}
+
+.content-block-textarea:focus {
+  outline: none;
+  border-color: #6f42c1;
+  box-shadow: 0 0 0 2px rgba(111, 66, 193, 0.2);
+}
+
+.content-block-textarea:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+/* Collapsible sections */
+.config-section-collapsible {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.config-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: #f8f9fa;
+  cursor: pointer;
+  font-size: 1rem;
+  text-align: left;
+}
+
+.config-section-toggle:hover {
+  background: #eee;
+}
+
+.config-section-toggle-icon {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.config-section-toggle h3,
+.config-section-toggle h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.config-section-body {
+  padding: 16px;
+  border-top: 1px solid #e0e0e0;
+  background: #fff;
+}
+
+/* Homepage content blocks editor (4 block cards) */
+.homepage-content-blocks-editor {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.content-block-editor-card {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.content-block-editor-card .config-section-toggle h4 {
+  font-size: 0.95rem;
+}
+
+.content-block-css-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 10px;
+  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+.content-block-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+  align-items: center;
+}
+
+.content-block-editor-card .toolbar-btn {
+  margin-top: 0;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  background: #6f42c1;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.content-block-editor-card .toolbar-btn.default-btn,
+.content-block-editor-actions .toolbar-btn.default-btn {
+  background: #17a2b8;
+}
+
+.content-block-editor-card .toolbar-btn.default-btn:hover,
+.content-block-editor-actions .toolbar-btn.default-btn:hover {
+  background: #138496;
+}
+
+.content-block-editor-card .toolbar-btn.save-btn {
+  background: #28a745;
+}
+
+.content-block-editor-card .toolbar-btn.save-btn:hover:not(:disabled) {
+  background: #218838;
+}
+
+.content-block-editor-card .toolbar-btn:hover:not(:disabled) {
+  background: #5a32a3;
+}
+
+.content-block-editor-card .toolbar-btn.save-btn:hover:not(:disabled) {
+  background: #218838;
+}
+
+/* Danh sách items (Thông báo, Diễn đàn, Lưu ý) */
+.content-block-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.content-block-item-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+}
+
+.content-block-item-row .item-field {
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.content-block-item-row .item-prefix {
+  width: 90px;
+}
+
+.content-block-item-row .item-text {
+  flex: 1;
+  min-width: 120px;
+}
+
+.content-block-item-row .item-link {
+  flex: 1;
+  min-width: 140px;
+}
+
+.content-block-item-row .item-color {
+  width: 80px;
+}
+
+.content-block-item-row .item-new-check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.content-block-item-row .item-remove-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: #dc3545;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.content-block-item-row .item-remove-btn:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.content-block-item-row .item-remove-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
 }
 
 /* Preview Section */
@@ -699,6 +966,28 @@
   border-radius: 8px;
   padding: 15px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.custom-element-card.config-section-collapsible {
+  padding: 0;
+  overflow: hidden;
+}
+
+.custom-element-card .element-card-toggle {
+  width: 100%;
+  justify-content: space-between;
+  text-align: left;
+  padding: 12px 15px;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: #fff;
+  cursor: pointer;
+}
+
+.custom-element-card .element-card-toggle .element-actions {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .element-header {

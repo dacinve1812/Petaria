@@ -37,9 +37,8 @@
 
 .map-container {
   width: 100%;
-  /* height: calc(100dvh - 40px); */
-  height: calc(100dvh - 100px); /* Adjust height to account for banner */
-  overflow: auto;
+  /* height: calc(100dvh - 100px); */
+  overflow: hidden;
   position: relative;
   flex: 1;
 }
@@ -76,7 +75,122 @@
   object-position: center;
 }
 
-/* .content-text removed - use Custom Elements instead */
+/* 4 khối nội dung trang chủ (Thông Báo, Diễn đàn, Lưu ý, World Map) */
+.homepage-content-blocks {
+  position: relative;
+  z-index: 5;
+  width: 100%;
+  max-width: 900px;
+  margin: 20px auto 0;
+}
+
+/* Thông Báo, Diễn đàn, Lưu ý – CSS cố định, developer sửa trực tiếp tại đây */
+.homepage-block-notice {
+  position: relative;
+  z-index: 5;
+  width: 70%;
+  margin: 0 auto;
+  border: 2px solid rgb(0, 204, 255);
+}
+.homepage-block-notice table {
+  border-collapse: collapse;
+}
+.homepage-block-notice a {
+  text-decoration: underline;
+}
+.homepage-block-notice .list-item {
+  margin-bottom: 4px;
+}
+
+.homepage-block-notice-table {
+  border-collapse: collapse;
+}
+
+.homepage-block-notice-td {
+  background: url('../../public/images/background/block4_top.gif') top left / 100% repeat;
+}
+
+.homepage-block-notice-title {
+  color: red;
+  font-size: 1.5rem;
+  text-align: center;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.homepage-block-notice-body {
+  color: red;
+  font-weight: 500;
+}
+.homepage-block-notice-body a {
+  text-decoration: underline;
+  /* Thêm style cho link trong phần body tại đây, ví dụ: color, hover... */
+}
+
+/* Thông tin Diễn đàn + Lưu ý: hai cột nằm cạnh nhau */
+.homepage-block-forum-notes-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+  position: relative;
+  z-index: 5;
+}
+
+.homepage-block-forum-notes-row .homepage-block-forum,
+.homepage-block-forum-notes-row .homepage-block-notes {
+  flex: 1;
+  min-width: 280px;
+}
+
+.homepage-block-forum-title,
+.homepage-block-notes-title {
+  color: crimson;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.homepage-block-forum-title {
+  text-decoration: underline;
+}
+
+.homepage-block-notes-title {
+  text-decoration: underline;
+}
+
+.homepage-block-forum-body,
+.homepage-block-notes-body {
+  color: orange;
+}
+
+.homepage-block-forum {
+  position: relative;
+  z-index: 5;
+  background: #fffde7;
+  border: 1px solid #1565c0;
+  padding: 12px;
+}
+.homepage-block-forum a {
+  text-decoration: underline;
+}
+.homepage-block-forum .list-item {
+  margin-bottom: 4px;
+}
+
+.homepage-block-notes {
+  position: relative;
+  z-index: 5;
+  background: #fffde7;
+  border: 1px solid #1565c0;
+  padding: 12px;
+}
+.homepage-block-notes a {
+  text-decoration: underline;
+}
+.homepage-block-notes .list-item {
+  margin-bottom: 4px;
+}
 
 /* Custom Elements Styling */
 .custom-element {
@@ -172,6 +286,11 @@
   
   .banner-center h2 {
     font-size: 1.8rem;
+  }
+  .homepage-block-notice {
+
+    width: 90%;
+
   }
 }
 

@@ -2,10 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useScrollAnimation from '../hooks/useScrollAnimation';
 import Sidebar from './Sidebar';
-import BottomNavbar from './BottomNavbar';
-import CurrencyDisplay from './CurrencyDisplay';
-import HomeFloatingButtons from './HomeFloatingButtons';
 import MailModal from './MailModal';
+import Footer from './Footer';
 import TopNavigation from './navbar/TopNavigation';
 import NavigationMenu from './navbar/NavigationMenu';
 import { Outlet } from 'react-router-dom';
@@ -22,6 +20,16 @@ function MainLayout() {
     
     // Scroll animation - hide navs when scrolling down, show when scrolling up
     const isScrolledDown = useScrollAnimation(100); // 100px threshold
+
+    // Cho sidebar wide viewport: bỏ padding-top khi top nav đã ẩn để không lộ khoảng trống
+    useEffect(() => {
+        if (isScrolledDown) {
+            document.body.classList.add('nav-scrolled-hidden');
+        } else {
+            document.body.classList.remove('nav-scrolled-hidden');
+        }
+        return () => document.body.classList.remove('nav-scrolled-hidden');
+    }, [isScrolledDown]);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -56,18 +64,6 @@ function MainLayout() {
 
     const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
-    // Check if current page is home page (where BottomNavbar should be shown)
-    const isHomePage = () => {
-        const homePaths = ['/', '/home', '/home-ver2'];
-        return homePaths.includes(location.pathname);
-    };
-
-    // Check if current page should show CurrencyDisplay
-    const shouldShowCurrencyDisplay = () => {
-        const currencyDisplayPaths = ['/shop', '/inventory']
-        return currencyDisplayPaths.includes(location.pathname);
-    };
-
     // Get page title based on current path
     const getPageTitle = (pathname) => {
         const titleMap = {
@@ -98,7 +94,7 @@ function MainLayout() {
         <>
        
         {/* Top Navigation Bar */}
-        <TopNavigation className={isScrolledDown ? 'hidden' : ''} />
+        <TopNavigation className={isScrolledDown ? 'hidden' : ''} onOpenSidebar={() => setSidebarOpen(true)} />
         
         {/* Second Navigation Menu */}
         <NavigationMenu className={isScrolledDown ? 'hidden' : ''} />
@@ -133,12 +129,7 @@ function MainLayout() {
             userId={userId}
             onCurrencyUpdate={handleCurrencyUpdate}
         />
-        {isHomePage() && (
-            <BottomNavbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
-        )}
-        {isHomePage() && <HomeFloatingButtons userId={userId} onOpenMail={handleOpenMail} />}
-        {userId && shouldShowCurrencyDisplay() && <CurrencyDisplay userId={userId} onCurrencyUpdate={currencyUpdateTrigger} />}
-        
+        <Footer />
         </>
     );
 }

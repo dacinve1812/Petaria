@@ -97,17 +97,23 @@ function HomePage({ isLoggedIn, onLogoutSuccess }) {
   return (
     <div>
       
-      {/* Navigation Menu */}
-      <PetNotice />
       
       {/* Interactive Map Container */}
       <div className="map-interactive-container">
+        <div className="kinh-thanh-intro">
+          <h2 className="kinh-thanh-title">KINH THÀNH PETARIA</h2>
+          <p className="kinh-thanh-desc">
+            Chào mừng các bạn đến với Kinh thành của Vương quốc Petaria. Bạn sẽ tiến hành hầu hết các hoạt động trên Petaria tại đây, trong Kinh thành có các địa điểm như sau: Nhà (Bảng điều khiển cá nhân), Trung tâm mua sắm, Đấu giá, Sông Healia, Ngân hàng, Nhà hàng, Viện mồ côi, Bưu điện, Trại huấn luyện, Bảng quảng cáo, Phòng chat, Diễn đàn và các liên kết đến: Trung tâm giải trí, Bản đồ Thế giới...
+          </p>
+        </div>
+      {/* Navigation Menu */}
+      <PetNotice />
         {/* Map with HTML map tag */}
         <div className="map-scroll-container">
           <div className="map-wrapper">
             <img 
               ref={mapRef}
-              src="map-night.png" 
+              src="castle.jpg" 
               alt="Bản đồ Petaria" 
               className="map-img"
               useMap="#petaria-map"

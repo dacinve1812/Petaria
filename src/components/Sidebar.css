@@ -13,30 +13,41 @@
   z-index: 1000;
   transition: transform 0.3s ease;
   transform: translateX(-100%);
+  container-type: size;
+  container-name: sidebar;
 }
 
 .sidebar.open {
   transform: translateX(0);
 }
 
-
-.sidebar nav {
+/* Wrapper nav + user-info: chiếm full sidebar, bên trong chia 90% nav / 10% user-info */
+.sidebar-inner {
   flex: 1;
+  min-height: 0;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.sidebar-inner nav {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
   justify-content: center;
   padding: 20px 0;
 }
 
-.sidebar nav ul {
+.sidebar-inner nav ul {
   list-style: none;
   margin: 0;
   padding: 0;
   width: 100%;
   display: flex;
   flex-direction: column;
+  justify-content: space-around;
   align-items: center;
-  gap: 25px;
 }
 
 .sidebar nav ul li {
@@ -68,18 +79,18 @@
 }
 
 .sidebar nav ul li a img {
-  width: 100px;
+  width: clamp(30px, 12cqh, 100px);
   height: auto;
   object-fit: cover;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-  transition: transform 0.3s ease;
 }
 
-.sidebar nav ul li a:hover img {
-  transform: scale(1.1);
-}
-
-.sidebar .user-info {
+.sidebar-inner .user-info {
+  flex: 0 0 15%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   padding: 20px;
   text-align: center;
   border-top: 1px solid rgba(255, 255, 255, 0.2);
@@ -91,6 +102,43 @@
   color: #333;
   font-weight: 500;
   font-size: 14px;
+}
+
+.sidebar .user-info-currency {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.sidebar .user-info-currency-item {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #333;
+  min-height: 24px;
+}
+
+.sidebar .user-info-currency-label {
+  display: flex;
+  text-align: left;
+  gap: 6px;
+}
+
+.sidebar .user-info-currency-item img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.sidebar .user-info-currency-value {
+  text-align: right;
 }
 
 .sidebar .user-info button {
@@ -110,14 +158,10 @@
   transform: translateY(-1px);
 }
 
-/* Mobile responsive */
+/* Mobile responsive – layout theo width; ảnh vẫn scale theo height (container query) */
 @media (max-width: 768px) {
   .sidebar {
     width: 30%;
-  }
-  
-  .sidebar nav ul {
-    gap: 20px;
   }
   
   .sidebar nav ul li a {
@@ -126,7 +170,7 @@
   }
   
   .sidebar nav ul li a img {
-    width: 60%;
+    width: clamp(48px, 12cqh, 100px);
     height: auto;
   }
   
@@ -139,7 +183,18 @@
   }
 }
 
-/* Tablet responsive */
+@media (max-width: 420px) {
+  .sidebar .user-info {
+    padding: 8px;;
+  }
+  .sidebar .user-info-currency-item img {
+    display: none;
+  }
+  .sidebar-inner .user-info {
+    flex: 0 0 15%;
+  }
+}
+/* Tablet responsive – ảnh scale theo height của sidebar */
 @media (min-width: 769px) and (max-width: 1024px) {
   .sidebar {
     width: 200px;
@@ -151,7 +206,7 @@
   }
   
   .sidebar nav ul li a img {
-    width: 50%;
+    width: clamp(44px, 15cqh, 90px);
     height: auto;
   }
 }
@@ -160,5 +215,25 @@
 @media (min-width: 1025px) {
   .sidebar {
     width: 280px;
+  }
+}
+
+/* Wide viewport: sidebar 100dvh; padding trên div bọc (sidebar-inner) */
+@media (min-width: 1800px) {
+  .sidebar {
+    transform: translateX(0);
+    top: 0;
+    height: 100dvh;
+    box-sizing: border-box;
+    z-index: 400;
+  }
+  .sidebar-inner {
+    padding-top: 100px;
+    padding-bottom: 100px;
+    transition: padding-top 0.1s ease;
+  }
+  body.nav-scrolled-hidden .sidebar-inner {
+    padding-top: 50px;
+    padding-bottom: 150px;
   }
 } 
