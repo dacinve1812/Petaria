@@ -28,7 +28,8 @@ POST /api/pets/:id/gain-exp
 #### Logic Flow
 ```javascript
 // 1. Calculate EXP gain
-const gain = custom_amount !== null ? custom_amount : calculateExpGain(pet.level, enemy_level);
+// EXP battle mới: Exp = enemy_level * R (R random 300..500)
+const gain = custom_amount !== null ? custom_amount : calculateBattleExpGain(enemy_level);
 let newExp = pet.current_exp + gain;
 let newLevel = pet.level;
 
@@ -197,13 +198,13 @@ if (updatedPet.level > player.level) {
 ### Base Stat Formula
 ```javascript
 const getStat = (base, iv, level) => 
-  Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level) / 100) + 5;
+  Math.floor(((2 * base + iv) * level) / 100) + 5;
 ```
 
 ### HP Formula (Special)
 ```javascript
 const getHP = (base, iv, level) => 
-  Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level) / 100) + level + 10;
+  (Math.floor(((2 * base + iv) * level) / 100) + level + 10) * 5;
 ```
 
 ### Example Calculation
@@ -279,7 +280,7 @@ WHERE id = ?;
 - Frontend handles missing stats gracefully
 
 ### Future Enhancements
-- **EV System**: Effort Values for additional stat customization
+- **EV System**: (chưa triển khai) Effort Values for additional stat customization
 - **Nature System**: Personality traits affecting stat growth
 - **Stat Caps**: Maximum stat limits per level
 

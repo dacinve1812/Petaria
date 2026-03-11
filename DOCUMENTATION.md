@@ -38,11 +38,11 @@ petaria/
 ```javascript
 // Base stat calculation
 const getStat = (base, iv, level) => 
-  Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level) / 100) + 5;
+  Math.floor(((2 * base + iv) * level) / 100) + 5;
 
 // HP calculation (special)
 const getHP = (base, iv, level) => 
-  Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level) / 100) + level + 10;
+  (Math.floor(((2 * base + iv) * level) / 100) + level + 10) * 5;
 ```
 
 ### 2. Battle System
@@ -73,21 +73,19 @@ const dodgeChance = Math.min(Math.max((defenderSPD - attackerSPD) * 0.5, 0), 20)
 
 #### EXP Gain Logic
 ```javascript
-// Base EXP theo level ranges
-function getBaseExp(level) {
-  if (level <= 3) return 100;
-  if (level <= 7) return 200;
-  if (level <= 10) return 400;
-  return 10;
+// EXP battle (boss/quái)
+// Exp = Level enemy * R, với R random 300..500
+function calculateBattleExpGain(enemyLevel) {
+  const R = randomIntInclusive(300, 500);
+  return enemyLevel * R;
 }
 
-// EXP gain formula
-function calculateExpGain(playerLevel, enemyLevel) {
-  const base = getBaseExp(playerLevel);
-  const numerator = Math.pow(enemyLevel, 2.2);
-  const denominator = Math.pow(playerLevel, 0.3);
-  return Math.round(base * (numerator / denominator));
-}
+// EXP thresholds theo level
+// Tổng EXP để đạt Level A:
+// exp_to_reach(A) = (A^3) * 20
+//
+// EXP cần để lên từ Level A -> A+1:
+// exp_needed(A->A+1) = [(A+1)^3 - A^3] * 20
 ```
 
 #### Stat Recalculation on Level Up
@@ -262,6 +260,9 @@ WHERE id = ?
 - **Frontend**: React hooks, functional components
 - **Database**: Prepared statements for security
 - **Error handling**: Try-catch blocks with proper logging
+
+### Database Migration
+- Xem hướng dẫn migrate dữ liệu pet khi đổi EXP/Stats tại `DB_MIGRATION_GUIDE.md`
 
 ### Testing Strategy
 - **Manual testing**: Battle scenarios, level up scenarios

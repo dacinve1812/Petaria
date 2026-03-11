@@ -19,24 +19,20 @@ function generateIVStats() {
   };
 }
 
-function calculateFinalStats(base, iv, level, ev = null) {
-  const getStat = (b, i, e = 0) =>
-    Math.floor(((2 * b + i + Math.floor(e / 4)) * level) / 100) + 5;
-
-  const getHP = (b, i, e = 0) =>
-    Math.floor(((2 * b + i + Math.floor(e / 4)) * level) / 100) + level + 10;
-    
+function calculateFinalStats(base, iv, level) {
+  const getStat = (b, i) => Math.floor(((2 * b + i) * level) / 100) + 5;
+  const getHP = (b, i) => (Math.floor(((2 * b + i) * level) / 100) + level + 10) * 5;
 
   return {
     hp: getHP(base.hp, iv.iv_hp),
-    mp: getHP(base.mp, iv.iv_mp),
+    mp: getStat(base.mp, iv.iv_mp),
     str: getStat(base.str, iv.iv_str),
     def: getStat(base.def, iv.iv_def),
     intelligence: getStat(base.intelligence, iv.iv_intelligence),
-    spd: getStat(base.spd, iv.iv_spd)
+    spd: getStat(base.spd, iv.iv_spd),
   };
 }
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
 
 const express = require('express');
 const cors = require('cors');
@@ -53,10 +49,10 @@ const port = 5000; // Chọn cổng cho backend
 const mysql = require('mysql2'); // Hoặc const { Pool } = require('pg');
 
 const pool = mysql.createPool({ // Hoặc const pool = new Pool({
-  host: 'localhost',
-  user: 'root',
-  password: 'X1nCh4o0127!',
-  database: 'petaria',
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'petaria',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -2117,19 +2113,16 @@ app.post('/api/arena/simulate-full', (req, res) => {
 });
 
 
-// Base EXP theo từng giai đoạn
-function getBaseExp(level) {
-  if (level <= 3) return 100;
-  if (level <= 7) return 200;
-  if (level <= 10) return 400;
-  return 10;
+function randomIntInclusive(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function calculateExpGain(playerLevel, enemyLevel) {
-  const base = getBaseExp(playerLevel);
-  const numerator = Math.pow(enemyLevel, 2.2);
-  const denominator = Math.pow(playerLevel, 0.3);
-  return Math.round(base * (numerator / denominator))
+// EXP battle mới:
+// - Boss / quái: Exp = Level enemy * R, với R random 300..500
+function calculateBattleExpGain(enemyLevel) {
+  const lvl = Math.max(1, parseInt(enemyLevel, 10) || 1);
+  const r = randomIntInclusive(300, 500);
+  return lvl * r;
 }
 
 // ✅ API cộng EXP khi thắng trận
@@ -2147,7 +2140,7 @@ app.post('/api/pets/:id/gain-exp', async (req, res) => {
       return res.status(403).json({ message: 'NPC không được cộng EXP' });
     }
 
-    const gain = custom_amount !== null ? custom_amount : calculateExpGain(pet.level, enemy_level);
+    const gain = custom_amount !== null ? custom_amount : calculateBattleExpGain(enemy_level);
     let newExp = pet.current_exp + gain;
     let newLevel = pet.level;
 
