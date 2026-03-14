@@ -204,13 +204,21 @@ GET /api/bank/transactions/:userId?page=1&limit=20
    mysql -u root -p petaria < create_bank_tables.sql
    ```
 
-2. **Restart Backend Server**:
+2. **(Optional) Setup VIP + Bank interest rates tables**
+
+Nếu DB của bạn chưa có `users.is_vip`, `users.vip_expires_at` hoặc bảng `bank_interest_rates`, bạn có thể chạy script setup:
+
+```bash
+node scripts/setup_vip_bank_system.js
+```
+
+3. **Restart Backend Server**:
    ```bash
    cd petaria/backend
    npm start
    ```
 
-3. **Access Bank Page**:
+4. **Access Bank Page**:
    - Navigate to `/bank` trong ứng dụng
 
 ## Troubleshooting

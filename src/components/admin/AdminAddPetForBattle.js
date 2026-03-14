@@ -1,7 +1,7 @@
 // AdminAddPetForBattle.js - Tạo pet từ species dùng cho NPC, Arena, Champion, Boss, v.v.
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../css/AdminCreatePet.css';
+import '../../components/admin/AdminCreatePet.css';
 import Sidebar from '../Sidebar';
 
 function AdminAddPetForBattle() {

@@ -1,6 +1,7 @@
 // ArenaBattlePage.js - Trang chiến đấu PvE
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { UserContext } from '../../UserContext';
 import TemplatePage from '../template/TemplatePage';
 import '../css/BattlePage.css';
 import '../css/ArenaBattlePage.css';
@@ -9,11 +10,36 @@ import expTable from '../../data/exp_table_petaria.json';
 function ArenaBattlePage() {
     const location = useLocation();
     const navigate = useNavigate();
+    const { user } = useContext(UserContext) || {};
     const { playerPet, enemyPet } = location.state || {};
   
-    const [player, setPlayer] = useState({ ...playerPet, current_hp: playerPet?.current_hp || playerPet?.final_stats?.hp });
-    const [enemy, setEnemy] = useState({ ...enemyPet, current_hp: enemyPet?.current_hp || enemyPet?.final_stats?.hp });
+    const [player, setPlayer] = useState({ ...playerPet, current_hp: playerPet?.current_hp || playerPet?.final_stats?.hp, current_def_dmg: 0 });
+    const [enemy, setEnemy] = useState({ ...enemyPet, current_hp: enemyPet?.current_hp || enemyPet?.final_stats?.hp, current_def_dmg: 0 });
     const [turn, setTurn] = useState(0);
+    const playerRef = React.useRef(player);
+    const enemyRef = React.useRef(enemy);
+    playerRef.current = player;
+    enemyRef.current = enemy;
+
+    // Đảm bảo Boss có đủ action_pattern + skills (nếu vào trận với enemy thiếu dữ liệu)
+    useEffect(() => {
+      if (!enemyPet?.id || !enemyPet?.isBoss) return;
+      const hasPattern = Array.isArray(enemyPet.action_pattern) && enemyPet.action_pattern.length > 0;
+      const hasSkills = Array.isArray(enemyPet.skills) && enemyPet.skills.length > 0;
+      if (hasPattern && hasSkills) return;
+      fetch(`${process.env.REACT_APP_API_BASE_URL || ''}/api/bosses/${enemyPet.id}`)
+        .then((r) => r.json())
+        .then((boss) => {
+          setEnemy((prev) => ({
+            ...prev,
+            ...boss,
+            current_hp: prev.current_hp ?? boss.current_hp ?? boss.final_stats?.hp,
+            action_pattern: boss.action_pattern ?? prev.action_pattern,
+            skills: boss.skills ?? prev.skills,
+          }));
+        })
+        .catch((err) => console.error('Load full boss for action_pattern:', err));
+    }, [enemyPet?.id, enemyPet?.isBoss]);
     const [log, setLog] = useState([]);
     const [autoMode, setAutoMode] = useState(false);
     const [isBlitzMode, setIsBlitzMode] = useState(false);
@@ -25,14 +51,20 @@ function ArenaBattlePage() {
   
     const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
-    const expToThisLevel = expTable[player.level] || 0;
-    const expToNextLevel = expTable[player.level + 1] || 1;
-    const expProgress = player.current_exp;
-  const expRequired = expToNextLevel - expToThisLevel;
+    /** Công thức giống dùng item: Dmg_out / Def_dmg với R = random(power_min, power_max). Tấn công thường & Phòng thủ vật lý dùng cố định 7, 10. */
+    const NORMAL_POWER_MIN = 7;
+    const NORMAL_POWER_MAX = 10;
+
+    const expProgress = Number(player.current_exp) || 0;
+    const expToNextLevel = expTable[player.level + 1] ?? expTable[player.level] ?? 1;
   
-    const appendLog = (entry) => {
-      setLog((prev) => [...prev.slice(-7), entry]);
+    const appendLog = (entry, type = 'default') => {
+      setLog((prev) => [...prev.slice(-49), { text: entry, type }]);
     };
+    const logEndRef = React.useRef(null);
+    useEffect(() => {
+      logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [log]);
   
     const checkBattleEnded = (nextEnemyHp, nextPlayerHp) => {
       if (nextEnemyHp <= 0 || nextPlayerHp <= 0) {
@@ -46,8 +78,9 @@ function ArenaBattlePage() {
       const handleAttackWithItem = async (item) => {
       if (actionLocked) return;
       setActionLocked(true);
-      // Sử dụng power trực tiếp từ item data
-      const power = item.power || 10;
+      // power_min, power_max (int trong DB, chia 10 trong công thức); fallback 0 nếu thiếu
+      const powerMin = item.power_min != null ? item.power_min : 0;
+      const powerMax = item.power_max != null ? item.power_max : 0;
 
     if (item.durability_left <= 0) return;
   
@@ -58,14 +91,21 @@ function ArenaBattlePage() {
           body: JSON.stringify({
             attacker: player,
             defender: enemy,
-            movePower: power,
-            moveName: item.item_name || 'Weapon'
+            movePower: item.power ?? 10,
+            moveName: item.item_name || 'Weapon',
+            power_min: powerMin,
+            power_max: powerMax,
+            defender_current_def_dmg: enemy.current_def_dmg ?? 0,
           })
         });
-                const result = await res.json();
-        const newEnemyHp = Math.max(enemy.current_hp - result.damage, 0);
-        appendLog(`${result.attacker} dùng ${result.moveUsed}${result.critical ? ' (CRIT)' : ''}, gây ${result.damage} sát thương.`);
-        setEnemy((prev) => ({ ...prev, current_hp: newEnemyHp }));
+        const result = await res.json();
+        if (result.reflectedDamage > 0) {
+          appendLog(`${result.attacker} đánh, ${result.defender} phản đòn ${result.reflectedDamage} sát thương!`, 'enemy_attack');
+          setPlayer((prev) => ({ ...prev, current_hp: result.attacker_hp_after ?? prev.current_hp }));
+        } else {
+          appendLog(`${result.attacker} dùng ${result.moveUsed}${result.critical ? ' (CRIT)' : ''}, gây ${result.damage} sát thương.`, 'player_attack');
+        }
+        setEnemy((prev) => ({ ...prev, current_hp: result.defender_hp_after ?? Math.max(0, prev.current_hp - result.damage), current_def_dmg: 0 }));
         
         // Cập nhật durability trong database
         try {
@@ -79,7 +119,7 @@ function ArenaBattlePage() {
           if (durabilityResult.item_broken) {
             // Xóa item khỏi equipped items nếu đã hỏng
             setEquippedItems((prev) => prev.filter(i => i.id !== item.id));
-            appendLog(`${item.item_name} đã bị hư hại!`);
+            appendLog(`${item.item_name} đã bị hư hại!`, 'default');
           } else {
             // Cập nhật durability
             setEquippedItems((prev) => prev.map(i => 
@@ -95,17 +135,63 @@ function ArenaBattlePage() {
         setTurn((prev) => prev + 1);
         setAttackAnimation('player');
 
-        if (!checkBattleEnded(newEnemyHp, player.current_hp)) {
+        const newEnemyHp = result.defender_hp_after ?? Math.max(0, enemy.current_hp - result.damage);
+        const newPlayerHp = result.reflectedDamage > 0 ? result.attacker_hp_after : player.current_hp;
+        if (!checkBattleEnded(newEnemyHp, newPlayerHp)) {
           setTimeout(() => handleEnemyTurn(), 1500);
         } else {
           setActionLocked(false);
         }
       } catch (err) {
         console.error('Lỗi khi đánh bằng vũ khí:', err);
+        setActionLocked(false);
       }
     };
   
+    const handleDefend = async (shieldItem) => {
+      if (actionLocked) return;
+      if (!shieldItem || shieldItem.equipment_type !== 'shield' || shieldItem.durability_left <= 0) return;
+      setActionLocked(true);
+      try {
+        const powerMin = shieldItem.power_min != null ? shieldItem.power_min : 0;
+        const powerMax = shieldItem.power_max != null ? shieldItem.power_max : 0;
+        const res = await fetch(`${API_BASE_URL}/api/arena/simulate-defend`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            defenderUnit: player,
+            enemy,
+            shield_power_min: powerMin,
+            shield_power_max: powerMax,
+          })
+        });
+        const result = await res.json();
+        appendLog(result.logMessage || `${player.name} sử dụng Phòng thủ, thiết lập shield ${result.defDmg ?? 0} HP phòng ngự.`, 'defense');
+        setPlayer((prev) => ({ ...prev, current_def_dmg: result.defDmg ?? 0 }));
+        setTurn((prev) => prev + 1);
+        try {
+          const durRes = await fetch(`${API_BASE_URL}/api/inventory/${shieldItem.id}/use-durability`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: 1 })
+          });
+          const durData = await durRes.json();
+          if (durData.item_broken) setEquippedItems((prev) => prev.filter(i => i.id !== shieldItem.id));
+          else setEquippedItems((prev) => prev.map(i => i.id === shieldItem.id ? { ...i, durability_left: durData.durability_left } : i));
+        } catch (_) {
+          setEquippedItems((prev) => prev.map(i => i.id === shieldItem.id ? { ...i, durability_left: Math.max((i.durability_left || 1) - 1, 0) } : i));
+        }
+        if (!checkBattleEnded(enemy.current_hp, player.current_hp)) setTimeout(() => handleEnemyTurn(), 1500);
+        else setActionLocked(false);
+      } catch (err) {
+        console.error('Lỗi khi phòng thủ:', err);
+        setActionLocked(false);
+      }
+    };
+
     const handleNormalAttack = async () => {
+      if (actionLocked) return;
+      setActionLocked(true);
       try {
         const res = await fetch(`${API_BASE_URL}/api/arena/simulate-turn`, {
           method: 'POST',
@@ -114,54 +200,121 @@ function ArenaBattlePage() {
             attacker: player,
             defender: enemy,
             movePower: 10,
-            moveName: 'Normal Attack'
+            moveName: 'Normal Attack',
+            power_min: NORMAL_POWER_MIN,
+            power_max: NORMAL_POWER_MAX,
+            defender_current_def_dmg: enemy.current_def_dmg ?? 0,
           })
         });
         const result = await res.json();
-        const newEnemyHp = Math.max(enemy.current_hp - result.damage, 0);
-        appendLog(`${result.attacker} dùng ${result.moveUsed}, gây ${result.damage} sát thương.`);
-        setEnemy((prev) => ({ ...prev, current_hp: newEnemyHp }));
+        if (result.reflectedDamage > 0) {
+          appendLog(`${result.attacker} đánh, ${result.defender} phản đòn ${result.reflectedDamage} sát thương!`, 'enemy_attack');
+          setPlayer((prev) => ({ ...prev, current_hp: result.attacker_hp_after ?? prev.current_hp }));
+        } else {
+          appendLog(`${result.attacker} dùng ${result.moveUsed}, gây ${result.damage} sát thương.`, 'player_attack');
+        }
+        setEnemy((prev) => ({ ...prev, current_hp: result.defender_hp_after ?? Math.max(0, prev.current_hp - result.damage), current_def_dmg: 0 }));
         setTurn((prev) => prev + 1);
         setAttackAnimation('player');
-  
-        if (!checkBattleEnded(newEnemyHp, player.current_hp)) {
-          setTimeout(() => handleEnemyTurn(), 1000);
+
+        const newEnemyHp = result.defender_hp_after ?? Math.max(0, enemy.current_hp - result.damage);
+        const newPlayerHp = result.reflectedDamage > 0 ? result.attacker_hp_after : player.current_hp;
+        if (!checkBattleEnded(newEnemyHp, newPlayerHp)) {
+          setTimeout(() => handleEnemyTurn(), 1500);
+        } else {
+          setActionLocked(false);
         }
       } catch (err) {
         console.error('Lỗi khi tấn công thường:', err);
+        setActionLocked(false);
+      }
+    };
+
+    /** Phòng thủ vật lý cơ bản (không cần khiên): cùng công thức defend với khiên, dùng power cố định 7, 10. */
+    const handleBasicDefend = async () => {
+      if (actionLocked) return;
+      setActionLocked(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/arena/simulate-defend`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            defenderUnit: player,
+            enemy,
+            shield_power_min: NORMAL_POWER_MIN,
+            shield_power_max: NORMAL_POWER_MAX,
+          })
+        });
+        const result = await res.json();
+        appendLog(result.logMessage || `${player.name} sử dụng Phòng thủ vật lý, thiết lập shield ${result.defDmg ?? 0} HP phòng ngự.`, 'defense');
+        setPlayer((prev) => ({ ...prev, current_def_dmg: result.defDmg ?? 0 }));
+        setTurn((prev) => prev + 1);
+        if (!checkBattleEnded(enemy.current_hp, player.current_hp)) setTimeout(() => handleEnemyTurn(), 1500);
+        else setActionLocked(false);
+      } catch (err) {
+        console.error('Lỗi khi phòng thủ vật lý:', err);
+        setActionLocked(false);
       }
     };
   
     const handleEnemyTurn = async () => {
-      if (enemy.current_hp <= 0 || player.current_hp <= 0) return;
-  
+      const latestPlayer = playerRef.current;
+      const latestEnemy = enemyRef.current;
+      if (latestEnemy.current_hp <= 0 || latestPlayer.current_hp <= 0) return;
+
       try {
+        const payload = {
+          attacker: latestEnemy,
+          defender: latestPlayer,
+          movePower: 10,
+          moveName: 'Enemy Strike',
+          isEnemyAttack: true,
+          defender_current_def_dmg: latestPlayer.current_def_dmg ?? 0,
+        };
+        if (Array.isArray(latestEnemy.skills) && latestEnemy.skills.length > 0) payload.turnNumber = turn + 1;
+
         const res = await fetch(`${API_BASE_URL}/api/arena/simulate-turn`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            attacker: enemy,
-            defender: player,
-            movePower: 10,
-            moveName: 'Enemy Strike'
-          })
+          body: JSON.stringify(payload),
         });
         const result = await res.json();
-        const newPlayerHp = Math.max(player.current_hp - result.damage, 0);
-        appendLog(`${result.attacker} dùng ${result.moveUsed}${result.critical ? ' (CRIT)' : ''}, gây ${result.damage} sát thương.`);
-        setPlayer((prev) => ({ ...prev, current_hp: newPlayerHp }));
+
+        if (result.miss) {
+          appendLog(`${result.attacker} dùng ${result.moveUsed} nhưng trượt!`);
+        } else if (result.isBossDefend) {
+          appendLog(`${result.attacker} sử dụng Phòng thủ, thiết lập shield ${result.bossDefDmg ?? 0} HP phòng ngự.`);
+          setEnemy((prev) => ({ ...prev, current_def_dmg: result.bossDefDmg ?? 0 }));
+        } else if (result.reflectedDamage > 0) {
+          appendLog(`${result.attacker} đánh, ${result.defender} phản đòn ${result.reflectedDamage} sát thương!`);
+          setPlayer((prev) => ({ ...prev, current_hp: result.defender_hp_after ?? prev.current_hp, current_def_dmg: 0 }));
+          setEnemy((prev) => ({ ...prev, current_hp: result.attacker_hp_after ?? prev.current_hp }));
+          checkBattleEnded(result.attacker_hp_after ?? enemy.current_hp, result.defender_hp_after ?? player.current_hp);
+        } else {
+          const newPlayerHp = result.defender_hp_after ?? Math.max(0, player.current_hp - (result.damage ?? 0));
+          appendLog(`${result.attacker} dùng ${result.moveUsed}${result.critical ? ' (CRIT)' : ''}, gây ${result.damage} sát thương.`, 'enemy_attack');
+          setPlayer((prev) => ({ ...prev, current_hp: newPlayerHp, current_def_dmg: 0 }));
+          checkBattleEnded(enemy.current_hp, newPlayerHp);
+        }
+
         setTurn((prev) => prev + 1);
         setAttackAnimation('enemy');
-  
-        checkBattleEnded(enemy.current_hp, newPlayerHp);
       } catch (err) {
         console.error('Enemy attack failed:', err);
       } finally {
-        setActionLocked(false); // ✅ Unlock sau khi enemy kết thúc
+        setActionLocked(false);
       }
     };
   
     const handleBlitz = async () => {
+      const firstWeapon = equippedItems.find(i => i.equipment_type !== 'shield');
+      const playerPowerMin = firstWeapon?.power_min != null ? firstWeapon.power_min : 0;
+      const playerPowerMax = firstWeapon?.power_max != null ? firstWeapon.power_max : 0;
+      const firstAttackSkill = Array.isArray(enemy.skills) && enemy.skills.length
+        ? enemy.skills.find(s => s.type === 'attack') || enemy.skills[0]
+        : null;
+      const enemyPowerMin = firstAttackSkill?.power_min ?? 80;
+      const enemyPowerMax = firstAttackSkill?.power_max ?? 100;
       try {
         const res = await fetch(`${API_BASE_URL}/api/arena/simulate-full`, {
           method: 'POST',
@@ -172,7 +325,11 @@ function ArenaBattlePage() {
             playerMovePower: 10,
             playerMoveName: 'Slash',
             enemyMovePower: 10,
-            enemyMoveName: 'Bite'
+            enemyMoveName: firstAttackSkill?.name || 'Bite',
+            playerPowerMin,
+            playerPowerMax,
+            enemyPowerMin,
+            enemyPowerMax,
           })
         });
         const result = await res.json();
@@ -257,11 +414,11 @@ function ArenaBattlePage() {
             }
 
             console.log('Pet sau khi cộng EXP:', updatedPet);
-            appendLog(`🎉 Chúc mừng ${player.name} nhận được ${updatedPet.gained} EXP`);
+            appendLog(`🎉 Chúc mừng ${player.name} nhận được ${updatedPet.gained} EXP`, 'exp');
             if (updatedPet.level > oldLevel) {
-              appendLog(`✨ ${player.name} đã lên cấp ${updatedPet.level}!`);
+              appendLog(`✨ ${player.name} đã lên cấp ${updatedPet.level}!`, 'exp');
               if (updatedPet.stats_updated) {
-                appendLog(`📊 Stat changes:`);
+                appendLog(`📊 Stat changes:`, 'exp');
                 const oldStats = updatedPet.old_stats;
                 const newStats = updatedPet.new_stats;
                 if (oldStats && newStats) {
@@ -272,12 +429,35 @@ function ArenaBattlePage() {
                   if (newStats.intelligence > oldStats.intelligence) statChanges.push(`INT: ${oldStats.intelligence} → ${newStats.intelligence} (+${newStats.intelligence - oldStats.intelligence})`);
                   if (newStats.spd > oldStats.spd) statChanges.push(`SPD: ${oldStats.spd} → ${newStats.spd} (+${newStats.spd - oldStats.spd})`);
                   if (newStats.mp > oldStats.mp) statChanges.push(`MP: ${oldStats.mp} → ${newStats.mp} (+${newStats.mp - oldStats.mp})`);
-                  statChanges.forEach(change => appendLog(`   ${change}`));
+                  statChanges.forEach(change => appendLog(`   ${change}`, 'exp'));
                 }
               }
             }
           } catch (err) {
             console.error('Lỗi khi cộng EXP sau chiến thắng:', err);
+          }
+          // Boss loot: gọi claim-loot khi thắng Boss
+          if (enemy?.isBoss && enemy?.id && user?.token) {
+            try {
+              const lootRes = await fetch(`${API_BASE_URL}/api/arena/claim-loot`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${user.token}`,
+                },
+                body: JSON.stringify({ bossId: enemy.id, petId: player.id }),
+              });
+              const lootData = await lootRes.json();
+              if (lootData.success && lootData.loot?.length > 0) {
+                appendLog('📦 Phần thưởng từ Boss:', 'exp');
+                lootData.loot.forEach((entry) => {
+                  const label = entry.item_id === 0 ? 'Peta' : entry.name;
+                  appendLog(`   + ${entry.quantity} ${label}`, 'exp');
+                });
+              }
+            } catch (err) {
+              console.error('Lỗi khi nhận loot Boss:', err);
+            }
           }
         }
       };
@@ -306,12 +486,12 @@ function ArenaBattlePage() {
       }, [battleEnded]);
 
       const resetBattle = () => {
-        // ✅ Sử dụng stats hiện tại của player (có thể đã level up)
         const newPlayer = { 
           ...player, 
-          current_hp: player.current_hp || player.final_stats.hp 
+          current_hp: player.current_hp || player.final_stats?.hp,
+          current_def_dmg: 0,
         };
-        const newEnemy = { ...enemyPet, current_hp: enemyPet.current_hp || enemyPet.final_stats.hp };
+        const newEnemy = { ...enemyPet, current_hp: enemyPet?.current_hp ?? enemyPet?.final_stats?.hp, current_def_dmg: 0 };
         setPlayer(newPlayer);
         setEnemy(newEnemy);
         setTurn(0);
@@ -347,58 +527,77 @@ function ArenaBattlePage() {
                 className={attackAnimation === 'enemy' ? 'attack-flash' : ''}
                 onAnimationEnd={() => setAttackAnimation('')}
               />
-              <p>{player.name}</p>
-              <p>Cấp độ: {player.level}</p>
-              <div className="hp-bar">
-                <div className="hp-fill" style={{ width: `${(player.current_hp / player.final_stats.hp) * 100}%` }}></div>
+              <p className="battle-pet-name">{player.name}</p>
+              <div className="battle-stats">
+                <p className="battle-stat-label">Sức khỏe: <span className="battle-stat-value">{player.current_hp}/{player.final_stats?.hp ?? 0}</span></p>
+                <p className="battle-stat-label">Đẳng cấp: <span className="battle-stat-level">{player.level}</span></p>
               </div>
-              <progress style={{ width: `${(player.final_stats.hp / player.final_stats.hp) * 100}%` }} value={(expProgress - expToThisLevel)} max={expRequired}></progress>
+              <div className="hp-bar">
+                <div className="hp-fill" style={{ width: `${Math.max(0, ((player.current_hp ?? 0) / (player.final_stats?.hp ?? 1)) * 100)}%` }}></div>
+              </div>
+              <div className="mp-bar arena-mp-hidden">
+                <div className="mp-fill" style={{ width: `${((player.current_mp ?? 0) / (player.final_stats?.mp ?? 1)) * 100}%` }}></div>
+              </div>
+              <p className="battle-stat-label battle-exp-text">EXP: {expProgress} / {expToNextLevel}</p>
             </div>
-    
+
             <div className="pet-side">
               <img
-                src={`/images/pets/${enemy.image}`}
+                src={`${enemy.image}`}
                 alt={enemy.name}
                 className={attackAnimation === 'player' ? 'attack-flash' : ''}
                 onAnimationEnd={() => setAttackAnimation('')}
               />
-              <p>{enemy.name}</p>
-              <p>Cấp độ: {enemy.level}</p>
+              <p className="battle-pet-name">{enemy.name}</p>
+              <div className="battle-stats">
+                <p className="battle-stat-label">Sức khỏe: <span className="battle-stat-value">{enemy.current_hp}/{enemy.final_stats?.hp ?? 0}</span></p>
+                <p className="battle-stat-label">Đẳng cấp: <span className="battle-stat-level">{enemy.level}</span></p>
+              </div>
               <div className="hp-bar">
-                <div className="hp-fill" style={{ width: `${(enemy.current_hp / enemy.final_stats.hp) * 100}%` }}></div>
+                <div className="hp-fill" style={{ width: `${Math.max(0, ((enemy.current_hp ?? 0) / (enemy.final_stats?.hp ?? 1)) * 100)}%` }}></div>
+              </div>
+              <div className="mp-bar arena-mp-hidden">
+                <div className="mp-fill" style={{ width: `${((enemy.current_mp ?? 0) / (enemy.final_stats?.mp ?? 1)) * 100}%` }}></div>
               </div>
             </div>
           </div>
-    
+
           <div className="battle-log">
-            {log.map((line, idx) => (<div key={idx}>{line}</div>))}
+            {log.map((entry, idx) => {
+              const item = typeof entry === 'string' ? { text: entry, type: 'default' } : entry;
+              return <div key={idx} className={`log-entry log-${item.type}`}>{item.text}</div>;
+            })}
+            <div ref={logEndRef} />
           </div>
     
           {!battleEnded && (
             <div className="battle-controls">
               <div className="equipment-row">
                 {equippedItems.map(item => {
-                  // Sử dụng power trực tiếp từ item data
-                  const power = item.power || 10;
+                  const powerLabel = item.power_min != null && item.power_max != null
+                    ? `${item.power_min / 10}-${item.power_max / 10} mag`
+                    : (item.power ?? 10);
+                  const isShield = item.equipment_type === 'shield';
                   return (
                     <div key={item.id} style={{ display: 'inline-block', textAlign: 'center', margin: '5px' }}>
                       <img
                         src={`/images/equipments/${item.image_url}`}
                         alt={item.item_name}
-                        title={item.item_name}
-                        onClick={() => item.durability_left > 0 && handleAttackWithItem(item)}
+                        title={isShield ? 'Phòng thủ (thiết lập shield)' : item.item_name}
+                        onClick={() => item.durability_left > 0 && (isShield ? handleDefend(item) : handleAttackWithItem(item))}
                         style={{
                           border: item.durability_left <= 0 ? '1px solid gray' : '2px solid gold',
                           width: '48px', height: '48px', cursor: item.durability_left > 0 ? 'pointer' : 'not-allowed'
                         }}
                       />
-                      <div style={{ fontSize: '12px' }}>{power} dmg</div>
-                      <div style={{ fontSize: '12px' }}>🔧 {item.durability_left} uses left</div>
+                      <div style={{ fontSize: '12px' }}>{powerLabel} {isShield ? '🛡' : ''}</div>
+                      <div style={{ fontSize: '12px' }}>{isShield ? '🛡 Phòng thủ' : '🔧'} {item.durability_left} uses left</div>
                     </div>
                   );
                 })}
               </div>
               <button onClick={handleNormalAttack}>Tấn công thường</button>
+              <button onClick={handleBasicDefend}>Phòng thủ vật lý</button>
               <button onClick={() => setAutoMode(true)} disabled={autoMode}>Auto</button>
               <button onClick={handleBlitz}>Blitz</button>
             </div>

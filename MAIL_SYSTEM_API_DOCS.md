@@ -224,6 +224,14 @@ CREATE TABLE mails (
 }
 ```
 
+### Test/Dev Script
+
+Bạn có thể dùng script để gửi mail test hàng loạt (dev only):
+
+```bash
+node scripts/send_test_mails.js
+```
+
 #### 9. POST `/api/admin/mails/cleanup`
 **Xóa mail hết hạn**
 

@@ -4,7 +4,10 @@ const {
   isDodged,
   calculateDamage,
   simulateTurn,
-  simulateFullBattle
+  simulateFullBattle,
+  simulateDefendTurn,
+  getBossAction,
+  simulateBossTurn,
 } = require('./battleEngine');
 
 
@@ -32,6 +35,7 @@ function calculateFinalStats(base, iv, level) {
     spd: getStat(base.spd, iv.iv_spd),
   };
 }
+
 require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
 
 const express = require('express');
@@ -119,6 +123,7 @@ const storage = multer.diskStorage({
   },
 });
 const upload = multer({ storage: storage });
+const uploadMemory = multer({ storage: multer.memoryStorage() });
 
 // API endpoints sẽ được thêm vào đây
 
@@ -785,6 +790,7 @@ app.get('/users/:userId/pets', (req, res) => {
           ps.name AS species_name,
           ps.image,
           p.level,
+          p.current_exp,
           p.hp,
           p.mp,
           p.str,
@@ -1428,7 +1434,7 @@ app.delete('/api/admin/items/:id', (req, res) => {
   });
 });
 
-//Lấy stats của equipment-stats
+// Lấy toàn bộ equipment_data (schema mới: equipment_type, power_min, power_max, durability_max, magic_value, crit_rate, block_rate, element, effect_id)
 app.get('/api/admin/equipment-stats', (req, res) => {
   const sql = `SELECT * FROM equipment_data`;
   pool.query(sql, (err, results) => {
@@ -1441,35 +1447,97 @@ app.get('/api/admin/equipment-stats', (req, res) => {
 });
 
 app.post('/api/admin/equipment-stats', (req, res) => {
-  const { item_id, power, durability } = req.body;
-  const sql = `INSERT INTO equipment_data (item_id, power, durability)
-               VALUES (?, ?, ?)
-               ON DUPLICATE KEY UPDATE power = VALUES(power), durability = VALUES(durability)`;
+  const {
+    item_id,
+    equipment_type = 'weapon',
+    power_min,
+    power_max,
+    durability_max,
+    magic_value,
+    crit_rate,
+    block_rate,
+    element,
+    effect_id,
+  } = req.body;
+  const sql = `INSERT INTO equipment_data (item_id, equipment_type, power_min, power_max, durability_max, magic_value, crit_rate, block_rate, element, effect_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON DUPLICATE KEY UPDATE
+                 equipment_type = VALUES(equipment_type),
+                 power_min = VALUES(power_min),
+                 power_max = VALUES(power_max),
+                 durability_max = VALUES(durability_max),
+                 magic_value = VALUES(magic_value),
+                 crit_rate = VALUES(crit_rate),
+                 block_rate = VALUES(block_rate),
+                 element = VALUES(element),
+                 effect_id = VALUES(effect_id)`;
 
-  pool.query(sql, [item_id, power, durability], (err, results) => {
-    if (err) {
-      console.error('Error saving equipment data:', err);
-      return res.status(500).json({ message: 'Error saving equipment data' });
+  pool.query(
+    sql,
+    [
+      item_id,
+      equipment_type,
+      power_min ?? null,
+      power_max ?? null,
+      durability_max ?? null,
+      magic_value ?? null,
+      crit_rate ?? null,
+      block_rate ?? null,
+      element ?? null,
+      effect_id ?? null,
+    ],
+    (err, results) => {
+      if (err) {
+        console.error('Error saving equipment data:', err);
+        return res.status(500).json({ message: 'Error saving equipment data' });
+      }
+      res.json({ message: 'Equipment data saved successfully' });
     }
-    res.json({ message: 'Equipment data saved successfully' });
-  });
+  );
 });
 
 app.put('/api/admin/equipment-stats/:id', (req, res) => {
   const { id } = req.params;
-  const { item_id, power, durability } = req.body;
+  const {
+    item_id,
+    equipment_type,
+    power_min,
+    power_max,
+    durability_max,
+    magic_value,
+    crit_rate,
+    block_rate,
+    element,
+    effect_id,
+  } = req.body;
 
   const sql = `UPDATE equipment_data
-               SET item_id = ?, power = ?, durability = ?
+               SET item_id = ?, equipment_type = ?, power_min = ?, power_max = ?, durability_max = ?, magic_value = ?, crit_rate = ?, block_rate = ?, element = ?, effect_id = ?
                WHERE id = ?`;
 
-  pool.query(sql, [item_id, power, durability, id], (err, results) => {
-    if (err) {
-      console.error('Error updating equipment data:', err);
-      return res.status(500).json({ message: 'Error updating equipment data' });
+  pool.query(
+    sql,
+    [
+      item_id,
+      equipment_type ?? 'weapon',
+      power_min ?? null,
+      power_max ?? null,
+      durability_max ?? null,
+      magic_value ?? null,
+      crit_rate ?? null,
+      block_rate ?? null,
+      element ?? null,
+      effect_id ?? null,
+      id,
+    ],
+    (err, results) => {
+      if (err) {
+        console.error('Error updating equipment data:', err);
+        return res.status(500).json({ message: 'Error updating equipment data' });
+      }
+      res.json({ message: 'Equipment data updated successfully' });
     }
-    res.json({ message: 'Equipment data updated successfully' });
-  });
+  );
 });
 
 // get items 
@@ -1497,7 +1565,7 @@ app.get('/api/item-effects/:itemId', (req, res) => {
   });
 });
 
-// Get equipment data for a specific item
+// Get equipment data for a specific item (schema mới: equipment_type, magic_value, durability_max, ...)
 app.get('/api/equipment-data/:itemId', (req, res) => {
   const { itemId } = req.params;
   const sql = `SELECT * FROM equipment_data WHERE item_id = ?`;
@@ -1507,7 +1575,7 @@ app.get('/api/equipment-data/:itemId', (req, res) => {
       return res.status(500).json({ message: 'Error fetching equipment data' });
     }
     if (results.length > 0) {
-      res.json(results[0]); // Return first result as object
+      res.json(results[0]);
     } else {
       res.status(404).json({ message: 'Equipment data not found' });
     }
@@ -1700,11 +1768,11 @@ app.post('/api/shop/buy', async (req, res) => {
     // 6. Thêm item vào inventory
     if (itemRow.type === 'equipment') {
       const [equipInfo] = await db.query(
-        'SELECT durability FROM equipment_data WHERE item_id = ?',
+        'SELECT durability_max FROM equipment_data WHERE item_id = ?',
         [item_id]
       );
 
-      const durability = (equipInfo.length > 0) ? equipInfo[0].durability : 1;
+      const durability = (equipInfo.length > 0) ? (equipInfo[0].durability_max ?? 1) : 1;
 
       // Equipment items can only be bought one at a time
       for (let i = 0; i < quantity; i++) {
@@ -1817,7 +1885,7 @@ app.get('/api/users/:userId/inventory', async (req, res) => {
     const [rows] = await db.query(`
         SELECT i.*, it.name, it.description, it.image_url, it.type, it.rarity, 
                p.name AS pet_name, p.level AS pet_level,
-               ed.power, ed.durability AS max_durability
+               ed.equipment_type, ed.magic_value AS power, ed.durability_max AS max_durability
         FROM inventory i
         JOIN items it ON i.item_id = it.id
         LEFT JOIN pets p ON i.equipped_pet_id = p.id
@@ -1904,7 +1972,8 @@ app.get('/api/pets/:petId/equipment', async (req, res) => {
   try {
     const [rows] = await pool.promise().query(
       `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, i.durability_left,
-              ed.power, ed.durability AS max_durability, i.is_broken
+              ed.equipment_type, ed.magic_value AS power, ed.power_min, ed.power_max,
+              ed.durability_max AS max_durability, i.is_broken
        FROM inventory i
        JOIN items it ON i.item_id = it.id
        LEFT JOIN equipment_data ed ON it.id = ed.item_id
@@ -2031,8 +2100,8 @@ app.post('/api/admin/arena-pet', async (req, res) => {
       INSERT INTO pets (uuid, name, owner_id, pet_species_id, level, created_date, 
         hp, max_hp, mp, max_mp, str, def, intelligence, spd,
         iv_hp, iv_mp, iv_str, iv_def, iv_intelligence, iv_spd, 
-        current_exp, exp_to_next_level, final_stats, is_arena_enemy)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        current_exp, exp_to_next_level, final_stats)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       uuid,
       custom_name || species.name,
@@ -2046,7 +2115,6 @@ app.post('/api/admin/arena-pet', async (req, res) => {
       iv.iv_hp, iv.iv_mp, iv.iv_str, iv.iv_def, iv.iv_intelligence, iv.iv_spd,
       0, expToNext,
       JSON.stringify(stats),
-      1
     ]);
 
     res.json({ message: 'Đã tạo NPC thành công!' });
@@ -2057,32 +2125,537 @@ app.post('/api/admin/arena-pet', async (req, res) => {
 });
 
 
-// API: Lấy danh sách pet NPC dùng trong Arena
+// API: Lấy danh sách Boss/NPC làm đối thủ Arena (từ bảng boss_templates; location_id = 1 = Arena)
 app.get('/api/arena/enemies', async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT p.id, p.uuid, p.name, p.level, ps.image
-      FROM pets p
-      JOIN pet_species ps ON p.pet_species_id = ps.id
-      WHERE p.is_arena_enemy = 1
-      ORDER BY p.level DESC
+      SELECT id, name, level, image_url AS image
+      FROM boss_templates
+      WHERE location_id = 1 OR location_id IS NULL
+      ORDER BY level ASC
     `);
+    const list = (rows || []).map((r) => ({ ...r, isBoss: true }));
+    res.json(list);
+  } catch (err) {
+    console.error('Lỗi khi lấy danh sách Boss Arena:', err);
+    res.status(500).json({ message: 'Lỗi server khi tải danh sách đối thủ' });
+  }
+});
 
+// API: Chi tiết Boss (dùng cho Arena battle – trả về final_stats tương thích Pet, current_hp = max hp)
+app.get('/api/bosses/:id', async (req, res) => {
+  try {
+    const bossId = parseInt(req.params.id, 10);
+    if (!bossId) return res.status(400).json({ message: 'ID Boss không hợp lệ' });
+
+    const [bossRows] = await db.query(
+      'SELECT * FROM boss_templates WHERE id = ?',
+      [bossId]
+    );
+    if (!bossRows || bossRows.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy Boss' });
+    }
+    const row = bossRows[0];
+
+    // Stat Boss cố định do admin/DB nhập, không tính công thức, không IV, không lên level
+    const finalStats = {
+      hp: parseInt(row.base_hp, 10) || 10,
+      mp: parseInt(row.base_mp, 10) || 10,
+      str: parseInt(row.base_str, 10) || 10,
+      def: parseInt(row.base_def, 10) || 10,
+      intelligence: parseInt(row.base_intelligence, 10) || 10,
+      spd: parseInt(row.base_spd, 10) || 10,
+    };
+    const level = parseInt(row.level, 10) || 1;
+
+    const [skillRows] = await db.query(
+      `SELECT s.id, s.name, s.description, s.type, s.power_min, s.power_max, s.accuracy, s.mana_cost, bs.sort_order
+       FROM boss_skills bs
+       JOIN skills s ON bs.skill_id = s.id
+       WHERE bs.boss_template_id = ?
+       ORDER BY bs.sort_order ASC, s.id ASC`,
+      [bossId]
+    );
+    const skills = (skillRows || []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      type: s.type || 'attack',
+      power_min: s.power_min != null ? parseInt(s.power_min, 10) : 80,
+      power_max: s.power_max != null ? parseInt(s.power_max, 10) : 100,
+      accuracy: s.accuracy != null ? parseInt(s.accuracy, 10) : 100,
+      mana_cost: s.mana_cost != null ? parseInt(s.mana_cost, 10) : 0,
+    }));
+
+    const action_pattern = row.action_pattern
+      ? (typeof row.action_pattern === 'string' ? JSON.parse(row.action_pattern) : row.action_pattern)
+      : null;
+
+    const boss = {
+      id: row.id,
+      name: row.name,
+      level,
+      image: row.image_url,
+      image_url: row.image_url,
+      final_stats: finalStats,
+      current_hp: finalStats.hp,
+      location_id: row.location_id,
+      drop_table: row.drop_table ? (typeof row.drop_table === 'string' ? JSON.parse(row.drop_table) : row.drop_table) : null,
+      respawn_minutes: row.respawn_minutes,
+      skills,
+      action_pattern: Array.isArray(action_pattern) ? action_pattern : null,
+      isBoss: true,
+    };
+    res.json(boss);
+  } catch (err) {
+    console.error('Lỗi khi lấy chi tiết Boss:', err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// ---------- Admin NPC/Boss: skills, boss_templates, boss_skills (CRUD + CSV) ----------
+const checkAdminRoleNpc = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Token required' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const [rows] = await db.query('SELECT role FROM users WHERE id = ?', [decoded.userId]);
+    if (!rows.length || rows[0].role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+    req.user = { userId: decoded.userId };
+    next();
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
+// Helper: parse CSV text (first line = headers)
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length === 0) return { headers: [], rows: [] };
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  const rows = lines.slice(1).filter(l => l.trim()).map(line => {
+    const values = [];
+    let cur = '', inQuoted = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQuoted = !inQuoted; continue; }
+      if (!inQuoted && c === ',') { values.push(cur.trim()); cur = ''; continue; }
+      cur += c;
+    }
+    values.push(cur.trim());
+    return values;
+  });
+  return { headers, rows };
+}
+
+// Helper: escape CSV cell
+function escapeCSV(val) {
+  if (val == null) return '';
+  const s = String(val);
+  return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+// Skills - list
+app.get('/api/admin/skills', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM skills ORDER BY id');
     res.json(rows);
   } catch (err) {
-    console.error('Lỗi khi lấy danh sách pet NPC Arena:', err);
-    res.status(500).json({ message: 'Lỗi server khi tải danh sách pet NPC' });
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Skills - create (type, power_min, power_max, accuracy cho Boss skill)
+app.post('/api/admin/skills', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const { name, description, power_multiplier, effect_type, mana_cost, type, power_min, power_max, accuracy } = req.body;
+    const skillType = (type === 'defend' ? 'defend' : 'attack');
+    const pMin = power_min != null ? parseInt(power_min, 10) : 80;
+    const pMax = power_max != null ? parseInt(power_max, 10) : 100;
+    const acc = accuracy != null ? Math.min(100, Math.max(0, parseInt(accuracy, 10))) : 100;
+    await db.query(
+      'INSERT INTO skills (name, description, power_multiplier, effect_type, mana_cost, type, power_min, power_max, accuracy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name || '', description || null, power_multiplier != null ? Number(power_multiplier) : 1, effect_type || null, mana_cost != null ? parseInt(mana_cost, 10) : 0, skillType, pMin, pMax, acc]
+    );
+    const [inserted] = await db.query('SELECT * FROM skills ORDER BY id DESC LIMIT 1');
+    res.status(201).json(inserted[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Skills - update
+app.put('/api/admin/skills/:id', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { name, description, power_multiplier, effect_type, mana_cost, type, power_min, power_max, accuracy } = req.body;
+    const skillType = (type === 'defend' ? 'defend' : 'attack');
+    const pMin = power_min != null ? parseInt(power_min, 10) : 80;
+    const pMax = power_max != null ? parseInt(power_max, 10) : 100;
+    const acc = accuracy != null ? Math.min(100, Math.max(0, parseInt(accuracy, 10))) : 100;
+    await db.query(
+      'UPDATE skills SET name=?, description=?, power_multiplier=?, effect_type=?, mana_cost=?, type=?, power_min=?, power_max=?, accuracy=? WHERE id=?',
+      [name ?? '', description ?? null, power_multiplier != null ? Number(power_multiplier) : 1, effect_type ?? null, mana_cost != null ? parseInt(mana_cost, 10) : 0, skillType, pMin, pMax, acc, id]
+    );
+    const [rows] = await db.query('SELECT * FROM skills WHERE id=?', [id]);
+    res.json(rows[0] || {});
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Skills - delete
+app.delete('/api/admin/skills/:id', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    await db.query('DELETE FROM skills WHERE id=?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Skills - download CSV
+app.get('/api/admin/skills/csv', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM skills ORDER BY id');
+    const headers = ['id', 'name', 'description', 'type', 'power_min', 'power_max', 'accuracy', 'power_multiplier', 'effect_type', 'mana_cost', 'created_at'];
+    const csv = [headers.join(','), ...rows.map(r => headers.map(h => escapeCSV(r[h])).join(','))].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=skills.csv');
+    res.send('\uFEFF' + csv);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Skills - upload CSV: chỉ UPDATE khi id có trong DB; id trống hoặc id không tồn tại → INSERT
+app.post('/api/admin/skills/csv', checkAdminRoleNpc, uploadMemory.single('file'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) return res.status(400).json({ message: 'Thiếu file CSV' });
+    const text = req.file.buffer.toString('utf8');
+    const { headers, rows } = parseCSV(text);
+    const required = ['name'];
+    const h = headers.map(x => x.toLowerCase().trim());
+    if (!required.every(k => h.includes(k))) return res.status(400).json({ message: 'CSV thiếu cột bắt buộc: ' + required.join(', ') });
+    let updated = 0, inserted = 0;
+    for (const row of rows) {
+      const o = {};
+      headers.forEach((col, i) => { o[col.toLowerCase().trim()] = row[i]; });
+      const idRaw = o.id != null && String(o.id).trim() !== '' ? parseInt(o.id, 10) : null;
+      const id = (idRaw != null && !isNaN(idRaw)) ? idRaw : null;
+      let doUpdate = false;
+      if (id != null) {
+        const [ex] = await db.query('SELECT 1 FROM skills WHERE id = ? LIMIT 1', [id]);
+        doUpdate = ex && ex.length > 0;
+      }
+      const skillType = (o.type === 'defend' ? 'defend' : 'attack');
+      const pMin = o.power_min != null && o.power_min !== '' ? parseInt(o.power_min, 10) : 80;
+      const pMax = o.power_max != null && o.power_max !== '' ? parseInt(o.power_max, 10) : 100;
+      const acc = o.accuracy != null && o.accuracy !== '' ? Math.min(100, Math.max(0, parseInt(o.accuracy, 10))) : 100;
+      if (doUpdate) {
+        await db.query('UPDATE skills SET name=?, description=?, power_multiplier=?, effect_type=?, mana_cost=?, type=?, power_min=?, power_max=?, accuracy=? WHERE id=?', [
+          o.name ?? '', o.description ?? null, o.power_multiplier != null ? Number(o.power_multiplier) : 1, o.effect_type ?? null, o.mana_cost != null ? parseInt(o.mana_cost, 10) : 0, skillType, pMin, pMax, acc, id
+        ]);
+        updated++;
+      } else {
+        await db.query('INSERT INTO skills (name, description, power_multiplier, effect_type, mana_cost, type, power_min, power_max, accuracy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+          o.name ?? '', o.description ?? null, o.power_multiplier != null ? Number(o.power_multiplier) : 1, o.effect_type ?? null, o.mana_cost != null ? parseInt(o.mana_cost, 10) : 0, skillType, pMin, pMax, acc
+        ]);
+        inserted++;
+      }
+    }
+    res.json({ success: true, updated, inserted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Boss templates - list
+app.get('/api/admin/boss-templates', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM boss_templates ORDER BY id');
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Helper: parse int hoặc trả về null nếu rỗng/NaN
+const parseIntOrNull = (v, defaultValue) => {
+  if (v === '' || v === undefined || v === null) return defaultValue ?? null;
+  const n = parseInt(v, 10);
+  return isNaN(n) ? (defaultValue ?? null) : n;
+};
+
+// Boss templates - create
+app.post('/api/admin/boss-templates', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const { name, image_url, level, base_hp, base_mp, base_str, base_def, base_intelligence, base_spd, accuracy, location_id, drop_table, respawn_minutes, action_pattern } = req.body;
+    const dt = drop_table != null ? (typeof drop_table === 'string' ? drop_table : JSON.stringify(drop_table)) : null;
+    const ap = action_pattern != null ? (typeof action_pattern === 'string' ? action_pattern : JSON.stringify(action_pattern)) : null;
+    const locId = parseIntOrNull(location_id);
+    const respawnVal = parseIntOrNull(respawn_minutes);
+    await db.query(
+      `INSERT INTO boss_templates (name, image_url, level, base_hp, base_mp, base_str, base_def, base_intelligence, base_spd, accuracy, location_id, drop_table, respawn_minutes, action_pattern)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name ?? '', image_url ?? '', parseIntOrNull(level, 1), parseIntOrNull(base_hp, 10), parseIntOrNull(base_mp, 10), parseIntOrNull(base_str, 10), parseIntOrNull(base_def, 10), parseIntOrNull(base_intelligence, 10), parseIntOrNull(base_spd, 10), parseIntOrNull(accuracy, 100), locId, dt, respawnVal, ap]
+    );
+    const [inserted] = await db.query('SELECT * FROM boss_templates ORDER BY id DESC LIMIT 1');
+    res.status(201).json(inserted[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Boss templates - update
+app.put('/api/admin/boss-templates/:id', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { name, image_url, level, base_hp, base_mp, base_str, base_def, base_intelligence, base_spd, accuracy, location_id, drop_table, respawn_minutes, action_pattern } = req.body;
+    const dt = drop_table != null ? (typeof drop_table === 'string' ? drop_table : JSON.stringify(drop_table)) : undefined;
+    const ap = action_pattern !== undefined ? (action_pattern == null ? null : (typeof action_pattern === 'string' ? action_pattern : JSON.stringify(action_pattern))) : undefined;
+    const updates = [];
+    const values = [];
+    if (name !== undefined) { updates.push('name=?'); values.push(name); }
+    if (image_url !== undefined) { updates.push('image_url=?'); values.push(image_url); }
+    if (level !== undefined) { const v = parseIntOrNull(level, 1); if (v != null) { updates.push('level=?'); values.push(v); } }
+    if (base_hp !== undefined) { const v = parseIntOrNull(base_hp, 10); if (v != null) { updates.push('base_hp=?'); values.push(v); } }
+    if (base_mp !== undefined) { const v = parseIntOrNull(base_mp, 10); if (v != null) { updates.push('base_mp=?'); values.push(v); } }
+    if (base_str !== undefined) { const v = parseIntOrNull(base_str, 10); if (v != null) { updates.push('base_str=?'); values.push(v); } }
+    if (base_def !== undefined) { const v = parseIntOrNull(base_def, 10); if (v != null) { updates.push('base_def=?'); values.push(v); } }
+    if (base_intelligence !== undefined) { const v = parseIntOrNull(base_intelligence, 10); if (v != null) { updates.push('base_intelligence=?'); values.push(v); } }
+    if (base_spd !== undefined) { const v = parseIntOrNull(base_spd, 10); if (v != null) { updates.push('base_spd=?'); values.push(v); } }
+    if (accuracy !== undefined) { const v = parseIntOrNull(accuracy, 100); if (v != null) { updates.push('accuracy=?'); values.push(v); } }
+    if (location_id !== undefined) { updates.push('location_id=?'); values.push(parseIntOrNull(location_id)); }
+    if (dt !== undefined) { updates.push('drop_table=?'); values.push(dt); }
+    if (respawn_minutes !== undefined) { updates.push('respawn_minutes=?'); values.push(parseIntOrNull(respawn_minutes)); }
+    if (ap !== undefined) { updates.push('action_pattern=?'); values.push(ap); }
+    if (updates.length === 0) return res.json({});
+    values.push(id);
+    await db.query('UPDATE boss_templates SET ' + updates.join(', ') + ' WHERE id=?', values);
+    const [rows] = await db.query('SELECT * FROM boss_templates WHERE id=?', [id]);
+    res.json(rows[0] || {});
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Boss templates - delete
+app.delete('/api/admin/boss-templates/:id', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    await db.query('DELETE FROM boss_templates WHERE id=?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Boss templates - download CSV
+app.get('/api/admin/boss-templates/csv', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM boss_templates ORDER BY id');
+    const headers = ['id', 'name', 'image_url', 'level', 'base_hp', 'base_mp', 'base_str', 'base_def', 'base_intelligence', 'base_spd', 'accuracy', 'location_id', 'drop_table', 'respawn_minutes', 'created_at'];
+    const csv = [headers.join(','), ...rows.map(r => headers.map(h => escapeCSV(r[h] != null && typeof r[h] === 'object' ? JSON.stringify(r[h]) : r[h])).join(','))].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=boss_templates.csv');
+    res.send('\uFEFF' + csv);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Boss templates - upload CSV: chỉ UPDATE khi id có trong DB; id trống hoặc id không tồn tại → INSERT
+app.post('/api/admin/boss-templates/csv', checkAdminRoleNpc, uploadMemory.single('file'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) return res.status(400).json({ message: 'Thiếu file CSV' });
+    const text = req.file.buffer.toString('utf8');
+    const { headers, rows } = parseCSV(text);
+    const required = ['name', 'image_url'];
+    const h = headers.map(x => x.toLowerCase().trim());
+    if (!required.every(k => h.includes(k))) return res.status(400).json({ message: 'CSV thiếu cột: ' + required.join(', ') });
+    let updated = 0, inserted = 0;
+    const num = (v) => (v !== '' && v != null && !isNaN(Number(v)) ? parseInt(v, 10) : null);
+    const numDef = (v, d) => (v !== '' && v != null && !isNaN(Number(v)) ? parseInt(v, 10) : d);
+    for (const row of rows) {
+      const o = {};
+      headers.forEach((col, i) => { o[col.toLowerCase().trim()] = row[i]; });
+      const idRaw = o.id != null && String(o.id).trim() !== '' ? parseInt(o.id, 10) : null;
+      const id = (idRaw != null && !isNaN(idRaw)) ? idRaw : null;
+      const dt = (o.drop_table && o.drop_table.trim()) ? o.drop_table.trim() : null;
+      const ap = (o.action_pattern != null && String(o.action_pattern).trim() !== '') ? String(o.action_pattern).trim() : null;
+      let doUpdate = false;
+      if (id != null) {
+        const [ex] = await db.query('SELECT 1 FROM boss_templates WHERE id = ? LIMIT 1', [id]);
+        doUpdate = ex && ex.length > 0;
+      }
+      if (doUpdate) {
+        await db.query(
+          'UPDATE boss_templates SET name=?, image_url=?, level=?, base_hp=?, base_mp=?, base_str=?, base_def=?, base_intelligence=?, base_spd=?, accuracy=?, location_id=?, drop_table=?, respawn_minutes=?, action_pattern=? WHERE id=?',
+          [o.name ?? '', o.image_url ?? '', numDef(o.level, 1), numDef(o.base_hp, 10), numDef(o.base_mp, 10), numDef(o.base_str, 10), numDef(o.base_def, 10), numDef(o.base_intelligence, 10), numDef(o.base_spd, 10), numDef(o.accuracy, 100), num(o.location_id), dt, num(o.respawn_minutes), ap, id]
+        );
+        updated++;
+      } else {
+        await db.query(
+          `INSERT INTO boss_templates (name, image_url, level, base_hp, base_mp, base_str, base_def, base_intelligence, base_spd, accuracy, location_id, drop_table, respawn_minutes, action_pattern) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [o.name ?? '', o.image_url ?? '', numDef(o.level, 1), numDef(o.base_hp, 10), numDef(o.base_mp, 10), numDef(o.base_str, 10), numDef(o.base_def, 10), numDef(o.base_intelligence, 10), numDef(o.base_spd, 10), numDef(o.accuracy, 100), num(o.location_id), dt, num(o.respawn_minutes), ap]
+        );
+        inserted++;
+      }
+    }
+    res.json({ success: true, updated, inserted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Boss skills - list
+app.get('/api/admin/boss-skills', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM boss_skills ORDER BY id');
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Boss skills - create
+app.post('/api/admin/boss-skills', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const { boss_template_id, skill_id, sort_order } = req.body;
+    await db.query(
+      'INSERT INTO boss_skills (boss_template_id, skill_id, sort_order) VALUES (?, ?, ?)',
+      [parseInt(boss_template_id, 10), parseInt(skill_id, 10), sort_order != null ? parseInt(sort_order, 10) : 0]
+    );
+    const [inserted] = await db.query('SELECT * FROM boss_skills ORDER BY id DESC LIMIT 1');
+    res.status(201).json(inserted[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Boss skills - update
+app.put('/api/admin/boss-skills/:id', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { boss_template_id, skill_id, sort_order } = req.body;
+    await db.query(
+      'UPDATE boss_skills SET boss_template_id=?, skill_id=?, sort_order=? WHERE id=?',
+      [parseInt(boss_template_id, 10), parseInt(skill_id, 10), sort_order != null ? parseInt(sort_order, 10) : 0, id]
+    );
+    const [rows] = await db.query('SELECT * FROM boss_skills WHERE id=?', [id]);
+    res.json(rows[0] || {});
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Boss skills - delete
+app.delete('/api/admin/boss-skills/:id', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    await db.query('DELETE FROM boss_skills WHERE id=?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Boss skills - download CSV
+app.get('/api/admin/boss-skills/csv', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM boss_skills ORDER BY id');
+    const headers = ['id', 'boss_template_id', 'skill_id', 'sort_order'];
+    const csv = [headers.join(','), ...rows.map(r => headers.map(h => escapeCSV(r[h])).join(','))].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=boss_skills.csv');
+    res.send('\uFEFF' + csv);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// Boss skills - upload CSV: chỉ UPDATE khi id có trong DB; id trống hoặc id không tồn tại → INSERT
+app.post('/api/admin/boss-skills/csv', checkAdminRoleNpc, uploadMemory.single('file'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) return res.status(400).json({ message: 'Thiếu file CSV' });
+    const text = req.file.buffer.toString('utf8');
+    const { headers, rows } = parseCSV(text);
+    const required = ['boss_template_id', 'skill_id'];
+    const h = headers.map(x => x.toLowerCase().trim());
+    if (!required.every(k => h.includes(k))) return res.status(400).json({ message: 'CSV thiếu cột: ' + required.join(', ') });
+    let updated = 0, inserted = 0;
+    for (const row of rows) {
+      const o = {};
+      headers.forEach((col, i) => { o[col.toLowerCase().trim()] = row[i]; });
+      const idRaw = o.id != null && String(o.id).trim() !== '' ? parseInt(o.id, 10) : null;
+      const id = (idRaw != null && !isNaN(idRaw)) ? idRaw : null;
+      const btId = parseInt(o.boss_template_id, 10);
+      const skId = parseInt(o.skill_id, 10);
+      const so = o.sort_order != null && o.sort_order !== '' ? parseInt(o.sort_order, 10) : 0;
+      let doUpdate = false;
+      if (id != null) {
+        const [ex] = await db.query('SELECT 1 FROM boss_skills WHERE id = ? LIMIT 1', [id]);
+        doUpdate = ex && ex.length > 0;
+      }
+      if (doUpdate) {
+        await db.query('UPDATE boss_skills SET boss_template_id=?, skill_id=?, sort_order=? WHERE id=?', [btId, skId, so, id]);
+        updated++;
+      } else {
+        await db.query('INSERT INTO boss_skills (boss_template_id, skill_id, sort_order) VALUES (?, ?, ?)', [btId, skId, so]);
+        inserted++;
+      }
+    }
+    res.json({ success: true, updated, inserted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
   }
 });
 
 
-//API ARENA: Mô phỏng 1 lượt tấn cân giữa người chơi và NPC
-// POST /api/arena/simulate-turn
+// API ARENA: Mô phỏng 1 lượt tấn công
+// Công thức Dmg_out chung; defender_current_def_dmg (nếu > 0) áp dụng counter_dmg / phản đòn.
+// Khi isEnemyAttack và attacker có action_pattern + skills: Boss dùng skill (turnNumber bắt buộc).
+// body: attacker, defender, movePower, moveName, isEnemyAttack, power_min, power_max, turnNumber, defender_current_def_dmg
 app.post('/api/arena/simulate-turn', (req, res) => {
-  const { attacker, defender, movePower, moveName } = req.body;
+  const { attacker, defender, movePower, moveName, isEnemyAttack, power_min, power_max, turnNumber, defender_current_def_dmg } = req.body;
 
   try {
-    const result = simulateTurn(attacker, defender, movePower, moveName);
+    if (isEnemyAttack && Array.isArray(attacker.skills) && attacker.skills.length > 0) {
+      const turn = Math.max(1, parseInt(turnNumber, 10) || 1);
+      const skill = getBossAction(attacker, turn, attacker.skills);
+      if (skill) {
+        const defDmg = defender_current_def_dmg != null ? Number(defender_current_def_dmg) : (defender.current_def_dmg != null ? Number(defender.current_def_dmg) : 0);
+        if (defender && typeof defender === 'object') defender.current_def_dmg = defDmg;
+        const result = simulateBossTurn(attacker, defender, skill);
+        return res.json(result);
+      }
+    }
+
+    const options = {
+      power_min: power_min != null ? Number(power_min) : undefined,
+      power_max: power_max != null ? Number(power_max) : undefined,
+      defender_current_def_dmg: defender_current_def_dmg != null ? Number(defender_current_def_dmg) : 0,
+    };
+    const result = simulateTurn(attacker, defender, movePower, moveName, options);
     res.json(result);
   } catch (err) {
     console.error('Error during turn simulation:', err);
@@ -2090,20 +2663,151 @@ app.post('/api/arena/simulate-turn', (req, res) => {
   }
 });
 
-// API ARENA: Mô phỏng toàn bộ trận đấu (PvE)
-// POST /api/arena/simulate-full
+// POST /api/arena/simulate-defend – Pet (hoặc đơn vị phòng thủ) dùng khiên: chỉ thiết lập def_dmg, không gây sát thương
+// body: defenderUnit (người dùng khiên), enemy (đối thủ), shield_power_min, shield_power_max
+app.post('/api/arena/simulate-defend', (req, res) => {
+  const { defenderUnit, enemy, shield_power_min, shield_power_max } = req.body;
+  try {
+    const result = simulateDefendTurn(
+      defenderUnit ?? req.body.pet,
+      enemy ?? req.body.boss,
+      shield_power_min != null ? Number(shield_power_min) : 0,
+      shield_power_max != null ? Number(shield_power_max) : 0
+    );
+    res.json(result);
+  } catch (err) {
+    console.error('Error during defend simulation:', err);
+    res.status(500).json({ message: 'Lỗi khi mô phỏng lượt phòng thủ' });
+  }
+});
+
+/**
+ * Tính loot từ drop_table JSON của Boss.
+ * Mỗi item roll độc lập (0..100), nếu roll <= rate thì nhận, số lượng random [min_qty, max_qty].
+ * @param {Array|string} dropTable - Mảng JSON hoặc chuỗi JSON từ boss_templates.drop_table
+ * @returns {Array<{item_id: number, quantity: number, name: string}>}
+ */
+function calculateLoot(dropTable) {
+  const drops = Array.isArray(dropTable)
+    ? dropTable
+    : (typeof dropTable === 'string' ? JSON.parse(dropTable) : []);
+  const lootResult = [];
+  for (const item of drops) {
+    const rate = Number(item.rate);
+    if (rate <= 0) continue;
+    const roll = Math.random() * 100;
+    if (roll <= rate) {
+      const minQty = Math.max(0, parseInt(item.min_qty, 10) || 0);
+      const maxQty = Math.max(minQty, parseInt(item.max_qty, 10) || minQty);
+      const quantity = minQty === maxQty ? minQty : Math.floor(Math.random() * (maxQty - minQty + 1)) + minQty;
+      if (quantity > 0) {
+        lootResult.push({
+          item_id: item.item_id != null ? parseInt(item.item_id, 10) : 0,
+          quantity,
+          name: item.name || (item.item_id === 0 ? 'Peta' : 'Item'),
+        });
+      }
+    }
+  }
+  return lootResult;
+}
+
+/**
+ * POST /api/arena/claim-loot
+ * Khi thắng Boss, gọi API này để tính loot từ drop_table của Boss và cộng vào user (peta + inventory).
+ * body: { bossId: number, petId: number }
+ * Header: Authorization: Bearer <token>
+ */
+app.post('/api/arena/claim-loot', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'Unauthorized' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const tokenUserId = decoded.userId;
+
+    const { bossId, petId } = req.body;
+    if (!bossId || !petId) return res.status(400).json({ message: 'Thiếu bossId hoặc petId' });
+
+    const [petRows] = await db.query('SELECT id, owner_id FROM pets WHERE id = ?', [petId]);
+    if (!petRows.length) return res.status(404).json({ message: 'Pet not found' });
+    if (petRows[0].owner_id !== tokenUserId) return res.status(403).json({ message: 'Chỉ chủ pet mới được nhận loot' });
+
+    const [bossRows] = await db.query('SELECT drop_table FROM boss_templates WHERE id = ?', [bossId]);
+    if (!bossRows.length) return res.status(404).json({ message: 'Boss not found' });
+    const dropTableRaw = bossRows[0].drop_table;
+    const dropTable = dropTableRaw
+      ? (typeof dropTableRaw === 'string' ? JSON.parse(dropTableRaw) : dropTableRaw)
+      : [];
+    if (!Array.isArray(dropTable) || dropTable.length === 0) {
+      return res.json({ success: true, loot: [], message: 'Boss không có bảng rơi đồ' });
+    }
+
+    const loot = calculateLoot(dropTable);
+    const userId = tokenUserId;
+
+    for (const entry of loot) {
+      if (entry.item_id === 0) {
+        await db.query('UPDATE users SET peta = peta + ? WHERE id = ?', [entry.quantity, userId]);
+        continue;
+      }
+      const itemId = entry.item_id;
+      const quantity = entry.quantity;
+      const [itemRows] = await db.query('SELECT id, type FROM items WHERE id = ?', [itemId]);
+      if (!itemRows.length) continue;
+      const itemRow = itemRows[0];
+      if (itemRow.type === 'equipment') {
+        const [equipInfo] = await db.query('SELECT durability_max FROM equipment_data WHERE item_id = ?', [itemId]);
+        const durability = (equipInfo.length > 0) ? (equipInfo[0].durability_max ?? 1) : 1;
+        for (let i = 0; i < quantity; i++) {
+          await db.query(
+            `INSERT INTO inventory (player_id, item_id, quantity, is_equipped, durability_left) VALUES (?, ?, 1, 0, ?)`,
+            [userId, itemId, durability]
+          );
+        }
+      } else {
+        const [invRows] = await db.query(
+          'SELECT id, quantity FROM inventory WHERE player_id = ? AND item_id = ? AND (is_equipped = 0 OR is_equipped IS NULL)',
+          [userId, itemId]
+        );
+        if (invRows.length > 0) {
+          await db.query('UPDATE inventory SET quantity = quantity + ? WHERE id = ?', [quantity, invRows[0].id]);
+        } else {
+          await db.query('INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, ?)', [userId, itemId, quantity]);
+        }
+      }
+    }
+
+    res.json({ success: true, loot });
+  } catch (err) {
+    if (err.name === 'JsonWebTokenError') return res.status(401).json({ message: 'Invalid token' });
+    console.error('Error claiming arena loot:', err);
+    res.status(500).json({ message: 'Lỗi khi nhận thưởng Boss' });
+  }
+});
+
+// API ARENA: Mô phỏng toàn bộ trận đấu (PvE). Cả hai bên dùng Dmg_out với power_min/power_max.
+// body: playerPet, enemyPet, playerMovePower, playerMoveName, enemyMovePower, enemyMoveName, playerPowerMin, playerPowerMax, enemyPowerMin, enemyPowerMax
 app.post('/api/arena/simulate-full', (req, res) => {
   const {
     playerPet, enemyPet,
     playerMovePower = 10, playerMoveName = 'Tackle',
-    enemyMovePower = 10, enemyMoveName = 'Bite'
+    enemyMovePower = 10, enemyMoveName = 'Bite',
+    playerPowerMin, playerPowerMax,
+    enemyPowerMin, enemyPowerMax,
   } = req.body;
 
   try {
+    const options = {
+      playerPowerMin: playerPowerMin != null ? Number(playerPowerMin) : undefined,
+      playerPowerMax: playerPowerMax != null ? Number(playerPowerMax) : undefined,
+      enemyPowerMin: enemyPowerMin != null ? Number(enemyPowerMin) : undefined,
+      enemyPowerMax: enemyPowerMax != null ? Number(enemyPowerMax) : undefined,
+    };
     const result = simulateFullBattle(
       playerPet, enemyPet,
       playerMovePower, playerMoveName,
-      enemyMovePower, enemyMoveName
+      enemyMovePower, enemyMoveName,
+      options
     );
     res.json(result);
   } catch (err) {
@@ -2136,8 +2840,8 @@ app.post('/api/pets/:id/gain-exp', async (req, res) => {
 
     const pet = rows[0];
 
-    if (pet.is_npc) {
-      return res.status(403).json({ message: 'NPC không được cộng EXP' });
+    if (pet.owner_id == null) {
+      return res.status(403).json({ message: 'Pet không có chủ không được cộng EXP' });
     }
 
     const gain = custom_amount !== null ? custom_amount : calculateBattleExpGain(enemy_level);
@@ -2245,7 +2949,7 @@ app.post('/api/inventory/:id/repair-with-kit', async (req, res) => {
   try {
     // Kiểm tra item có bị hỏng không
     const [itemRows] = await pool.promise().query(
-      `SELECT i.*, it.rarity AS item_rarity, ed.durability AS max_durability
+      `SELECT i.*, it.rarity AS item_rarity, ed.durability_max AS max_durability
        FROM inventory i
        JOIN items it ON i.item_id = it.id
        LEFT JOIN equipment_data ed ON it.id = ed.item_id
@@ -2353,7 +3057,7 @@ app.post('/api/inventory/:id/repair-with-blacksmith', async (req, res) => {
   try {
     // Kiểm tra item có bị hỏng không
     const [itemRows] = await pool.promise().query(
-      `SELECT i.*, it.rarity AS item_rarity, ed.durability AS max_durability, ed.power
+      `SELECT i.*, it.rarity AS item_rarity, ed.durability_max AS max_durability, ed.magic_value AS power
        FROM inventory i
        JOIN items it ON i.item_id = it.id
        LEFT JOIN equipment_data ed ON it.id = ed.item_id
@@ -2438,7 +3142,7 @@ app.get('/api/users/:userId/broken-equipment', async (req, res) => {
   try {
     const [rows] = await pool.promise().query(
       `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, it.rarity,
-              ed.power, ed.durability AS max_durability
+              ed.magic_value AS power, ed.durability_max AS max_durability
        FROM inventory i
        JOIN items it ON i.item_id = it.id
        LEFT JOIN equipment_data ed ON it.id = ed.item_id
@@ -3581,7 +4285,7 @@ app.get('/api/pets/:petId/battle-stats', async (req, res) => {
     // Lấy equipment (chỉ để hiển thị, không tính vào stats)
     const [equipmentRows] = await db.query(`
       SELECT i.id, i.item_id, it.name AS item_name, it.image_url, i.durability_left,
-             ed.power, ed.durability AS max_durability, i.is_broken
+             ed.equipment_type, ed.magic_value AS power, ed.durability_max AS max_durability, i.is_broken
       FROM inventory i
       JOIN items it ON i.item_id = it.id
       LEFT JOIN equipment_data ed ON it.id = ed.item_id
@@ -3596,15 +4300,33 @@ app.get('/api/pets/:petId/battle-stats', async (req, res) => {
       WHERE us.equipped_pet_id = ? AND us.is_equipped = 1
     `, [petId]);
     
-    // Stats đã được tính toán trong database (cached)
-    const battleStats = {
-      hp: pet.hp,
-      mp: pet.mp,
-      str: pet.str,  // Đã bao gồm spirit bonus
-      def: pet.def,  // Đã bao gồm spirit bonus
-      spd: pet.spd,  // Đã bao gồm spirit bonus
-      intelligence: pet.intelligence  // Đã bao gồm spirit bonus
-    };
+    // Base stats: ưu tiên final_stats (JSON) trong DB, fallback sang cột hp/str/def...
+    let baseStats = { hp: pet.hp, mp: pet.mp, str: pet.str, def: pet.def, spd: pet.spd, intelligence: pet.intelligence };
+    if (pet.final_stats) {
+      try {
+        const parsed = typeof pet.final_stats === 'string' ? JSON.parse(pet.final_stats) : pet.final_stats;
+        if (parsed && typeof parsed === 'object') {
+          baseStats = {
+            hp: parsed.hp ?? baseStats.hp,
+            mp: parsed.mp ?? baseStats.mp,
+            str: parsed.str ?? baseStats.str,
+            def: parsed.def ?? baseStats.def,
+            spd: parsed.spd ?? baseStats.spd,
+            intelligence: parsed.intelligence ?? baseStats.intelligence,
+          };
+        }
+      } catch (_) {}
+    }
+    // Cộng bonus từ linh thú (spirit) để ra battle stats dùng trong trận đấu
+    const spiritBonus = await calculateSpiritStats(petId);
+    const statKeys = ['hp', 'mp', 'str', 'def', 'spd', 'intelligence'];
+    const battleStats = {};
+    for (const key of statKeys) {
+      const base = Number(baseStats[key]) || 0;
+      const flat = Number(spiritBonus[key]) || 0;
+      const pct = Number(spiritBonus[`${key}_percent`]) || 0;
+      battleStats[key] = Math.max(0, Math.floor(base + flat + (base * pct / 100)));
+    }
     
     res.json({
       pet: { ...pet, final_stats: battleStats },
@@ -4635,10 +5357,10 @@ app.post('/api/healia-river/heal', async (req, res) => {
       }
     }
 
-    // Get user's pets (not NPC/arena pets)
+    // Get user's pets (có owner_id = user)
     console.log('Getting pets for user:', userId);
     const [petRows] = await db.query(
-      'SELECT id, name, current_hp, final_stats FROM pets WHERE owner_id = ? AND is_npc = 0 AND is_arena_enemy = 0',
+      'SELECT id, name, current_hp, final_stats FROM pets WHERE owner_id = ?',
       [userId]
     );
     console.log('Found pets:', petRows.length);

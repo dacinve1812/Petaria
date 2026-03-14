@@ -30,26 +30,25 @@ function ArenaPage() {
 
   const handleOpenEnemyModal = async (enemy) => {
     if (!user || !user.token || !user.userId) return;
-    
+
     try {
-      // Fetch chi tiết enemy pet
-      const enemyDetailResponse = await fetch(`${API_BASE_URL}/api/pets/${enemy.uuid}`, {
-        headers: { Authorization: `Bearer ${user.token}` }
-      });
+      // Đối thủ Arena = Boss (bảng boss_templates)
+      const enemyDetailResponse = await fetch(`${API_BASE_URL}/api/bosses/${enemy.id}`);
+      if (!enemyDetailResponse.ok) {
+        console.error('Failed to fetch boss details');
+        return;
+      }
       const enemyDetail = await enemyDetailResponse.json();
-  
-      // Fetch user pets
+
       const userPetsResponse = await fetch(`${API_BASE_URL}/users/${user.userId}/pets`, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       const userPets = await userPetsResponse.json();
-  
       setUserPets(userPets);
-  
-      // Set enemyDetail vào modal
-      setSelectedEnemy({ ...enemyDetail, userPets: userPets });
+
+      setSelectedEnemy({ ...enemyDetail, userPets });
     } catch (err) {
-      console.error('Error fetching enemy details or user pets:', err);
+      console.error('Error fetching boss details or user pets:', err);
     }
   };
 
@@ -73,6 +72,12 @@ function ArenaPage() {
     );
   }
 
+  const imageSrc = (img) => {
+    if (!img) return '';
+    if (img.startsWith('http') || img.startsWith('/')) return img;
+    return `/images/pets/${img}`;
+  };
+
   return (
     <TemplatePage showSearch={false} showTabs={false}>
       <div className="arena-page-container">
@@ -81,21 +86,29 @@ function ArenaPage() {
           <p>Chọn một đối thủ để bắt đầu trận chiến</p>
         </div>
 
-        <div className="enemy-scroll-list">
+        <div className="arena-grid">
           {enemies.length === 0 ? (
-            <p>Không có đối thủ nào hiện tại.</p>
+            <p className="arena-empty">Không có đối thủ nào hiện tại.</p>
           ) : (
             enemies.map(enemy => (
-              <div key={enemy.id} className="enemy-card" onClick={() => handleOpenEnemyModal(enemy)}>
-                <div className="enemy-card-left">
-                  <span></span>
-                  <img src={`/images/pets/${enemy.image}`} alt={enemy.name} />
+              <article key={enemy.id} className="arena-card">
+                <div className="arena-card-image-wrap">
+                  <img src={imageSrc(enemy.image)} alt={enemy.name} className="arena-card-image" />
                 </div>
-                <div className="enemy-card-right">
-                  <h3>{enemy.name}</h3>
-                  <p>Level: {enemy.level}</p>
+                <h3 className="arena-card-name">{enemy.name}</h3>
+                <div className="arena-card-stats">
+                  <p>Đẳng cấp: {enemy.level}</p>
+                  <p>Thắng: {enemy.wins ?? 0}</p>
+                  <p>Thua: {enemy.losses ?? 0}</p>
                 </div>
-              </div>
+                <button
+                  type="button"
+                  className="arena-card-challenge"
+                  onClick={() => handleOpenEnemyModal(enemy)}
+                >
+                  Thách đấu
+                </button>
+              </article>
             ))
           )}
         </div>

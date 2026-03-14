@@ -166,14 +166,14 @@ async function main() {
     }
 
     let where = '1=1';
-    if (!args.includeNpc) where += ' AND (is_npc IS NULL OR is_npc = 0)';
+    if (!args.includeNpc) where += ' AND owner_id IS NOT NULL';
     if (!args.includeUnowned) where += ' AND owner_id IS NOT NULL';
     const limitSql = args.limit ? ` LIMIT ${args.limit}` : '';
 
     const [pets] = await conn.execute(
       `
       SELECT
-        id, owner_id, is_npc,
+        id, owner_id,
         pet_species_id,
         level, current_exp,
         current_hp,

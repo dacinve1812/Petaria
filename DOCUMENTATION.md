@@ -54,20 +54,91 @@ const getHP = (base, iv, level) =>
 - **Dodge system**: Dựa trên SPD difference
 
 #### Battle Engine Logic
-```javascript
-// Damage formula
-const baseDamage = ((((2 * level) / 5 + 2) * movePower * STR / DEF) / 50);
-const finalDamage = baseDamage * randomFactor(0.85-1.0) * (critical ? 2 : 1);
 
-// Dodge chance
-const dodgeChance = Math.min(Math.max((defenderSPD - attackerSPD) * 0.5, 0), 20) / 100;
+**Trường hợp 1: Tấn công (vũ khí / kỹ năng Attack)**  
+Sát thương gây ra và trừ trực tiếp vào HP đối thủ trong lượt đó. Công thức dùng chung cho Pet và Boss (không dùng hệ số 1.45).
+
+$$Dmg_{out} = \max(1, (Str_{attacker} \times (1 + \frac{R}{10})) \times 0.6 - Def_{defender} \times 0.5)$$
+
+Trong đó $R$ = `randomIntInclusive(power_min, power_max)` (số nguyên).  
+Defender nhận sát thương: $HP(defender) := HP(defender) - Dmg_{out}$ (trừ khi đang có Def_dmg, xem dưới).
+
+**Trường hợp 2: Phòng thủ (Khiên / kỹ năng Defend)**  
+Lượt này **không gây sát thương**, chỉ thiết lập trạng thái bảo vệ cho lượt sau.
+
+$$Def_{dmg} = (Def_{defenderUnit} \times (1 + \frac{R}{10})) \times 0.6 - Str_{enemy} \times 0.5$$
+
+- Nếu $Def_{dmg} < 0$ thì set $Def_{dmg} = 0$.  
+- Lưu vào đối tượng trận đấu: `current_def_dmg = Def_dmg` (người dùng khiên/Boss defend).  
+- Log: *"X sử dụng Phòng thủ, thiết lập shield [Def_dmg] HP phòng ngự."*
+
+**Trường hợp 3: Bị tấn công khi đang có Def_dmg**  
+Khi đối thủ tấn công ở lượt kế tiếp, tính:
+
+$$counter\_dmg = Dmg_{out}(attacker) - Def_{dmg}(defender)$$
+
+- **counter_dmg > 0**: Defender vẫn mất máu nhưng đã giảm: $HP(defender) := HP(defender) - counter\_dmg$.  
+- **counter_dmg ≤ 0**: Defender không mất máu; Attacker bị phản đòn: $HP(attacker) := HP(attacker) - |counter\_dmg|$.  
+- Sau khi xử lý: `defender.current_def_dmg = 0` (lớp chắn đã dùng).
+
+**Dodge**: `dodgeChance = min(max((defenderSPD - attackerSPD) × 0.5, 0), 20) / 100`.
+
+```javascript
+// R = random int [power_min, power_max], mult = 1 + R/10
+const R = randomIntInclusive(power_min, power_max);
+const mult = 1 + R / 10;
+
+// Tấn công (Pet hoặc Boss): Dmg_out chung
+const dmg_out = Math.max(1, Math.floor((Str_attacker * mult) * 0.6 - Def_defender * 0.5));
+
+// Nếu defender đang có current_def_dmg > 0:
+// counter_dmg = dmg_out - current_def_dmg;
+// counter_dmg > 0 → defender nhận counter_dmg; counter_dmg <= 0 → attacker nhận |counter_dmg| (phản đòn); sau đó current_def_dmg = 0.
+
+// Phòng thủ (khiên / defend): def_dmg = max(0, (Def * mult) * 0.6 - Str_enemy * 0.5); lưu current_def_dmg, không trừ HP.
 ```
 
+#### Arena Battle: Pet vs Boss
+
+Trong **Đấu trường Arena**, trận đấu diễn ra theo lượt: **Pet** (người chơi) và **Boss** (đối thủ) lần lượt hành động. Boss **không đánh thường, không tốn MP**; mọi hành động của Boss đều là **skill** lấy từ **action_pattern** (xem thêm `BOSS_NPC_DESIGN.md`).
+
+**Luồng lượt (ArenaBattlePage):**
+1. Người chơi chọn: **Tấn công thường**, **dùng vũ khí**, hoặc **Phòng thủ** (click khiên).
+2. Nếu tấn công: **POST /api/arena/simulate-turn** với `defender_current_def_dmg` (nếu Boss đang có shield) → Dmg_out hoặc counter_dmg/phản đòn, cập nhật HP.
+3. Nếu **Phòng thủ**: **POST /api/arena/simulate-defend** (Pet + khiên) → thiết lập `current_def_dmg` cho Pet, log "thiết lập shield X HP phòng ngự", sau đó sang lượt Boss.
+4. Nếu Boss chưa chết → **lượt Boss**: **simulate-turn** với `attacker: Boss`, `defender: Pet`, `defender_current_def_dmg: player.current_def_dmg`. Nếu Boss dùng skill **defend** → chỉ set Boss `current_def_dmg`, log tương tự. Nếu Boss **attack** → Dmg_out; nếu Pet đang có def_dmg thì áp dụng counter_dmg/phản đòn.
+5. Lặp đến khi một bên HP ≤ 0.
+
+**Pet (người chơi):**
+- **Tấn công thường**: `power_min = 0`, `power_max = 0` → Dmg_out (sát thương thấp).
+- **Vũ khí**: gửi `power_min`, `power_max`; sát thương = Dmg_out. Nếu Boss đang có `current_def_dmg` thì dùng counter_dmg (giảm sát thương hoặc phản đòn).
+- **Khiên**: gọi **simulate-defend** → Pet nhận `current_def_dmg`; lượt sau khi Boss đánh sẽ áp dụng counter_dmg.
+
+**Boss (đối thủ):**
+- Mỗi lượt = một skill từ **action_pattern** (không đánh thường).
+- **Skill attack**: accuracy → Dmg_out (cùng công thức). Nếu Pet đang có def_dmg thì counter_dmg/phản đòn.
+- **Skill defend**: chỉ thiết lập Boss `current_def_dmg`; lượt sau khi Pet đánh sẽ áp dụng counter_dmg.
+- Boss không tốn MP.
+
+**Dữ liệu cần khi vào trận:**
+- Boss phải có **action_pattern** (JSON mảng ID) và **skills** (danh sách skill có `id`, `type`, `power_min`, `power_max`, `accuracy`). Nếu vào trận với enemy thiếu một trong hai, **ArenaBattlePage** sẽ gọi **GET /api/bosses/:id** để lấy đủ trước khi đánh.
+
+**API liên quan:**
+- **GET /api/arena/enemies**: danh sách Boss (Arena).
+- **GET /api/bosses/:id**: chi tiết Boss (final_stats, current_hp, skills, action_pattern).
+- **POST /api/arena/simulate-turn**: mô phỏng 1 lượt tấn công; body có `defender_current_def_dmg` (khi defender đang có shield). Khi Boss đánh: `turnNumber` + action_pattern/skills → getBossAction + simulateBossTurn.
+- **POST /api/arena/simulate-defend**: Pet dùng khiên; body `defenderUnit`, `enemy`, `shield_power_min`, `shield_power_max`; trả về `defDmg`, `logMessage` (thiết lập shield, không trừ HP).
+
 #### Equipment System
-- **Weapons**: Tăng damage, có durability
-- **Equipment stats**: Stored in `equipment_stats` table
-- **Durability**: Giảm 1 mỗi lần sử dụng
-- **Equipment power**: 10-50+ damage
+- **Bảng `equipment_data`** (schema mới):
+  - `item_id` – FK tới items
+  - `equipment_type` – `weapon` | `shield` | `crit_weapon`
+  - `power_min`, `power_max` – khoảng sát thương (tùy chọn)
+  - `durability_max` – độ bền tối đa
+  - `magic_value` – sức ma thuật 1–10, dùng cho Rand_Magic trong công thức Dmg_out
+  - Tùy chọn: `crit_rate`, `block_rate`, `element`, `effect_id`
+- **Durability**: Giảm 1 mỗi lần sử dụng; dùng `durability_max` khi tạo inventory.
+- **Migration**: Chạy `node scripts/migrate_equipment_data_schema.js` để nâng cấp bảng cũ (power/durability → schema mới).
 
 ### 3. Level Up & Stat Gain System ⭐ **MỚI CẬP NHẬT**
 
@@ -176,6 +247,12 @@ WHERE id = ?
 - `inventory.owner_id` → `users.id`
 - `inventory.equipped_pet_id` → `pets.id`
 
+### Boss / NPC (tách biệt khỏi pets)
+- **boss_templates**: Bản thiết kế Boss (name, image_url, level hiển thị, base_* = stat cố định do admin/DB, accuracy, location_id, drop_table JSON, respawn_minutes). Không có owner. Stat Boss **cố định**, không tính công thức, không IV, Boss **không lên level**.
+- **skills**: Kỹ năng dùng chung (name, description, power_multiplier, effect_type, mana_cost).
+- **boss_skills**: N–N giữa boss_templates và skills (sort_order).
+- Arena đối thủ: lấy từ `boss_templates` (location_id = 1 hoặc NULL). Trong trận đấu, Boss là object tạm (final_stats, current_hp trong RAM); không lưu HP Boss vào DB.
+
 ## 🔧 API Endpoints
 
 ### Authentication
@@ -190,7 +267,8 @@ WHERE id = ?
 ### Battle System
 - `POST /api/arena/simulate-turn` - Single turn simulation
 - `POST /api/arena/simulate-full` - Full battle simulation
-- `GET /api/arena/enemies` - Get arena enemies
+- `GET /api/arena/enemies` - Danh sách Boss Arena (từ boss_templates, location_id = 1 hoặc NULL)
+- `GET /api/bosses/:id` - Chi tiết Boss (final_stats, skills; dùng cho Arena battle)
 
 ### Equipment
 - `GET /api/pets/:id/equipment` - Get pet's equipped items
@@ -263,6 +341,10 @@ WHERE id = ?
 
 ### Database Migration
 - Xem hướng dẫn migrate dữ liệu pet khi đổi EXP/Stats tại `DB_MIGRATION_GUIDE.md`
+
+### Utility Scripts
+- `scripts/send_test_mails.js`: gửi system mails test (dev only)
+- `scripts/setup_vip_bank_system.js`: setup cột VIP trong `users` + bảng `bank_interest_rates`
 
 ### Testing Strategy
 - **Manual testing**: Battle scenarios, level up scenarios

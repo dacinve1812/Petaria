@@ -38,6 +38,7 @@ import MapCoordinateTool from './components/MapCoordinateTool';
 import Bank from './components/Bank';
 import AdminBankManagement from './components/admin/AdminBankManagement';
 import AdminUserManagement from './components/admin/AdminUserManagement';
+import AdminNpcBossManagement from './components/admin/AdminNpcBossManagement';
 import AuctionList from './components/auction/AuctionList';
 import AuctionDetail from './components/auction/AuctionDetail';
 import CreateAuction from './components/auction/CreateAuction';
@@ -74,7 +75,7 @@ function App() {
               <Route path="admin/create-pet" element={<AdminCreatePet />} />
               <Route path="battle" element={<PveSelectPage />} />
               <Route path="battle/arena" element={<ArenaPage />} />
-              <Route path="admin/create-arena-pet" element={<AdminAddPetForBattle />} />
+              <Route path="admin/npc-boss-management" element={<AdminNpcBossManagement />} />
               <Route path="admin/spirits" element={<AdminSpiritEditor />} />
               <Route path="admin/site-management" element={<SiteManagement />} />
               <Route path="management" element={<MyStuffManagement />} />

@@ -51,7 +51,7 @@ function Admin() {
           <ul>
             <li><Link to="/admin/edit-pet-types">Quản lý Chủng loại Thú cưng</Link></li>
             <li><Link to="/admin/create-pet">Tạo Pet (Admin)</Link></li>
-            <li><Link to="/admin/create-arena-pet">Thêm NPC cho đấu trường</Link></li>
+            <li><Link to="/admin/npc-boss-management">Quản lý NPC/Boss</Link></li>
           </ul>
         </div>
 

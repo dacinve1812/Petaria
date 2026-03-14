@@ -1,32 +1,40 @@
 // EnemyInfoModal.js - Modal hiển thị thông tin NPC + chọn pet để chiến đấu
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import '../css/EnemyInfoModal.css';
 
 function EnemyInfoModal({ enemy, onClose, onSelectPet }) {
-    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const [selectedPet, setSelectedPet] = useState(null);
   const [enemyDetail, setEnemyDetail] = useState(null);
   const petRefs = useRef({});
+  const petListRef = useRef(null);
 
   useEffect(() => {
     const fetchEnemyDetail = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/pets/${enemy.uuid}`);
-        if (res.ok) {
-          const data = await res.json();
-          setEnemyDetail(data);
-        } else {
-          console.error('Failed to fetch enemy details');
+        // Boss: GET /api/bosses/:id
+        if (enemy?.isBoss && enemy?.id) {
+          const res = await fetch(`${API_BASE_URL}/api/bosses/${enemy.id}`);
+          if (res.ok) {
+            const data = await res.json();
+            setEnemyDetail(data);
+          }
+          return;
+        }
+        if (enemy?.uuid) {
+          const res = await fetch(`${API_BASE_URL}/api/pets/${enemy.uuid}`);
+          if (res.ok) {
+            const data = await res.json();
+            setEnemyDetail(data);
+          }
         }
       } catch (err) {
         console.error('Error fetching enemy details:', err);
       }
     };
 
-    if (enemy?.uuid) {
-      fetchEnemyDetail();
-      console.log(enemy?.uuid)
-    }
+    if (enemy?.id || enemy?.uuid) fetchEnemyDetail();
   }, [enemy]);
 
   useEffect(() => {
@@ -35,29 +43,52 @@ function EnemyInfoModal({ enemy, onClose, onSelectPet }) {
     }
   }, [selectedPet]);
 
+  // Khóa scroll nền khi modal mở
+  useEffect(() => {
+    if (!enemy) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [enemy]);
+
+  const handlePetListWheel = (e) => {
+    const el = petListRef.current;
+    if (!el || !el.scrollWidth || el.scrollWidth <= el.clientWidth) return;
+    e.preventDefault();
+    el.scrollLeft += e.deltaY;
+  };
+
   if (!enemy) return null;
 
-  return (
+  const modalEl = (
     <div className="enemy-modal-overlay" onClick={onClose}>
       <div className="enemy-modal-content" onClick={(e) => e.stopPropagation()}>
         <span className="header-banner"></span>
         <div className="enemy-info-section">
-          <img src={`/images/pets/${enemy.image}`} alt={enemy.name} className="enemy-modal-image" />
-         
+          <div className="enemy-modal-image-wrap">
+            <img
+              src={enemy.image?.startsWith('/') || enemy.image?.startsWith('http') ? enemy.image : `/images/pets/${enemy.image}`}
+              alt={enemy.name}
+              className="enemy-modal-image"
+            />
+          </div>
           <div className="enemy-stats">
             <h2>{enemy.name}</h2>
-            <p>Level: {enemy.level}</p>
-            <p>HP: {enemyDetail?.hp || '???'}</p>
-            <p>STR: {enemyDetail?.str || '???'}</p>
-            <p>DEF: {enemyDetail?.def || '???'}</p>
-            <p>SPD: {enemyDetail?.spd || '???'}</p>
+            <p><span className="stat-label">Level</span> <span className="stat-value">{enemy.level}</span></p>
+            <p><span className="stat-label">HP</span> <span className="stat-value">{enemyDetail?.final_stats?.hp ?? enemyDetail?.hp ?? '—'}</span></p>
+            <p><span className="stat-label">STR</span> <span className="stat-value">{enemyDetail?.final_stats?.str ?? enemyDetail?.str ?? '—'}</span></p>
+            <p><span className="stat-label">DEF</span> <span className="stat-value">{enemyDetail?.final_stats?.def ?? enemyDetail?.def ?? '—'}</span></p>
+            <p><span className="stat-label">SPD</span> <span className="stat-value">{enemyDetail?.final_stats?.spd ?? enemyDetail?.spd ?? '—'}</span></p>
           </div>
-
         </div>
 
         <div className="select-pet-section">
           <h3>Chọn thú cưng để chiến đấu</h3>
-          <div className="pet-scroll-list">
+          <div
+            ref={petListRef}
+            className="pet-scroll-list"
+            onWheel={handlePetListWheel}
+          >
             {enemy.userPets && enemy.userPets.length > 0 ? (
               enemy.userPets.map(pet => (
                 <div
@@ -88,10 +119,11 @@ function EnemyInfoModal({ enemy, onClose, onSelectPet }) {
 
           <button className='close-button' onClick={onClose} ><img src='/images/icons/close.png'></img></button>
         </div>
-        
       </div>
     </div>
   );
+
+  return createPortal(modalEl, document.body);
 }
 
 export default EnemyInfoModal;

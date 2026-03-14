@@ -10,17 +10,15 @@
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    z-index: 9999;
+    z-index: 10100;
   }
   
   .enemy-modal-content {
-    width: max(400px,100%) ;
+    width: max(250px,100%) ;
     max-width: 800px;
-    height: 65dvh;
     background: #fcfdff;
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
-    /* padding: 60px; */
     display: flex;
     flex-direction: column;
     animation: slideUp 0.3s ease forwards;
@@ -37,38 +35,73 @@
     top: 0;
     left: 0;
     width: 100%;
-    height: 80px; /* hoặc bạn có thể chỉnh height */
-    background: linear-gradient(0deg, #fcfdff 0%,  #65ebfc 55%, #7fb9fe 95%);
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
+    height: 50%; /* hoặc bạn có thể chỉnh height */
+    background: linear-gradient(135deg, #3e466a 0%, #4b75a2 100%);
     z-index: -1;
     padding: 60px;
   }
   
   .enemy-info-section {
     display: flex;
-    gap: 12px;
-    margin-bottom: 12px;
+    flex-wrap: nowrap;
+    gap: 20px;
     align-items: center;
-    padding: 4%;
+    padding: 20px 24px;
+    margin: 16px 16px;
+    background: #fff;
+    border-top-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(0, 0, 0, 0.04);
   }
 
-  
+  .enemy-info-section .enemy-modal-image-wrap {
+    flex-shrink: 0;
+    width: 150px;
+    height: 150px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .enemy-modal-image {
-    width: 180px;
-    height: 180px;
+    width: 100%;
+    height: 100%;
     object-fit: contain;
+    padding: 8px;
   }
-  
+
+  /* .enemy-info-section .enemy-stats {
+    flex: 1;
+  } */
+
   .enemy-stats h2 {
-    margin: 0 0 5px 0;
-    font-size: 1.4rem;
+    margin: 0 0 12px 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
   }
-  
+
   .enemy-stats p {
-    margin: 2px 0;
-    font-size: 0.95rem;
-    color: #555;
+    margin: 0 0 8px 0;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .enemy-stats p .stat-label {
+    min-width: 44px;
+    font-weight: 600;
+    color: #2d3748;
+  }
+
+  .enemy-stats p .stat-value {
+    color: #1a1a2e;
+    font-variant-numeric: tabular-nums;
   }
   
   .select-pet-section {
@@ -85,7 +118,7 @@
     overflow-x: auto;
     gap: 15px;
     padding: 10px 10px;
-    scrollbar-width: none;
+    scrollbar-width: thin;
     white-space: nowrap;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-x;
@@ -122,11 +155,11 @@
   
   .battle-button {
     display: block;
-    margin: 4% auto !important;
+    margin: 10px auto !important;
     padding: 10px 50px;
-    background: #34e0ee;
+    background: linear-gradient(135deg, #3e466a 0%, #4b75a2 100%);
     border: 1px solid #e8feff !important;
-    box-shadow: rgba(128, 208, 245, 1) 0 0 20px;
+    box-shadow: rgb(113, 122, 126) 0 0 20px;
     color: white;
     border: none;
     border-radius: 50px;
@@ -136,7 +169,7 @@
   }
   
   .battle-button:hover {
-    background: #00ddff;
+    background: linear-gradient(135deg, #566190 0%, #4b75a2 100%);
     transform: scale(0.95);
   }
 
@@ -169,5 +202,11 @@
     }
     to {
       box-shadow: 0 0 14px 4px rgba(90, 156, 255, 0.9);
+    }
+  }
+  @media (max-width: 768px) {
+    .enemy-info-section .enemy-modal-image-wrap {
+      width: 120px;
+      height: 120px;
     }
   }

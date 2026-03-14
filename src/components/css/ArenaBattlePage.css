@@ -1,27 +1,129 @@
 .attack-flash {
-    animation: flash 0.3s ease-in-out;
-  }
-  
-  @keyframes flash {
-    0% { filter: brightness(1.8); }
-    100% { filter: brightness(1); }
-  }
-  
-  .battle-win {
-    animation: victory 0.5s ease-in-out 2;
-  }
-  
-  .battle-lose {
-    animation: defeat 0.5s ease-in-out 2;
-  }
-  
-  @keyframes victory {
-    0%, 100% { background-color: #fff; }
-    50% { background-color: #d4fcd4; }
-  }
-  
-  @keyframes defeat {
-    0%, 100% { background-color: #fff; }
-    50% { background-color: #fdd; }
-  }
-  
+  animation: flash 0.3s ease-in-out;
+}
+
+@keyframes flash {
+  0% { filter: brightness(1.8); }
+  100% { filter: brightness(1); }
+}
+
+.battle-win {
+  animation: victory 0.5s ease-in-out 2;
+}
+
+.battle-lose {
+  animation: defeat 0.5s ease-in-out 2;
+}
+
+@keyframes victory {
+  0%, 100% { background-color: #fff; }
+  50% { background-color: #d4fcd4; }
+}
+
+@keyframes defeat {
+  0%, 100% { background-color: #fff; }
+  50% { background-color: #fdd; }
+}
+
+/* Battle area: stats + HP/MP */
+.battle-pet-name {
+  font-weight: bold;
+  margin: 0.25em 0;
+}
+
+.battle-stats {
+  margin: 0.25em 0;
+  text-align: left;
+  max-width: 180px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.battle-stat-label {
+  color: #b07fb8;
+  margin: 0.2em 0;
+  font-size: 0.95rem;
+}
+
+.battle-stat-value {
+  color: #d4a84b;
+  font-weight: 600;
+}
+
+.battle-stat-level {
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.mp-bar {
+  width: 100%;
+  height: 6px;
+  background: #e0e0ff;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.mp-fill {
+  height: 100%;
+  background: #6b7bff;
+  transition: width 0.3s ease;
+}
+
+.arena-mp-hidden {
+  display: none;
+}
+
+.battle-exp-text {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+/* Battle log: auto-scroll + styled by type */
+.battle-log {
+  height: 160px;
+  overflow-y: auto;
+  background: #f8f8f8;
+  padding: 10px 12px;
+  margin: 16px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.log-entry {
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+
+.log-entry.log-defense {
+  background: #c8e6c9;
+  color: #1a1a1a;
+}
+
+.log-entry.log-enemy_attack {
+  color: #c62828;
+}
+
+.log-entry.log-player_attack {
+  color: #1565c0;
+}
+
+.log-entry.log-miss {
+  color: #666;
+}
+
+.log-entry.log-summary {
+  color: #6a1b9a;
+}
+
+.log-entry.log-exp {
+  color: #2e7d32;
+}
+
+.log-entry.log-default {
+  color: #333;
+}

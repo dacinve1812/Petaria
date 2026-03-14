@@ -1,3 +1,4 @@
+// Moved from project root -> scripts/ for consistency
 const API_BASE_URL = 'http://localhost:5000';
 
 // Test data cho mail hệ thống
@@ -122,10 +123,10 @@ async function sendTestMailsToUser(userId) {
 
       if (response.ok) {
         try {
-          const result = await response.json();
+          await response.json();
           console.log(`✅ Mail ${i + 1} gửi thành công: ${mail.subject}`);
           successCount++;
-        } catch (parseError) {
+        } catch {
           console.log(`✅ Mail ${i + 1} gửi thành công: ${mail.subject} (không parse được response)`);
           successCount++;
         }
@@ -133,7 +134,7 @@ async function sendTestMailsToUser(userId) {
         try {
           const errorText = await response.text();
           console.error(`❌ Lỗi gửi mail ${i + 1} (${response.status}):`, errorText);
-        } catch (textError) {
+        } catch {
           console.error(`❌ Lỗi gửi mail ${i + 1} (${response.status}): Không đọc được response`);
         }
         errorCount++;
@@ -321,38 +322,42 @@ async function main() {
   rl.question('\nChọn hành động (1-8): ', async (choice) => {
     try {
       switch (choice) {
-        case '1':
+        case '1': {
           const userId = await new Promise(resolve => {
             rl.question('Nhập User ID: ', resolve);
           });
           await sendTestMailsToUser(parseInt(userId));
           break;
+        }
           
         case '2':
           await sendTestMailsToAllUsers();
           break;
           
-        case '3':
+        case '3': {
           const userIdsInput = await new Promise(resolve => {
             rl.question('Nhập danh sách User ID (phân cách bằng dấu phẩy): ', resolve);
           });
           const userIds = userIdsInput.split(',').map(id => parseInt(id.trim()));
           await sendTestMailsToMultipleUsers(userIds);
           break;
+        }
           
-        case '4':
+        case '4': {
           const deleteUserId = await new Promise(resolve => {
             rl.question('Nhập User ID để xóa mail: ', resolve);
           });
           await deleteAllUserMails(parseInt(deleteUserId));
           break;
+        }
           
-        case '5':
+        case '5': {
           const showUserId = await new Promise(resolve => {
             rl.question('Nhập User ID để xem mail: ', resolve);
           });
           await showUserMails(parseInt(showUserId));
           break;
+        }
           
         case '6':
           await sendTestMailsToUser(1);
@@ -389,4 +394,5 @@ module.exports = {
   deleteAllUserMails,
   showUserMails,
   systemMails
-}; 
+};
+

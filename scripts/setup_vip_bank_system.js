@@ -1,12 +1,19 @@
-const mysql = require('mysql2/promise');
-require('dotenv').config();
+const path = require('path');
+const { createRequire } = require('module');
+
+// Resolve deps from backend (where node_modules live)
+const requireBackend = createRequire(path.resolve(__dirname, '..', 'backend', 'package.json'));
+const mysql = requireBackend('mysql2/promise');
+const dotenv = requireBackend('dotenv');
+
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 async function setupVipBankSystem() {
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'petaria'
+    database: process.env.DB_NAME || 'petaria',
   });
 
   try {
@@ -65,7 +72,6 @@ async function setupVipBankSystem() {
     console.log('\n🔗 Admin pages available at:');
     console.log('- /admin/bank-management - Manage interest rates');
     console.log('- /admin/user-management - Manage user VIP status');
-
   } catch (error) {
     if (error.code === 'ER_DUP_FIELDNAME') {
       console.log('⚠️  VIP columns already exist in users table, skipping...');
@@ -80,3 +86,4 @@ async function setupVipBankSystem() {
 }
 
 setupVipBankSystem();
+

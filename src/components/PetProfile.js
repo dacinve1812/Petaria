@@ -327,11 +327,10 @@ function PetProfile() {
   if (!pet) return <div>Pet not found.</div>;
 
   const isEvolved = pet.evolution_stage === true;
-  const currentExp = pet.current_exp || 0;
   const level = pet.level || 1;
+  const expProgress = pet.current_exp ?? 0;
   const expToThisLevel = expTable[level] || 0;
   const expToNextLevel = expTable[level + 1] || 1;
-  const expProgress = currentExp;
   const expRequired = expToNextLevel - expToThisLevel;
   // const progressPercent = Math.max(Math.floor(((expProgress - expToThisLevel) / expRequired) * 100), 0);
 
