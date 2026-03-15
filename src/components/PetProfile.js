@@ -366,7 +366,7 @@ function PetProfile() {
             <p className="pet-detail-exp">EXP: {expProgress} / {expToNextLevel}</p>
             <progress className="pet-detail-progress" value={(expProgress - expToThisLevel)} max={expRequired}></progress>
             <p className="pet-detail-hp">
-              Sức Khỏe: {pet.hp}/{pet.max_hp}
+              Sức Khỏe: {pet.current_hp ?? pet.hp}/{pet.max_hp ?? pet.hp}
               {bonusStats.hp > 0 && (
                 <span className="bonus-stats">
                   {' '}+ {bonusStats.hp}

@@ -49,7 +49,7 @@ function Admin() {
         <div className="admin-section">
           <h2>Quản lý Thú cưng</h2>
           <ul>
-            <li><Link to="/admin/edit-pet-types">Quản lý Chủng loại Thú cưng</Link></li>
+            <li><Link to="/admin/edit-pet-types">Quản lý Pet Species</Link></li>
             <li><Link to="/admin/create-pet">Tạo Pet (Admin)</Link></li>
             <li><Link to="/admin/npc-boss-management">Quản lý NPC/Boss</Link></li>
           </ul>

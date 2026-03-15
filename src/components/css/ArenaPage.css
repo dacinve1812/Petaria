@@ -45,6 +45,14 @@
   color: var(--color-text, #222);
 }
 
+.arena-match-error {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: var(--spacing-sm);
+  color: var(--color-danger, #c00);
+  font-size: var(--font-md);
+}
+
 /* Mỗi card: ảnh cố định scale được, tên, stats, link Thách đấu */
 .arena-card {
   display: flex;

@@ -203,15 +203,24 @@ function AdminNpcBossManagement() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>id</th><th>name</th><th>image_url</th><th>level</th><th>base_hp</th><th>base_mp</th><th>base_str</th><th>base_def</th><th>base_intelligence</th><th>base_spd</th><th>accuracy</th><th>location_id</th><th>drop_table</th><th>respawn_minutes</th><th>action_pattern</th><th>Thao tác</th>
+                <th>id</th><th>Hình</th><th>name</th><th>image_url</th><th>level</th><th>base_hp</th><th>base_mp</th><th>base_str</th><th>base_def</th><th>base_intelligence</th><th>base_spd</th><th>accuracy</th><th>location_id</th><th>drop_table</th><th>respawn_minutes</th><th>action_pattern</th><th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {bossTemplates.map(r => {
                 const actionPatternStr = typeof r.action_pattern === 'string' ? r.action_pattern : (r.action_pattern != null ? JSON.stringify(r.action_pattern) : '');
+                const bossImgSrc = r.image_url ? (r.image_url.startsWith('http') || r.image_url.startsWith('/') ? r.image_url : `/images/pets/${r.image_url}`) : '';
                 return (
                 <tr key={r.id}>
-                  <td>{r.id}</td><td>{r.name}</td><td>{r.image_url}</td><td>{r.level}</td><td>{r.base_hp}</td><td>{r.base_mp}</td><td>{r.base_str}</td><td>{r.base_def}</td><td>{r.base_intelligence}</td><td>{r.base_spd}</td><td>{r.accuracy}</td><td>{r.location_id != null ? r.location_id : ''}</td><td>{typeof r.drop_table === 'string' ? r.drop_table.slice(0, 30) : r.drop_table ? JSON.stringify(r.drop_table).slice(0, 30) : ''}</td><td>{r.respawn_minutes != null ? r.respawn_minutes : ''}</td><td title={actionPatternStr}>{actionPatternStr.slice(0, 20)}{actionPatternStr.length > 20 ? '…' : ''}</td>
+                  <td>{r.id}</td>
+                  <td className="boss-thumb-cell">
+                    {bossImgSrc ? (
+                      <img src={bossImgSrc} alt="" className="boss-thumb" onError={(e) => { e.target.src = '/images/pets/default.png'; e.target.onerror = null; }} />
+                    ) : (
+                      <span className="boss-thumb-empty">—</span>
+                    )}
+                  </td>
+                  <td>{r.name}</td><td>{r.image_url}</td><td>{r.level}</td><td>{r.base_hp}</td><td>{r.base_mp}</td><td>{r.base_str}</td><td>{r.base_def}</td><td>{r.base_intelligence}</td><td>{r.base_spd}</td><td>{r.accuracy}</td><td>{r.location_id != null ? r.location_id : ''}</td><td>{typeof r.drop_table === 'string' ? r.drop_table.slice(0, 30) : r.drop_table ? JSON.stringify(r.drop_table).slice(0, 30) : ''}</td><td>{r.respawn_minutes != null ? r.respawn_minutes : ''}</td><td title={actionPatternStr}>{actionPatternStr.slice(0, 20)}{actionPatternStr.length > 20 ? '…' : ''}</td>
                   <td><div className="cell-actions"><button className="btn-edit" onClick={() => setModal({ type: 'boss_templates', mode: 'edit', row: r })}>Sửa</button><button className="btn-delete" onClick={() => deleteRow('boss_templates', r.id)}>Xóa</button></div></td>
                 </tr>
                 );

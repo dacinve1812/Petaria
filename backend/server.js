@@ -45,6 +45,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
+const { createClient } = require('redis');
 
 const app = express();
 const port = 5000; // Chọn cổng cho backend
@@ -63,6 +64,28 @@ const pool = mysql.createPool({ // Hoặc const pool = new Pool({
 });
 
 const db = pool.promise();
+
+// Redis client cho Arena Match State (optional)
+// Quản lý RAM: mỗi SET match phải có TTL; khi kết thúc trận (finalize) hoặc terminate phải DEL key ngay.
+let redisClient = null;
+const REDIS_MATCH_TTL = parseInt(process.env.REDIS_MATCH_TTL, 10) || 1800; // 30 phút mặc định (env: REDIS_MATCH_TTL)
+const REDIS_MATCH_PREFIX = 'match:';
+
+async function initRedis() {
+  const url = process.env.REDIS_URL || 'redis://localhost:6379';
+  try {
+    redisClient = createClient({ url });
+    redisClient.on('error', (err) => console.error('Redis error:', err));
+    await redisClient.connect();
+    console.log('Redis connected');
+  } catch (e) {
+    console.warn('Redis not available:', e.message);
+  }
+}
+
+function getRedis() {
+  return redisClient;
+}
 
 // Kiểm tra kết nối
 pool.getConnection((err, connection) => {
@@ -934,6 +957,101 @@ app.put('/api/admin/pet-species/:id', (req, res) => {
       res.json({ message: 'Pet species updated successfully' });
     }
   });
+});
+
+// Pet species - download CSV (admin)
+app.get('/api/admin/pet-species/csv', (req, res) => {
+  pool.query('SELECT * FROM pet_species ORDER BY id', (err, results) => {
+    if (err) {
+      console.error('Error fetching pet species for CSV:', err);
+      return res.status(500).json({ message: 'Error fetching pet species' });
+    }
+    const rows = results || [];
+    const headers = ['id', 'name', 'image', 'type', 'description', 'rarity', 'base_hp', 'base_mp', 'base_str', 'base_def', 'base_intelligence', 'base_spd', 'evolve_to', 'created_at'];
+    const escape = (v) => {
+      if (v == null) return '';
+      const s = typeof v === 'object' ? JSON.stringify(v) : String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const csv = [headers.join(','), ...rows.map(r => headers.map(h => escape(r[h])).join(','))].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=pet_species.csv');
+    res.send('\uFEFF' + csv);
+  });
+});
+
+// Pet species - upload CSV (admin): UPDATE when id exists, else INSERT
+app.post('/api/admin/pet-species/csv', uploadMemory.single('file'), (req, res) => {
+  if (!req.file || !req.file.buffer) return res.status(400).json({ message: 'Thiếu file CSV' });
+  const text = req.file.buffer.toString('utf8');
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return res.status(400).json({ message: 'CSV trống hoặc thiếu header' });
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+  const required = ['name', 'image'];
+  if (!required.every(k => headers.includes(k))) return res.status(400).json({ message: 'CSV thiếu cột: name, image' });
+  const num = (v, d) => (v !== '' && v != null && !isNaN(Number(v)) ? parseInt(v, 10) : d);
+  let updated = 0, inserted = 0;
+  const next = (idx) => {
+    if (idx >= lines.length - 1) return res.json({ success: true, updated, inserted });
+    const line = lines[idx + 1];
+    const values = [];
+    let cur = '', inQuoted = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQuoted = !inQuoted; continue; }
+      if (!inQuoted && c === ',') { values.push(cur.trim()); cur = ''; continue; }
+      cur += c;
+    }
+    values.push(cur.trim());
+    const o = {};
+    headers.forEach((h, i) => { o[h] = values[i]; });
+    const idRaw = o.id != null && String(o.id).trim() !== '' ? parseInt(o.id, 10) : null;
+    const id = (idRaw != null && !isNaN(idRaw)) ? idRaw : null;
+    const evolveTo = (o.evolve_to != null && String(o.evolve_to).trim() !== '') ? String(o.evolve_to).trim() : null;
+    const vals = [
+      o.name ?? '', o.image ?? '', o.type ?? '', o.description ?? '', o.rarity ?? '',
+      num(o.base_hp, 0), num(o.base_mp, 0), num(o.base_str, 0), num(o.base_def, 0),
+      num(o.base_intelligence, 0), num(o.base_spd, 0), evolveTo
+    ];
+    if (id == null) {
+      pool.query(
+        'INSERT INTO pet_species (name, image, type, description, rarity, base_hp, base_mp, base_str, base_def, base_intelligence, base_spd, evolve_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        vals,
+        (err2) => {
+          if (err2) return res.status(500).json({ message: 'Lỗi thêm mới' });
+          inserted++;
+          next(idx + 1);
+        }
+      );
+      return;
+    }
+    pool.query('SELECT 1 FROM pet_species WHERE id = ? LIMIT 1', [id], (err1, ex) => {
+      if (err1) return res.status(500).json({ message: 'Lỗi kiểm tra id' });
+      const doUpdate = ex && ex.length > 0;
+      if (doUpdate) {
+        pool.query(
+          'UPDATE pet_species SET name=?, image=?, type=?, description=?, rarity=?, base_hp=?, base_mp=?, base_str=?, base_def=?, base_intelligence=?, base_spd=?, evolve_to=? WHERE id=?',
+          [...vals, id],
+          (err2) => {
+            if (err2) return res.status(500).json({ message: 'Lỗi cập nhật' });
+            updated++;
+            next(idx + 1);
+          }
+        );
+      } else {
+        pool.query(
+          'INSERT INTO pet_species (name, image, type, description, rarity, base_hp, base_mp, base_str, base_def, base_intelligence, base_spd, evolve_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          vals,
+          (err2) => {
+            if (err2) return res.status(500).json({ message: 'Lỗi thêm mới' });
+            inserted++;
+            next(idx + 1);
+          }
+        );
+      }
+    });
+  };
+  next(0);
 });
 
 // API Lấy Thông Tin Chi Tiết Thú Cưng Theo ID/UUID
@@ -2782,6 +2900,325 @@ app.post('/api/arena/claim-loot', async (req, res) => {
     if (err.name === 'JsonWebTokenError') return res.status(401).json({ message: 'Invalid token' });
     console.error('Error claiming arena loot:', err);
     res.status(500).json({ message: 'Lỗi khi nhận thưởng Boss' });
+  }
+});
+
+// ---------- Arena Match State (Redis) ----------
+function getUserIdFromToken(req) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return null;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    return decoded.userId;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function finalizeMatchInMySQL(matchState, winner) {
+  const conn = await pool.promise().getConnection();
+  try {
+    await conn.beginTransaction();
+    const petId = matchState.pet_id;
+    const playerHp = Math.max(0, matchState.player?.current_hp ?? 0);
+    if (winner === 'enemy') {
+      await conn.query('UPDATE pets SET current_hp = 0 WHERE id = ?', [petId]);
+    } else {
+      await conn.query('UPDATE pets SET current_hp = ? WHERE id = ?', [playerHp, petId]);
+    }
+    await conn.commit();
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
+}
+
+// POST /api/arena/match/start — Check HP, check active match, init Redis
+app.post('/api/arena/match/start', async (req, res) => {
+  const userId = getUserIdFromToken(req);
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+  const redis = getRedis();
+  if (!redis) return res.status(503).json({ message: 'Match service temporarily unavailable' });
+
+  const { petId, bossId } = req.body;
+  if (!petId || !bossId) return res.status(400).json({ message: 'Thiếu petId hoặc bossId' });
+
+  try {
+    const [petRows] = await db.query(
+      'SELECT p.*, ps.name AS species_name, ps.image AS species_image FROM pets p JOIN pet_species ps ON p.pet_species_id = ps.id WHERE p.id = ? AND p.owner_id = ?',
+      [petId, userId]
+    );
+    if (!petRows.length) return res.status(404).json({ message: 'Pet not found' });
+    const pet = petRows[0];
+    const currentHp = pet.current_hp != null ? parseInt(pet.current_hp, 10) : (pet.hp != null ? parseInt(pet.hp, 10) : 0);
+    if (currentHp <= 0) {
+      return res.status(400).json({ message: 'Thú cưng quá mệt mỏi, hãy cho ăn/nghỉ ngơi để hồi phục.' });
+    }
+
+    const key = REDIS_MATCH_PREFIX + userId;
+    const existing = await redis.get(key);
+    if (existing) {
+      const matchData = JSON.parse(existing);
+      return res.status(400).json({
+        code: 'ACTIVE_MATCH',
+        message: 'Bạn đang có trận đấu dang dở. Hãy quay lại tiếp tục.',
+        match: matchData,
+      });
+    }
+
+    const [bossRows] = await db.query('SELECT * FROM boss_templates WHERE id = ?', [bossId]);
+    if (!bossRows.length) return res.status(404).json({ message: 'Boss not found' });
+    const row = bossRows[0];
+    const bossFinalStats = {
+      hp: parseInt(row.base_hp, 10) || 10,
+      mp: parseInt(row.base_mp, 10) || 10,
+      str: parseInt(row.base_str, 10) || 10,
+      def: parseInt(row.base_def, 10) || 10,
+      intelligence: parseInt(row.base_intelligence, 10) || 10,
+      spd: parseInt(row.base_spd, 10) || 10,
+    };
+    const [skillRows] = await db.query(
+      `SELECT s.id, s.name, s.type, s.power_min, s.power_max, s.accuracy, s.mana_cost FROM boss_skills bs JOIN skills s ON bs.skill_id = s.id WHERE bs.boss_template_id = ? ORDER BY bs.sort_order ASC`,
+      [bossId]
+    );
+    const skills = (skillRows || []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      type: s.type || 'attack',
+      power_min: s.power_min != null ? parseInt(s.power_min, 10) : 80,
+      power_max: s.power_max != null ? parseInt(s.power_max, 10) : 100,
+      accuracy: s.accuracy != null ? parseInt(s.accuracy, 10) : 100,
+      mana_cost: s.mana_cost != null ? parseInt(s.mana_cost, 10) : 0,
+    }));
+    const action_pattern = row.action_pattern ? (typeof row.action_pattern === 'string' ? JSON.parse(row.action_pattern) : row.action_pattern) : null;
+    const enemy = {
+      id: row.id,
+      name: row.name,
+      level: parseInt(row.level, 10) || 1,
+      image: row.image_url,
+      final_stats: bossFinalStats,
+      current_hp: bossFinalStats.hp,
+      current_mp: bossFinalStats.mp,
+      current_def_dmg: 0,
+      skills,
+      action_pattern: Array.isArray(action_pattern) ? action_pattern : null,
+      isBoss: true,
+    };
+
+    let finalStats = pet.final_stats;
+    if (typeof finalStats === 'string') finalStats = JSON.parse(finalStats || '{}');
+    if (!finalStats || typeof finalStats !== 'object') finalStats = { hp: pet.hp, mp: pet.mp, str: pet.str, def: pet.def, intelligence: pet.intelligence, spd: pet.spd };
+    const player = {
+      id: pet.id,
+      name: pet.name,
+      level: parseInt(pet.level, 10) || 1,
+      image: pet.species_image || pet.image,
+      final_stats: finalStats,
+      current_hp: currentHp,
+      current_mp: pet.mp != null ? parseInt(pet.mp, 10) : finalStats.mp,
+      current_def_dmg: 0,
+      current_exp: pet.current_exp,
+    };
+
+    const [equipRows] = await db.query(
+      `SELECT i.id, i.item_id, it.name AS item_name, i.durability_left, ed.power_min, ed.power_max, ed.equipment_type FROM inventory i JOIN items it ON i.item_id = it.id LEFT JOIN equipment_data ed ON it.id = ed.item_id WHERE i.equipped_pet_id = ? AND i.is_equipped = 1 AND (i.is_broken = 0 OR i.is_broken IS NULL)`,
+      [petId]
+    );
+    const equipment = (equipRows || []).map((e) => ({
+      id: e.id,
+      item_id: e.item_id,
+      item_name: e.item_name,
+      durability_left: e.durability_left != null ? parseInt(e.durability_left, 10) : 1,
+      power_min: e.power_min != null ? parseInt(e.power_min, 10) : 0,
+      power_max: e.power_max != null ? parseInt(e.power_max, 10) : 0,
+      equipment_type: e.equipment_type || 'weapon',
+    }));
+
+    const matchState = {
+      userId,
+      pet_id: parseInt(petId, 10),
+      boss_id: parseInt(bossId, 10),
+      player,
+      enemy,
+      equipment,
+      turn_count: 0,
+      history: [],
+      finished: false,
+      result: null,
+    };
+    await redis.set(key, JSON.stringify(matchState), { EX: REDIS_MATCH_TTL });
+    res.json(matchState);
+  } catch (err) {
+    console.error('Error arena match start:', err);
+    res.status(500).json({ message: 'Lỗi khởi tạo trận đấu' });
+  }
+});
+
+// GET /api/arena/match/status — Reconnect: trả về trận đấu đang dang dở
+app.get('/api/arena/match/status', async (req, res) => {
+  const userId = getUserIdFromToken(req);
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+  const redis = getRedis();
+  if (!redis) return res.status(503).json({ message: 'Match service temporarily unavailable' });
+
+  try {
+    const key = REDIS_MATCH_PREFIX + userId;
+    const data = await redis.get(key);
+    if (!data) return res.status(404).json({ message: 'No active match' });
+    res.json(JSON.parse(data));
+  } catch (err) {
+    console.error('Error arena match status:', err);
+    res.status(500).json({ message: 'Lỗi kiểm tra trận đấu' });
+  }
+});
+
+// POST /api/arena/match/terminate — User rời đi: force loss, lưu HP pet, xóa Redis
+app.post('/api/arena/match/terminate', async (req, res) => {
+  const userId = getUserIdFromToken(req);
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+  const redis = getRedis();
+  if (!redis) return res.status(503).json({ message: 'Match service temporarily unavailable' });
+
+  try {
+    const key = REDIS_MATCH_PREFIX + userId;
+    const data = await redis.get(key);
+    if (!data) return res.status(404).json({ message: 'No active match' });
+    const matchState = JSON.parse(data);
+    const playerHp = Math.max(0, matchState.player?.current_hp ?? 0);
+    await db.query('UPDATE pets SET current_hp = ? WHERE id = ?', [playerHp, matchState.pet_id]);
+    await redis.del(key);
+    res.json({ forceLoss: true, message: 'Trận đấu đã kết thúc (rời đi).' });
+  } catch (err) {
+    console.error('Error arena match terminate:', err);
+    res.status(500).json({ message: 'Lỗi kết thúc trận đấu' });
+  }
+});
+
+// POST /api/arena/match/turn — Xử lý 1 lượt (player action + enemy action), chỉ dùng Redis rồi finalize khi hết trận
+app.post('/api/arena/match/turn', async (req, res) => {
+  const userId = getUserIdFromToken(req);
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+  const redis = getRedis();
+  if (!redis) return res.status(503).json({ message: 'Match service temporarily unavailable' });
+
+  const key = REDIS_MATCH_PREFIX + userId;
+  const { action, itemId, power_min, power_max, moveName } = req.body || {};
+
+  try {
+    const data = await redis.get(key);
+    if (!data) return res.status(404).json({ message: 'Match not found' });
+    const state = JSON.parse(data);
+    const player = state.player;
+    const enemy = state.enemy;
+    const NORMAL_POWER_MIN = 7;
+    const NORMAL_POWER_MAX = 10;
+
+    // --- Player action ---
+    let result;
+    if (action === 'defend_shield' || action === 'defend_basic') {
+      const powerMin = action === 'defend_shield' && power_min != null ? Number(power_min) : NORMAL_POWER_MIN;
+      const powerMax = action === 'defend_shield' && power_max != null ? Number(power_max) : NORMAL_POWER_MAX;
+      result = simulateDefendTurn(player, enemy, powerMin, powerMax);
+      state.history.push({ text: result.logMessage || `${player.name} sử dụng Phòng thủ.`, type: 'defense' });
+      player.current_def_dmg = result.defDmg ?? 0;
+      if (action === 'defend_shield' && itemId) {
+        const inv = state.equipment.find((e) => e.id === itemId);
+        if (inv && inv.durability_left > 0) {
+          inv.durability_left = Math.max(0, inv.durability_left - 1);
+          await db.query('UPDATE inventory SET durability_left = GREATEST(durability_left - 1, 0) WHERE id = ?', [itemId]);
+          if (inv.durability_left <= 0) await db.query('UPDATE inventory SET is_broken = 1 WHERE id = ?', [itemId]);
+        }
+      }
+    } else {
+      const isAttackItem = action === 'attack_item' && itemId != null;
+      let powerMin = NORMAL_POWER_MIN;
+      let powerMax = NORMAL_POWER_MAX;
+      let move = 'Normal Attack';
+      if (isAttackItem) {
+        const inv = state.equipment.find((e) => e.id === itemId);
+        if (!inv || inv.durability_left <= 0) return res.status(400).json({ message: 'Item không khả dụng' });
+        powerMin = inv.power_min != null ? inv.power_min : 0;
+        powerMax = inv.power_max != null ? inv.power_max : 0;
+        move = inv.item_name || 'Weapon';
+      } else {
+        move = 'Normal Attack';
+      }
+      result = simulateTurn(
+        player,
+        enemy,
+        isAttackItem ? 10 : 10,
+        move,
+        { power_min: powerMin, power_max: powerMax, defender_current_def_dmg: enemy.current_def_dmg ?? 0 }
+      );
+      if (result.reflectedDamage > 0) {
+        state.history.push({ text: `${result.attacker} đánh, ${result.defender} phản đòn ${result.reflectedDamage} sát thương!`, type: 'enemy_attack' });
+      } else {
+        state.history.push({ text: `${result.attacker} dùng ${result.moveUsed}${result.critical ? ' (CRIT)' : ''}, gây ${result.damage} sát thương.`, type: 'player_attack' });
+      }
+      enemy.current_hp = result.defender_hp_after ?? Math.max(0, (enemy.current_hp ?? enemy.final_stats?.hp) - (result.damage || 0));
+      enemy.current_def_dmg = 0;
+      if (result.attacker_hp_after != null) player.current_hp = result.attacker_hp_after;
+      if (isAttackItem && itemId) {
+        const inv = state.equipment.find((e) => e.id === itemId);
+        if (inv) {
+          inv.durability_left = Math.max(0, (inv.durability_left || 1) - 1);
+          await db.query('UPDATE inventory SET durability_left = GREATEST(durability_left - 1, 0) WHERE id = ?', [itemId]);
+          if (inv.durability_left <= 0) await db.query('UPDATE inventory SET is_broken = 1 WHERE id = ?', [itemId]);
+        }
+      }
+    }
+    state.turn_count = (state.turn_count || 0) + 1;
+
+    if ((enemy.current_hp ?? 0) <= 0) {
+      state.finished = true;
+      state.result = 'win';
+      await finalizeMatchInMySQL(state, 'player');
+      await redis.del(key);
+      res.json(state);
+      return;
+    }
+    if ((player.current_hp ?? 0) <= 0) {
+      state.finished = true;
+      state.result = 'lose';
+      await finalizeMatchInMySQL(state, 'enemy');
+      await redis.del(key);
+      res.json(state);
+      return;
+    }
+
+    // --- Enemy turn (Boss) ---
+    const turnNum = state.turn_count || 1;
+    const skill = getBossAction(enemy, turnNum, enemy.skills);
+    if (skill) {
+      const defDmg = player.current_def_dmg ?? 0;
+      if (typeof player === 'object') player.current_def_dmg = defDmg;
+      const bossResult = simulateBossTurn(enemy, player, skill);
+      const logMsg = bossResult.isBossDefend
+        ? `${enemy.name} dùng ${skill.name} (Phòng thủ).`
+        : (bossResult.miss ? `${enemy.name} dùng ${skill.name} nhưng trượt!` : `${enemy.name} dùng ${bossResult.moveUsed}, gây ${bossResult.damage || 0} sát thương.`);
+      state.history.push({ text: logMsg, type: 'enemy_attack' });
+      if (bossResult.defender_hp_after != null) player.current_hp = bossResult.defender_hp_after;
+      if (bossResult.attacker_hp_after != null) enemy.current_hp = bossResult.attacker_hp_after;
+      if (bossResult.bossDefDmg != null) enemy.current_def_dmg = bossResult.bossDefDmg;
+      if (bossResult.defender_current_def_dmg === 0 && typeof player.current_def_dmg === 'number') player.current_def_dmg = 0;
+    }
+
+    if ((player.current_hp ?? 0) <= 0) {
+      state.finished = true;
+      state.result = 'lose';
+      await finalizeMatchInMySQL(state, 'enemy');
+      await redis.del(key);
+      res.json(state);
+      return;
+    }
+
+    await redis.set(key, JSON.stringify(state), { EX: REDIS_MATCH_TTL });
+    res.json(state);
+  } catch (err) {
+    console.error('Error arena match turn:', err);
+    res.status(500).json({ message: 'Lỗi xử lý lượt đấu' });
   }
 });
 
@@ -5458,6 +5895,9 @@ app.post('/api/healia-river/heal', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+(async () => {
+  await initRedis();
+  app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+  });
+})();

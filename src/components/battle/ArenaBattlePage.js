@@ -11,11 +11,19 @@ function ArenaBattlePage() {
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useContext(UserContext) || {};
-    const { playerPet, enemyPet } = location.state || {};
-  
-    const [player, setPlayer] = useState({ ...playerPet, current_hp: playerPet?.current_hp || playerPet?.final_stats?.hp, current_def_dmg: 0 });
-    const [enemy, setEnemy] = useState({ ...enemyPet, current_hp: enemyPet?.current_hp || enemyPet?.final_stats?.hp, current_def_dmg: 0 });
-    const [turn, setTurn] = useState(0);
+    const { playerPet, enemyPet, matchState: initialMatchState, useRedisMatch: useRedisMatchFromState } = location.state || {};
+    const fromMatch = !!initialMatchState && !!useRedisMatchFromState;
+
+    const [player, setPlayer] = useState(() => {
+      if (fromMatch && initialMatchState?.player) return { ...initialMatchState.player, current_def_dmg: initialMatchState.player.current_def_dmg ?? 0 };
+      return { ...playerPet, current_hp: playerPet?.current_hp || playerPet?.final_stats?.hp, current_def_dmg: 0 };
+    });
+    const [enemy, setEnemy] = useState(() => {
+      if (fromMatch && initialMatchState?.enemy) return { ...initialMatchState.enemy, current_def_dmg: initialMatchState.enemy.current_def_dmg ?? 0 };
+      return { ...enemyPet, current_hp: enemyPet?.current_hp || enemyPet?.final_stats?.hp, current_def_dmg: 0 };
+    });
+    const [turn, setTurn] = useState(fromMatch ? (initialMatchState?.turn_count ?? 0) : 0);
+    const [isRedisMatch, setIsRedisMatch] = useState(!!useRedisMatchFromState);
     const playerRef = React.useRef(player);
     const enemyRef = React.useRef(enemy);
     playerRef.current = player;
@@ -40,11 +48,16 @@ function ArenaBattlePage() {
         })
         .catch((err) => console.error('Load full boss for action_pattern:', err));
     }, [enemyPet?.id, enemyPet?.isBoss]);
-    const [log, setLog] = useState([]);
+    const [log, setLog] = useState(() => (fromMatch && Array.isArray(initialMatchState?.history) ? initialMatchState.history : []));
     const [autoMode, setAutoMode] = useState(false);
     const [isBlitzMode, setIsBlitzMode] = useState(false);
     const [battleEnded, setBattleEnded] = useState(false);
-      const [equippedItems, setEquippedItems] = useState([]);
+      const [equippedItems, setEquippedItems] = useState(() => {
+        if (fromMatch && Array.isArray(initialMatchState?.equipment)) {
+          return initialMatchState.equipment.map((e) => ({ ...e, image_url: e.image_url || '' }));
+        }
+        return [];
+      });
   const [attackAnimation, setAttackAnimation] = useState('');
     const [resultEffect, setResultEffect] = useState('');
     const [actionLocked, setActionLocked] = useState(false);
@@ -74,16 +87,43 @@ function ArenaBattlePage() {
       }
       return false;
     };
+
+    const sendMatchTurn = async (payload) => {
+      const res = await fetch(`${API_BASE_URL}/api/arena/match/turn`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || 'Turn failed');
+      setPlayer({ ...data.player, current_def_dmg: data.player?.current_def_dmg ?? 0 });
+      setEnemy({ ...data.enemy, current_def_dmg: data.enemy?.current_def_dmg ?? 0 });
+      setLog(Array.isArray(data.history) ? data.history : []);
+      if (Array.isArray(data.equipment)) setEquippedItems(data.equipment.map((e) => ({ ...e, image_url: e.image_url || '' })));
+      setTurn(data.turn_count ?? 0);
+      setBattleEnded(!!data.finished);
+      setResultEffect(data.result || '');
+      setAttackAnimation('player');
+      return data;
+    };
   
       const handleAttackWithItem = async (item) => {
       if (actionLocked) return;
+      if (item.durability_left <= 0) return;
       setActionLocked(true);
-      // power_min, power_max (int trong DB, chia 10 trong công thức); fallback 0 nếu thiếu
       const powerMin = item.power_min != null ? item.power_min : 0;
       const powerMax = item.power_max != null ? item.power_max : 0;
 
-    if (item.durability_left <= 0) return;
-  
+      if (isRedisMatch) {
+        try {
+          await sendMatchTurn({ action: 'attack_item', itemId: item.id, power_min: powerMin, power_max: powerMax, moveName: item.item_name || 'Weapon' });
+        } catch (err) {
+          console.error('Match turn (attack_item):', err);
+        }
+        setActionLocked(false);
+        return;
+      }
+
       try {
         const res = await fetch(`${API_BASE_URL}/api/arena/simulate-turn`, {
           method: 'POST',
@@ -152,9 +192,18 @@ function ArenaBattlePage() {
       if (actionLocked) return;
       if (!shieldItem || shieldItem.equipment_type !== 'shield' || shieldItem.durability_left <= 0) return;
       setActionLocked(true);
+      const powerMin = shieldItem.power_min != null ? shieldItem.power_min : 0;
+      const powerMax = shieldItem.power_max != null ? shieldItem.power_max : 0;
+      if (isRedisMatch) {
+        try {
+          await sendMatchTurn({ action: 'defend_shield', itemId: shieldItem.id, power_min: powerMin, power_max: powerMax });
+        } catch (err) {
+          console.error('Match turn (defend_shield):', err);
+        }
+        setActionLocked(false);
+        return;
+      }
       try {
-        const powerMin = shieldItem.power_min != null ? shieldItem.power_min : 0;
-        const powerMax = shieldItem.power_max != null ? shieldItem.power_max : 0;
         const res = await fetch(`${API_BASE_URL}/api/arena/simulate-defend`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -192,6 +241,15 @@ function ArenaBattlePage() {
     const handleNormalAttack = async () => {
       if (actionLocked) return;
       setActionLocked(true);
+      if (isRedisMatch) {
+        try {
+          await sendMatchTurn({ action: 'normal_attack', power_min: NORMAL_POWER_MIN, power_max: NORMAL_POWER_MAX, moveName: 'Normal Attack' });
+        } catch (err) {
+          console.error('Match turn (normal_attack):', err);
+        }
+        setActionLocked(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_BASE_URL}/api/arena/simulate-turn`, {
           method: 'POST',
@@ -234,6 +292,15 @@ function ArenaBattlePage() {
     const handleBasicDefend = async () => {
       if (actionLocked) return;
       setActionLocked(true);
+      if (isRedisMatch) {
+        try {
+          await sendMatchTurn({ action: 'defend_basic', power_min: NORMAL_POWER_MIN, power_max: NORMAL_POWER_MAX });
+        } catch (err) {
+          console.error('Match turn (defend_basic):', err);
+        }
+        setActionLocked(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_BASE_URL}/api/arena/simulate-defend`, {
           method: 'POST',
@@ -341,8 +408,36 @@ function ArenaBattlePage() {
       }
     };
   
+  // Reconnect: nếu vào trang không có matchState nhưng user đã đăng nhập -> kiểm tra match đang chơi
+  const [redisMatchRestored, setRedisMatchRestored] = useState(false);
+  useEffect(() => {
+    if (!user?.token || fromMatch || redisMatchRestored) return;
+    fetch(`${API_BASE_URL}/api/arena/match/status`, { headers: { Authorization: `Bearer ${user.token}` } })
+      .then((res) => {
+        if (!res.ok) {
+          if (res.status === 404 && !playerPet) navigate('/battle/arena', { replace: true });
+          return;
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (!data?.player) return;
+        setPlayer({ ...data.player, current_def_dmg: data.player.current_def_dmg ?? 0 });
+        setEnemy({ ...data.enemy, current_def_dmg: data.enemy.current_def_dmg ?? 0 });
+        setTurn(data.turn_count ?? 0);
+        setLog(Array.isArray(data.history) ? data.history : []);
+        if (Array.isArray(data.equipment)) setEquippedItems(data.equipment.map((e) => ({ ...e, image_url: e.image_url || '' })));
+        setRedisMatchRestored(true);
+        setIsRedisMatch(true);
+      })
+      .catch(() => {
+        if (!playerPet) navigate('/battle/arena', { replace: true });
+      });
+  }, [user?.token, fromMatch, redisMatchRestored, navigate, playerPet]);
+
       useEffect(() => {
     if (!player?.id) return;
+    if (isRedisMatch) return; // Đã có từ matchState / status
     // Lấy battle stats với đầy đủ bonus (cached)
       fetch(`${API_BASE_URL}/api/pets/${player.id}/battle-stats`)
       .then(res => res.json())
@@ -360,7 +455,7 @@ function ArenaBattlePage() {
       .then(res => res.json())
       .then(setEquippedItems)
       .catch(err => console.error('Error loading equipment:', err));
-    }, [player?.id]);
+    }, [player?.id, isRedisMatch]);
   
     useEffect(() => {
       if (player.current_hp <= 0 || enemy.current_hp <= 0) setBattleEnded(true);
@@ -480,10 +575,34 @@ function ArenaBattlePage() {
           if (player.current_hp > 0) {
             gainExpIfVictory();
           }
-          // Save HP after battle ends
-          savePlayerHP();
+          if (!isRedisMatch) savePlayerHP();
         }
       }, [battleEnded]);
+
+      const handleLeaveBattle = async (e) => {
+        if (!isRedisMatch || battleEnded) return;
+        e?.preventDefault?.();
+        if (!window.confirm('Nếu bạn rời đi, trận đấu sẽ tính là THUA.')) return;
+        try {
+          await fetch(`${API_BASE_URL}/api/arena/match/terminate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+          });
+        } catch (err) {
+          console.error('Terminate match:', err);
+        }
+        navigate('/battle/arena');
+      };
+
+      useEffect(() => {
+        if (!isRedisMatch || battleEnded) return;
+        const onBeforeUnload = (e) => {
+          e.preventDefault();
+          e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+      }, [isRedisMatch, battleEnded]);
 
       const resetBattle = () => {
         const newPlayer = { 
@@ -608,21 +727,25 @@ function ArenaBattlePage() {
               {player.current_hp > 0 ? '🎉 Thắng lợi!' : '💀 Thất bại!'}
               <div style={{ marginTop: '20px', textAlign: 'center' }}>
               <button onClick={() => {
-                navigate('/battle/arena/arenabattle', {
-                    state: { playerPet: player, enemyPet, _refresh: Date.now() }
-                        });
-                    }}>
-                        🔁 Khiêu chiến lại
-                </button>
+                if (isRedisMatch) navigate('/battle/arena');
+                else navigate('/battle/arena/arenabattle', { state: { playerPet: player, enemyPet, _refresh: Date.now() } });
+              }}>
+                🔁 Khiêu chiến lại
+              </button>
             </div>
             </div>
-            
           )}
 
             <div style={{ marginTop: '20px', textAlign: 'center' }}>
-              <Link to="/battle/arena" className="back-to-arena-btn">
-                ← Quay lại Đấu trường
-              </Link>
+              {isRedisMatch && !battleEnded ? (
+                <button type="button" className="back-to-arena-btn" onClick={handleLeaveBattle}>
+                  ← Quay lại Đấu trường
+                </button>
+              ) : (
+                <Link to="/battle/arena" className="back-to-arena-btn">
+                  ← Quay lại Đấu trường
+                </Link>
+              )}
             </div>
             
         </div>

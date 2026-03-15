@@ -13,6 +13,8 @@ function ArenaPage() {
   const [enemies, setEnemies] = useState([]);
   const [selectedEnemy, setSelectedEnemy] = useState(null);
   const [userPets, setUserPets] = useState([]);
+  const [matchStartError, setMatchStartError] = useState('');
+  const [matchStarting, setMatchStarting] = useState(false);
 
   useEffect(() => {
     if (isLoading) return; // Wait for user context to load
@@ -78,6 +80,37 @@ function ArenaPage() {
     return `/images/pets/${img}`;
   };
 
+  const startMatchAndNavigate = async (pet, enemy) => {
+    if (!user?.token || !pet?.id || !enemy?.id) return;
+    setMatchStartError('');
+    setMatchStarting(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/arena/match/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+        body: JSON.stringify({ petId: pet.id, bossId: enemy.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        navigate('/battle/arena/arenabattle', {
+          state: { matchState: data, playerPet: data.player, enemyPet: data.enemy, useRedisMatch: true },
+        });
+        return;
+      }
+      if (res.status === 400 && data.code === 'ACTIVE_MATCH' && data.match) {
+        navigate('/battle/arena/arenabattle', {
+          state: { matchState: data.match, playerPet: data.match.player, enemyPet: data.match.enemy, useRedisMatch: true },
+        });
+        return;
+      }
+      setMatchStartError(data.message || 'Không thể bắt đầu trận đấu.');
+    } catch (err) {
+      setMatchStartError(err.message || 'Lỗi kết nối.');
+    } finally {
+      setMatchStarting(false);
+    }
+  };
+
   return (
     <TemplatePage showSearch={false} showTabs={false}>
       <div className="arena-page-container">
@@ -113,18 +146,13 @@ function ArenaPage() {
           )}
         </div>
         
+        {matchStartError && <div className="arena-match-error">{matchStartError}</div>}
         {selectedEnemy && (
           <EnemyInfoModal
             enemy={selectedEnemy}
-            onClose={() => setSelectedEnemy(null)}
-            onSelectPet={(pet) => {
-              navigate('/battle/arena/arenabattle', {
-                state: {
-                  playerPet: pet,
-                  enemyPet: selectedEnemy
-                }
-              });
-            }}
+            onClose={() => { setSelectedEnemy(null); setMatchStartError(''); }}
+            onSelectPet={(pet) => startMatchAndNavigate(pet, selectedEnemy)}
+            matchStarting={matchStarting}
           />
         )}
       </div>

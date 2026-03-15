@@ -18,4 +18,6 @@ go to petaria
 run `npm start`
 go to petaria/backend
 run `npm start`
-
+go to C:\Program Files\Redis
+run `redis-server.exe redis.windows.conf`
+Make sure .\redis-cli.exe is running under 127.0.0.1: 6379

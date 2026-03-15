@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import '../css/EnemyInfoModal.css';
 
-function EnemyInfoModal({ enemy, onClose, onSelectPet }) {
+function EnemyInfoModal({ enemy, onClose, onSelectPet, matchStarting }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const [selectedPet, setSelectedPet] = useState(null);
   const [enemyDetail, setEnemyDetail] = useState(null);
@@ -111,10 +111,10 @@ function EnemyInfoModal({ enemy, onClose, onSelectPet }) {
           <button
             className="battle-button"
             onClick={() => selectedPet && onSelectPet(selectedPet)}
-            disabled={!selectedPet}
-            style={{ opacity: selectedPet ? 1 : 0.5 }}
+            disabled={!selectedPet || matchStarting}
+            style={{ opacity: selectedPet && !matchStarting ? 1 : 0.5 }}
           >
-            Battle
+            {matchStarting ? 'Đang bắt đầu...' : 'Battle'}
           </button>
 
           <button className='close-button' onClick={onClose} ><img src='/images/icons/close.png'></img></button>

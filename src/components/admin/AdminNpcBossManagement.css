@@ -127,7 +127,7 @@
 }
 
 .table-wrap {
-  max-height: 400px;
+  max-height: 600px;
   overflow: auto;
 }
 
@@ -180,6 +180,26 @@
 .admin-npc-boss .data-table .btn-delete {
   background: #dc3545;
   color: white;
+}
+
+/* Cột hình ảnh boss_templates (chỉ hiển thị UI, không dùng trong CSV) */
+.admin-npc-boss .boss-thumb-cell {
+  padding: 4px 8px;
+  vertical-align: middle;
+}
+
+.admin-npc-boss .boss-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  display: block;
+  border-radius: 4px;
+  background: #f0f0f0;
+}
+
+.admin-npc-boss .boss-thumb-empty {
+  color: #adb5bd;
+  font-size: 13px;
 }
 
 .modal-overlay {

@@ -1,442 +1,342 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
+import './AdminNpcBossManagement.css';
 import './EditPetTypes.css';
 
+const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
+const ITEMS_PER_PAGE = 30;
+const authHeaders = (token) => (token ? { Authorization: `Bearer ${token}` } : {});
+
 function EditPetTypes() {
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const navigate = useNavigate();
   const { user, isLoading } = useUser();
-
-  const [formData, setFormData] = useState({
-    name: '', image: '', type: '', description: '', rarity: '',
-    base_hp: 0, base_mp: 0, base_str: 0, base_def: 0, base_intelligence: 0, base_spd: 0,
-    evolve_to: ''
-  });
-
-  const [speciesList, setSpeciesList] = useState([]);
-  const [editingId, setEditingId] = useState(null);
-  const [showList, setShowList] = useState(false);
+  const [list, setList] = useState([]);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('success');
+  const [modal, setModal] = useState(null);
+  const [uploadResult, setUploadResult] = useState(null);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('name');
-  const [currentPage, setCurrentPage] = useState(1);
   const [rarityFilter, setRarityFilter] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const itemsPerPage = 6;
-
-  const fetchSpecies = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/api/admin/pet-species`);
-      const data = await res.json();
-      setSpeciesList(data);
-    } catch (error) {
-      setMessage('❌ Lỗi khi tải danh sách Pet Species');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    if (showList) {
-      fetchSpecies();
-    }
-  }, [showList]);
-
-  useEffect(() => {
-    if (!isLoading && (!user || !user.isAdmin)) {
-      navigate('/login');
-    }
+    if (!isLoading && (!user || !user.isAdmin)) navigate('/login');
   }, [user, isLoading, navigate]);
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
+  useEffect(() => {
+    if (user?.isAdmin && user?.token) loadAll();
+  }, [user?.isAdmin, user?.token]);
 
-  if (!user || !user.isAdmin) {
-    return null;
-  }
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage('');
-
-    const endpoint = editingId
-      ? `${API_BASE_URL}/api/admin/pet-species/${editingId}`
-      : `${API_BASE_URL}/api/admin/pet-species`;
-    const method = editingId ? 'PUT' : 'POST';
-    
+  const loadAll = async () => {
+    if (!user?.token) return;
     try {
-      const res = await fetch(endpoint, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}`
-        },
-        body: JSON.stringify({
-          ...formData,
-          evolve_to: formData.evolve_to ? JSON.parse(formData.evolve_to) : null
-        })
-      });
+      const res = await fetch(`${API_BASE}/api/admin/pet-species`, { headers: authHeaders(user.token) });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Lỗi khi lưu Pet Species');
-      
-      setMessage(`✅ ${editingId ? 'Cập nhật' : 'Tạo mới'} thành công!`);
-      setFormData({
-        name: '', image: '', type: '', description: '', rarity: '',
-        base_hp: 0, base_mp: 0, base_str: 0, base_def: 0, base_intelligence: 0, base_spd: 0,
-        evolve_to: ''
-      });
-      setEditingId(null);
-      fetchSpecies();
-    } catch (err) {
-      setMessage(`❌ Lỗi: ${err.message}`);
-    } finally {
-      setLoading(false);
+      setList(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setMessage('Lỗi tải dữ liệu: ' + e.message);
+      setMessageType('error');
     }
   };
 
-  const handleEdit = (specie) => {
-    setFormData({
-      name: specie.name,
-      image: specie.image,
-      type: specie.type,
-      description: specie.description,
-      rarity: specie.rarity,
-      base_hp: specie.base_hp,
-      base_mp: specie.base_mp,
-      base_str: specie.base_str,
-      base_def: specie.base_def,
-      base_intelligence: specie.base_intelligence,
-      base_spd: specie.base_spd,
-      evolve_to: specie.evolve_to ? JSON.stringify(specie.evolve_to) : ''
-    });
-    setEditingId(specie.id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const showMsg = (msg, type = 'success') => {
+    setMessage(msg);
+    setMessageType(type);
+    setUploadResult(null);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Xác nhận xoá pet species này?')) return;
-    
-    setLoading(true);
-    setMessage('');
-    
+  const deleteRow = async (id) => {
+    if (!window.confirm('Xác nhận xóa pet species này?')) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/pet-species/${id}`, {
+      const r = await fetch(`${API_BASE}/api/admin/pet-species/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${user.token}` }
+        headers: authHeaders(user.token),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Lỗi khi xoá');
-      }
-      setMessage('✅ Đã xoá thành công');
-      fetchSpecies();
-    } catch (err) {
-      setMessage(`❌ Lỗi: ${err.message}`);
-    } finally {
-      setLoading(false);
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.message || 'Lỗi xóa');
+      showMsg('Đã xóa.');
+      loadAll();
+    } catch (e) {
+      showMsg(e.message || 'Lỗi xóa', 'error');
     }
   };
 
-  const filtered = speciesList
-    .filter(s =>
-      s.name.toLowerCase().includes(search.toLowerCase()) &&
-      (rarityFilter === '' || s.rarity === rarityFilter)
-    )
-    .sort((a, b) =>
-      sortBy === 'name'
-        ? a.name.localeCompare(b.name)
-        : b.base_hp + b.base_str + b.base_def + b.base_intelligence + b.base_spd -
-          (a.base_hp + a.base_str + a.base_def + a.base_intelligence + a.base_spd)
-    );
+  const downloadCSV = () => {
+    const link = document.createElement('a');
+    link.href = `${API_BASE}/api/admin/pet-species/csv`;
+    link.setAttribute('download', 'pet_species.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    fetch(`${API_BASE}/api/admin/pet-species/csv`, { headers: authHeaders(user.token) })
+      .then((r) => { if (!r.ok) throw new Error('Lỗi tải'); return r.blob(); })
+      .then((blob) => {
+        const u = URL.createObjectURL(blob);
+        link.href = u;
+        link.download = 'pet_species.csv';
+        link.click();
+        URL.revokeObjectURL(u);
+      })
+      .catch(() => showMsg('Lỗi tải CSV', 'error'))
+      .finally(() => link.remove());
+  };
 
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedSpecies = filtered.slice(startIndex, startIndex + itemsPerPage);
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const uploadCSV = async (file) => {
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/pet-species/csv`, {
+        method: 'POST',
+        headers: authHeaders(user.token),
+        body: fd,
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.message || 'Lỗi upload');
+      setUploadResult(data);
+      showMsg(`CSV: ${data.inserted || 0} thêm, ${data.updated || 0} cập nhật.`);
+      loadAll();
+    } catch (e) {
+      showMsg(e.message || 'Lỗi upload', 'error');
+    }
+  };
 
-  const totalStats = ['base_hp', 'base_mp', 'base_str', 'base_def', 'base_intelligence', 'base_spd']
-    .reduce((sum, key) => sum + Number(formData[key] || 0), 0);
+  const saveModal = async (payload) => {
+    try {
+      const isEdit = modal.mode === 'edit' && payload.id != null;
+      const url = isEdit
+        ? `${API_BASE}/api/admin/pet-species/${payload.id}`
+        : `${API_BASE}/api/admin/pet-species`;
+      const method = isEdit ? 'PUT' : 'POST';
+      const body = { ...payload };
+      if (body.evolve_to !== undefined && body.evolve_to !== null && body.evolve_to !== '') {
+        try {
+          body.evolve_to = typeof body.evolve_to === 'string' ? JSON.parse(body.evolve_to) : body.evolve_to;
+        } catch (_) {
+          body.evolve_to = null;
+        }
+      } else body.evolve_to = null;
+      delete body.id;
+      delete body.created_at;
+      const r = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', ...authHeaders(user.token) },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.message || 'Lỗi lưu');
+      showMsg(isEdit ? 'Đã cập nhật.' : 'Đã thêm.');
+      setModal(null);
+      loadAll();
+    } catch (e) {
+      showMsg(e.message || 'Lỗi lưu', 'error');
+    }
+  };
+
+  const filtered = list
+    .filter((s) => {
+      const matchSearch = !search.trim() || (s.name && s.name.toLowerCase().includes(search.toLowerCase()));
+      const matchRarity = !rarityFilter || s.rarity === rarityFilter;
+      return matchSearch && matchRarity;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
+      const sum = (x) => (Number(x.base_hp) || 0) + (Number(x.base_str) || 0) + (Number(x.base_def) || 0) + (Number(x.base_intelligence) || 0) + (Number(x.base_spd) || 0) + (Number(x.base_mp) || 0);
+      return sum(b) - sum(a);
+    });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginated = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  if (isLoading) return <div className="admin-npc-boss"><div className="loading">Đang tải...</div></div>;
+  if (!user || !user.isAdmin) return <div className="admin-npc-boss"><div className="access-denied"><h2>Access Denied</h2></div></div>;
 
   return (
-    <div className="edit-pet-types">
-      <div className="edit-pet-types-header">
-        <h1>{editingId ? 'Chỉnh sửa' : 'Tạo mới'} Pet Species</h1>
-        <button className="back-admin-btn" onClick={() => navigate('/admin')}>
-          ← Quay lại Admin
-        </button>
+    <div className="admin-npc-boss admin-pet-species">
+      <div className="admin-header">
+        <div className="header-text">
+          <h1>Quản lý Pet Species</h1>
+          <p>Chỉnh sửa bảng pet_species. Tải / upload CSV theo cấu trúc bảng. Pagination 30, có sort và search.</p>
+        </div>
+        <button className="back-admin-btn" onClick={() => navigate('/admin')}>← Quay lại Admin</button>
       </div>
 
-      {message && (
-        <div className={`message ${message.includes('✅') ? 'success' : 'error'}`}>
-          {message}
+      {message && <div className={`message ${messageType}`}>{message}</div>}
+      {uploadResult && <div className="message success">Kết quả CSV: thêm {uploadResult.inserted || 0}, cập nhật {uploadResult.updated || 0}.</div>}
+
+      <div className="section-card">
+        <h3>Bảng pet_species</h3>
+        <div className="section-actions">
+          <button className="btn btn-primary" onClick={() => setModal({ mode: 'add', row: {} })}>Thêm</button>
+          <button className="btn btn-secondary" onClick={downloadCSV}>Tải CSV</button>
+          <label className="btn btn-secondary" style={{ margin: 0 }}>
+            Upload CSV <input type="file" accept=".csv" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCSV(f); e.target.value = ''; }} />
+          </label>
         </div>
-      )}
-
-      <div className="edit-pet-types-content">
-        <div className="form-section">
-          <h2>Thông tin Pet Species</h2>
-          <form onSubmit={handleSubmit}>
-            <div className="form-grid">
-              <div className="form-group">
-                <label>Tên Pet:</label>
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="Nhập tên pet"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Hình ảnh:</label>
-                <input
-                  type="text"
-                  name="image"
-                  placeholder="Tên file hình ảnh"
-                  value={formData.image}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Loại:</label>
-                <input
-                  type="text"
-                  name="type"
-                  placeholder="Loại pet (fire, water, etc.)"
-                  value={formData.type}
-                  onChange={handleChange}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Mô tả:</label>
-                <textarea
-                  name="description"
-                  placeholder="Mô tả pet"
-                  value={formData.description}
-                  onChange={handleChange}
-                  rows="3"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Độ hiếm:</label>
-                <select name="rarity" value={formData.rarity} onChange={handleChange} required>
-                  <option value="">-- Chọn độ hiếm --</option>
-                  {['common','uncommon','rare','epic','legend','mythic'].map(r =>
-                    <option key={r} value={r}>{r}</option>
-                  )}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Evolve To:</label>
-                <input
-                  type="text"
-                  name="evolve_to"
-                  placeholder="VD: [2,3] (JSON array)"
-                  value={formData.evolve_to}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-
-            <div className="stats-section">
-              <h3>Base Stats (Tổng: {totalStats})</h3>
-              <div className="stats-grid">
-                {[
-                  { key: 'base_hp', label: 'HP' },
-                  { key: 'base_mp', label: 'MP' },
-                  { key: 'base_str', label: 'STR' },
-                  { key: 'base_def', label: 'DEF' },
-                  { key: 'base_intelligence', label: 'INT' },
-                  { key: 'base_spd', label: 'SPD' }
-                ].map(stat => (
-                  <div className="form-group" key={stat.key}>
-                    <label>{stat.label}:</label>
-                    <input
-                      type="number"
-                      name={stat.key}
-                      placeholder="0"
-                      value={formData[stat.key]}
-                      onChange={handleChange}
-                      min="0"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="form-actions">
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'Đang xử lý...' : (editingId ? 'Cập nhật' : 'Tạo mới')}
-              </button>
-              {editingId && (
-                <button 
-                  type="button" 
-                  className="cancel-btn"
-                  onClick={() => {
-                    setEditingId(null);
-                    setFormData({
-                      name: '', image: '', type: '', description: '', rarity: '',
-                      base_hp: 0, base_mp: 0, base_str: 0, base_def: 0, base_intelligence: 0, base_spd: 0,
-                      evolve_to: ''
-                    });
-                  }}
-                >
-                  Hủy
-                </button>
-              )}
-            </div>
-          </form>
+        <div className="pet-species-controls">
+          <input
+            type="text"
+            placeholder="Tìm theo tên..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+            className="pet-species-search"
+          />
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="pet-species-sort">
+            <option value="name">Sắp xếp: Tên (A-Z)</option>
+            <option value="stat">Sắp xếp: Tổng Stat</option>
+          </select>
+          <select value={rarityFilter} onChange={(e) => { setRarityFilter(e.target.value); setCurrentPage(1); }} className="pet-species-rarity">
+            <option value="">Tất cả độ hiếm</option>
+            {['common', 'uncommon', 'rare', 'epic', 'legend', 'mythic'].map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+          <span className="pet-species-total">Tổng: {filtered.length}</span>
         </div>
-
-        <div className="list-section">
-          <div className="list-header">
-            <h2>Danh sách Pet Species</h2>
-            <button 
-              className="toggle-list-btn"
-              onClick={() => setShowList(!showList)}
-            >
-              {showList ? 'Ẩn danh sách' : 'Hiện danh sách'}
-            </button>
-          </div>
-
-          {showList && (
-            <div className="list-content">
-              <div className="list-controls">
-                <div className="search-filter">
-                  <input
-                    placeholder="Tìm kiếm theo tên..."
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                  />
-                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                    <option value="name">Sắp xếp theo Tên (A-Z)</option>
-                    <option value="stat">Sắp xếp theo Tổng Stat</option>
-                  </select>
-                  <select 
-                    value={rarityFilter} 
-                    onChange={(e) => {
-                      setRarityFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <option value="">-- Tất cả độ hiếm --</option>
-                    {['common','uncommon','rare','epic','legend','mythic'].map(r =>
-                      <option key={r} value={r}>{r}</option>
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>id</th>
+                <th>Hình</th>
+                <th>name</th>
+                <th>image</th>
+                <th>type</th>
+                <th>rarity</th>
+                <th>Total</th>
+                <th>base_hp</th>
+                <th>base_mp</th>
+                <th>base_str</th>
+                <th>base_def</th>
+                <th>base_intelligence</th>
+                <th>base_spd</th>
+                <th>evolve_to</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.id}</td>
+                  <td className="pet-species-thumb-cell">
+                    {r.image ? (
+                      <img
+                        src={`/images/pets/${r.image}`}
+                        alt=""
+                        className="pet-species-thumb"
+                        onError={(e) => { e.target.src = '/images/pets/default.png'; e.target.onerror = null; }}
+                      />
+                    ) : (
+                      <span className="pet-species-thumb-empty">—</span>
                     )}
-                  </select>
-                </div>
-                <p className="total-count">Tổng số: {filtered.length}</p>
-              </div>
-
-              {loading ? (
-                <div className="loading">Đang tải...</div>
-              ) : (
-                <>
-                  <div className="table-container">
-                    <table className="pet-species-table">
-                      <thead>
-                        <tr>
-                          <th>Hình</th>
-                          <th>Tên</th>
-                          <th>Loại</th>
-                          <th>Độ hiếm</th>
-                          <th>HP</th>
-                          <th>STR</th>
-                          <th>DEF</th>
-                          <th>INT</th>
-                          <th>SPD</th>
-                          <th>Thao tác</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paginatedSpecies.map(specie => (
-                          <tr key={specie.id}>
-                            <td>
-                                                                 <img 
-                                     src={`/images/pets/${specie.image}`} 
-                                     alt={specie.name} 
-                                     className="pet-species-image"
-                                     onError={(e) => {
-                                       e.target.src = '/images/pets/default.png';
-                                     }}
-                                   />
-                            </td>
-                            <td>{specie.name}</td>
-                            <td>{specie.type}</td>
-                            <td>
-                              <span className={`rarity-badge rarity-${specie.rarity}`}>
-                                {specie.rarity}
-                              </span>
-                            </td>
-                            <td>{specie.base_hp}</td>
-                            <td>{specie.base_str}</td>
-                            <td>{specie.base_def}</td>
-                            <td>{specie.base_intelligence}</td>
-                            <td>{specie.base_spd}</td>
-                            <td>
-                              <div className="action-buttons">
-                                <button 
-                                  className="edit-btn"
-                                  onClick={() => handleEdit(specie)}
-                                  title="Chỉnh sửa"
-                                >
-                                  ✏️
-                                </button>
-                                <button 
-                                  className="delete-btn"
-                                  onClick={() => handleDelete(specie.id)}
-                                  title="Xóa"
-                                >
-                                  🗑️
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {totalPages > 1 && (
-                    <div className="pagination">
-                      {Array.from({ length: totalPages }, (_, i) => (
-                        <button
-                          key={i + 1}
-                          onClick={() => setCurrentPage(i + 1)}
-                          className={currentPage === i + 1 ? 'active-page' : ''}
-                        >
-                          {i + 1}
-                        </button>
-                      ))}
+                  </td>
+                  <td>{r.name}</td>
+                  <td>{r.image}</td>
+                  <td>{r.type ?? '-'}</td>
+                  <td>{r.rarity ?? '-'}</td>
+                  <td className="pet-species-total-cell">
+                    {(Number(r.base_hp) || 0) + (Number(r.base_str) || 0) + (Number(r.base_def) || 0) + (Number(r.base_spd) || 0) + (Number(r.base_intelligence) || 0)}
+                  </td>
+                  <td>{r.base_hp ?? '-'}</td>
+                  <td>{r.base_mp ?? '-'}</td>
+                  <td>{r.base_str ?? '-'}</td>
+                  <td>{r.base_def ?? '-'}</td>
+                  <td>{r.base_intelligence ?? '-'}</td>
+                  <td>{r.base_spd ?? '-'}</td>
+                  <td title={typeof r.evolve_to === 'string' ? r.evolve_to : (r.evolve_to ? JSON.stringify(r.evolve_to) : '')}>
+                    {r.evolve_to ? (typeof r.evolve_to === 'string' ? r.evolve_to.slice(0, 15) : JSON.stringify(r.evolve_to).slice(0, 15)) + (String(r.evolve_to).length > 15 ? '…' : '') : '-'}
+                  </td>
+                  <td>
+                    <div className="cell-actions">
+                      <button className="btn-edit" onClick={() => setModal({ mode: 'edit', row: r })}>Sửa</button>
+                      <button className="btn-delete" onClick={() => deleteRow(r.id)}>Xóa</button>
                     </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+        {totalPages > 1 && (
+          <div className="pagination-wrap">
+            <button type="button" className="btn-page" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>Trước</button>
+            <span className="pagination-info">Trang {currentPage} / {totalPages}</span>
+            <button type="button" className="btn-page" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>Sau</button>
+          </div>
+        )}
+      </div>
+
+      {modal && <ModalPetSpecies modal={modal} onClose={() => setModal(null)} onSave={saveModal} />}
+    </div>
+  );
+}
+
+function ModalPetSpecies({ modal, onClose, onSave }) {
+  const { mode, row } = modal;
+  const [form, setForm] = useState(() => ({
+    name: row.name ?? '',
+    image: row.image ?? '',
+    type: row.type ?? '',
+    description: row.description ?? '',
+    rarity: row.rarity ?? 'common',
+    base_hp: row.base_hp ?? 0,
+    base_mp: row.base_mp ?? 0,
+    base_str: row.base_str ?? 0,
+    base_def: row.base_def ?? 0,
+    base_intelligence: row.base_intelligence ?? 0,
+    base_spd: row.base_spd ?? 0,
+    evolve_to: row.evolve_to != null ? (typeof row.evolve_to === 'string' ? row.evolve_to : JSON.stringify(row.evolve_to)) : '',
+  }));
+
+  const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const payload = { ...form, id: row.id };
+    if (payload.evolve_to !== undefined && payload.evolve_to !== null && payload.evolve_to !== '') {
+      try {
+        JSON.parse(payload.evolve_to);
+      } catch (_) {
+        payload.evolve_to = null;
+      }
+    }
+    onSave(payload);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+        <h4>{mode === 'edit' ? 'Sửa' : 'Thêm'} Pet Species</h4>
+        <form onSubmit={handleSubmit}>
+          <div className="form-row"><label>name *</label><input value={form.name} onChange={(e) => update('name', e.target.value)} required /></div>
+          <div className="form-row"><label>image *</label><input value={form.image} onChange={(e) => update('image', e.target.value)} required /></div>
+          <div className="form-row"><label>type</label><input value={form.type} onChange={(e) => update('type', e.target.value)} placeholder="fire, water..." /></div>
+          <div className="form-row"><label>description</label><textarea value={form.description} onChange={(e) => update('description', e.target.value)} rows={2} /></div>
+          <div className="form-row"><label>rarity</label>
+            <select value={form.rarity} onChange={(e) => update('rarity', e.target.value)}>
+              {['common', 'uncommon', 'rare', 'epic', 'legend', 'mythic'].map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="form-row"><label>base_hp, base_mp, base_str, base_def, base_intelligence, base_spd</label></div>
+          <div className="form-row" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <input type="number" placeholder="base_hp" value={form.base_hp} onChange={(e) => update('base_hp', e.target.value)} style={{ width: '70px' }} />
+            <input type="number" placeholder="base_mp" value={form.base_mp} onChange={(e) => update('base_mp', e.target.value)} style={{ width: '70px' }} />
+            <input type="number" placeholder="base_str" value={form.base_str} onChange={(e) => update('base_str', e.target.value)} style={{ width: '70px' }} />
+            <input type="number" placeholder="base_def" value={form.base_def} onChange={(e) => update('base_def', e.target.value)} style={{ width: '70px' }} />
+            <input type="number" placeholder="base_int" value={form.base_intelligence} onChange={(e) => update('base_intelligence', e.target.value)} style={{ width: '70px' }} />
+            <input type="number" placeholder="base_spd" value={form.base_spd} onChange={(e) => update('base_spd', e.target.value)} style={{ width: '70px' }} />
+          </div>
+          <div className="form-row"><label>evolve_to (JSON array, VD: [2,3])</label><input value={form.evolve_to} onChange={(e) => update('evolve_to', e.target.value)} placeholder="[2, 3]" /></div>
+          <div className="form-actions">
+            <button type="submit" className="btn-save">Lưu</button>
+            <button type="button" className="btn-cancel" onClick={onClose}>Hủy</button>
+          </div>
+        </form>
       </div>
     </div>
   );
 }
 
 export default EditPetTypes;
-  
