@@ -89,8 +89,12 @@ function EnemyInfoModal({ enemy, onClose, onSelectPet, matchStarting }) {
             className="pet-scroll-list"
             onWheel={handlePetListWheel}
           >
-            {enemy.userPets && enemy.userPets.length > 0 ? (
-              enemy.userPets.map(pet => (
+            {(() => {
+              const maxHp = (p) => (p.final_stats && typeof p.final_stats.hp === 'number') ? p.final_stats.hp : (p.hp != null ? Number(p.hp) : 1);
+              const currentHp = (p) => (p.current_hp != null ? Number(p.current_hp) : maxHp(p));
+              const selectablePets = (enemy.userPets || []).filter(pet => currentHp(pet) > 0);
+              return selectablePets.length > 0 ? (
+              selectablePets.map(pet => (
                 <div
                   key={pet.uuid}
                   ref={el => petRefs.current[pet.uuid] = el}
@@ -105,8 +109,9 @@ function EnemyInfoModal({ enemy, onClose, onSelectPet, matchStarting }) {
                 </div>
               ))
             ) : (
-              <p>Bạn chưa có thú cưng nào.</p>
-            )}
+              <p>{enemy.userPets && enemy.userPets.length > 0 ? 'Tất cả thú cưng đã hết máu. Hãy chữa trị trước khi chiến đấu.' : 'Bạn chưa có thú cưng nào.'}</p>
+            );
+            })()}
           </div>
           <button
             className="battle-button"

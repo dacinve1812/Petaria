@@ -814,6 +814,7 @@ app.get('/users/:userId/pets', (req, res) => {
           ps.image,
           p.level,
           p.current_exp,
+          p.current_hp,
           p.hp,
           p.mp,
           p.str,
@@ -2060,7 +2061,7 @@ app.post('/api/pets/:petId/equip-item', async (req, res) => {
       return res.status(400).json({ message: 'Pet không tồn tại hoặc không thuộc user' });
     }
 
-    // 3. Kiểm tra số item đã được gắn
+    // 3. Kiểm tra số item đã được gắn (kể cả broken — broken vẫn chiếm slot đến khi gỡ)
     const [equippedCount] = await pool.promise().query(
       'SELECT COUNT(*) AS count FROM inventory WHERE equipped_pet_id = ? AND is_equipped = 1',
       [petId]
@@ -2095,13 +2096,28 @@ app.get('/api/pets/:petId/equipment', async (req, res) => {
        FROM inventory i
        JOIN items it ON i.item_id = it.id
        LEFT JOIN equipment_data ed ON it.id = ed.item_id
-       WHERE i.equipped_pet_id = ? AND i.is_equipped = 1 AND i.is_broken = 0`,
+       WHERE i.equipped_pet_id = ? AND i.is_equipped = 1`,
       [petId]
     );
     res.json(rows);
   } catch (err) {
     console.error('Error fetching equipped items for pet:', err);
     res.status(500).json({ message: 'Lỗi khi lấy danh sách item đã trang bị' });
+  }
+});
+
+// API: Gỡ tất cả item broken/hết bền khỏi pet (sau trận Arena)
+app.post('/api/pets/:petId/unequip-broken', async (req, res) => {
+  const { petId } = req.params;
+  try {
+    const [result] = await pool.promise().query(
+      'UPDATE inventory SET is_equipped = 0, equipped_pet_id = NULL WHERE equipped_pet_id = ? AND is_equipped = 1 AND (is_broken = 1 OR durability_left <= 0)',
+      [petId]
+    );
+    res.json({ message: 'Đã gỡ item hỏng khỏi pet', unequipped: result.affectedRows });
+  } catch (err) {
+    console.error('Error unequip-broken:', err);
+    res.status(500).json({ message: 'Lỗi khi gỡ item hỏng' });
   }
 });
 
@@ -3023,17 +3039,22 @@ app.post('/api/arena/match/start', async (req, res) => {
     };
 
     const [equipRows] = await db.query(
-      `SELECT i.id, i.item_id, it.name AS item_name, i.durability_left, ed.power_min, ed.power_max, ed.equipment_type FROM inventory i JOIN items it ON i.item_id = it.id LEFT JOIN equipment_data ed ON it.id = ed.item_id WHERE i.equipped_pet_id = ? AND i.is_equipped = 1 AND (i.is_broken = 0 OR i.is_broken IS NULL)`,
+      `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, i.durability_left, ed.power_min, ed.power_max, ed.equipment_type, ed.magic_value, ed.durability_max
+       FROM inventory i JOIN items it ON i.item_id = it.id LEFT JOIN equipment_data ed ON it.id = ed.item_id
+       WHERE i.equipped_pet_id = ? AND i.is_equipped = 1`,
       [petId]
     );
     const equipment = (equipRows || []).map((e) => ({
       id: e.id,
       item_id: e.item_id,
       item_name: e.item_name,
+      image_url: e.image_url || '',
       durability_left: e.durability_left != null ? parseInt(e.durability_left, 10) : 1,
+      max_durability: e.durability_max != null ? parseInt(e.durability_max, 10) : 1,
       power_min: e.power_min != null ? parseInt(e.power_min, 10) : 0,
       power_max: e.power_max != null ? parseInt(e.power_max, 10) : 0,
       equipment_type: e.equipment_type || 'weapon',
+      magic_value: e.magic_value != null ? parseInt(e.magic_value, 10) : 0,
     }));
 
     const matchState = {

@@ -1,6 +1,6 @@
 // ArenaBattlePage.js - Trang chiến đấu PvE
 import React, { useState, useEffect, useContext } from 'react';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { UserContext } from '../../UserContext';
 import TemplatePage from '../template/TemplatePage';
 import '../css/BattlePage.css';
@@ -61,8 +61,18 @@ function ArenaBattlePage() {
   const [attackAnimation, setAttackAnimation] = useState('');
     const [resultEffect, setResultEffect] = useState('');
     const [actionLocked, setActionLocked] = useState(false);
+    const [selectedAction, setSelectedAction] = useState('');
+    const [battleReward, setBattleReward] = useState({ expGained: 0, levelUp: false, newLevel: null, loot: [] });
   
     const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+    const userName = user?.username || user?.name || 'Người chơi';
+
+    const getItemImageSrc = (imageUrl) => {
+      if (!imageUrl) return '/images/equipments/placeholder.png';
+      if (imageUrl.startsWith('http') || imageUrl.startsWith('/')) return imageUrl;
+      return `/images/equipments/${imageUrl}`;
+    };
+
 
     /** Công thức giống dùng item: Dmg_out / Def_dmg với R = random(power_min, power_max). Tấn công thường & Phòng thủ vật lý dùng cố định 7, 10. */
     const NORMAL_POWER_MIN = 7;
@@ -157,8 +167,8 @@ function ArenaBattlePage() {
           const durabilityResult = await durabilityRes.json();
           
           if (durabilityResult.item_broken) {
-            // Xóa item khỏi equipped items nếu đã hỏng
-            setEquippedItems((prev) => prev.filter(i => i.id !== item.id));
+            // Giữ item trong list với durability_left = 0 để sau trận gọi unequip
+            setEquippedItems((prev) => prev.map(i => i.id === item.id ? { ...i, durability_left: 0, is_broken: true } : i));
             appendLog(`${item.item_name} đã bị hư hại!`, 'default');
           } else {
             // Cập nhật durability
@@ -225,7 +235,7 @@ function ArenaBattlePage() {
             body: JSON.stringify({ amount: 1 })
           });
           const durData = await durRes.json();
-          if (durData.item_broken) setEquippedItems((prev) => prev.filter(i => i.id !== shieldItem.id));
+          if (durData.item_broken) setEquippedItems((prev) => prev.map(i => i.id === shieldItem.id ? { ...i, durability_left: 0, is_broken: true } : i));
           else setEquippedItems((prev) => prev.map(i => i.id === shieldItem.id ? { ...i, durability_left: durData.durability_left } : i));
         } catch (_) {
           setEquippedItems((prev) => prev.map(i => i.id === shieldItem.id ? { ...i, durability_left: Math.max((i.durability_left || 1) - 1, 0) } : i));
@@ -508,26 +518,12 @@ function ArenaBattlePage() {
               }));
             }
 
-            console.log('Pet sau khi cộng EXP:', updatedPet);
-            appendLog(`🎉 Chúc mừng ${player.name} nhận được ${updatedPet.gained} EXP`, 'exp');
-            if (updatedPet.level > oldLevel) {
-              appendLog(`✨ ${player.name} đã lên cấp ${updatedPet.level}!`, 'exp');
-              if (updatedPet.stats_updated) {
-                appendLog(`📊 Stat changes:`, 'exp');
-                const oldStats = updatedPet.old_stats;
-                const newStats = updatedPet.new_stats;
-                if (oldStats && newStats) {
-                  const statChanges = [];
-                  if (newStats.hp > oldStats.hp) statChanges.push(`HP: ${oldStats.hp} → ${newStats.hp} (+${newStats.hp - oldStats.hp})`);
-                  if (newStats.str > oldStats.str) statChanges.push(`STR: ${oldStats.str} → ${newStats.str} (+${newStats.str - oldStats.str})`);
-                  if (newStats.def > oldStats.def) statChanges.push(`DEF: ${oldStats.def} → ${newStats.def} (+${newStats.def - oldStats.def})`);
-                  if (newStats.intelligence > oldStats.intelligence) statChanges.push(`INT: ${oldStats.intelligence} → ${newStats.intelligence} (+${newStats.intelligence - oldStats.intelligence})`);
-                  if (newStats.spd > oldStats.spd) statChanges.push(`SPD: ${oldStats.spd} → ${newStats.spd} (+${newStats.spd - oldStats.spd})`);
-                  if (newStats.mp > oldStats.mp) statChanges.push(`MP: ${oldStats.mp} → ${newStats.mp} (+${newStats.mp - oldStats.mp})`);
-                  statChanges.forEach(change => appendLog(`   ${change}`, 'exp'));
-                }
-              }
-            }
+            setBattleReward((prev) => ({
+              ...prev,
+              expGained: updatedPet.gained ?? 0,
+              levelUp: updatedPet.level > oldLevel,
+              newLevel: updatedPet.level,
+            }));
           } catch (err) {
             console.error('Lỗi khi cộng EXP sau chiến thắng:', err);
           }
@@ -544,11 +540,7 @@ function ArenaBattlePage() {
               });
               const lootData = await lootRes.json();
               if (lootData.success && lootData.loot?.length > 0) {
-                appendLog('📦 Phần thưởng từ Boss:', 'exp');
-                lootData.loot.forEach((entry) => {
-                  const label = entry.item_id === 0 ? 'Peta' : entry.name;
-                  appendLog(`   + ${entry.quantity} ${label}`, 'exp');
-                });
+                setBattleReward((prev) => ({ ...prev, loot: lootData.loot || [] }));
               }
             } catch (err) {
               console.error('Lỗi khi nhận loot Boss:', err);
@@ -576,6 +568,27 @@ function ArenaBattlePage() {
             gainExpIfVictory();
           }
           if (!isRedisMatch) savePlayerHP();
+          // Redis match: khi trận kết thúc luôn gọi terminate để xóa key, tránh 400 ACTIVE_MATCH khi khiêu chiến lại
+          if (isRedisMatch) {
+            fetch(`${API_BASE_URL}/api/arena/match/terminate`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+            }).catch(() => {}); // 404 = key đã xóa, bỏ qua
+          }
+          // Gỡ mọi item hết bền (broken) khỏi pet: gọi API unequip-broken theo pet để đồng bộ DB, sau đó unequip từng item trong state (fallback)
+          const brokenIds = equippedItems.filter((i) => (i.durability_left ?? 1) <= 0).map((i) => i.id);
+          if (player?.id) {
+            fetch(`${API_BASE_URL}/api/pets/${player.id}/unequip-broken`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+            }).catch((err) => console.error('Unequip broken (pet):', err));
+          }
+          brokenIds.forEach((id) => {
+            fetch(`${API_BASE_URL}/api/inventory/${id}/unequip`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+            }).catch((err) => console.error('Unequip broken item:', err));
+          });
         }
       }, [battleEnded]);
 
@@ -634,120 +647,172 @@ function ArenaBattlePage() {
         }
       }, [location.state?._refresh]);
 
-    return (
+      const handleGo = () => {
+        if (!selectedAction || actionLocked) return;
+        if (selectedAction === 'normal_attack') handleNormalAttack();
+        else if (selectedAction === 'basic_defend') handleBasicDefend();
+        setSelectedAction('');
+      };
+
+      const actionOptions = [
+        { value: 'normal_attack', label: 'Tấn công thường' },
+        { value: 'basic_defend', label: 'Phòng thủ vật lý' },
+      ];
+
+    if (battleEnded) {
+      return (
         <TemplatePage showSearch={false} showTabs={false}>
-        <div className={`battle-page-container ${resultEffect === 'win' ? 'battle-win' : resultEffect === 'lose' ? 'battle-lose' : ''}`}>
-    
-          <div className="battle-area">
-            <div className="pet-side">
-              <img
-                src={`/images/pets/${player.image}`}
-                alt={player.name}
-                className={attackAnimation === 'enemy' ? 'attack-flash' : ''}
-                onAnimationEnd={() => setAttackAnimation('')}
-              />
-              <p className="battle-pet-name">{player.name}</p>
-              <div className="battle-stats">
-                <p className="battle-stat-label">Sức khỏe: <span className="battle-stat-value">{player.current_hp}/{player.final_stats?.hp ?? 0}</span></p>
-                <p className="battle-stat-label">Đẳng cấp: <span className="battle-stat-level">{player.level}</span></p>
-              </div>
-              <div className="hp-bar">
-                <div className="hp-fill" style={{ width: `${Math.max(0, ((player.current_hp ?? 0) / (player.final_stats?.hp ?? 1)) * 100)}%` }}></div>
-              </div>
-              <div className="mp-bar arena-mp-hidden">
-                <div className="mp-fill" style={{ width: `${((player.current_mp ?? 0) / (player.final_stats?.mp ?? 1)) * 100}%` }}></div>
-              </div>
-              <p className="battle-stat-label battle-exp-text">EXP: {expProgress} / {expToNextLevel}</p>
-            </div>
-
-            <div className="pet-side">
-              <img
-                src={`${enemy.image}`}
-                alt={enemy.name}
-                className={attackAnimation === 'player' ? 'attack-flash' : ''}
-                onAnimationEnd={() => setAttackAnimation('')}
-              />
-              <p className="battle-pet-name">{enemy.name}</p>
-              <div className="battle-stats">
-                <p className="battle-stat-label">Sức khỏe: <span className="battle-stat-value">{enemy.current_hp}/{enemy.final_stats?.hp ?? 0}</span></p>
-                <p className="battle-stat-label">Đẳng cấp: <span className="battle-stat-level">{enemy.level}</span></p>
-              </div>
-              <div className="hp-bar">
-                <div className="hp-fill" style={{ width: `${Math.max(0, ((enemy.current_hp ?? 0) / (enemy.final_stats?.hp ?? 1)) * 100)}%` }}></div>
-              </div>
-              <div className="mp-bar arena-mp-hidden">
-                <div className="mp-fill" style={{ width: `${((enemy.current_mp ?? 0) / (enemy.final_stats?.mp ?? 1)) * 100}%` }}></div>
-              </div>
-            </div>
-          </div>
-
-          <div className="battle-log">
-            {log.map((entry, idx) => {
-              const item = typeof entry === 'string' ? { text: entry, type: 'default' } : entry;
-              return <div key={idx} className={`log-entry log-${item.type}`}>{item.text}</div>;
-            })}
-            <div ref={logEndRef} />
-          </div>
-    
-          {!battleEnded && (
-            <div className="battle-controls">
-              <div className="equipment-row">
-                {equippedItems.map(item => {
-                  const powerLabel = item.power_min != null && item.power_max != null
-                    ? `${item.power_min / 10}-${item.power_max / 10} mag`
-                    : (item.power ?? 10);
-                  const isShield = item.equipment_type === 'shield';
-                  return (
-                    <div key={item.id} style={{ display: 'inline-block', textAlign: 'center', margin: '5px' }}>
-                      <img
-                        src={`/images/equipments/${item.image_url}`}
-                        alt={item.item_name}
-                        title={isShield ? 'Phòng thủ (thiết lập shield)' : item.item_name}
-                        onClick={() => item.durability_left > 0 && (isShield ? handleDefend(item) : handleAttackWithItem(item))}
-                        style={{
-                          border: item.durability_left <= 0 ? '1px solid gray' : '2px solid gold',
-                          width: '48px', height: '48px', cursor: item.durability_left > 0 ? 'pointer' : 'not-allowed'
-                        }}
-                      />
-                      <div style={{ fontSize: '12px' }}>{powerLabel} {isShield ? '🛡' : ''}</div>
-                      <div style={{ fontSize: '12px' }}>{isShield ? '🛡 Phòng thủ' : '🔧'} {item.durability_left} uses left</div>
+          <div className={`arena-battle-result-screen ${resultEffect === 'win' ? 'arena-result-win' : 'arena-result-lose'}`}>
+            <div className="arena-result-card">
+              <h2 className="arena-result-title">{resultEffect === 'win' ? '🎉 Thắng lợi!' : '💀 Thất bại!'}</h2>
+              {resultEffect === 'win' && (
+                <div className="arena-result-rewards">
+                  {battleReward.expGained > 0 && <p>+{battleReward.expGained} EXP</p>}
+                  {battleReward.levelUp && <p>✨ Lên cấp {battleReward.newLevel}!</p>}
+                  {battleReward.loot?.length > 0 && (
+                    <div>
+                      <p>Phần thưởng:</p>
+                      <ul>
+                        {battleReward.loot.map((entry, i) => (
+                          <li key={i}>+{entry.quantity} {entry.item_id === 0 ? 'Peta' : entry.name || 'Item'}</li>
+                        ))}
+                      </ul>
                     </div>
-                  );
-                })}
-              </div>
-              <button onClick={handleNormalAttack}>Tấn công thường</button>
-              <button onClick={handleBasicDefend}>Phòng thủ vật lý</button>
-              <button onClick={() => setAutoMode(true)} disabled={autoMode}>Auto</button>
-              <button onClick={handleBlitz}>Blitz</button>
-            </div>
-          )}
-    
-          {battleEnded && (
-            <div className="battle-result">
-              {player.current_hp > 0 ? '🎉 Thắng lợi!' : '💀 Thất bại!'}
-              <div style={{ marginTop: '20px', textAlign: 'center' }}>
-              <button onClick={() => {
-                if (isRedisMatch) navigate('/battle/arena');
-                else navigate('/battle/arena/arenabattle', { state: { playerPet: player, enemyPet, _refresh: Date.now() } });
-              }}>
-                🔁 Khiêu chiến lại
+                  )}
+                </div>
+              )}
+              <button type="button" className="arena-result-back-btn" onClick={() => navigate('/battle/arena')}>
+                Về Đấu trường
               </button>
             </div>
-            </div>
-          )}
+          </div>
+        </TemplatePage>
+      );
+    }
 
-            <div style={{ marginTop: '20px', textAlign: 'center' }}>
-              {isRedisMatch && !battleEnded ? (
-                <button type="button" className="back-to-arena-btn" onClick={handleLeaveBattle}>
-                  ← Quay lại Đấu trường
-                </button>
-              ) : (
-                <Link to="/battle/arena" className="back-to-arena-btn">
-                  ← Quay lại Đấu trường
-                </Link>
-              )}
+    return (
+        <TemplatePage showSearch={false} showTabs={false}>
+        <div className="arena-battle-container">
+          {/* Top: [Avatar + Speed] [HP bar + Name] | VS | [HP bar + Name] [Avatar + Speed] */}
+          <header className="arena-battle-header">
+            <div className="arena-header-player">
+              <div className="arena-header-avatar-col">
+                <div className="arena-header-avatar" style={{ backgroundImage: `url(/images/pets/${player?.image})` }} />
+                <div className="arena-header-speed-box">
+                  <span className="arena-speed-icon" aria-hidden>⚡</span>
+                  <span className="arena-speed-value">{player?.final_stats?.spd ?? player?.spd ?? 0}</span>
+                </div>
+              </div>
+              <div className="arena-header-main">
+                <div className="arena-header-hp">
+                  <div className="arena-hp-bar">
+                    <div className="arena-hp-fill" style={{ width: `${Math.max(0, ((player?.current_hp ?? 0) / (player?.final_stats?.hp ?? 1)) * 100)}%` }} />
+                  </div>
+                </div>
+                <span className="arena-header-name">{userName}</span>
+              </div>
             </div>
-            
+            <div className="arena-header-vs">VS</div>
+            <div className="arena-header-enemy">
+              <div className="arena-header-main">
+                <div className="arena-header-hp">
+                  <div className="arena-hp-bar enemy">
+                    <div className="arena-hp-fill" style={{ width: `${Math.max(0, ((enemy?.current_hp ?? 0) / (enemy?.final_stats?.hp ?? 1)) * 100)}%` }} />
+                  </div>
+                </div>
+                <span className="arena-header-name">{enemy?.name}</span>
+              </div>
+              <div className="arena-header-avatar-col">
+                <div className="arena-header-avatar enemy" style={{ backgroundImage: `url(${enemy?.image})` }} />
+                <div className="arena-header-speed-box">
+                  <span className="arena-speed-icon" aria-hidden>⚡</span>
+                  <span className="arena-speed-value">{enemy?.final_stats?.spd ?? enemy?.spd ?? 0}</span>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* Middle: Pet images + name (with Lv) + stats (HP row, STR/DEF row) */}
+          <div className="arena-battle-pets">
+            <div className="arena-pet-block">
+              <img src={`/images/pets/${player?.image}`} alt={player?.name} className={attackAnimation === 'enemy' ? 'attack-flash' : ''} onAnimationEnd={() => setAttackAnimation('')} />
+              <p className="arena-pet-name">{player?.name} <span className="arena-pet-level">Lv.{player?.level ?? 1}</span></p>
+              <div className="arena-pet-stats">
+                <div className="arena-stats-row">HP: {player?.current_hp ?? 0}/{player?.final_stats?.hp ?? 0}</div>
+                <div className="arena-stats-row">STR: {player?.final_stats?.str ?? player?.str ?? 0} · DEF: {player?.final_stats?.def ?? player?.def ?? 0}</div>
+              </div>
+            </div>
+            <div className="arena-pet-block">
+              <img src={enemy?.image} alt={enemy?.name} className={attackAnimation === 'player' ? 'attack-flash' : ''} onAnimationEnd={() => setAttackAnimation('')} />
+              <p className="arena-pet-name">{enemy?.name} <span className="arena-pet-level">Lv.{enemy?.level ?? 1}</span></p>
+              <div className="arena-pet-stats">
+                <div className="arena-stats-row">HP: {enemy?.current_hp ?? 0}/{enemy?.final_stats?.hp ?? 0}</div>
+                <div className="arena-stats-row">STR: {enemy?.final_stats?.str ?? enemy?.str ?? 0} · DEF: {enemy?.final_stats?.def ?? enemy?.def ?? 0}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Battle log - scrollable */}
+          <div className="arena-battle-log">
+            <div className="arena-log-inner">
+              {log.length === 0 && <div className="log-entry">Trận đấu bắt đầu!</div>}
+              {log.map((entry, idx) => {
+                const item = typeof entry === 'string' ? { text: entry, type: 'default' } : entry;
+                return <div key={idx} className={`log-entry log-${item.type}`}>{item.text}</div>;
+              })}
+              <div ref={logEndRef} />
+            </div>
+          </div>
+
+          {/* Equipment - flex wrap; click item = trigger action directly */}
+          <section className="arena-equipment-section">
+            <h3 className="arena-equipment-title">Equipment</h3>
+            <div className="arena-equipment-grid">
+              {equippedItems.map((item) => {
+                const isShield = item.equipment_type === 'shield';
+                const magicVal = item.magic_value ?? item.power ?? 0;
+                const disabled = (item.durability_left ?? 0) <= 0;
+                const handleClick = () => {
+                  if (actionLocked || disabled) return;
+                  if (isShield) handleDefend(item);
+                  else handleAttackWithItem(item);
+                };
+                return (
+                  <div
+                    key={item.id}
+                    className={`arena-equipment-item ${disabled ? 'disabled' : ''}`}
+                    onClick={handleClick}
+                    role="button"
+                    tabIndex={disabled ? -1 : 0}
+                    onKeyDown={(e) => !disabled && (e.key === 'Enter' || e.key === ' ') && handleClick()}
+                  >
+                    <img src={getItemImageSrc(item.image_url)} alt={item.item_name} title={item.item_name} onError={(e) => { e.target.src = '/images/equipments/placeholder.png'; }} />
+                    <span className="arena-equip-name">{item.item_name}</span>
+                    <span className="arena-equip-stats">Độ bền: {item.durability_left ?? 0}/{item.max_durability ?? item.durability_left ?? 0}</span>
+                    <span className="arena-equip-stats">Chỉ số Ma thuật: {magicVal}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Select ability + Go */}
+          <div className="arena-action-row">
+            <select
+              className="arena-action-select"
+              value={selectedAction}
+              onChange={(e) => setSelectedAction(e.target.value)}
+              disabled={actionLocked}
+            >
+              <option value="">Chọn hành động cho {player?.name}</option>
+              {actionOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <button type="button" className="arena-action-go" onClick={handleGo} disabled={!selectedAction || actionLocked}>
+              Go!
+            </button>
+          </div>
         </div>
         </TemplatePage>
       );

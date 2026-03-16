@@ -6,6 +6,7 @@
   margin-top: auto;
   position: relative;
   z-index: 450; /* above sidebar (400) when wide viewport */
+  display: none;
 }
 
 .footer-links {
