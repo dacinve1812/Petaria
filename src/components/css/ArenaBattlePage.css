@@ -93,38 +93,41 @@
   gap: 4px;
 }
 
-.log-entry {
+/* Arena battle log lines (class name tránh trùng Bank .log-entry) */
+.arena-log-line {
   padding: 4px 8px;
   border-radius: 4px;
   line-height: 1.4;
+  font-family: inherit;
+  font-size: inherit;
 }
 
-.log-entry.log-defense {
+.arena-log-line.arena-log-defense {
   background: #c8e6c9;
   color: #1a1a1a;
 }
 
-.log-entry.log-enemy_attack {
+.arena-log-line.arena-log-enemy_attack {
   color: #c62828;
 }
 
-.log-entry.log-player_attack {
+.arena-log-line.arena-log-player_attack {
   color: #1565c0;
 }
 
-.log-entry.log-miss {
+.arena-log-line.arena-log-miss {
   color: #666;
 }
 
-.log-entry.log-summary {
+.arena-log-line.arena-log-summary {
   color: #6a1b9a;
 }
 
-.log-entry.log-exp {
+.arena-log-line.arena-log-exp {
   color: #2e7d32;
 }
 
-.log-entry.log-default {
+.arena-log-line.arena-log-default {
   color: #333;
 }
 
@@ -155,7 +158,6 @@
 .arena-header-enemy {
   display: flex;
   align-items: stretch;
-  gap: 8px;
   flex: 1 1 0;
   min-width: 0;
   max-width: 45%;
@@ -178,40 +180,47 @@
 }
 
 .arena-header-avatar {
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   background-size: cover;
   background-position: center;
   background-color: #ddd;
-  border: 3px solid #c4a77d;
+  border: 3px solid #ba945f;
 }
 
-.arena-header-avatar.enemy {
+/* .arena-header-avatar.enemy {
   border-color: #7d9fc4;
-}
+} */
 
 .arena-header-speed-box {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-around;
   gap: 4px;
-  padding: 4px 8px;
-  background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%);
-  border-radius: 8px;
-  border: 1px solid #555;
+  padding: 2px 4px;
+  background: #000000e1 0%;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 0px;
+  border-bottom-left-radius: 0px;
+  border-bottom-right-radius: 8px;
+  border: 1px solid #b9955a;
   box-shadow: 0 1px 0 rgba(255,255,255,0.08);
   min-width: 44px;
+  margin-top: -10px;
 }
 
 .arena-speed-icon {
-  font-size: 0.85rem;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
   opacity: 0.9;
+  display: block;
 }
 
 .arena-speed-value {
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 400;
   color: #fff;
 }
 
@@ -257,7 +266,7 @@
 /* HP bar: stretches to fill toward center, gold border, angled end */
 .arena-header-hp .arena-hp-bar {
   width: 100%;
-  height: 12px;
+  height: 15px;
   background: rgba(0,0,0,0.12);
   border: 2px solid #c9a227;
   border-radius: 2px;
@@ -274,7 +283,7 @@
 .arena-header-enemy .arena-hp-bar {
   clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%);
   -webkit-clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%);
-  border-color: #7d9fc4;
+  border-color: #c9a227;
   box-shadow: 0 0 0 1px rgba(125, 159, 196, 0.4);
   display: flex;
   justify-content: flex-end;
@@ -284,7 +293,7 @@
 .arena-hp-fill {
   height: 100%;
   min-width: 0;
-  background: linear-gradient(180deg, #4caf50 0%, #388e3c 100%);
+  background: linear-gradient(270deg, #86e47a 0%, #307a34 100%);
   transition: width 0.4s ease;
 }
 
@@ -294,7 +303,7 @@
 }
 
 .arena-hp-bar.enemy .arena-hp-fill {
-  background: linear-gradient(180deg, #5b9bd5 0%, #4a8bc2 100%);
+  background: linear-gradient(90deg, #fb6e6e 0%, #ae1818 100%);
   clip-path: polygon(6px 0, 100% 0, 100% 100%, 0 100%);
   -webkit-clip-path: polygon(6px 0, 100% 0, 100% 100%, 0 100%);
 }
@@ -368,7 +377,7 @@
   /* border-radius: 10px; */
   padding: 10px 12px;
   margin-bottom: 16px;
-  max-height: 120px;
+  height: 120px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -382,7 +391,7 @@
   gap: 4px;
 }
 
-.arena-battle-log .log-entry {
+.arena-battle-log .arena-log-line {
   padding: 6px 8px;
   border-radius: 6px;
   font-size: 13px;
@@ -588,8 +597,8 @@
     flex-wrap: nowrap;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    padding: 10px 12px;
+    /* gap: 8px; */
+    /* padding: 10px 12px; */
     margin-bottom: 12px;
     min-height: 72px;
   }
@@ -611,11 +620,11 @@
     height: 40px;
   }
   .arena-header-speed-box {
-    padding: 2px 6px;
+    /* padding: 2px 6px; */
     min-width: 36px;
   }
   .arena-speed-value {
-    font-size: 0.7rem;
+    font-size: 0.8rem !important;
   }
   .arena-header-main {
     min-width: 0;
@@ -688,5 +697,12 @@
   }
   .arena-action-select {
     min-width: 0;
+  }
+  .arena-speed-icon {
+    width: 12px;
+    height: 12px;
+  }
+  .arena-header-hp .arena-hp-bar{
+    height: 10px;
   }
 }

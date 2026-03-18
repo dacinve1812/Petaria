@@ -2034,7 +2034,7 @@ app.post('/api/pets/:petId/equip-item', async (req, res) => {
   const maxItemsCanEquip = 4 ;
 
   try {
-    // 1. Kiểm tra inventory item
+    // 1. Kiểm tra inventory item (phải chưa trang bị, không hỏng, còn bền)
     const [invRows] = await pool.promise().query(
       `SELECT i.*, it.type, i.player_id FROM inventory i
        JOIN items it ON i.item_id = it.id
@@ -2049,6 +2049,13 @@ app.post('/api/pets/:petId/equip-item', async (req, res) => {
     const item = invRows[0];
     if (item.type !== 'equipment') {
       return res.status(400).json({ message: 'Chỉ có thể trang bị item loại equipment' });
+    }
+    if (item.is_broken === 1 || item.is_broken === true) {
+      return res.status(400).json({ message: 'Vật phẩm đã hỏng, không thể trang bị. Hãy sửa chữa trước.' });
+    }
+    const dur = item.durability_left != null ? parseInt(item.durability_left, 10) : 1;
+    if (dur <= 0) {
+      return res.status(400).json({ message: 'Vật phẩm đã hết độ bền, không thể trang bị. Hãy sửa chữa trước.' });
     }
 
     // 2. Kiểm tra pet tồn tại và thuộc cùng user
@@ -3136,103 +3143,129 @@ app.post('/api/arena/match/turn', async (req, res) => {
     const NORMAL_POWER_MIN = 7;
     const NORMAL_POWER_MAX = 10;
 
-    // --- Player action ---
-    let result;
-    if (action === 'defend_shield' || action === 'defend_basic') {
-      const powerMin = action === 'defend_shield' && power_min != null ? Number(power_min) : NORMAL_POWER_MIN;
-      const powerMax = action === 'defend_shield' && power_max != null ? Number(power_max) : NORMAL_POWER_MAX;
-      result = simulateDefendTurn(player, enemy, powerMin, powerMax);
-      state.history.push({ text: result.logMessage || `${player.name} sử dụng Phòng thủ.`, type: 'defense' });
-      player.current_def_dmg = result.defDmg ?? 0;
-      if (action === 'defend_shield' && itemId) {
-        const inv = state.equipment.find((e) => e.id === itemId);
-        if (inv && inv.durability_left > 0) {
-          inv.durability_left = Math.max(0, inv.durability_left - 1);
-          await db.query('UPDATE inventory SET durability_left = GREATEST(durability_left - 1, 0) WHERE id = ?', [itemId]);
-          if (inv.durability_left <= 0) await db.query('UPDATE inventory SET is_broken = 1 WHERE id = ?', [itemId]);
+    // Thứ tự đánh theo speed: SPD cao hơn đánh trước
+    const playerSpd = player.final_stats?.spd ?? player.spd ?? 0;
+    const enemySpd = enemy.final_stats?.spd ?? enemy.spd ?? 0;
+    const playerGoesFirst = playerSpd >= enemySpd;
+
+    const runEnemyTurn = async () => {
+      const turnNum = state.turn_count || 1;
+      const skill = getBossAction(enemy, turnNum, enemy.skills);
+      if (skill) {
+        const defDmg = player.current_def_dmg ?? 0;
+        if (typeof player === 'object') player.current_def_dmg = defDmg;
+        const bossResult = simulateBossTurn(enemy, player, skill);
+        const logMsg = bossResult.isBossDefend
+          ? `${enemy.name} dùng ${skill.name} (Phòng thủ).`
+          : (bossResult.miss ? `${enemy.name} dùng ${skill.name} nhưng trượt!` : `${enemy.name} dùng ${bossResult.moveUsed}, gây ${bossResult.damage || 0} sát thương.`);
+        state.history.push({ text: logMsg, type: 'enemy_attack' });
+        if (bossResult.defender_hp_after != null) player.current_hp = bossResult.defender_hp_after;
+        if (bossResult.attacker_hp_after != null) enemy.current_hp = bossResult.attacker_hp_after;
+        if (bossResult.bossDefDmg != null) enemy.current_def_dmg = bossResult.bossDefDmg;
+        if (bossResult.defender_current_def_dmg === 0 && typeof player.current_def_dmg === 'number') player.current_def_dmg = 0;
+      }
+    };
+
+    const runPlayerAction = async () => {
+      let result;
+      if (action === 'defend_shield' || action === 'defend_basic') {
+        const powerMin = action === 'defend_shield' && power_min != null ? Number(power_min) : NORMAL_POWER_MIN;
+        const powerMax = action === 'defend_shield' && power_max != null ? Number(power_max) : NORMAL_POWER_MAX;
+        result = simulateDefendTurn(player, enemy, powerMin, powerMax);
+        state.history.push({ text: result.logMessage || `${player.name} sử dụng Phòng thủ.`, type: 'defense' });
+        player.current_def_dmg = result.defDmg ?? 0;
+        if (action === 'defend_shield' && itemId) {
+          const inv = state.equipment.find((e) => e.id === itemId);
+          if (inv && inv.durability_left > 0) {
+            inv.durability_left = Math.max(0, inv.durability_left - 1);
+            await db.query('UPDATE inventory SET durability_left = GREATEST(durability_left - 1, 0) WHERE id = ?', [itemId]);
+            if (inv.durability_left <= 0) await db.query('UPDATE inventory SET is_broken = 1 WHERE id = ?', [itemId]);
+          }
+        }
+      } else {
+        const isAttackItem = action === 'attack_item' && itemId != null;
+        let powerMin = NORMAL_POWER_MIN;
+        let powerMax = NORMAL_POWER_MAX;
+        let move = 'Normal Attack';
+        if (isAttackItem) {
+          const inv = state.equipment.find((e) => e.id === itemId);
+          if (!inv || inv.durability_left <= 0) return res.status(400).json({ message: 'Item không khả dụng' });
+          powerMin = inv.power_min != null ? inv.power_min : 0;
+          powerMax = inv.power_max != null ? inv.power_max : 0;
+          move = inv.item_name || 'Weapon';
+        } else {
+          move = 'Normal Attack';
+        }
+        result = simulateTurn(
+          player,
+          enemy,
+          isAttackItem ? 10 : 10,
+          move,
+          { power_min: powerMin, power_max: powerMax, defender_current_def_dmg: enemy.current_def_dmg ?? 0 }
+        );
+        if (result.reflectedDamage > 0) {
+          state.history.push({ text: `${result.attacker} đánh, ${result.defender} phản đòn ${result.reflectedDamage} sát thương!`, type: 'enemy_attack' });
+        } else {
+          state.history.push({ text: `${result.attacker} dùng ${result.moveUsed}${result.critical ? ' (CRIT)' : ''}, gây ${result.damage} sát thương.`, type: 'player_attack' });
+        }
+        enemy.current_hp = result.defender_hp_after ?? Math.max(0, (enemy.current_hp ?? enemy.final_stats?.hp) - (result.damage || 0));
+        enemy.current_def_dmg = 0;
+        if (result.attacker_hp_after != null) player.current_hp = result.attacker_hp_after;
+        if (isAttackItem && itemId) {
+          const inv = state.equipment.find((e) => e.id === itemId);
+          if (inv) {
+            inv.durability_left = Math.max(0, (inv.durability_left || 1) - 1);
+            await db.query('UPDATE inventory SET durability_left = GREATEST(durability_left - 1, 0) WHERE id = ?', [itemId]);
+            if (inv.durability_left <= 0) await db.query('UPDATE inventory SET is_broken = 1 WHERE id = ?', [itemId]);
+          }
         }
       }
-    } else {
-      const isAttackItem = action === 'attack_item' && itemId != null;
-      let powerMin = NORMAL_POWER_MIN;
-      let powerMax = NORMAL_POWER_MAX;
-      let move = 'Normal Attack';
-      if (isAttackItem) {
-        const inv = state.equipment.find((e) => e.id === itemId);
-        if (!inv || inv.durability_left <= 0) return res.status(400).json({ message: 'Item không khả dụng' });
-        powerMin = inv.power_min != null ? inv.power_min : 0;
-        powerMax = inv.power_max != null ? inv.power_max : 0;
-        move = inv.item_name || 'Weapon';
-      } else {
-        move = 'Normal Attack';
-      }
-      result = simulateTurn(
-        player,
-        enemy,
-        isAttackItem ? 10 : 10,
-        move,
-        { power_min: powerMin, power_max: powerMax, defender_current_def_dmg: enemy.current_def_dmg ?? 0 }
-      );
-      if (result.reflectedDamage > 0) {
-        state.history.push({ text: `${result.attacker} đánh, ${result.defender} phản đòn ${result.reflectedDamage} sát thương!`, type: 'enemy_attack' });
-      } else {
-        state.history.push({ text: `${result.attacker} dùng ${result.moveUsed}${result.critical ? ' (CRIT)' : ''}, gây ${result.damage} sát thương.`, type: 'player_attack' });
-      }
-      enemy.current_hp = result.defender_hp_after ?? Math.max(0, (enemy.current_hp ?? enemy.final_stats?.hp) - (result.damage || 0));
-      enemy.current_def_dmg = 0;
-      if (result.attacker_hp_after != null) player.current_hp = result.attacker_hp_after;
-      if (isAttackItem && itemId) {
-        const inv = state.equipment.find((e) => e.id === itemId);
-        if (inv) {
-          inv.durability_left = Math.max(0, (inv.durability_left || 1) - 1);
-          await db.query('UPDATE inventory SET durability_left = GREATEST(durability_left - 1, 0) WHERE id = ?', [itemId]);
-          if (inv.durability_left <= 0) await db.query('UPDATE inventory SET is_broken = 1 WHERE id = ?', [itemId]);
-        }
-      }
-    }
+    };
+
     state.turn_count = (state.turn_count || 0) + 1;
 
-    if ((enemy.current_hp ?? 0) <= 0) {
-      state.finished = true;
-      state.result = 'win';
-      await finalizeMatchInMySQL(state, 'player');
-      await redis.del(key);
-      res.json(state);
-      return;
+    if (playerGoesFirst) {
+      await runPlayerAction();
+      if ((enemy.current_hp ?? 0) <= 0) {
+        state.finished = true;
+        state.result = 'win';
+        await finalizeMatchInMySQL(state, 'player');
+        await redis.del(key);
+        return res.json(state);
+      }
+      if ((player.current_hp ?? 0) <= 0) {
+        state.finished = true;
+        state.result = 'lose';
+        await finalizeMatchInMySQL(state, 'enemy');
+        await redis.del(key);
+        return res.json(state);
+      }
+      await runEnemyTurn();
+    } else {
+      await runEnemyTurn();
+      if ((player.current_hp ?? 0) <= 0) {
+        state.finished = true;
+        state.result = 'lose';
+        await finalizeMatchInMySQL(state, 'enemy');
+        await redis.del(key);
+        return res.json(state);
+      }
+      await runPlayerAction();
+      if ((enemy.current_hp ?? 0) <= 0) {
+        state.finished = true;
+        state.result = 'win';
+        await finalizeMatchInMySQL(state, 'player');
+        await redis.del(key);
+        return res.json(state);
+      }
     }
+
     if ((player.current_hp ?? 0) <= 0) {
       state.finished = true;
       state.result = 'lose';
       await finalizeMatchInMySQL(state, 'enemy');
       await redis.del(key);
-      res.json(state);
-      return;
-    }
-
-    // --- Enemy turn (Boss) ---
-    const turnNum = state.turn_count || 1;
-    const skill = getBossAction(enemy, turnNum, enemy.skills);
-    if (skill) {
-      const defDmg = player.current_def_dmg ?? 0;
-      if (typeof player === 'object') player.current_def_dmg = defDmg;
-      const bossResult = simulateBossTurn(enemy, player, skill);
-      const logMsg = bossResult.isBossDefend
-        ? `${enemy.name} dùng ${skill.name} (Phòng thủ).`
-        : (bossResult.miss ? `${enemy.name} dùng ${skill.name} nhưng trượt!` : `${enemy.name} dùng ${bossResult.moveUsed}, gây ${bossResult.damage || 0} sát thương.`);
-      state.history.push({ text: logMsg, type: 'enemy_attack' });
-      if (bossResult.defender_hp_after != null) player.current_hp = bossResult.defender_hp_after;
-      if (bossResult.attacker_hp_after != null) enemy.current_hp = bossResult.attacker_hp_after;
-      if (bossResult.bossDefDmg != null) enemy.current_def_dmg = bossResult.bossDefDmg;
-      if (bossResult.defender_current_def_dmg === 0 && typeof player.current_def_dmg === 'number') player.current_def_dmg = 0;
-    }
-
-    if ((player.current_hp ?? 0) <= 0) {
-      state.finished = true;
-      state.result = 'lose';
-      await finalizeMatchInMySQL(state, 'enemy');
-      await redis.del(key);
-      res.json(state);
-      return;
+      return res.json(state);
     }
 
     await redis.set(key, JSON.stringify(state), { EX: REDIS_MATCH_TTL });

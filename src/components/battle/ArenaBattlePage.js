@@ -260,7 +260,16 @@ function ArenaBattlePage() {
         setActionLocked(false);
         return;
       }
+      const playerSpd = player?.final_stats?.spd ?? player?.spd ?? 0;
+      const enemySpd = enemy?.final_stats?.spd ?? enemy?.spd ?? 0;
+      const playerGoesFirst = playerSpd >= enemySpd;
+
       try {
+        if (!playerGoesFirst) {
+          const battleEndedAfterEnemy = await handleEnemyTurn();
+          if (battleEndedAfterEnemy) return;
+          setActionLocked(true);
+        }
         const res = await fetch(`${API_BASE_URL}/api/arena/simulate-turn`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -287,7 +296,7 @@ function ArenaBattlePage() {
 
         const newEnemyHp = result.defender_hp_after ?? Math.max(0, enemy.current_hp - result.damage);
         const newPlayerHp = result.reflectedDamage > 0 ? result.attacker_hp_after : player.current_hp;
-        if (!checkBattleEnded(newEnemyHp, newPlayerHp)) {
+        if (!checkBattleEnded(newEnemyHp, newPlayerHp) && playerGoesFirst) {
           setTimeout(() => handleEnemyTurn(), 1500);
         } else {
           setActionLocked(false);
@@ -311,7 +320,15 @@ function ArenaBattlePage() {
         setActionLocked(false);
         return;
       }
+      const playerSpd = player?.final_stats?.spd ?? player?.spd ?? 0;
+      const enemySpd = enemy?.final_stats?.spd ?? enemy?.spd ?? 0;
+      const playerGoesFirst = playerSpd >= enemySpd;
       try {
+        if (!playerGoesFirst) {
+          const battleEndedAfterEnemy = await handleEnemyTurn();
+          if (battleEndedAfterEnemy) return;
+          setActionLocked(true);
+        }
         const res = await fetch(`${API_BASE_URL}/api/arena/simulate-defend`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -326,7 +343,7 @@ function ArenaBattlePage() {
         appendLog(result.logMessage || `${player.name} sử dụng Phòng thủ vật lý, thiết lập shield ${result.defDmg ?? 0} HP phòng ngự.`, 'defense');
         setPlayer((prev) => ({ ...prev, current_def_dmg: result.defDmg ?? 0 }));
         setTurn((prev) => prev + 1);
-        if (!checkBattleEnded(enemy.current_hp, player.current_hp)) setTimeout(() => handleEnemyTurn(), 1500);
+        if (!checkBattleEnded(enemy.current_hp, player.current_hp) && playerGoesFirst) setTimeout(() => handleEnemyTurn(), 1500);
         else setActionLocked(false);
       } catch (err) {
         console.error('Lỗi khi phòng thủ vật lý:', err);
@@ -337,7 +354,7 @@ function ArenaBattlePage() {
     const handleEnemyTurn = async () => {
       const latestPlayer = playerRef.current;
       const latestEnemy = enemyRef.current;
-      if (latestEnemy.current_hp <= 0 || latestPlayer.current_hp <= 0) return;
+      if (latestEnemy.current_hp <= 0 || latestPlayer.current_hp <= 0) return true;
 
       try {
         const payload = {
@@ -356,7 +373,7 @@ function ArenaBattlePage() {
           body: JSON.stringify(payload),
         });
         const result = await res.json();
-
+        let ended = false;
         if (result.miss) {
           appendLog(`${result.attacker} dùng ${result.moveUsed} nhưng trượt!`);
         } else if (result.isBossDefend) {
@@ -366,18 +383,20 @@ function ArenaBattlePage() {
           appendLog(`${result.attacker} đánh, ${result.defender} phản đòn ${result.reflectedDamage} sát thương!`);
           setPlayer((prev) => ({ ...prev, current_hp: result.defender_hp_after ?? prev.current_hp, current_def_dmg: 0 }));
           setEnemy((prev) => ({ ...prev, current_hp: result.attacker_hp_after ?? prev.current_hp }));
-          checkBattleEnded(result.attacker_hp_after ?? enemy.current_hp, result.defender_hp_after ?? player.current_hp);
+          ended = checkBattleEnded(result.attacker_hp_after ?? enemy.current_hp, result.defender_hp_after ?? player.current_hp);
         } else {
           const newPlayerHp = result.defender_hp_after ?? Math.max(0, player.current_hp - (result.damage ?? 0));
           appendLog(`${result.attacker} dùng ${result.moveUsed}${result.critical ? ' (CRIT)' : ''}, gây ${result.damage} sát thương.`, 'enemy_attack');
           setPlayer((prev) => ({ ...prev, current_hp: newPlayerHp, current_def_dmg: 0 }));
-          checkBattleEnded(enemy.current_hp, newPlayerHp);
+          ended = checkBattleEnded(enemy.current_hp, newPlayerHp);
         }
 
         setTurn((prev) => prev + 1);
         setAttackAnimation('enemy');
+        return ended;
       } catch (err) {
         console.error('Enemy attack failed:', err);
+        return false;
       } finally {
         setActionLocked(false);
       }
@@ -699,7 +718,7 @@ function ArenaBattlePage() {
               <div className="arena-header-avatar-col">
                 <div className="arena-header-avatar" style={{ backgroundImage: `url(/images/pets/${player?.image})` }} />
                 <div className="arena-header-speed-box">
-                  <span className="arena-speed-icon" aria-hidden>⚡</span>
+                  <img className="arena-speed-icon" src="/images/icons/speed.png" alt="" aria-hidden />
                   <span className="arena-speed-value">{player?.final_stats?.spd ?? player?.spd ?? 0}</span>
                 </div>
               </div>
@@ -725,7 +744,7 @@ function ArenaBattlePage() {
               <div className="arena-header-avatar-col">
                 <div className="arena-header-avatar enemy" style={{ backgroundImage: `url(${enemy?.image})` }} />
                 <div className="arena-header-speed-box">
-                  <span className="arena-speed-icon" aria-hidden>⚡</span>
+                  <img className="arena-speed-icon" src="/images/icons/speed.png" alt="" aria-hidden />
                   <span className="arena-speed-value">{enemy?.final_stats?.spd ?? enemy?.spd ?? 0}</span>
                 </div>
               </div>
@@ -755,10 +774,10 @@ function ArenaBattlePage() {
           {/* Battle log - scrollable */}
           <div className="arena-battle-log">
             <div className="arena-log-inner">
-              {log.length === 0 && <div className="log-entry">Trận đấu bắt đầu!</div>}
+              {log.length === 0 && <div className="arena-log-line">Trận đấu bắt đầu!</div>}
               {log.map((entry, idx) => {
                 const item = typeof entry === 'string' ? { text: entry, type: 'default' } : entry;
-                return <div key={idx} className={`log-entry log-${item.type}`}>{item.text}</div>;
+                return <div key={idx} className={`arena-log-line arena-log-${item.type}`}>{item.text}</div>;
               })}
               <div ref={logEndRef} />
             </div>
