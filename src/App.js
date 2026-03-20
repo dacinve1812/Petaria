@@ -44,6 +44,7 @@ import AuctionDetail from './components/auction/AuctionDetail';
 import CreateAuction from './components/auction/CreateAuction';
 import MailPage from './components/MailPage';
 import HealiaRiverPage from './components/HealiaRiverPage';
+import Restaurant from './components/Restaurant';
 import ExampleTemplatePage from './components/template/ExampleTemplatePage';
 
 function App() {
@@ -95,6 +96,7 @@ function App() {
               <Route path="bank" element={<Bank />} />
               <Route path="mail" element={<MailPage />} />
               <Route path="healia-river" element={<HealiaRiverPage />} />
+              <Route path="restaurant" element={<Restaurant />} />
               <Route path="auction" element={<AuctionList />} />
               <Route path="auction/:id" element={<AuctionDetail />} />
               <Route path="auction/create" element={<CreateAuction />} />

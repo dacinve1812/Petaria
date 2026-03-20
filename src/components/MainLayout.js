@@ -77,6 +77,8 @@ function MainLayout() {
             '/shop': 'CỬA HÀNG',
             '/auction': 'ĐẤU GIÁ',
             '/orphanage': 'TRẠI MỒ CÔI',
+            '/restaurant': 'NHÀ HÀNG',
+            '/healia-river': 'SÔNG HEALIA',
             '/battle': 'ĐẤU TRƯỜNG',
             '/hunting-world': 'ĐI SĂN',
             '/guild': 'BANG HỘI',

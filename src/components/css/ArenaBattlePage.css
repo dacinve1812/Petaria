@@ -371,6 +371,22 @@
   line-height: 1.3;
 }
 
+.arena-hp-value {
+  font-weight: 500;
+}
+
+.arena-hp-value.arena-hp--high {
+  color: #2e7d32;
+}
+
+.arena-hp-value.arena-hp--mid {
+  color: #eb9c5b;
+}
+
+.arena-hp-value.arena-hp--low {
+  color: #b71c1c;
+}
+
 /* Battle log - scrollable */
 .arena-battle-log {
   background: #61616118;
@@ -419,7 +435,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   width: 100px;
   height: 100px;
   padding: 8px;
@@ -429,6 +445,7 @@
   cursor: pointer;
   transition: border-color 0.2s, box-shadow 0.2s;
   box-sizing: border-box;
+  position: relative;
 }
 
 .arena-equipment-item:hover:not(.disabled) {
@@ -452,8 +469,89 @@
   width: 44px;
   height: 44px;
   object-fit: contain;
-  margin-bottom: 4px;
+  margin-bottom: 0;
   flex-shrink: 0;
+}
+
+.arena-hold-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+  transform: rotate(-90deg); /* start at 12 o'clock */
+}
+
+.arena-hold-badge-bg {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.18);
+  stroke-width: 3;
+}
+
+.arena-hold-badge-fg {
+  fill: none;
+  stroke: rgba(255, 193, 7, 0.98);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 100.53;
+  stroke-dashoffset: 100.53;
+  animation: arenaHoldProgress 1s linear forwards;
+}
+
+@keyframes arenaHoldProgress {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Item info modal rendered via portal */
+.arena-item-info-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: transparent;
+}
+
+.arena-item-info-modal {
+  position: fixed;
+  background: rgba(25, 25, 25, 0.826);
+  color: #fff;
+  padding: 10px 12px;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 0px;
+  border-bottom-left-radius: 0px;
+  border-bottom-right-radius: 12px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.329);
+  /* min-width: 170px; */
+  max-width: min(260px, calc(100vw - 16px));
+  font-size: 12px;
+  text-align: center;
+}
+
+.arena-item-info-modal::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 8px solid rgba(25, 25, 25, 0.826);
+}
+
+.arena-item-info-title {
+  font-weight: 800;
+  font-size: 12px;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.arena-item-info-row {
+  opacity: 0.95;
+  line-height: 1.25;
 }
 
 .arena-equipment-item .arena-equip-name {
@@ -663,7 +761,7 @@
     max-width: 50%;
   }
   .arena-pet-block img {
-    width: 70px;
+    width: 90px;
     max-width: 100%;
     height: auto;
     display: block;
@@ -674,8 +772,8 @@
     margin-top: 4px;
   }
   .arena-equipment-item {
-    width: 88px;
-    height: 88px;
+    width: 68px;
+    height: 68px;
     padding: 6px;
   }
   .arena-equipment-item img {
@@ -704,5 +802,8 @@
   }
   .arena-header-hp .arena-hp-bar{
     height: 10px;
+  }
+  .arena-battle-log{
+    height: 95px;
   }
 }

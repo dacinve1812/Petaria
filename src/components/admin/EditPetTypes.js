@@ -306,7 +306,7 @@ function ModalPetSpecies({ modal, onClose, onSave }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <h4>{mode === 'edit' ? 'Sửa' : 'Thêm'} Pet Species</h4>
         <form onSubmit={handleSubmit}>

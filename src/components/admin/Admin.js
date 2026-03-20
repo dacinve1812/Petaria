@@ -26,10 +26,6 @@ function Admin() {
     return null;
   }
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
 
   return (
     <div className="admin-page">
@@ -38,9 +34,6 @@ function Admin() {
         <div className="admin-actions">
           <button className="back-home-btn" onClick={() => navigate('/')}>
             ← Về Home
-          </button>
-          <button className="logout-btn" onClick={handleLogout}>
-            Đăng xuất
           </button>
         </div>
       </div>

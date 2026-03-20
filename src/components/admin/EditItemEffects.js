@@ -1,200 +1,313 @@
-// File: EditItemEffects.js
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import Sidebar from '../Sidebar';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
+import './AdminNpcBossManagement.css';
+
+const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
+const authHeaders = (token) => ({ Authorization: `Bearer ${token}` });
+const getItemImageSrc = (imageUrl) => {
+  if (!imageUrl) return '/images/equipments/placeholder.png';
+  if (imageUrl.startsWith('http') || imageUrl.startsWith('/')) return imageUrl;
+  return `/images/equipments/${imageUrl}`;
+};
 
 function EditItemEffects() {
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isLoading } = useUser();
-
   const [items, setItems] = useState([]);
-  const [effects, setEffects] = useState([]);
-  const [selectedItemId, setSelectedItemId] = useState('');
-  const [effectTarget, setEffectTarget] = useState('hp');
-  const [effectType, setEffectType] = useState('flat');
-  const [valueMin, setValueMin] = useState(0);
-  const [valueMax, setValueMax] = useState(0);
-  const [isPermanent, setIsPermanent] = useState(false);
-  const [durationTurns, setDurationTurns] = useState(0);
-  const [editId, setEditId] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('success');
+  const [uploadResult, setUploadResult] = useState(null);
+  const [modal, setModal] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'asc' });
 
   useEffect(() => {
-    if (isLoading) return;
-    if (!user || !user.isAdmin) {
-      navigate('/login');
-      return;
-    }
-    fetchItems();
-    fetchEffects();
-  }, [navigate, user, isLoading]);
+    if (!isLoading && (!user || !user.isAdmin)) navigate('/login');
+  }, [user, isLoading, navigate]);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const itemId = params.get('item_id');
-    if (itemId) {
-      setSelectedItemId(itemId);
-    }
-  }, [location.search]);
+    if (user?.token && user?.isAdmin) loadAll();
+  }, [user?.token, user?.isAdmin]);
 
-  const fetchItems = async () => {
-    const res = await fetch(`${API_BASE_URL}/api/admin/items`, {
-      headers: { 'Authorization': `Bearer ${user.token}` }
-    });
-    const data = await res.json();
-    setItems(data.filter(item => item.type === 'booster' || item.type === 'consumable'));
+  const selectedItemId = useMemo(() => new URLSearchParams(location.search).get('item_id'), [location.search]);
+
+  const showMsg = (msg, type = 'success') => {
+    setMessage(msg);
+    setMessageType(type);
+    setUploadResult(null);
   };
 
-  const fetchEffects = async () => {
-    const res = await fetch(`${API_BASE_URL}/api/admin/item-effects`, {
-      headers: { 'Authorization': `Bearer ${user.token}` }
-    });
-    const data = await res.json();
-    setEffects(data);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const method = editId ? 'PUT' : 'POST';
-    const endpoint = editId
-      ? `${API_BASE_URL}/api/admin/item-effects/${editId}`
-      : `${API_BASE_URL}/api/admin/item-effects`;
-
-    const res = await fetch(endpoint, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${user.token}`
-      },
-      body: JSON.stringify({
-        item_id: selectedItemId,
-        effect_target: effectTarget,
-        effect_type: effectType,
-        value_min: valueMin,
-        value_max: valueMax,
-        is_permanent: isPermanent,
-        duration_turns: durationTurns
-      })
-    });
-
-    if (res.ok) {
-      fetchEffects();
-      setSelectedItemId('');
-      setEffectTarget('hp');
-      setEffectType('flat');
-      setValueMin(0);
-      setValueMax(0);
-      setIsPermanent(false);
-      setDurationTurns(0);
-      setEditId(null);
-      alert('Lưu thành công!');
-    } else {
-      alert('Có lỗi xảy ra');
+  const loadAll = async () => {
+    try {
+      const [i, e] = await Promise.all([
+        fetch(`${API_BASE}/api/admin/items`, { headers: authHeaders(user.token) }).then((r) => r.json()),
+        fetch(`${API_BASE}/api/admin/item-effects`, { headers: authHeaders(user.token) }).then((r) => r.json()),
+      ]);
+      setItems(Array.isArray(i) ? i : []);
+      setRows(Array.isArray(e) ? e : []);
+    } catch (err) {
+      showMsg('Lỗi tải dữ liệu: ' + err.message, 'error');
     }
   };
 
-  const handleEdit = (eff) => {
-    setSelectedItemId(eff.item_id);
-    setEffectTarget(eff.effect_target);
-    setEffectType(eff.effect_type);
-    setValueMin(eff.value_min);
-    setValueMax(eff.value_max);
-    setIsPermanent(eff.is_permanent);
-    setDurationTurns(eff.duration_turns || 0);
-    setEditId(eff.id);
+  const deleteRow = async (id) => {
+    if (!window.confirm('Bạn có chắc muốn xóa item effect này?')) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/item-effects/${id}`, { method: 'DELETE', headers: authHeaders(user.token) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.message || 'Lỗi xóa');
+      showMsg('Đã xóa item effect.');
+      loadAll();
+    } catch (err) {
+      showMsg(err.message || 'Lỗi xóa', 'error');
+    }
   };
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('isAdmin');
-    navigate('/login');
+
+  const saveRow = async (payload) => {
+    const { mode, row } = modal;
+    try {
+      const url = mode === 'edit' ? `${API_BASE}/api/admin/item-effects/${row.id}` : `${API_BASE}/api/admin/item-effects`;
+      const r = await fetch(url, {
+        method: mode === 'edit' ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(user.token) },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.message || 'Lỗi lưu');
+      setModal(null);
+      showMsg(mode === 'edit' ? 'Đã cập nhật item effect.' : 'Đã thêm item effect.');
+      loadAll();
+    } catch (err) {
+      showMsg(err.message || 'Lỗi lưu', 'error');
+    }
   };
-  
+
+  const downloadCSV = async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/item-effects/csv`, { headers: authHeaders(user.token) });
+      if (!r.ok) throw new Error('Lỗi tải CSV');
+      const blob = await r.blob();
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = u;
+      a.download = 'item_effects.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(u);
+    } catch (err) {
+      showMsg(err.message || 'Lỗi tải CSV', 'error');
+    }
+  };
+
+  const uploadCSV = async (file) => {
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/item-effects/csv`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${user.token}` },
+        body: fd,
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.message || 'Lỗi upload CSV');
+      setUploadResult(data);
+      showMsg(`CSV: ${data.inserted || 0} thêm, ${data.updated || 0} cập nhật.`);
+      loadAll();
+    } catch (err) {
+      showMsg(err.message || 'Lỗi upload CSV', 'error');
+    }
+  };
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => (prev.key === key ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' } : { key, direction: 'asc' }));
+  };
+  const sortIndicator = (key) => (sortConfig.key === key ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : '');
+  const displayRows = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    const filtered = q
+      ? rows.filter((r) => {
+          const item = items.find((i) => Number(i.id) === Number(r.item_id));
+          const hay = [
+            r.id, r.item_id, item?.name, r.effect_target, r.effect_type, r.value_min, r.value_max, r.is_permanent, r.duration_turns,
+          ].map((v) => String(v ?? '').toLowerCase()).join(' ');
+          return hay.includes(q);
+        })
+      : [...rows];
+
+    const sorted = [...filtered].sort((a, b) => {
+      const itemA = items.find((i) => Number(i.id) === Number(a.item_id));
+      const itemB = items.find((i) => Number(i.id) === Number(b.item_id));
+      const av = sortConfig.key === 'item_name' ? (itemA?.name ?? '') : a[sortConfig.key];
+      const bv = sortConfig.key === 'item_name' ? (itemB?.name ?? '') : b[sortConfig.key];
+      const aNum = Number(av);
+      const bNum = Number(bv);
+      let cmp = 0;
+      if (!Number.isNaN(aNum) && !Number.isNaN(bNum) && av !== '' && bv !== '') cmp = aNum - bNum;
+      else cmp = String(av ?? '').localeCompare(String(bv ?? ''), 'vi', { sensitivity: 'base' });
+      return sortConfig.direction === 'asc' ? cmp : -cmp;
+    });
+    return sorted;
+  }, [rows, items, searchTerm, sortConfig]);
+
+  if (isLoading) return <div className="admin-npc-boss"><div className="loading">Đang tải...</div></div>;
+  if (!user || !user.isAdmin) return <div className="admin-npc-boss"><div className="access-denied"><h2>Access Denied</h2></div></div>;
 
   return (
-    <div className="container">
-      <header><img src="/images/buttons/banner.jpeg" alt="Banner Petaria" /></header>
-      <div className="content">
-        <Sidebar userId={user?.userId} isAdmin={user?.isAdmin} handleLogout={handleLogout} />
-        <div className="main-content">
-          <h1>Update chỉ số cho vật phẩm</h1>
+    <div className="admin-npc-boss">
+      <div className="admin-header">
+        <div className="header-text">
+          <h1>Quản lý Item Effects</h1>
+          <p>Chỉnh bảng `item_effects`: CRUD, download/upload CSV theo cùng chuẩn Boss/NPC.</p>
+        </div>
+        <div className="cell-actions">
+          <button className="back-admin-btn" onClick={() => navigate('/admin/edit-items')}>← Quay lại Quản lý Items</button>
+          <button className="back-admin-btn" onClick={() => navigate('/admin')}>← Quay lại Admin</button>
+        </div>
+      </div>
+      {message && <div className={`message ${messageType}`}>{message}</div>}
+      {uploadResult && <div className="message success">Kết quả CSV: thêm {uploadResult.inserted || 0}, cập nhật {uploadResult.updated || 0}.</div>}
 
-          <form onSubmit={handleSubmit} className="admin-form-container">
-            <select value={selectedItemId} onChange={(e) => setSelectedItemId(e.target.value)} required>
-              <option value="">Chọn item</option>
-              {items.map(item => (
-                <option key={item.id} value={item.id}> {item.name}</option>
-              ))}
-            </select>
-            <div >Chỉ số được tăng:</div>
-            <select className="admin-pet-form-input" value={effectTarget} onChange={(e) => setEffectTarget(e.target.value)}>
-              <option value="hp">HP</option>
-              <option value="mp">MP</option>
-              <option value="atk">ATK</option>
-              <option value="def">DEF</option>
-              <option value="spd">SPD</option>
-              <option value="int">INT</option>
-              <option value="exp">Exp</option>
-              <option value="status">Status</option>
-            </select>
-            <div>Type:</div>
-            <select className="admin-pet-form-input" value={effectType} onChange={(e) => setEffectType(e.target.value)}>
-                <option value="percent">Percent</option>
-                <option value="flat">Flat</option>
-                <option value="status_cure">Status Cure</option>
-            </select>
-            <div>Min</div>
-            <input  className="admin-pet-form-input" type="number" value={valueMin} onChange={(e) => setValueMin(e.target.value)} placeholder="Giá trị min" />
-            <div>Max:</div>
-            <input className="admin-pet-form-input" type="number" value={valueMax} onChange={(e) => setValueMax(e.target.value)} placeholder="Giá trị max" />
-            <label>
-              <input type="checkbox" checked={isPermanent} onChange={(e) => setIsPermanent(e.target.checked)} /> isPermanent
-            </label>
-            <div>If not, how many turn?</div>
-            <input className="admin-pet-form-input" type="number" value={durationTurns} onChange={(e) => setDurationTurns(e.target.value)} placeholder="Số lượt (nếu tạm thời)" />
-            <button type="submit">{editId ? 'Cập nhật' : 'Tạo mới'}</button>
-          </form>
-
-          <h2>Danh sách hiệu ứng đã gán</h2>
-          <table>
+      <div className="section-card">
+        <h3>Bảng item_effects</h3>
+        <div className="section-actions">
+          <button className="btn btn-primary" onClick={() => setModal({ mode: 'add', row: { item_id: selectedItemId || '' } })}>Thêm</button>
+          <button className="btn btn-secondary" onClick={downloadCSV}>Tải CSV</button>
+          <label className="btn btn-secondary" style={{ margin: 0 }}>
+            Upload CSV
+            <input type="file" accept=".csv" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCSV(f); e.target.value = ''; }} />
+          </label>
+          <input
+            type="text"
+            placeholder="Search item effects..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #ced4da', minWidth: 240 }}
+          />
+        </div>
+        <div className="table-wrap">
+          <table className="data-table">
             <thead>
               <tr>
-                <th>Item</th>
-                <th>Picture</th>
-                <th>Loại</th>
-                <th>Kiểu</th>
-                <th>Giá trị</th>
-                <th>Vĩnh viễn?</th>
-                <th>Số lượt</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('id')}>id{sortIndicator('id')}</th>
+                <th>img</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('item_name')}>item{sortIndicator('item_name')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('effect_target')}>effect_target{sortIndicator('effect_target')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('effect_type')}>effect_type{sortIndicator('effect_type')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('value_min')}>value_min{sortIndicator('value_min')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('value_max')}>value_max{sortIndicator('value_max')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('is_permanent')}>is_permanent{sortIndicator('is_permanent')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('duration_turns')}>duration_turns{sortIndicator('duration_turns')}</th>
                 <th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
-              {effects.map(eff => {
-                const item = items.find(i => i.id === eff.item_id);
+              {displayRows.map((r) => {
+                const item = items.find((i) => Number(i.id) === Number(r.item_id));
                 return (
-                  <tr key={eff.id}>
-                    <td>{item ? item.name : 'Không rõ'}</td>
+                  <tr key={r.id}>
+                    <td>{r.id}</td>
                     <td>
-                      {item ? (
-                        <img src={`/images/equipments/${item.image_url}`} alt={item.name} width="40" />
-                      ) : (
-                        <span>Không có hình</span>
-                      )}
+                      <img
+                        src={getItemImageSrc(item?.image_url)}
+                        alt={item?.name || 'item'}
+                        className="boss-thumb"
+                        onError={(e) => { e.target.src = '/images/equipments/placeholder.png'; e.target.onerror = null; }}
+                      />
                     </td>
-                    <td>{eff.effect_target}</td>
-                    <td>{eff.effect_type}</td>
-                    <td>{eff.value_min} ~ {eff.value_max}</td>
-                    <td>{eff.is_permanent ? '✅' : '❌'}</td>
-                    <td>{eff.duration_turns || '-'}</td>
-                    <td><button onClick={() => handleEdit(eff)}>Sửa</button></td>
+                    <td>{item ? `${item.name} (#${item.id})` : r.item_id}</td>
+                    <td>{r.effect_target}</td>
+                    <td>{r.effect_type}</td>
+                    <td>{r.value_min}</td>
+                    <td>{r.value_max}</td>
+                    <td>{r.is_permanent ? '1' : '0'}</td>
+                    <td>{r.duration_turns ?? 0}</td>
+                    <td>
+                      <div className="cell-actions">
+                        <button className="btn-edit" onClick={() => setModal({ mode: 'edit', row: r })}>Sửa</button>
+                        <button className="btn-delete" onClick={() => deleteRow(r.id)}>Xóa</button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
+              {displayRows.length === 0 && (
+                <tr>
+                  <td colSpan={10} style={{ textAlign: 'center', color: '#6c757d' }}>Không có dữ liệu phù hợp.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
+      </div>
+
+      {modal && <ItemEffectModal items={items} modal={modal} onClose={() => setModal(null)} onSave={saveRow} />}
+    </div>
+  );
+}
+
+function ItemEffectModal({ items, modal, onClose, onSave }) {
+  const { mode, row } = modal;
+  const selectedItem = items.find((item) => Number(item.id) === Number(row.item_id));
+  const [form, setForm] = useState({
+    item_id: row.item_id ?? '',
+    effect_target: row.effect_target ?? 'hp',
+    effect_type: row.effect_type ?? 'flat',
+    value_min: row.value_min ?? 0,
+    value_max: row.value_max ?? 0,
+    is_permanent: !!row.is_permanent,
+    duration_turns: row.duration_turns ?? 0,
+  });
+
+  const update = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+        <h4>{mode === 'edit' ? 'Sửa' : 'Thêm'} item effect</h4>
+        <form onSubmit={(e) => { e.preventDefault(); onSave({ ...form, item_id: Number(form.item_id), value_min: Number(form.value_min) || 0, value_max: Number(form.value_max) || 0, duration_turns: Number(form.duration_turns) || 0 }); }}>
+          {mode === 'edit' ? (
+            <div className="form-row">
+              <label>item_id *</label>
+              <input value={selectedItem ? `${selectedItem.name} (#${selectedItem.id})` : `#${row.item_id}`} readOnly />
+            </div>
+          ) : (
+            <div className="form-row"><label>item_id *</label>
+              <select value={form.item_id} onChange={(e) => update('item_id', e.target.value)} required>
+                <option value="">-- chọn item --</option>
+                {items.map((item) => <option key={item.id} value={item.id}>{item.name} (#{item.id})</option>)}
+              </select>
+            </div>
+          )}
+          <div className="form-row"><label>effect_target</label>
+            <select value={form.effect_target} onChange={(e) => update('effect_target', e.target.value)}>
+              <option value="hp">hp</option><option value="mp">mp</option><option value="atk">atk</option><option value="def">def</option><option value="spd">spd</option><option value="int">int</option><option value="exp">exp</option><option value="status">status</option>
+            </select>
+          </div>
+          <div className="form-row"><label>effect_type</label>
+            <select value={form.effect_type} onChange={(e) => update('effect_type', e.target.value)}>
+              <option value="flat">flat</option><option value="percent">percent</option><option value="status_cure">status_cure</option>
+            </select>
+          </div>
+          <div className="form-row"><label>value_min</label><input type="number" value={form.value_min} onChange={(e) => update('value_min', e.target.value)} /></div>
+          <div className="form-row"><label>value_max</label><input type="number" value={form.value_max} onChange={(e) => update('value_max', e.target.value)} /></div>
+          <div className="form-row">
+            <label style={{ display: 'flex', marginBottom: 0 }}>
+              <label>is_permanent:</label>
+              <input type="checkbox" checked={form.is_permanent} onChange={(e) => update('is_permanent', e.target.checked)} />
+              
+            </label>
+          </div>
+          <div className="form-row"><label>duration_turns</label><input type="number" value={form.duration_turns} onChange={(e) => update('duration_turns', e.target.value)} /></div>
+          <div className="form-actions">
+            <button type="submit" className="btn-save">Lưu</button>
+            <button type="button" className="btn-cancel" onClick={onClose}>Hủy</button>
+          </div>
+        </form>
       </div>
     </div>
   );

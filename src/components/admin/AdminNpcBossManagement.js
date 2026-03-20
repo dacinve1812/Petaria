@@ -548,7 +548,7 @@ function ModalEdit({ modal, onClose, onSave, token }) {
   const title = type === 'skills' ? 'Skill' : type === 'boss_templates' ? 'Boss template' : 'Boss skill';
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-box" onClick={e => e.stopPropagation()}>
         <h4>{mode === 'edit' ? 'Sửa' : 'Thêm'} {title}</h4>
         <form onSubmit={handleSubmit}>

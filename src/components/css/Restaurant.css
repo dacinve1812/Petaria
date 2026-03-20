@@ -1,0 +1,156 @@
+/* Restaurant - Nhà hàng (glassmorphism cards on background) */
+.restaurant-page {
+  position: relative;
+  min-height: 60vh;
+  padding: 24px 16px;
+}
+
+.restaurant-background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: url("../../../public/images/background/mypet.jpg") no-repeat center center;
+  background-size: cover;
+  background-position: center;
+}
+
+.restaurant-content {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.restaurant-balance {
+  text-align: center;
+  margin-bottom: 16px;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 1rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.restaurant-balance strong {
+  font-weight: 600;
+}
+
+.restaurant-result {
+  text-align: center;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+.restaurant-result.success {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.restaurant-result.error {
+  background: rgba(180, 60, 60, 0.4);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.restaurant-cards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.restaurant-card {
+  flex: 1 1 260px;
+  max-width: 320px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.restaurant-card-title {
+  margin: 0 0 8px 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.restaurant-card-cost {
+  margin: 0 0 12px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.restaurant-card-status {
+  margin: 0 0 20px 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.4;
+  flex: 1;
+}
+
+.restaurant-card-btn {
+  width: 100%;
+  max-width: 200px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, #5a8c2a 0%, #8fbc4f 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.restaurant-card-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.restaurant-card-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.restaurant-loading,
+.restaurant-error {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 40px 20px;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.restaurant-error h2 {
+  margin: 0 0 12px 0;
+  font-size: 1.5rem;
+}
+
+.restaurant-error p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+  .restaurant-cards {
+    flex-direction: column;
+    align-items: center;
+  }
+  .restaurant-card {
+    max-width: 100%;
+  }
+}

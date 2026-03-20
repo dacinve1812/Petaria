@@ -1,5 +1,6 @@
 // ArenaBattlePage.js - Trang chiến đấu PvE
 import React, { useState, useEffect, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { UserContext } from '../../UserContext';
 import TemplatePage from '../template/TemplatePage';
@@ -63,6 +64,12 @@ function ArenaBattlePage() {
     const [actionLocked, setActionLocked] = useState(false);
     const [selectedAction, setSelectedAction] = useState('');
     const [battleReward, setBattleReward] = useState({ expGained: 0, levelUp: false, newLevel: null, loot: [] });
+    const [holdingItemId, setHoldingItemId] = useState(null);
+    const [infoItemId, setInfoItemId] = useState(null);
+    const [infoAnchorRect, setInfoAnchorRect] = useState(null);
+    const holdTimerRef = React.useRef(null);
+    const longPressTriggeredRef = React.useRef(false);
+    const equipItemElsRef = React.useRef({});
   
     const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
     const userName = user?.username || user?.name || 'Người chơi';
@@ -71,6 +78,12 @@ function ArenaBattlePage() {
       if (!imageUrl) return '/images/equipments/placeholder.png';
       if (imageUrl.startsWith('http') || imageUrl.startsWith('/')) return imageUrl;
       return `/images/equipments/${imageUrl}`;
+    };
+
+    const getHpClass = (current, max) => {
+      if (!max || max <= 0) return 'low';
+      const pct = (current ?? 0) / max * 100;
+      return pct > 70 ? 'high' : pct > 25 ? 'mid' : 'low';
     };
 
 
@@ -97,6 +110,43 @@ function ArenaBattlePage() {
       }
       return false;
     };
+
+    const cancelHold = () => {
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      setHoldingItemId(null);
+      longPressTriggeredRef.current = false;
+    };
+
+    useEffect(() => () => cancelHold(), []);
+
+    const openItemInfo = (id) => {
+      const el = equipItemElsRef.current?.[id];
+      if (el?.getBoundingClientRect) {
+        setInfoAnchorRect(el.getBoundingClientRect());
+      } else {
+        setInfoAnchorRect(null);
+      }
+      setInfoItemId(id);
+    };
+
+    // keep modal positioned on scroll/resize while open
+    useEffect(() => {
+      if (!infoItemId) return;
+      const update = () => {
+        const el = equipItemElsRef.current?.[infoItemId];
+        if (el?.getBoundingClientRect) setInfoAnchorRect(el.getBoundingClientRect());
+      };
+      update();
+      window.addEventListener('scroll', update, true);
+      window.addEventListener('resize', update);
+      return () => {
+        window.removeEventListener('scroll', update, true);
+        window.removeEventListener('resize', update);
+      };
+    }, [infoItemId]);
 
     const sendMatchTurn = async (payload) => {
       const res = await fetch(`${API_BASE_URL}/api/arena/match/turn`, {
@@ -166,10 +216,9 @@ function ArenaBattlePage() {
           });
           const durabilityResult = await durabilityRes.json();
           
-          if (durabilityResult.item_broken) {
-            // Giữ item trong list với durability_left = 0 để sau trận gọi unequip
-            setEquippedItems((prev) => prev.map(i => i.id === item.id ? { ...i, durability_left: 0, is_broken: true } : i));
-            appendLog(`${item.item_name} đã bị hư hại!`, 'default');
+          if (durabilityResult.item_destroyed) {
+            setEquippedItems((prev) => prev.filter(i => i.id !== item.id));
+            appendLog(`${item.item_name} đã hỏng và bị tiêu hủy.`, 'default');
           } else {
             // Cập nhật durability
             setEquippedItems((prev) => prev.map(i => 
@@ -235,7 +284,7 @@ function ArenaBattlePage() {
             body: JSON.stringify({ amount: 1 })
           });
           const durData = await durRes.json();
-          if (durData.item_broken) setEquippedItems((prev) => prev.map(i => i.id === shieldItem.id ? { ...i, durability_left: 0, is_broken: true } : i));
+          if (durData.item_destroyed) setEquippedItems((prev) => prev.filter(i => i.id !== shieldItem.id));
           else setEquippedItems((prev) => prev.map(i => i.id === shieldItem.id ? { ...i, durability_left: durData.durability_left } : i));
         } catch (_) {
           setEquippedItems((prev) => prev.map(i => i.id === shieldItem.id ? { ...i, durability_left: Math.max((i.durability_left || 1) - 1, 0) } : i));
@@ -594,20 +643,7 @@ function ArenaBattlePage() {
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
             }).catch(() => {}); // 404 = key đã xóa, bỏ qua
           }
-          // Gỡ mọi item hết bền (broken) khỏi pet: gọi API unequip-broken theo pet để đồng bộ DB, sau đó unequip từng item trong state (fallback)
-          const brokenIds = equippedItems.filter((i) => (i.durability_left ?? 1) <= 0).map((i) => i.id);
-          if (player?.id) {
-            fetch(`${API_BASE_URL}/api/pets/${player.id}/unequip-broken`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
-            }).catch((err) => console.error('Unequip broken (pet):', err));
-          }
-          brokenIds.forEach((id) => {
-            fetch(`${API_BASE_URL}/api/inventory/${id}/unequip`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
-            }).catch((err) => console.error('Unequip broken item:', err));
-          });
+          // Item hỏng sẽ bị xóa khỏi inventory ngay khi durability về 0, nên không cần unequip-broken nữa.
         }
       }, [battleEnded]);
 
@@ -757,7 +793,7 @@ function ArenaBattlePage() {
               <img src={`/images/pets/${player?.image}`} alt={player?.name} className={attackAnimation === 'enemy' ? 'attack-flash' : ''} onAnimationEnd={() => setAttackAnimation('')} />
               <p className="arena-pet-name">{player?.name} <span className="arena-pet-level">Lv.{player?.level ?? 1}</span></p>
               <div className="arena-pet-stats">
-                <div className="arena-stats-row">HP: {player?.current_hp ?? 0}/{player?.final_stats?.hp ?? 0}</div>
+                <div className="arena-stats-row">HP: <span className={`arena-hp-value arena-hp--${getHpClass(player?.current_hp, player?.final_stats?.hp)}`}>{player?.current_hp ?? 0}/{player?.final_stats?.hp ?? 0}</span></div>
                 <div className="arena-stats-row">STR: {player?.final_stats?.str ?? player?.str ?? 0} · DEF: {player?.final_stats?.def ?? player?.def ?? 0}</div>
               </div>
             </div>
@@ -765,7 +801,7 @@ function ArenaBattlePage() {
               <img src={enemy?.image} alt={enemy?.name} className={attackAnimation === 'player' ? 'attack-flash' : ''} onAnimationEnd={() => setAttackAnimation('')} />
               <p className="arena-pet-name">{enemy?.name} <span className="arena-pet-level">Lv.{enemy?.level ?? 1}</span></p>
               <div className="arena-pet-stats">
-                <div className="arena-stats-row">HP: {enemy?.current_hp ?? 0}/{enemy?.final_stats?.hp ?? 0}</div>
+                <div className="arena-stats-row">HP: <span className={`arena-hp-value arena-hp--${getHpClass(enemy?.current_hp, enemy?.final_stats?.hp)}`}>{enemy?.current_hp ?? 0}/{enemy?.final_stats?.hp ?? 0}</span></div>
                 <div className="arena-stats-row">STR: {enemy?.final_stats?.str ?? enemy?.str ?? 0} · DEF: {enemy?.final_stats?.def ?? enemy?.def ?? 0}</div>
               </div>
             </div>
@@ -796,24 +832,89 @@ function ArenaBattlePage() {
                   if (isShield) handleDefend(item);
                   else handleAttackWithItem(item);
                 };
+                const handlePointerDown = (e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (actionLocked || disabled) return;
+                  // Keep receiving pointer events even if finger moves a bit
+                  try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+                  longPressTriggeredRef.current = false;
+                  setInfoItemId(null);
+                  setHoldingItemId(item.id);
+                  if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+                  holdTimerRef.current = setTimeout(() => {
+                    setHoldingItemId(null);
+                    openItemInfo(item.id);
+                    longPressTriggeredRef.current = true;
+                  }, 1000);
+                };
+                const handlePointerUp = (e) => {
+                  e.stopPropagation();
+                  try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
+                  cancelHold();
+                };
                 return (
                   <div
                     key={item.id}
+                    ref={(el) => { if (el) equipItemElsRef.current[item.id] = el; }}
                     className={`arena-equipment-item ${disabled ? 'disabled' : ''}`}
-                    onClick={handleClick}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // If info is open, keep it open (close by clicking outside modal)
+                      if (infoItemId === item.id) return;
+                      // Long-press is for info only (never use item)
+                      if (longPressTriggeredRef.current) {
+                        longPressTriggeredRef.current = false;
+                        return;
+                      }
+                      handleClick();
+                    }}
                     role="button"
                     tabIndex={disabled ? -1 : 0}
                     onKeyDown={(e) => !disabled && (e.key === 'Enter' || e.key === ' ') && handleClick()}
+                    onPointerDown={handlePointerDown}
+                    onPointerUp={handlePointerUp}
+                    onPointerCancel={handlePointerUp}
+                    onContextMenu={(e) => e.preventDefault()}
                   >
-                    <img src={getItemImageSrc(item.image_url)} alt={item.item_name} title={item.item_name} onError={(e) => { e.target.src = '/images/equipments/placeholder.png'; }} />
-                    <span className="arena-equip-name">{item.item_name}</span>
-                    <span className="arena-equip-stats">Độ bền: {item.durability_left ?? 0}/{item.max_durability ?? item.durability_left ?? 0}</span>
-                    <span className="arena-equip-stats">Chỉ số Ma thuật: {magicVal}</span>
+                    <img src={getItemImageSrc(item.image_url)} alt={item.item_name} onError={(e) => { e.target.src = '/images/equipments/placeholder.png'; }} />
+                    {holdingItemId === item.id && (
+                      <svg className="arena-hold-badge" viewBox="0 0 36 36" aria-hidden>
+                        <circle className="arena-hold-badge-bg" cx="18" cy="18" r="16" />
+                        <circle className="arena-hold-badge-fg" cx="18" cy="18" r="16" />
+                      </svg>
+                    )}
                   </div>
                 );
               })}
             </div>
           </section>
+
+          {/* Item info modal (render outside equipment item) */}
+          {infoItemId && (() => {
+            const item = equippedItems.find((i) => i.id === infoItemId);
+            if (!item) return null;
+            const magicVal = item.magic_value ?? item.power ?? 0;
+            const rect = infoAnchorRect;
+            const top = rect ? Math.max(8, rect.top - 10) : 80;
+            const left = rect ? (rect.left + rect.width / 2) : (window.innerWidth / 2);
+            return createPortal(
+              <div className="arena-item-info-overlay" onPointerDown={() => { setInfoItemId(null); setInfoAnchorRect(null); }}>
+                <div
+                  className="arena-item-info-modal"
+                  style={{ top, left, transform: 'translate(-50%, -100%)' }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  role="dialog"
+                  aria-label="Item info"
+                >
+                  <div className="arena-item-info-title">{item.item_name}</div>
+                  <div className="arena-item-info-row">Độ bền: <b>{item.durability_left ?? 0}</b> / {item.max_durability ?? 0}</div>
+                  <div className="arena-item-info-row">Chỉ số Ma thuật: <b>{magicVal}</b></div>
+                </div>
+              </div>,
+              document.body
+            );
+          })()}
 
           {/* Select ability + Go */}
           <div className="arena-action-row">

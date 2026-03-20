@@ -2003,6 +2003,7 @@ app.get('/api/users/:userId/inventory', async (req, res) => {
   try {
     const [rows] = await db.query(`
         SELECT i.*, it.name, it.description, it.image_url, it.type, it.rarity, 
+               it.sell_price, it.buy_price,
                p.name AS pet_name, p.level AS pet_level,
                ed.equipment_type, ed.magic_value AS power, ed.durability_max AS max_durability
         FROM inventory i
@@ -2016,6 +2017,82 @@ app.get('/api/users/:userId/inventory', async (req, res) => {
   } catch (err) {
     console.error('Lỗi khi lấy inventory:', err);
     res.status(500).json({ error: 'Không thể lấy dữ liệu inventory' });
+  }
+});
+
+// User - Bán ve chai item trong inventory (nhận peta theo items.sell_price)
+app.post('/api/inventory/:id/sell', async (req, res) => {
+  const { id } = req.params;
+  const quantityRaw = req.body?.quantity;
+  const quantity = parseInt(quantityRaw, 10);
+  const token = req.headers.authorization?.split(' ')[1];
+
+  if (!token) return res.status(401).json({ message: 'Unauthorized' });
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    return res.status(400).json({ message: 'Số lượng bán không hợp lệ' });
+  }
+
+  let conn;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const [invRows] = await conn.query(
+      `SELECT i.id, i.player_id, i.quantity, i.is_equipped, it.sell_price, it.name
+       FROM inventory i
+       JOIN items it ON i.item_id = it.id
+       WHERE i.id = ? AND i.player_id = ?
+       LIMIT 1`,
+      [id, userId]
+    );
+
+    if (!invRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy vật phẩm trong kho' });
+    }
+
+    const inv = invRows[0];
+    if (Number(inv.is_equipped) === 1) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'Không thể bán vật phẩm đang trang bị' });
+    }
+    if (quantity > Number(inv.quantity)) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'Số lượng bán vượt quá số lượng hiện có' });
+    }
+
+    const sellPrice = Number(inv.sell_price) || 0;
+    const petaGained = sellPrice * quantity;
+    const remain = Number(inv.quantity) - quantity;
+
+    if (remain <= 0) {
+      await conn.query('DELETE FROM inventory WHERE id = ?', [id]);
+    } else {
+      await conn.query('UPDATE inventory SET quantity = ? WHERE id = ?', [remain, id]);
+    }
+
+    if (petaGained > 0) {
+      await conn.query('UPDATE users SET peta = peta + ? WHERE id = ?', [petaGained, userId]);
+    }
+
+    await conn.commit();
+
+    res.json({
+      success: true,
+      message: `Đã bán ${quantity} ${inv.name || 'vật phẩm'} thành công`,
+      peta_gained: petaGained,
+      remaining_quantity: remain < 0 ? 0 : remain,
+      removed: remain <= 0,
+    });
+  } catch (err) {
+    if (conn) await conn.rollback();
+    console.error('Lỗi khi bán vật phẩm:', err);
+    res.status(500).json({ message: 'Lỗi server khi bán vật phẩm' });
+  } finally {
+    if (conn) conn.release();
   }
 });
 
@@ -2068,6 +2145,11 @@ app.post('/api/pets/:petId/equip-item', async (req, res) => {
       return res.status(400).json({ message: 'Pet không tồn tại hoặc không thuộc user' });
     }
 
+    // Pet hết máu thì không cho trang bị (tránh các ràng buộc/trigger liên quan current_hp)
+    if ((petRows[0].current_hp ?? 0) <= 0) {
+      return res.status(400).json({ message: 'Thú cưng quá mệt mỏi (HP = 0). Hãy cho ăn/nghỉ ngơi để hồi phục trước khi trang bị.' });
+    }
+
     // 3. Kiểm tra số item đã được gắn (kể cả broken — broken vẫn chiếm slot đến khi gỡ)
     const [equippedCount] = await pool.promise().query(
       'SELECT COUNT(*) AS count FROM inventory WHERE equipped_pet_id = ? AND is_equipped = 1',
@@ -2077,6 +2159,23 @@ app.post('/api/pets/:petId/equip-item', async (req, res) => {
     if (equippedCount[0].count >= maxItemsCanEquip) {
       return res.status(400).json({ message: 'Pet đã trang bị tối đa 4 item' });
     }
+
+    // 3.5. Chuẩn hóa current_hp của pet (tránh vi phạm chk_current_hp_valid khi trigger/constraint kiểm tra)
+    const pet = petRows[0];
+    let maxHp = pet.max_hp != null ? Number(pet.max_hp) : null;
+    if (pet.final_stats) {
+      try {
+        const fs = typeof pet.final_stats === 'string' ? JSON.parse(pet.final_stats) : pet.final_stats;
+        if (fs && fs.hp != null) maxHp = Number(fs.hp);
+      } catch (_) {}
+    }
+    const maxHpVal = maxHp != null && maxHp > 0 ? maxHp : 1;
+    const curHp = pet.current_hp != null ? Number(pet.current_hp) : maxHpVal;
+    const validHp = Math.max(0, Math.min(curHp, maxHpVal));
+    await pool.promise().query(
+      'UPDATE pets SET current_hp = ? WHERE id = ?',
+      [validHp, petId]
+    );
 
     // 4. Cập nhật inventory
     await pool.promise().query(
@@ -2115,17 +2214,8 @@ app.get('/api/pets/:petId/equipment', async (req, res) => {
 
 // API: Gỡ tất cả item broken/hết bền khỏi pet (sau trận Arena)
 app.post('/api/pets/:petId/unequip-broken', async (req, res) => {
-  const { petId } = req.params;
-  try {
-    const [result] = await pool.promise().query(
-      'UPDATE inventory SET is_equipped = 0, equipped_pet_id = NULL WHERE equipped_pet_id = ? AND is_equipped = 1 AND (is_broken = 1 OR durability_left <= 0)',
-      [petId]
-    );
-    res.json({ message: 'Đã gỡ item hỏng khỏi pet', unequipped: result.affectedRows });
-  } catch (err) {
-    console.error('Error unequip-broken:', err);
-    res.status(500).json({ message: 'Lỗi khi gỡ item hỏng' });
-  }
+  // Repair/broken system removed: items are destroyed at durability 0.
+  res.status(410).json({ message: 'Repair system removed. Broken equipment is destroyed automatically.' });
 });
 
 // API: Gỡ item khỏi pet (unequip)
@@ -2162,7 +2252,7 @@ app.post('/api/inventory/:id/use-durability', async (req, res) => {
   const { amount = 1 } = req.body;
 
   try {
-    // Giảm durability và kiểm tra nếu <= 0 thì xóa item
+    // Giảm durability. Nếu về 0 thì tháo khỏi pet + xóa khỏi inventory luôn.
     const [result] = await pool.promise().query(
       'UPDATE inventory SET durability_left = GREATEST(durability_left - ?, 0) WHERE id = ?',
       [amount, id]
@@ -2172,31 +2262,23 @@ app.post('/api/inventory/:id/use-durability', async (req, res) => {
       return res.status(404).json({ message: 'Item không tồn tại' });
     }
 
-    // Kiểm tra durability còn lại
-    const [itemRows] = await pool.promise().query(
-      'SELECT durability_left FROM inventory WHERE id = ?',
-      [id]
-    );
-
-    const durability_left = itemRows[0]?.durability_left || 0;
-
-    // Nếu durability về 0, chuyển sang trạng thái broken thay vì xóa
-    if (durability_left <= 0) {
-      await pool.promise().query('UPDATE inventory SET is_broken = 1 WHERE id = ?', [id]);
-      res.json({ 
-        message: 'Equipment đã hỏng', 
-        durability_left: 0, 
-        item_destroyed: false,
-        item_broken: true 
-      });
-    } else {
-      res.json({ 
-        message: 'Durability đã được cập nhật', 
-        durability_left, 
-        item_destroyed: false,
-        item_broken: false 
+    const [itemRows] = await pool.promise().query('SELECT durability_left FROM inventory WHERE id = ?', [id]);
+    const durability_left = itemRows[0]?.durability_left ?? 0;
+    if (Number(durability_left) <= 0) {
+      // đảm bảo không còn gắn trên pet
+      await pool.promise().query('DELETE FROM inventory WHERE id = ?', [id]);
+      return res.json({
+        message: 'Equipment đã hỏng và bị tiêu hủy',
+        durability_left: 0,
+        item_destroyed: true,
       });
     }
+
+    return res.json({
+      message: 'Durability đã được cập nhật',
+      durability_left: Number(durability_left),
+      item_destroyed: false,
+    });
 
   } catch (err) {
     console.error('Error updating durability:', err);
@@ -2771,6 +2853,217 @@ app.post('/api/admin/boss-skills/csv', checkAdminRoleNpc, uploadMemory.single('f
   }
 });
 
+// ---------- Admin Item Management (items, equipment_data, item_effects) CSV ----------
+app.get('/api/admin/items/csv', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id, name, description, type, rarity, image_url, buy_price, sell_price FROM items ORDER BY id');
+    const headers = ['id', 'name', 'description', 'type', 'rarity', 'image_url', 'buy_price', 'sell_price'];
+    const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => escapeCSV(r[h])).join(','))].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=items.csv');
+    res.send('\uFEFF' + csv);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+app.post('/api/admin/items/csv', checkAdminRoleNpc, uploadMemory.single('file'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) return res.status(400).json({ message: 'Thiếu file CSV' });
+    const text = req.file.buffer.toString('utf8');
+    const { headers, rows } = parseCSV(text);
+    const required = ['name', 'type', 'rarity', 'image_url'];
+    const h = headers.map((x) => x.toLowerCase().trim());
+    if (!required.every((k) => h.includes(k))) return res.status(400).json({ message: 'CSV thiếu cột: ' + required.join(', ') });
+    let updated = 0;
+    let inserted = 0;
+    for (const row of rows) {
+      const o = {};
+      headers.forEach((col, i) => { o[col.toLowerCase().trim()] = row[i]; });
+      const idRaw = o.id != null && String(o.id).trim() !== '' ? parseInt(o.id, 10) : null;
+      const id = idRaw != null && !isNaN(idRaw) ? idRaw : null;
+      const buyPrice = o.buy_price != null && o.buy_price !== '' ? Number(o.buy_price) : 0;
+      const sellPrice = o.sell_price != null && o.sell_price !== '' ? Number(o.sell_price) : 0;
+      let doUpdate = false;
+      if (id != null) {
+        const [ex] = await db.query('SELECT 1 FROM items WHERE id = ? LIMIT 1', [id]);
+        doUpdate = ex && ex.length > 0;
+      }
+      if (doUpdate) {
+        await db.query(
+          'UPDATE items SET name=?, description=?, type=?, rarity=?, image_url=?, buy_price=?, sell_price=? WHERE id=?',
+          [o.name ?? '', o.description ?? '', o.type ?? 'misc', o.rarity ?? 'common', o.image_url ?? '', buyPrice, sellPrice, id]
+        );
+        updated++;
+      } else {
+        await db.query(
+          'INSERT INTO items (name, description, type, rarity, image_url, buy_price, sell_price) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [o.name ?? '', o.description ?? '', o.type ?? 'misc', o.rarity ?? 'common', o.image_url ?? '', buyPrice, sellPrice]
+        );
+        inserted++;
+      }
+    }
+    res.json({ success: true, updated, inserted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+app.get('/api/admin/equipment-stats/csv', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id, item_id, equipment_type, power_min, power_max, durability_max, magic_value, crit_rate, block_rate, element, effect_id FROM equipment_data ORDER BY id');
+    const headers = ['id', 'item_id', 'equipment_type', 'power_min', 'power_max', 'durability_max', 'magic_value', 'crit_rate', 'block_rate', 'element', 'effect_id'];
+    const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => escapeCSV(r[h])).join(','))].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=equipment_data.csv');
+    res.send('\uFEFF' + csv);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+app.post('/api/admin/equipment-stats/csv', checkAdminRoleNpc, uploadMemory.single('file'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) return res.status(400).json({ message: 'Thiếu file CSV' });
+    const text = req.file.buffer.toString('utf8');
+    const { headers, rows } = parseCSV(text);
+    const required = ['item_id'];
+    const h = headers.map((x) => x.toLowerCase().trim());
+    if (!required.every((k) => h.includes(k))) return res.status(400).json({ message: 'CSV thiếu cột: ' + required.join(', ') });
+    let updated = 0;
+    let inserted = 0;
+    const toNum = (v) => (v != null && v !== '' && !isNaN(Number(v)) ? Number(v) : null);
+    for (const row of rows) {
+      const o = {};
+      headers.forEach((col, i) => { o[col.toLowerCase().trim()] = row[i]; });
+      const idRaw = o.id != null && String(o.id).trim() !== '' ? parseInt(o.id, 10) : null;
+      const id = idRaw != null && !isNaN(idRaw) ? idRaw : null;
+      const itemId = parseInt(o.item_id, 10);
+      if (isNaN(itemId)) continue;
+      let doUpdate = false;
+      if (id != null) {
+        const [ex] = await db.query('SELECT 1 FROM equipment_data WHERE id = ? LIMIT 1', [id]);
+        doUpdate = ex && ex.length > 0;
+      }
+      const values = [
+        itemId,
+        o.equipment_type || 'weapon',
+        toNum(o.power_min),
+        toNum(o.power_max),
+        toNum(o.durability_max),
+        toNum(o.magic_value),
+        toNum(o.crit_rate),
+        toNum(o.block_rate),
+        o.element || null,
+        toNum(o.effect_id),
+      ];
+      if (doUpdate) {
+        await db.query(
+          'UPDATE equipment_data SET item_id=?, equipment_type=?, power_min=?, power_max=?, durability_max=?, magic_value=?, crit_rate=?, block_rate=?, element=?, effect_id=? WHERE id=?',
+          [...values, id]
+        );
+        updated++;
+      } else {
+        await db.query(
+          'INSERT INTO equipment_data (item_id, equipment_type, power_min, power_max, durability_max, magic_value, crit_rate, block_rate, element, effect_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          values
+        );
+        inserted++;
+      }
+    }
+    res.json({ success: true, updated, inserted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+app.delete('/api/admin/equipment-stats/:id', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    await db.query('DELETE FROM equipment_data WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+app.get('/api/admin/item-effects/csv', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id, item_id, effect_target, effect_type, value_min, value_max, is_permanent, duration_turns FROM item_effects ORDER BY id');
+    const headers = ['id', 'item_id', 'effect_target', 'effect_type', 'value_min', 'value_max', 'is_permanent', 'duration_turns'];
+    const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => escapeCSV(r[h])).join(','))].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=item_effects.csv');
+    res.send('\uFEFF' + csv);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+app.post('/api/admin/item-effects/csv', checkAdminRoleNpc, uploadMemory.single('file'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) return res.status(400).json({ message: 'Thiếu file CSV' });
+    const text = req.file.buffer.toString('utf8');
+    const { headers, rows } = parseCSV(text);
+    const required = ['item_id', 'effect_target', 'effect_type'];
+    const h = headers.map((x) => x.toLowerCase().trim());
+    if (!required.every((k) => h.includes(k))) return res.status(400).json({ message: 'CSV thiếu cột: ' + required.join(', ') });
+    let updated = 0;
+    let inserted = 0;
+    for (const row of rows) {
+      const o = {};
+      headers.forEach((col, i) => { o[col.toLowerCase().trim()] = row[i]; });
+      const idRaw = o.id != null && String(o.id).trim() !== '' ? parseInt(o.id, 10) : null;
+      const id = idRaw != null && !isNaN(idRaw) ? idRaw : null;
+      const itemId = parseInt(o.item_id, 10);
+      if (isNaN(itemId)) continue;
+      const valueMin = o.value_min != null && o.value_min !== '' ? Number(o.value_min) : 0;
+      const valueMax = o.value_max != null && o.value_max !== '' ? Number(o.value_max) : 0;
+      const isPermanent = o.is_permanent === '1' || String(o.is_permanent).toLowerCase() === 'true';
+      const durationTurns = o.duration_turns != null && o.duration_turns !== '' ? parseInt(o.duration_turns, 10) : 0;
+      let doUpdate = false;
+      if (id != null) {
+        const [ex] = await db.query('SELECT 1 FROM item_effects WHERE id = ? LIMIT 1', [id]);
+        doUpdate = ex && ex.length > 0;
+      }
+      if (doUpdate) {
+        await db.query(
+          'UPDATE item_effects SET item_id=?, effect_target=?, effect_type=?, value_min=?, value_max=?, is_permanent=?, duration_turns=? WHERE id=?',
+          [itemId, o.effect_target ?? 'hp', o.effect_type ?? 'flat', valueMin, valueMax, isPermanent, durationTurns, id]
+        );
+        updated++;
+      } else {
+        await db.query(
+          'INSERT INTO item_effects (item_id, effect_target, effect_type, value_min, value_max, is_permanent, duration_turns) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [itemId, o.effect_target ?? 'hp', o.effect_type ?? 'flat', valueMin, valueMax, isPermanent, durationTurns]
+        );
+        inserted++;
+      }
+    }
+    res.json({ success: true, updated, inserted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+app.delete('/api/admin/item-effects/:id', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    await db.query('DELETE FROM item_effects WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
 
 // API ARENA: Mô phỏng 1 lượt tấn công
 // Công thức Dmg_out chung; defender_current_def_dmg (nếu > 0) áp dụng counter_dmg / phản đòn.
@@ -3179,7 +3472,11 @@ app.post('/api/arena/match/turn', async (req, res) => {
           if (inv && inv.durability_left > 0) {
             inv.durability_left = Math.max(0, inv.durability_left - 1);
             await db.query('UPDATE inventory SET durability_left = GREATEST(durability_left - 1, 0) WHERE id = ?', [itemId]);
-            if (inv.durability_left <= 0) await db.query('UPDATE inventory SET is_broken = 1 WHERE id = ?', [itemId]);
+            if (inv.durability_left <= 0) {
+              await db.query('DELETE FROM inventory WHERE id = ?', [itemId]);
+              state.equipment = (state.equipment || []).filter((e) => e.id !== itemId);
+              state.history.push({ text: `${inv.item_name || 'Equipment'} đã hỏng và bị tiêu hủy.`, type: 'default' });
+            }
           }
         }
       } else {
@@ -3216,7 +3513,11 @@ app.post('/api/arena/match/turn', async (req, res) => {
           if (inv) {
             inv.durability_left = Math.max(0, (inv.durability_left || 1) - 1);
             await db.query('UPDATE inventory SET durability_left = GREATEST(durability_left - 1, 0) WHERE id = ?', [itemId]);
-            if (inv.durability_left <= 0) await db.query('UPDATE inventory SET is_broken = 1 WHERE id = ?', [itemId]);
+            if (inv.durability_left <= 0) {
+              await db.query('DELETE FROM inventory WHERE id = ?', [itemId]);
+              state.equipment = (state.equipment || []).filter((e) => e.id !== itemId);
+              state.history.push({ text: `${inv.item_name || 'Equipment'} đã hỏng và bị tiêu hủy.`, type: 'default' });
+            }
           }
         }
       }
@@ -3434,74 +3735,7 @@ app.post('/api/pets/:id/gain-exp', async (req, res) => {
 
 // API: Sửa chữa equipment bị hỏng bằng Repair Kit
 app.post('/api/inventory/:id/repair-with-kit', async (req, res) => {
-  const { id } = req.params;
-  const { repair_kit_item_id } = req.body;
-
-  try {
-    // Kiểm tra item có bị hỏng không
-    const [itemRows] = await pool.promise().query(
-      `SELECT i.*, it.rarity AS item_rarity, ed.durability_max AS max_durability
-       FROM inventory i
-       JOIN items it ON i.item_id = it.id
-       LEFT JOIN equipment_data ed ON it.id = ed.item_id
-       WHERE i.id = ? AND i.is_broken = 1`,
-      [id]
-    );
-
-    if (itemRows.length === 0) {
-      return res.status(404).json({ message: 'Item không tồn tại hoặc không bị hỏng' });
-    }
-
-    const item = itemRows[0];
-
-    // Kiểm tra Repair Kit có phù hợp không
-    const [kitRows] = await pool.promise().query(
-      `SELECT * FROM items WHERE id = ? AND type = 'repair_kit'`,
-      [repair_kit_item_id]
-    );
-
-    if (kitRows.length === 0) {
-      return res.status(400).json({ message: 'Repair Kit không hợp lệ' });
-    }
-
-    const kit = kitRows[0];
-
-    // Tính hiệu quả repair dựa trên rarity
-    const effectiveness = getRepairEffectiveness(kit.rarity, item.item_rarity);
-    
-    if (effectiveness === 0) {
-      return res.status(400).json({ 
-        message: `Repair Kit ${kit.rarity} không thể sửa equipment ${item.item_rarity}` 
-      });
-    }
-
-    // Tính durability được khôi phục
-    const restoredDurability = Math.floor(item.max_durability * effectiveness / 100);
-
-    // Sửa chữa equipment
-    await pool.promise().query(
-      `UPDATE inventory SET is_broken = 0, durability_left = ? WHERE id = ?`,
-      [restoredDurability, id]
-    );
-
-    // Xóa Repair Kit
-    await pool.promise().query(
-      'DELETE FROM inventory WHERE item_id = ? AND player_id = ? LIMIT 1',
-      [repair_kit_item_id, item.player_id]
-    );
-
-    res.json({ 
-      message: 'Equipment đã được sửa chữa thành công',
-      repair_kit_used: kit.name,
-      effectiveness: effectiveness + '%',
-      durability_left: restoredDurability,
-      max_durability: item.max_durability
-    });
-
-  } catch (err) {
-    console.error('Error repairing equipment:', err);
-    res.status(500).json({ message: 'Lỗi khi sửa chữa equipment' });
-  }
+  res.status(410).json({ message: 'Repair system removed. Equipment is destroyed at 0 durability.' });
 });
 
 // Hàm tính hiệu quả repair dựa trên rarity
@@ -3542,110 +3776,12 @@ function getRepairEffectiveness(repairKitRarity, equipmentRarity) {
 
 // API: Sửa chữa equipment bằng Blacksmith (trả tiền)
 app.post('/api/inventory/:id/repair-with-blacksmith', async (req, res) => {
-  const { id } = req.params;
-  const { user_id } = req.body;
-
-  try {
-    // Kiểm tra item có bị hỏng không
-    const [itemRows] = await pool.promise().query(
-      `SELECT i.*, it.rarity AS item_rarity, ed.durability_max AS max_durability, ed.magic_value AS power
-       FROM inventory i
-       JOIN items it ON i.item_id = it.id
-       LEFT JOIN equipment_data ed ON it.id = ed.item_id
-       WHERE i.id = ? AND i.is_broken = 1`,
-      [id]
-    );
-
-    if (itemRows.length === 0) {
-      return res.status(404).json({ message: 'Item không tồn tại hoặc không bị hỏng' });
-    }
-
-    const item = itemRows[0];
-
-    // Tính giá sửa chữa dựa trên rarity và power
-    let repairCost;
-    switch (item.item_rarity) {
-      case 'common':
-        repairCost = 100;
-        break;
-      case 'uncommon':
-        repairCost = 300;
-        break;
-      case 'rare':
-        repairCost = 800;
-        break;
-      case 'epic':
-        repairCost = 2000;
-        break;
-      case 'legendary':
-        repairCost = 5000;
-        break;
-      default:
-        repairCost = 500;
-    }
-
-    // Thêm bonus cost dựa trên power
-    repairCost += Math.floor(item.power / 10) * 50;
-
-    // Kiểm tra tiền của user
-    const [userRows] = await pool.promise().query(
-      'SELECT peta FROM users WHERE id = ?',
-      [user_id]
-    );
-
-    if (userRows.length === 0) {
-      return res.status(404).json({ message: 'User không tồn tại' });
-    }
-
-    if (userRows[0].peta < repairCost) {
-      return res.status(400).json({ 
-        message: `Không đủ tiền. Cần ${repairCost} peta để sửa chữa` 
-      });
-    }
-
-    // Trừ tiền và sửa chữa
-    await pool.promise().query(
-      'UPDATE users SET peta = peta - ? WHERE id = ?',
-      [repairCost, user_id]
-    );
-
-    await pool.promise().query(
-      `UPDATE inventory SET is_broken = 0, durability_left = ? WHERE id = ?`,
-      [item.max_durability, id]
-    );
-
-    res.json({ 
-      message: `Equipment đã được sửa chữa thành công với giá ${repairCost} gold`,
-      durability_left: item.max_durability,
-      repair_cost: repairCost
-    });
-
-  } catch (err) {
-    console.error('Error repairing equipment with blacksmith:', err);
-    res.status(500).json({ message: 'Lỗi khi sửa chữa equipment' });
-  }
+  res.status(410).json({ message: 'Repair system removed. Equipment is destroyed at 0 durability.' });
 });
 
 // API: Lấy danh sách equipment bị hỏng của user
 app.get('/api/users/:userId/broken-equipment', async (req, res) => {
-  const { userId } = req.params;
-
-  try {
-    const [rows] = await pool.promise().query(
-      `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, it.rarity,
-              ed.magic_value AS power, ed.durability_max AS max_durability
-       FROM inventory i
-       JOIN items it ON i.item_id = it.id
-       LEFT JOIN equipment_data ed ON it.id = ed.item_id
-       WHERE i.player_id = ? AND i.is_broken = 1`,
-      [userId]
-    );
-
-    res.json(rows);
-  } catch (err) {
-    console.error('Error fetching broken equipment:', err);
-    res.status(500).json({ message: 'Lỗi khi lấy danh sách equipment hỏng' });
-  }
+  res.status(410).json({ message: 'Repair system removed. Equipment is destroyed at 0 durability.' });
 });
 
 // ==================== HUNGER STATUS SYSTEM ====================
@@ -4506,6 +4642,25 @@ app.post('/api/spirits/unequip', async (req, res) => {
     }
 
     const petId = userSpiritCheck[0].equipped_pet_id;
+
+    // Chuẩn hóa current_hp để tránh vi phạm chk_current_hp_valid khi hệ thống recalculation/trigger chạy
+    if (petId != null) {
+      const [petRows] = await db.query('SELECT id, current_hp, max_hp, final_stats FROM pets WHERE id = ?', [petId]);
+      if (petRows.length > 0) {
+        const pet = petRows[0];
+        let maxHp = pet.max_hp != null ? Number(pet.max_hp) : null;
+        if (pet.final_stats) {
+          try {
+            const fs = typeof pet.final_stats === 'string' ? JSON.parse(pet.final_stats) : pet.final_stats;
+            if (fs && fs.hp != null) maxHp = Number(fs.hp);
+          } catch (_) {}
+        }
+        const maxHpVal = maxHp != null && maxHp > 0 ? maxHp : 1;
+        const curHp = pet.current_hp != null ? Number(pet.current_hp) : maxHpVal;
+        const validHp = Math.max(0, Math.min(curHp, maxHpVal));
+        await db.query('UPDATE pets SET current_hp = ? WHERE id = ?', [validHp, petId]);
+      }
+    }
     
     // Tháo spirit
     await db.query(`
@@ -4570,8 +4725,32 @@ app.post('/api/spirits/claim', async (req, res) => {
 
 // ======================================================== ADMIN SPIRIT APIs ========================================================
 
+// GET /api/admin/spirits - Danh sách Linh Thú cho admin (kèm stats)
+app.get('/api/admin/spirits', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const [spirits] = await db.query(`
+      SELECT s.*, COUNT(ss.id) AS stats_count
+      FROM spirits s
+      LEFT JOIN spirit_stats ss ON s.id = ss.spirit_id
+      GROUP BY s.id
+      ORDER BY s.id
+    `);
+    for (const spirit of spirits) {
+      const [stats] = await db.query(
+        'SELECT stat_type, stat_value, stat_modifier FROM spirit_stats WHERE spirit_id = ? ORDER BY stat_type',
+        [spirit.id]
+      );
+      spirit.stats = stats;
+    }
+    res.json(spirits);
+  } catch (err) {
+    console.error('Lỗi khi lấy danh sách spirits (admin):', err);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách spirits' });
+  }
+});
+
 // POST /api/admin/spirits - Tạo Linh Thú mới
-app.post('/api/admin/spirits', async (req, res) => {
+app.post('/api/admin/spirits', checkAdminRoleNpc, async (req, res) => {
   const { name, description, image_url, rarity, max_stats_count, stats } = req.body;
   
   try {
@@ -4605,7 +4784,7 @@ app.post('/api/admin/spirits', async (req, res) => {
 });
 
 // PUT /api/admin/spirits/:id - Cập nhật Linh Thú
-app.put('/api/admin/spirits/:id', async (req, res) => {
+app.put('/api/admin/spirits/:id', checkAdminRoleNpc, async (req, res) => {
   const { id } = req.params;
   const { name, description, image_url, rarity, max_stats_count, stats } = req.body;
   
@@ -4641,7 +4820,7 @@ app.put('/api/admin/spirits/:id', async (req, res) => {
 });
 
 // DELETE /api/admin/spirits/:id - Xóa Linh Thú
-app.delete('/api/admin/spirits/:id', async (req, res) => {
+app.delete('/api/admin/spirits/:id', checkAdminRoleNpc, async (req, res) => {
   const { id } = req.params;
   
   try {
@@ -4673,7 +4852,7 @@ app.delete('/api/admin/spirits/:id', async (req, res) => {
 });
 
 // GET /api/admin/spirits/:id - Lấy chi tiết Linh Thú cho admin
-app.get('/api/admin/spirits/:id', async (req, res) => {
+app.get('/api/admin/spirits/:id', checkAdminRoleNpc, async (req, res) => {
   const { id } = req.params;
   
   try {
@@ -4701,6 +4880,103 @@ app.get('/api/admin/spirits/:id', async (req, res) => {
   } catch (err) {
     console.error('Lỗi khi lấy chi tiết spirit:', err);
     res.status(500).json({ error: 'Lỗi khi lấy chi tiết spirit' });
+  }
+});
+
+// GET /api/admin/spirits/csv - Tải CSV spirits
+app.get('/api/admin/spirits/csv', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const [spirits] = await db.query('SELECT * FROM spirits ORDER BY id');
+    const headers = ['id', 'name', 'description', 'image_url', 'rarity', 'max_stats_count', 'stats_json'];
+    const lines = [headers.join(',')];
+    for (const spirit of spirits) {
+      const [stats] = await db.query(
+        'SELECT stat_type, stat_value, stat_modifier FROM spirit_stats WHERE spirit_id = ? ORDER BY stat_type',
+        [spirit.id]
+      );
+      const row = {
+        ...spirit,
+        stats_json: JSON.stringify(stats || []),
+      };
+      lines.push(headers.map((h) => escapeCSV(row[h])).join(','));
+    }
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=spirits.csv');
+    res.send('\uFEFF' + lines.join('\n'));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// POST /api/admin/spirits/csv - Upload CSV spirits
+app.post('/api/admin/spirits/csv', checkAdminRoleNpc, uploadMemory.single('file'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) return res.status(400).json({ message: 'Thiếu file CSV' });
+    const text = req.file.buffer.toString('utf8');
+    const { headers, rows } = parseCSV(text);
+    const required = ['name', 'image_url'];
+    const h = headers.map((x) => x.toLowerCase().trim());
+    if (!required.every((k) => h.includes(k))) return res.status(400).json({ message: 'CSV thiếu cột: ' + required.join(', ') });
+    let updated = 0;
+    let inserted = 0;
+
+    for (const row of rows) {
+      const o = {};
+      headers.forEach((col, i) => { o[col.toLowerCase().trim()] = row[i]; });
+      const idRaw = o.id != null && String(o.id).trim() !== '' ? parseInt(o.id, 10) : null;
+      const id = idRaw != null && !isNaN(idRaw) ? idRaw : null;
+      const maxStatsCount = o.max_stats_count != null && o.max_stats_count !== '' ? parseInt(o.max_stats_count, 10) : 2;
+      let stats = [];
+      if (o.stats_json && String(o.stats_json).trim()) {
+        try {
+          const parsed = JSON.parse(o.stats_json);
+          if (Array.isArray(parsed)) stats = parsed;
+        } catch (_) {}
+      }
+
+      let doUpdate = false;
+      if (id != null) {
+        const [ex] = await db.query('SELECT 1 FROM spirits WHERE id = ? LIMIT 1', [id]);
+        doUpdate = ex && ex.length > 0;
+      }
+
+      let spiritId = id;
+      if (doUpdate) {
+        await db.query(
+          'UPDATE spirits SET name=?, description=?, image_url=?, rarity=?, max_stats_count=? WHERE id=?',
+          [o.name ?? '', o.description ?? '', o.image_url ?? '', o.rarity ?? 'common', isNaN(maxStatsCount) ? 2 : maxStatsCount, id]
+        );
+        await db.query('DELETE FROM spirit_stats WHERE spirit_id = ?', [id]);
+        updated++;
+      } else {
+        const [ins] = await db.query(
+          'INSERT INTO spirits (name, description, image_url, rarity, max_stats_count) VALUES (?, ?, ?, ?, ?)',
+          [o.name ?? '', o.description ?? '', o.image_url ?? '', o.rarity ?? 'common', isNaN(maxStatsCount) ? 2 : maxStatsCount]
+        );
+        spiritId = ins.insertId;
+        inserted++;
+      }
+
+      if (Array.isArray(stats)) {
+        for (const stat of stats) {
+          await db.query(
+            'INSERT INTO spirit_stats (spirit_id, stat_type, stat_value, stat_modifier) VALUES (?, ?, ?, ?)',
+            [
+              spiritId,
+              stat.stat_type ?? 'hp',
+              stat.stat_value != null && !isNaN(Number(stat.stat_value)) ? Number(stat.stat_value) : 0,
+              stat.stat_modifier === 'percentage' ? 'percentage' : 'flat',
+            ]
+          );
+        }
+      }
+    }
+
+    res.json({ success: true, updated, inserted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
   }
 });
 
@@ -5946,6 +6222,61 @@ app.post('/api/healia-river/heal', async (req, res) => {
       details: error.message,
       code: error.code
     });
+  }
+});
+
+// ========================================
+// RESTAURANT API (Nhà hàng - cho thú cưng ăn, hồi hunger_status)
+// ========================================
+// POST /api/restaurant/feed - Tốn 1 Peta, cho tất cả thú cưng ăn no (hunger_status = 3, hunger_battles = 0)
+app.post('/api/restaurant/feed', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ error: 'Cần đăng nhập để sử dụng Nhà hàng.' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+
+    const [userRows] = await db.query('SELECT id, peta FROM users WHERE id = ?', [userId]);
+    if (userRows.length === 0) {
+      return res.status(401).json({ error: 'Người dùng không tồn tại.' });
+    }
+    const user = userRows[0];
+    const petaBalance = Number(user.peta) || 0;
+    if (petaBalance < 1) {
+      return res.status(400).json({ error: 'Bạn không đủ Peta. Cần 1 Peta để dùng menu.' });
+    }
+
+    const [petRows] = await db.query(
+      'SELECT id FROM pets WHERE owner_id = ?',
+      [userId]
+    );
+    if (petRows.length === 0) {
+      return res.status(400).json({ error: 'Bạn chưa có thú cưng nào để cho ăn.' });
+    }
+
+    const HUNGER_FULL = 3;
+    const HUNGER_BATTLES_RESET = 0;
+    for (const pet of petRows) {
+      await db.query(
+        'UPDATE pets SET hunger_status = ?, hunger_battles = ? WHERE id = ?',
+        [HUNGER_FULL, HUNGER_BATTLES_RESET, pet.id]
+      );
+    }
+
+    await db.query('UPDATE users SET peta = peta - 1 WHERE id = ?', [userId]);
+
+    res.json({
+      success: true,
+      message: 'Tất cả thú cưng đã được cho ăn no (trạng thái mập mạp)!',
+      petaRemaining: petaBalance - 1,
+      petsFed: petRows.length
+    });
+  } catch (err) {
+    console.error('Restaurant feed error:', err);
+    res.status(500).json({ error: 'Lỗi server khi sử dụng Nhà hàng.' });
   }
 });
 

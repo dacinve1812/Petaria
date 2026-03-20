@@ -13,6 +13,7 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   const [itemEffects, setItemEffects] = useState([]);
   const [selectedAction, setSelectedAction] = useState('');
   const [showActionDropdown, setShowActionDropdown] = useState(false);
+  const [sellQuantity, setSellQuantity] = useState(1);
   const [userOwnedQuantity, setUserOwnedQuantity] = useState(0);
   const [fetchedEquipmentData, setFetchedEquipmentData] = useState(null);
   const [purchaseQuantity, setPurchaseQuantity] = useState(1);
@@ -21,6 +22,8 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   useEffect(() => {
     if (item) {
       setItemDetails(item);
+      setSelectedAction('');
+      setSellQuantity(1);
       
       // Fetch item effects
       const itemId = item.item_id || item.id;
@@ -137,9 +140,13 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
 
   // Define available actions for different item types
   const getAvailableActions = () => {
-    if (item?.type === 'equipment') {
+    if (item?.type === 'equipment' && !item?.is_equipped) {
       return [
-        { value: 'equip', label: item.is_equipped ? 'Remove' : 'Equip' }
+        { value: 'equip', label: 'Equip' },
+        { value: 'sell', label: 'Bán ve chai' },
+        { value: 'sell_auction', label: 'Đặt vào cửa hàng' },
+        { value: 'exhibition', label: 'Mang vào phòng triển lãm' },
+        { value: 'gift', label: 'Tặng cho bạn bè' }
       ];
     }
     
@@ -163,7 +170,11 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
     
     if (actionValue === 'equip') {
       handleActionClick();
-    } else if (['sell', 'sell_auction', 'exhibition', 'gift'].includes(actionValue)) {
+    } else if (actionValue === 'remove') {
+      handleActionClick();
+    } else if (actionValue === 'sell') {
+      setSellQuantity(1);
+    } else if (['sell_auction', 'exhibition', 'gift'].includes(actionValue)) {
       // Placeholder actions - show alert for now
       alert(`Tính năng "${getActionLabel(actionValue)}" sẽ được cập nhật sau!`);
     } else {
@@ -341,6 +352,66 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
     }
   };
 
+  const getCurrentOwnedQuantity = () => {
+    if (mode === 'shop') return userOwnedQuantity || 0;
+    return Number(item.quantity) || 0;
+  };
+
+  const changeSellQuantity = (delta) => {
+    const maxQty = Math.max(1, getCurrentOwnedQuantity());
+    setSellQuantity((prev) => {
+      const next = prev + delta;
+      return Math.max(1, Math.min(next, maxQty));
+    });
+  };
+
+  const handleSellQuantityInput = (e) => {
+    const maxQty = Math.max(1, getCurrentOwnedQuantity());
+    const v = parseInt(e.target.value, 10) || 1;
+    setSellQuantity(Math.max(1, Math.min(v, maxQty)));
+  };
+
+  const handleSellItem = async () => {
+    const maxQty = getCurrentOwnedQuantity();
+    if (maxQty <= 0) {
+      alert('Không còn vật phẩm để bán.');
+      return;
+    }
+    const qty = Math.max(1, Math.min(sellQuantity, maxQty));
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/inventory/${item.id}/sell`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ quantity: qty }),
+      });
+      const result = await res.json();
+      if (res.ok) {
+        alert(result.message || 'Bán thành công!');
+        if (typeof onUpdateItem === 'function') {
+          const remain = Number(result.remaining_quantity);
+          if (remain <= 0 || result.removed) {
+            onUpdateItem(null);
+          } else {
+            onUpdateItem({ ...item, quantity: remain });
+          }
+        }
+        onClose();
+      } else {
+        alert(result.message || 'Bán thất bại.');
+      }
+    } catch (err) {
+      console.error('Lỗi khi bán item:', err);
+      alert('Lỗi khi bán vật phẩm.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handlePetSelectionConfirm = async (petId, quantity = 1) => {
     setLoading(true);
     try {
@@ -470,6 +541,9 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   };
 
   const equipmentData = getEquipmentData();
+  const ownedQty = getCurrentOwnedQuantity();
+  const sellPricePerItem = Number(displayItem.sell_price || item.sell_price || 0);
+  const sellTotal = sellPricePerItem * Math.max(1, Math.min(sellQuantity, Math.max(1, ownedQty)));
 
   return (
     <div 
@@ -497,33 +571,33 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
           />
           
           <div className="inventory-item-modal-header-info">
-            <h3 className="inventory-item-modal-name">{displayItem.name}</h3>
-            <div className="inventory-item-modal-rarity" style={{ color: getRarityColor(displayItem.rarity) }}>
-              {getRarityText(displayItem.rarity)}
+            <h3 className="inventory-item-modal-name">{displayItem.name}    </h3>
+            <div className="inventory-item-modal-quantity-value">
+              <span className="inventory-item-modal-header-info-label">Loại: </span>
+              {displayItem.type || item.type || '-'}
             </div>
-            {/* Quantity for non-equipment items */}
-            {item.type !== 'equipment' && (
+            <div className="inventory-item-modal-rarity">
+              <span className="inventory-item-modal-header-info-label">Độ hiếm: </span>
+              <span style={{ color: getRarityColor(displayItem.rarity) }}>
+                {getRarityText(displayItem.rarity)}
+              </span>
+            </div>
+            <div className="inventory-item-modal-quantity-value">
+              <span className="inventory-item-modal-header-info-label">Chỉ số ma thuật: </span>
+              {fetchedEquipmentData?.magic_value ?? displayItem.power ?? item.power ?? 0}
+            </div>
+            {item.type === 'equipment' && mode !== 'shop' && (
               <div className="inventory-item-modal-quantity-value">
-                Owned: {mode === 'shop' ? userOwnedQuantity : item.quantity}
+                <span className="inventory-item-modal-header-info-label">Độ bền: </span>
+                {item.durability_left}/{item.max_durability}
               </div>
             )}
-            {item.type === 'equipment' && (
-                <>
-                  {mode === 'shop' && (
-                    <div className="inventory-item-modal-quantity-value">
-                      Owned: {userOwnedQuantity}
-                    </div>
-                  )}
-                  {mode !== 'shop' && (
-                    <div className="inventory-item-modal-quantity-value">
-                      Durability: {item.durability_left}/{item.max_durability}
-                    </div>
-                  )}
-                </>
-              )}
-            
-            
-          
+            {item.type !== 'equipment' && (
+              <div className="inventory-item-modal-quantity-value">
+                <span className="inventory-item-modal-header-info-label">Sở hữu: </span>
+                {mode === 'shop' ? userOwnedQuantity : item.quantity}
+              </div>
+            )}
           </div>
         </div>
 
@@ -628,37 +702,83 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
             </div>
           ) : (
             <div className="inventory-item-modal-action-container">
-              {item.type === 'equipment' ? (
-                <button 
-                  className={`inventory-item-modal-action-btn ${item.is_equipped ? 'unequip' : ''}`}
+              {item.type === 'equipment' && item.is_equipped ? (
+                <button
+                  className="inventory-item-modal-action-btn unequip"
                   onClick={handleActionClick}
                   disabled={loading}
                 >
-                  {loading ? 'Đang xử lý...' : item.is_equipped ? 'Remove' : 'Equip'}
+                  {loading ? 'Đang xử lý...' : 'Remove'}
                 </button>
               ) : (
-                <div className="inventory-item-modal-dropdown">
-                  <button 
-                    className="inventory-item-modal-action-btn dropdown-trigger"
-                    onClick={() => setShowActionDropdown(!showActionDropdown)}
-                    disabled={loading}
-                  >
-                    {loading ? 'Đang xử lý...' : 'Chọn hành động'}
-                  </button>
-                  {showActionDropdown && (
-                    <div className="inventory-item-modal-dropdown-menu">
-                      {getAvailableActions().map((actionOption) => (
-                        <button
-                          key={actionOption.value}
-                          className="inventory-item-modal-dropdown-item"
-                          onClick={() => handleActionSelect(actionOption.value)}
-                        >
-                          {actionOption.label}
-                        </button>
-                      ))}
+                <>
+                  {!selectedAction && (
+                    <div className="inventory-item-modal-dropdown">
+                      <button 
+                        className="inventory-item-modal-action-btn dropdown-trigger"
+                        onClick={() => setShowActionDropdown(!showActionDropdown)}
+                        disabled={loading}
+                      >
+                        {loading ? 'Đang xử lý...' : 'Chọn hành động'}
+                      </button>
+                      {showActionDropdown && (
+                        <div className="inventory-item-modal-dropdown-menu">
+                          {getAvailableActions().map((actionOption) => (
+                            <button
+                              key={actionOption.value}
+                              className="inventory-item-modal-dropdown-item"
+                              onClick={() => handleActionSelect(actionOption.value)}
+                            >
+                              {actionOption.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
+
+                  {selectedAction === 'sell' && (
+                    <div className="quantity-selector" style={{ marginTop: 10, display: 'flex', flexDirection: 'column' }}>
+                      <div className="quantity-controls">
+                        <button
+                          className="quantity-btn minus"
+                          onClick={() => changeSellQuantity(-1)}
+                          disabled={loading || sellQuantity <= 1}
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          className="quantity-input"
+                          value={sellQuantity}
+                          min="1"
+                          max={Math.max(1, ownedQty)}
+                          onChange={handleSellQuantityInput}
+                          disabled={loading}
+                        />
+                        <button
+                          className="quantity-btn plus"
+                          onClick={() => changeSellQuantity(1)}
+                          disabled={loading || sellQuantity >= Math.max(1, ownedQty)}
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="purchase-summary" style={{ marginTop: 8, display: 'flex', flexDirection: 'column' }}>
+                        <div className="total-price">
+                          {sellTotal} peta
+                        </div>
+                        <button
+                          className="inventory-item-modal-action-btn buy-btn"
+                          onClick={handleSellItem}
+                          disabled={loading || ownedQty <= 0}
+                        >
+                          {loading ? 'Đang xử lý...' : 'Xác nhận bán'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

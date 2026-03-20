@@ -46,7 +46,7 @@ const NavigationMenu = ({ className = '' }) => {
         { title: 'Ngân Hàng', path: '/bank' },
         { title: 'Mua sắm', path: '/shop' },
         { title: 'Đấu giá', path: '/auction' },
-        { title: 'Nhà hàng', path: '/' },
+        { title: 'Nhà hàng', path: '/restaurant' },
         { title: 'Bưu điện', path: '/mail' },
         { title: 'Viện mồ côi', path: '/orphanage' },
         { title: 'Sông Healia', path: '/healia-river' },

@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import ItemCard from './ItemCard';
 import ItemDetailModal from './ItemDetailModal';
-import RepairButton from './RepairButton';
 import GlobalBanner from '../GlobalBanner';
 import TemplatePage from '../template/TemplatePage';
 import { resolveAssetPath } from '../../utils/pathUtils';
@@ -106,19 +105,7 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
     }
   };
 
-  const handleRepairComplete = () => {
-    // Refresh inventory after repair
-    if (userId && token) {
-      fetch(`${API_BASE_URL}/api/users/${userId}/inventory`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-        .then(res => res.json())
-        .then(data => setInventoryItems(data))
-        .catch(err => {
-          console.error('Lỗi khi refresh inventory:', err);
-        });
-    }
-  };
+  // Repair system removed: equipment breaks -> destroyed
 
   if (error) return <div>Error: {error}</div>;
 
@@ -160,9 +147,6 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
               {showEquipped ? 'Ẩn vật phẩm đã trang bị' : 'Hiện tất cả vật phẩm'}
             </button>
 
-            <div className="inventory-repair-section">
-              <RepairButton userId={userId} onRepairComplete={handleRepairComplete} />
-            </div>
             </div>
           </div>
         </div>

@@ -1,453 +1,313 @@
-// File: EditItems.js
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useUser } from '../../UserContext';
-import './EditItems.css';
+import './AdminNpcBossManagement.css';
+
+const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
+
+const authHeaders = (token) => ({
+  Authorization: `Bearer ${token}`,
+});
 
 function EditItems() {
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const navigate = useNavigate();
   const { user, isLoading } = useUser();
-
   const [items, setItems] = useState([]);
-  const [filteredItems, setFilteredItems] = useState([]);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    type: '',
-    rarity: '',
-    image_url: '',
-    buy_price: 0,
-    sell_price: 0,
-  });
-  const [editMode, setEditMode] = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [showList, setShowList] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [filterType, setFilterType] = useState('');
-  const [filterRarity, setFilterRarity] = useState('');
-  const [sortAZ, setSortAZ] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(10);
-
-  const fetchItems = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/api/admin/items`, {
-        headers: {
-          'Authorization': `Bearer ${user.token}`
-        }
-      });
-      if (!res.ok) throw new Error('Lỗi khi lấy danh sách items');
-      const data = await res.json();
-      setItems(data);
-      setFilteredItems(data);
-    } catch (err) {
-      setMessage(`❌ ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [messageType, setMessageType] = useState('success');
+  const [uploadResult, setUploadResult] = useState(null);
+  const [modal, setModal] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'asc' });
 
   useEffect(() => {
-    if (showList) {
-      fetchItems();
-    }
-  }, [showList]);
-
-  useEffect(() => {
-    let filtered = [...items];
-    if (filterType) filtered = filtered.filter(i => i.type === filterType);
-    if (filterRarity) filtered = filtered.filter(i => i.rarity === filterRarity);
-    if (formData.name) filtered = filtered.filter(i => i.name.toLowerCase().includes(formData.name.toLowerCase()));
-    if (sortAZ) filtered.sort((a, b) => a.name.localeCompare(b.name));
-    setFilteredItems(filtered);
-    setCurrentPage(1);
-  }, [items, filterType, filterRarity, sortAZ, formData.name]);
-
-  useEffect(() => {
-    if (!isLoading && (!user || !user.isAdmin)) {
-      navigate('/login');
-    }
+    if (!isLoading && (!user || !user.isAdmin)) navigate('/login');
   }, [user, isLoading, navigate]);
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
+  useEffect(() => {
+    if (user?.token && user?.isAdmin) loadItems();
+  }, [user?.token, user?.isAdmin]);
 
-  if (!user || !user.isAdmin) {
-    return null;
-  }
+  const showMsg = (msg, type = 'success') => {
+    setMessage(msg);
+    setMessageType(type);
+    setUploadResult(null);
+  };
 
-  const paginatedItems = filteredItems.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
+  const loadItems = async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/items`, { headers: authHeaders(user.token) });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || data.message || 'Lỗi tải items');
+      setItems(Array.isArray(data) ? data : []);
+    } catch (e) {
+      showMsg(e.message || 'Lỗi tải items', 'error');
+    }
+  };
+
+  const deleteItem = async (id) => {
+    if (!window.confirm('Bạn có chắc muốn xóa item này?')) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/items/${id}`, { method: 'DELETE', headers: authHeaders(user.token) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.message || data.error || 'Lỗi xóa');
+      showMsg('Đã xóa item.');
+      loadItems();
+    } catch (e) {
+      showMsg(e.message || 'Lỗi xóa item', 'error');
+    }
+  };
+
+  const saveItem = async (payload) => {
+    const { mode, row } = modal;
+    try {
+      const url = mode === 'edit' ? `${API_BASE}/api/admin/items/${row.id}` : `${API_BASE}/api/admin/items`;
+      const r = await fetch(url, {
+        method: mode === 'edit' ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(user.token) },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.message || data.error || 'Lỗi lưu item');
+      showMsg(mode === 'edit' ? 'Đã cập nhật item.' : 'Đã thêm item.');
+      setModal(null);
+      loadItems();
+    } catch (e) {
+      showMsg(e.message || 'Lỗi lưu item', 'error');
+    }
+  };
+
+  const downloadCSV = async () => {
+    const url = `${API_BASE}/api/admin/items/csv`;
+    try {
+      const r = await fetch(url, { headers: authHeaders(user.token) });
+      if (!r.ok) throw new Error('Lỗi tải CSV');
+      const blob = await r.blob();
+      const u = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = u;
+      link.download = 'items.csv';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(u);
+    } catch (e) {
+      showMsg(e.message || 'Lỗi tải CSV', 'error');
+    }
+  };
+
+  const uploadCSV = async (file) => {
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/items/csv`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${user.token}` },
+        body: fd,
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.message || 'Lỗi upload CSV');
+      setUploadResult(data);
+      showMsg(`CSV: ${data.inserted || 0} thêm, ${data.updated || 0} cập nhật.`);
+      loadItems();
+    } catch (e) {
+      showMsg(e.message || 'Lỗi upload CSV', 'error');
+    }
+  };
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => {
+      if (prev.key === key) {
+        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
+  const sortIndicator = (key) => {
+    if (sortConfig.key !== key) return '';
+    return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
+  };
+
+  const displayItems = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    const filtered = q
+      ? items.filter((item) => {
+          const haystack = [
+            item.id,
+            item.name,
+            item.description,
+            item.type,
+            item.rarity,
+            item.image_url,
+            item.buy_price,
+            item.sell_price,
+          ]
+            .map((v) => String(v ?? '').toLowerCase())
+            .join(' ');
+          return haystack.includes(q);
+        })
+      : [...items];
+
+    const sorted = [...filtered].sort((a, b) => {
+      const av = a[sortConfig.key];
+      const bv = b[sortConfig.key];
+      const aNum = Number(av);
+      const bNum = Number(bv);
+      let cmp = 0;
+      if (!Number.isNaN(aNum) && !Number.isNaN(bNum) && av !== '' && bv !== '') {
+        cmp = aNum - bNum;
+      } else {
+        cmp = String(av ?? '').localeCompare(String(bv ?? ''), 'vi', { sensitivity: 'base' });
+      }
+      return sortConfig.direction === 'asc' ? cmp : -cmp;
+    });
+    return sorted;
+  }, [items, searchTerm, sortConfig]);
+
+  if (isLoading) return <div className="admin-npc-boss"><div className="loading">Đang tải...</div></div>;
+  if (!user || !user.isAdmin) return <div className="admin-npc-boss"><div className="access-denied"><h2>Access Denied</h2></div></div>;
+
+  return (
+    <div className="admin-npc-boss">
+      <div className="admin-header">
+        <div className="header-text">
+          <h1>Quản lý Items</h1>
+          <p>Chỉnh sửa bảng items, tải/upload CSV và liên kết nhanh tới Equipment Stats / Item Effects.</p>
+        </div>
+        <button className="back-admin-btn" onClick={() => navigate('/admin')}>← Quay lại Admin</button>
+      </div>
+
+      {message && <div className={`message ${messageType}`}>{message}</div>}
+      {uploadResult && <div className="message success">Kết quả CSV: thêm {uploadResult.inserted || 0}, cập nhật {uploadResult.updated || 0}.</div>}
+
+      <div className="section-card">
+        <h3>Bảng items</h3>
+        <div className="section-actions">
+          <button className="btn btn-primary" onClick={() => setModal({ mode: 'add', row: {} })}>Thêm</button>
+          <button className="btn btn-secondary" onClick={downloadCSV}>Tải CSV</button>
+          <label className="btn btn-secondary" style={{ margin: 0 }}>
+            Upload CSV
+            <input type="file" accept=".csv" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCSV(f); e.target.value = ''; }} />
+          </label>
+          <input
+            type="text"
+            placeholder="Search item..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #ced4da', minWidth: 220 }}
+          />
+        </div>
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('id')}>id{sortIndicator('id')}</th>
+                <th>Ảnh</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('name')}>name{sortIndicator('name')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('description')}>description{sortIndicator('description')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('type')}>type{sortIndicator('type')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('rarity')}>rarity{sortIndicator('rarity')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('buy_price')}>buy_price{sortIndicator('buy_price')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('sell_price')}>sell_price{sortIndicator('sell_price')}</th>
+                <th>Liên kết</th><th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayItems.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.id}</td>
+                  <td>
+                    <img
+                      src={item.image_url?.startsWith('/') || item.image_url?.startsWith('http') ? item.image_url : `/images/equipments/${item.image_url}`}
+                      alt=""
+                      className="boss-thumb"
+                      onError={(e) => { e.target.src = '/images/equipments/placeholder.png'; e.target.onerror = null; }}
+                    />
+                  </td>
+                  <td>{item.name}</td>
+                  <td title={item.description}>{String(item.description || '').slice(0, 50)}{String(item.description || '').length > 50 ? '…' : ''}</td>
+                  <td>{item.type}</td>
+                  <td>{item.rarity}</td>
+                  <td>{item.buy_price ?? 0}</td>
+                  <td>{item.sell_price ?? 0}</td>
+                  <td>
+                    <div className="cell-actions">
+                      {item.type === 'equipment' && <Link className="btn-edit" to={`/admin/edit-equipment-stats?item_id=${item.id}`}>Equipment</Link>}
+                      {(item.type === 'booster' || item.type === 'consumable') && <Link className="btn-edit" to={`/admin/edit-item-effects?item_id=${item.id}`}>Effects</Link>}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="cell-actions">
+                      <button className="btn-edit" onClick={() => setModal({ mode: 'edit', row: item })}>Sửa</button>
+                      <button className="btn-delete" onClick={() => deleteItem(item.id)}>Xóa</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {displayItems.length === 0 && (
+                <tr>
+                  <td colSpan={10} style={{ textAlign: 'center', color: '#6c757d' }}>Không có item phù hợp.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {modal && <ItemModal mode={modal.mode} row={modal.row} onClose={() => setModal(null)} onSave={saveItem} />}
+    </div>
   );
+}
 
-  const totalPages = Math.ceil(filteredItems.length / pageSize);
+function ItemModal({ mode, row, onClose, onSave }) {
+  const [form, setForm] = useState({
+    name: row.name ?? '',
+    description: row.description ?? '',
+    type: row.type ?? 'misc',
+    rarity: row.rarity ?? 'common',
+    image_url: row.image_url ?? '',
+    buy_price: row.buy_price ?? 0,
+    sell_price: row.sell_price ?? 0,
+  });
 
-  const handlePageClick = (page) => {
-    setCurrentPage(page);
-  };
+  const update = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e) => {
+  const submit = (e) => {
     e.preventDefault();
-    setLoading(true);
-    setMessage('');
-
-    const endpoint = editMode
-      ? `${API_BASE_URL}/api/admin/items/${editId}`
-      : `${API_BASE_URL}/api/admin/items`;
-    const method = editMode ? 'PUT' : 'POST';
-
-    try {
-      const res = await fetch(endpoint, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}`
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!res.ok) throw new Error('Lỗi khi lưu item');
-
-      await fetchItems();
-      setFormData({ name: '', description: '', type: '', rarity: '', image_url: '', buy_price: 0, sell_price: 0 });
-      setEditMode(false);
-      setEditId(null);
-      setMessage('✅ Item đã được lưu thành công!');
-    } catch (err) {
-      setMessage(`❌ ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEdit = (item) => {
-    setFormData(item);
-    setEditMode(true);
-    setEditId(item.id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleDelete = async (id) => {
-    const confirm = window.confirm('Bạn có chắc muốn xoá item này không?');
-    if (!confirm) return;
-    
-    setLoading(true);
-    setMessage('');
-    
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/items/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${user.token}`
-        }
-      });
-      if (!res.ok) throw new Error('Lỗi khi xoá item');
-      await fetchItems();
-      setMessage('✅ Đã xoá item thành công!');
-    } catch (err) {
-      setMessage(`❌ ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    onSave({
+      ...form,
+      buy_price: Number(form.buy_price) || 0,
+      sell_price: Number(form.sell_price) || 0,
+    });
   };
 
   return (
-    <div className="edit-items">
-      <div className="edit-items-header">
-        <h1>Quản lý Items</h1>
-        <button className="back-admin-btn" onClick={() => navigate('/admin')}>
-          ← Quay lại Admin
-        </button>
-      </div>
-
-      {message && (
-        <div className={`message ${message.includes('✅') ? 'success' : 'error'}`}>
-          {message}
-        </div>
-      )}
-
-      <div className="edit-items-content">
-        <div className="form-section">
-          <h2>{editMode ? 'Chỉnh sửa' : 'Tạo mới'} Item</h2>
-          <form onSubmit={handleSubmit}>
-            <div className="form-grid">
-              <div className="form-group">
-                <label>Tên vật phẩm:</label>
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="Nhập tên vật phẩm"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Mô tả:</label>
-                <textarea
-                  name="description"
-                  placeholder="Nhập mô tả"
-                  value={formData.description}
-                  onChange={handleChange}
-                  rows="3"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Link ảnh:</label>
-                <input
-                  type="text"
-                  name="image_url"
-                  placeholder="Tên file ảnh"
-                  value={formData.image_url}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Loại vật phẩm:</label>
-                <select name="type" value={formData.type} onChange={handleChange} required>
-                  <option value="">-- Chọn loại --</option>
-                  <option value="food">Food</option>
-                  <option value="equipment">Equipment</option>
-                  <option value="consumable">Consumable</option>
-                  <option value="booster">Booster</option>
-                  <option value="evolve">Evolve</option>
-                  <option value="misc">Misc</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Độ hiếm:</label>
-                <select name="rarity" value={formData.rarity} onChange={handleChange} required>
-                  <option value="">-- Chọn độ hiếm --</option>
-                  <option value="common">Common</option>
-                  <option value="rare">Rare</option>
-                  <option value="epic">Epic</option>
-                  <option value="legendary">Legendary</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Giá mua:</label>
-                <input
-                  type="number"
-                  name="buy_price"
-                  placeholder="0"
-                  value={formData.buy_price}
-                  onChange={handleChange}
-                  min="0"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Giá bán:</label>
-                <input
-                  type="number"
-                  name="sell_price"
-                  placeholder="0"
-                  value={formData.sell_price}
-                  onChange={handleChange}
-                  min="0"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-actions">
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'Đang xử lý...' : (editMode ? 'Cập nhật' : 'Tạo mới')}
-              </button>
-              {editMode && (
-                <button 
-                  type="button" 
-                  className="cancel-btn"
-                  onClick={() => {
-                    setEditMode(false);
-                    setEditId(null);
-                    setFormData({ name: '', description: '', type: '', rarity: '', image_url: '', buy_price: 0, sell_price: 0 });
-                  }}
-                >
-                  Hủy
-                </button>
-              )}
-            </div>
-          </form>
-        </div>
-
-        <div className="list-section">
-          <div className="list-header">
-            <h2>Danh sách Items</h2>
-            <button 
-              className="toggle-list-btn"
-              onClick={() => setShowList(!showList)}
-            >
-              {showList ? 'Ẩn danh sách' : 'Hiện danh sách'}
-            </button>
+    <div className="modal-overlay">
+      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+        <h4>{mode === 'edit' ? 'Sửa' : 'Thêm'} item</h4>
+        <form onSubmit={submit}>
+          <div className="form-row"><label>name *</label><input value={form.name} onChange={(e) => update('name', e.target.value)} required /></div>
+          <div className="form-row"><label>description</label><textarea rows={3} value={form.description} onChange={(e) => update('description', e.target.value)} /></div>
+          <div className="form-row"><label>type *</label>
+            <select value={form.type} onChange={(e) => update('type', e.target.value)}>
+              <option value="food">food</option><option value="equipment">equipment</option><option value="consumable">consumable</option><option value="booster">booster</option><option value="evolve">evolve</option><option value="misc">misc</option>
+            </select>
           </div>
-
-          {showList && (
-            <div className="list-content">
-              <div className="list-controls">
-                <div className="search-filter">
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="Tìm theo tên..."
-                    value={formData.name}
-                    onChange={handleChange}
-                  />
-                  <select onChange={(e) => setFilterType(e.target.value)} value={filterType}>
-                    <option value="">Tất cả loại</option>
-                    <option value="food">Food</option>
-                    <option value="equipment">Equipment</option>
-                    <option value="consumable">Consumable</option>
-                    <option value="booster">Booster</option>
-                    <option value="evolve">Evolve</option>
-                    <option value="misc">Misc</option>
-                  </select>
-                  <select onChange={(e) => setFilterRarity(e.target.value)} value={filterRarity}>
-                    <option value="">Tất cả độ hiếm</option>
-                    <option value="common">Common</option>
-                    <option value="rare">Rare</option>
-                    <option value="epic">Epic</option>
-                    <option value="legendary">Legendary</option>
-                  </select>
-                  <label className="sort-checkbox">
-                    <input 
-                      type="checkbox" 
-                      checked={sortAZ} 
-                      onChange={(e) => setSortAZ(e.target.checked)} 
-                    />
-                    Sắp xếp A-Z
-                  </label>
-                </div>
-                <p className="total-count">Tổng số: {filteredItems.length}</p>
-              </div>
-
-              {loading ? (
-                <div className="loading">Đang tải...</div>
-              ) : (
-                <>
-                  <div className="table-container">
-                    <table className="items-table">
-                      <thead>
-                        <tr>
-                          <th>Ảnh</th>
-                          <th>Tên</th>
-                          <th>Mô tả</th>
-                          <th>Loại</th>
-                          <th>Độ hiếm</th>
-                          <th>Giá mua</th>
-                          <th>Giá bán</th>
-                          <th>Thao tác</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paginatedItems.map(item => (
-                          <tr key={item.id}>
-                            <td>
-                              <img 
-                                src={`/images/equipments/${item.image_url}`} 
-                                alt={item.name} 
-                                className="item-image"
-                                onError={(e) => {
-                                  e.target.src = '/images/equipments/default.png';
-                                }}
-                              />
-                            </td>
-                            <td className="item-name">{item.name}</td>
-                            <td className="item-description">
-                              <div className="description-text" title={item.description}>
-                                {item.description}
-                              </div>
-                            </td>
-                            <td>
-                              <span className={`type-badge type-${item.type}`}>
-                                {item.type}
-                              </span>
-                            </td>
-                            <td>
-                              <span className={`rarity-badge rarity-${item.rarity}`}>
-                                {item.rarity}
-                              </span>
-                            </td>
-                            <td>{item.buy_price}</td>
-                            <td>{item.sell_price}</td>
-                            <td>
-                              <div className="action-buttons">
-                                <button 
-                                  className="edit-btn"
-                                  onClick={() => handleEdit(item)}
-                                  title="Chỉnh sửa"
-                                >
-                                  ✏️
-                                </button>
-                                <button 
-                                  className="delete-btn"
-                                  onClick={() => handleDelete(item.id)}
-                                  title="Xóa"
-                                >
-                                  🗑️
-                                </button>
-                                {item.type === 'equipment' && (
-                                  <Link 
-                                    to={`/admin/edit-equipment-stats?item_id=${item.id}`}
-                                    className="view-btn"
-                                    title="Xem stats"
-                                  >
-                                    ⚔️
-                                  </Link>
-                                )}
-                                {(item.type === 'booster' || item.type === 'consumable') && (
-                                  <Link 
-                                    to={`/admin/edit-item-effects?item_id=${item.id}`}
-                                    className="view-btn"
-                                    title="Xem effects"
-                                  >
-                                    ⚡
-                                  </Link>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {totalPages > 1 && (
-                    <div className="pagination">
-                      {Array.from({ length: totalPages }, (_, i) => (
-                        <button
-                          key={i + 1}
-                          onClick={() => handlePageClick(i + 1)}
-                          className={currentPage === i + 1 ? 'active-page' : ''}
-                        >
-                          {i + 1}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
+          <div className="form-row"><label>rarity *</label>
+            <select value={form.rarity} onChange={(e) => update('rarity', e.target.value)}>
+              <option value="common">common</option><option value="rare">rare</option><option value="epic">epic</option><option value="legendary">legendary</option>
+            </select>
+          </div>
+          <div className="form-row"><label>image_url *</label><input value={form.image_url} onChange={(e) => update('image_url', e.target.value)} required /></div>
+          <div className="form-row"><label>buy_price</label><input type="number" min="0" value={form.buy_price} onChange={(e) => update('buy_price', e.target.value)} /></div>
+          <div className="form-row"><label>sell_price</label><input type="number" min="0" value={form.sell_price} onChange={(e) => update('sell_price', e.target.value)} /></div>
+          <div className="form-actions">
+            <button type="submit" className="btn-save">Lưu</button>
+            <button type="button" className="btn-cancel" onClick={onClose}>Hủy</button>
+          </div>
+        </form>
       </div>
     </div>
   );

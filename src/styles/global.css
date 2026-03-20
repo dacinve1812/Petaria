@@ -22,6 +22,21 @@ html, body, #root {
   /* để test mobile UI sạch */
   /* overflow: hidden; */
 }
+
+/* Desktop: hide page scrollbar to avoid layout shift/jump */
+  html, body {
+    scrollbar-width: none;      /* Firefox */
+    -ms-overflow-style: none;   /* IE/Edge Legacy */
+    scrollbar-gutter: stable;   /* Keep layout stable when content grows */
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;              /* Chrome/Safari/Edge */
+  }
+
 nav,div{  
   display: block;
   unicode-bidi: isolate;
@@ -2554,12 +2569,6 @@ progress {
   border-color: #ccc;
 }
 
-.inventory-repair-section {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
 /* Container and grid */
 .inventory-container {
   flex: 1;
@@ -2893,9 +2902,18 @@ progress {
 }
 
 .inventory-item-modal-header-info {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-width: 0;
+  gap: 4px;
   color: var(--color-modal-header-text);
+}
+
+.inventory-item-modal-header-info-label {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: #383838;
 }
 
 .inventory-item-modal-name {
@@ -2904,9 +2922,10 @@ progress {
 }
 
 .inventory-item-modal-rarity {
-  font-size: 14px;
-  color: #ecf0f1;
+  font-size: var(--font-xs);
 }
+.inventory-item-modal-quantity-value{
+  font-size: var(--font-xs);}
 
 .inventory-item-modal-quantity {
   display: flex;
