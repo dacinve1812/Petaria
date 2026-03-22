@@ -1,9 +1,30 @@
-// Updated PetProfile.js with remove item icon
-import React, { useEffect, useState } from 'react';
+// Pet profile: equipped item detail dùng ItemDetailModal; gỡ đồ trong modal (Remove).
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import TemplatePage from './template/TemplatePage';
 import BackButton from './BackButton';
+import ItemDetailModal from './items/ItemDetailModal';
+import SpiritDetailModal from './spirit/SpiritDetailModal';
 import expTable from '../data/exp_table_petaria.json';
+
+/** Chuẩn hóa dòng từ GET /api/pets/:id/equipment → shape dùng chung với ItemDetailModal (inventory). */
+function mapEquippedRowToModalItem(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    item_id: row.item_id,
+    name: row.item_name,
+    item_name: row.item_name,
+    image_url: row.image_url,
+    type: row.type || 'equipment',
+    is_equipped: 1,
+    durability_left: row.durability_left,
+    max_durability: row.max_durability,
+    power: row.power,
+    rarity: row.rarity,
+    description: row.description,
+  };
+}
 
 // Component hiển thị hunger status
 const HungerStatusDisplay = ({ hungerStatus, canBattle }) => {
@@ -95,19 +116,23 @@ function PetProfile() {
     fetchPetDetails();
   }, [uuid, navigate, API_BASE_URL]);
 
+  const refreshEquippedItems = useCallback(() => {
+    if (!pet?.id || !API_BASE_URL) return;
+    fetch(`${API_BASE_URL}/api/pets/${pet.id}/equipment`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setEquippedItems(data);
+        else {
+          console.warn('Expected array but got:', data);
+          setEquippedItems([]);
+        }
+      })
+      .catch((err) => console.error('Error loading equipped items:', err));
+  }, [pet?.id, API_BASE_URL]);
+
   useEffect(() => {
     if (pet?.id) {
-      // Fetch equipped items
-      fetch(`${API_BASE_URL}/api/pets/${pet.id}/equipment`)
-        .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data)) setEquippedItems(data);
-          else {
-            console.warn('Expected array but got:', data);
-            setEquippedItems([]);
-          }
-        })
-        .catch(err => console.error('Error loading equipped items:', err));
+      refreshEquippedItems();
 
       // Fetch equipped spirits
       fetch(`${API_BASE_URL}/api/pets/${pet.id}/spirits`)
@@ -129,7 +154,7 @@ function PetProfile() {
         })
         .catch(err => console.error('Error loading hunger status:', err));
     }
-  }, [pet?.id, API_BASE_URL]);
+  }, [pet?.id, API_BASE_URL, refreshEquippedItems]);
 
   // const handleLogout = () => {
   //   localStorage.removeItem('token');
@@ -139,34 +164,6 @@ function PetProfile() {
 
   const handleBack = () => {
     navigate('/myhome');
-  };
-
-
-  const handleUnequip = async (itemId) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/equipment/unequip`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ itemId })
-      });
-      if (response.ok) {
-        // Refresh equipped items
-        const itemsResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/equipment`);
-        if (itemsResponse.ok) {
-          const itemsData = await itemsResponse.json();
-          if (Array.isArray(itemsData)) setEquippedItems(itemsData);
-        }
-        alert('Tháo vật phẩm thành công!');
-      } else {
-        const errorData = await response.json();
-        alert(errorData.error || 'Lỗi khi tháo vật phẩm');
-      }
-    } catch (error) {
-      console.error('Error unequipping item:', error);
-      alert('Lỗi khi tháo vật phẩm');
-    }
   };
 
 
@@ -215,48 +212,6 @@ function PetProfile() {
   const openItemDetail = (item) => {
     setSelectedItem(item);
     setShowItemDetail(true);
-  };
-
-  const getRarityColor = (rarity) => {
-    switch (rarity) {
-      case 'common': return '#9d9d9d';
-      case 'rare': return '#0070dd';
-      case 'epic': return '#a335ee';
-      case 'legendary': return '#ff8000';
-      default: return '#9d9d9d';
-    }
-  };
-
-  const getRarityText = (rarity) => {
-    switch (rarity) {
-      case 'common': return 'Thường';
-      case 'rare': return 'Hiếm';
-      case 'epic': return 'Epic';
-      case 'legendary': return 'Huyền thoại';
-      default: return 'Thường';
-    }
-  };
-
-  const formatStatValue = (stat) => {
-    const value = stat.stat_value;
-    const modifier = stat.stat_modifier;
-    const type = stat.stat_type;
-    
-    let statText = '';
-    switch (type) {
-      case 'hp': statText = 'HP'; break;
-      case 'mp': statText = 'MP'; break;
-      case 'str': statText = 'STR'; break;
-      case 'def': statText = 'DEF'; break;
-      case 'spd': statText = 'SPD'; break;
-      case 'intelligence': statText = 'INT'; break;
-      default: statText = type.toUpperCase();
-    }
-
-    const sign = value >= 0 ? '+' : '';
-    const modifierText = modifier === 'percentage' ? '%' : '';
-    
-    return `${sign}${value}${modifierText} ${statText}`;
   };
 
   // Calculate bonus stats from equipped spirits and items
@@ -364,7 +319,7 @@ function PetProfile() {
             <p className="pet-detail-birthday">Sinh Nhật: {pet.created_date ? new Date(pet.created_date).toLocaleDateString() : 'N/A'}</p>
             <p className="pet-detail-rank">Hạng: {pet.rank || 'N/A'}</p>
             <p className="pet-detail-exp">EXP: {expProgress} / {expToNextLevel}</p>
-            <progress className="pet-detail-progress" value={(expProgress - expToThisLevel)} max={expRequired}></progress>
+            {/* <progress className="pet-detail-progress" value={(expProgress - expToThisLevel)} max={expRequired}></progress> */}
             <p className="pet-detail-hp">
               Sức Khỏe: {pet.current_hp ?? pet.hp}/{pet.max_hp ?? pet.hp}
               {bonusStats.hp > 0 && (
@@ -453,15 +408,6 @@ function PetProfile() {
                     className="equipped-item-image"
                     onClick={() => openItemDetail(item)}
                   />
-                  {currentUserId === pet.owner_id && (
-                    <button
-                      onClick={() => handleUnequip(item.id)}
-                      className="remove-button"
-                      title="Gỡ vật phẩm"
-                    >
-                      <img className="icon-button-1" src="/images/icons/delete.png" alt="remove" />
-                    </button>
-                  )}
                 </div>
               ))}
             </div>
@@ -470,159 +416,38 @@ function PetProfile() {
 
       </TemplatePage>
 
-      {/* Spirit Detail Modal */}
       {showSpiritDetail && selectedSpirit && (
-        <div 
-          className="detail-modal-overlay"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowSpiritDetail(false);
-              setSelectedSpirit(null);
-            }
+        <SpiritDetailModal
+          spirit={selectedSpirit}
+          onClose={() => {
+            setShowSpiritDetail(false);
+            setSelectedSpirit(null);
           }}
         >
-          <div className="spirit-detail-modal">
-            <div className="spirit-detail-modal-header">
-              <h3>{selectedSpirit.name}</h3>
-              <button 
-                className="spirit-detail-close-btn"
-                onClick={() => {
-                  setShowSpiritDetail(false);
-                  setSelectedSpirit(null);
-                }}
-              >
-                ×
-              </button>
-            </div>
-            
-            <div className="spirit-detail-modal-content">
-              <div className="spirit-detail-left-section">
-                {/* Rarity Badge above image */}
-                <div className="spirit-detail-rarity-section">
-                  <span 
-                    className="spirit-detail-rarity-badge"
-                    style={{ color: getRarityColor(selectedSpirit.rarity) }}
-                  >
-                    {getRarityText(selectedSpirit.rarity)}
-                  </span>
-                </div>
-                
-                {/* Spirit Image */}
-                <div className="spirit-image">
-                  <img 
-                    src={`/images/spirit/${selectedSpirit.image_url}`} 
-                    alt={selectedSpirit.name}
-                    onError={(e) => {
-                      e.target.src = '/images/spirit/angelpuss.gif';
-                    }}
-                  />
-                </div>
-              </div>
-              
-              <div className="spirit-detail-right-section">
-                <h4>Mô tả:</h4>
-                <div className="spirit-detail-description-section">
-                  <p>{selectedSpirit.description}</p>
-                </div>
-                
-                <div className="spirit-detail-stats-section">
-                  <h4>Chỉ số:</h4>
-                  <div className="spirit-detail-stats-grid">
-                    {selectedSpirit.stats && selectedSpirit.stats.map((stat, index) => (
-                      <div key={index} className="spirit-detail-stat-item">
-                        {formatStatValue(stat)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Actions Section */}
-            <div className="spirit-detail-actions-section">
-              {currentUserId === pet.owner_id && (
-                <div className="spirit-detail-unequip-section">
-                  <button 
-                    className="spirit-detail-unequip-btn"
-                    onClick={() => handleUnequipSpirit(selectedSpirit.id)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+          {currentUserId === pet.owner_id && (
+            <button
+              type="button"
+              className="inventory-item-modal-action-btn unequip"
+              onClick={() => handleUnequipSpirit(selectedSpirit.id)}
+            >
+              Remove
+            </button>
+          )}
+        </SpiritDetailModal>
       )}
 
-      {/* Item Detail Modal */}
+      {/* Item detail: cùng component + class global với Inventory (inventory-item-modal-*) */}
       {showItemDetail && selectedItem && (
-        <div className="detail-modal-overlay">
-          <div className="detail-modal">
-            <div className="detail-header">
-              <h3>{selectedItem.item_name}</h3>
-              <button 
-                className="close-btn"
-                onClick={() => {
-                  setShowItemDetail(false);
-                  setSelectedItem(null);
-                }}
-              >
-                ×
-              </button>
-            </div>
-            
-            <div className="detail-content">
-              <div className="detail-image">
-                <img 
-                  src={`/images/equipments/${selectedItem.image_url}`} 
-                  alt={selectedItem.item_name}
-                  onError={(e) => {
-                    e.target.src = '/images/equipments/placeholder.png';
-                  }}
-                />
-              </div>
-              
-              <div className="detail-info">
-                <div className="detail-description">
-                  <p>{selectedItem.description || 'Không có mô tả'}</p>
-                </div>
-                
-                <div className="detail-stats">
-                  <h4>Thông tin:</h4>
-                  <div className="stats-grid">
-                    <div className="stat-item">
-                      <strong>Loại:</strong> {selectedItem.item_type}
-                    </div>
-                    <div className="stat-item">
-                      <strong>Độ bền:</strong> {selectedItem.durability}
-                    </div>
-                    {selectedItem.str_bonus && (
-                      <div className="stat-item">
-                        <strong>STR:</strong> +{selectedItem.str_bonus}
-                      </div>
-                    )}
-                    {selectedItem.def_bonus && (
-                      <div className="stat-item">
-                        <strong>DEF:</strong> +{selectedItem.def_bonus}
-                      </div>
-                    )}
-                    {selectedItem.spd_bonus && (
-                      <div className="stat-item">
-                        <strong>SPD:</strong> +{selectedItem.spd_bonus}
-                      </div>
-                    )}
-                    {selectedItem.intelligence_bonus && (
-                      <div className="stat-item">
-                        <strong>INT:</strong> +{selectedItem.intelligence_bonus}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ItemDetailModal
+          item={mapEquippedRowToModalItem(selectedItem)}
+          onClose={() => {
+            setShowItemDetail(false);
+            setSelectedItem(null);
+          }}
+          onUpdateItem={() => {
+            refreshEquippedItems();
+          }}
+        />
       )}
     </>
   );

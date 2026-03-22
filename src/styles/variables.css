@@ -68,6 +68,7 @@
 
     /* Shop Item Card */
     --w: 220px;
+    --border-radius: 14px 2px 14px 2px;
     --radius: 14px;
     --panel-radius: 10px;
     --card-bg: #f9f9f970;

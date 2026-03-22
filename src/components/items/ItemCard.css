@@ -52,7 +52,7 @@
 /* Shop-style ItemCard */
 .item-card-shop-style {
   border: 2px solid;
-  border-radius: 8px;
+  border-radius: var(--border-radius);
   padding: 8px;
   text-align: center;
   cursor: pointer;

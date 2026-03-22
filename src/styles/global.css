@@ -1581,85 +1581,6 @@ h1.peta-sectiontitle {
   padding-bottom: 15px;
   border-bottom: 1px solid #e0e0e0;
 }
-.spirit-detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-/* Spirit Detail Modal Styles */
-.spirit-detail-modal-overlay, .detail-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.spirit-detail-modal, .detail-modal {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  max-width: 600px;
-  width: 90%;
-  max-height: 80vh;
-  overflow: hidden;
-  position: relative;
-}
-/* .detail-modal {
-  background: white;
-  border-radius: 12px;
-  max-width: 600px;
-  width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-} */
-
-.spirit-detail-modal-header, .detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
-  background: var(--color-modal-header);
-  /* color: white; */
-}
-
-.spirit-detail-modal-header h3, .detail-header h3 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #333;
-}
-
-.spirit-detail-close-btn {
-  background: none;
-  border: none;
-  font-size: 24px !important;
-  color: #333;
-  cursor: pointer;
-  padding: 5px;
-  border-radius: 50%;
-  width: 35px;
-  height: 35px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s ease;
-}
-
-
-.spirit-detail-close-btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
 /* remove */
 .close-btn {
   background: none;
@@ -1681,228 +1602,6 @@ h1.peta-sectiontitle {
   color: #333;
 }
 /* end remove   */
-.spirit-detail-modal-content {
-  padding: 20px;
-  display: grid;
-  grid-template-columns: 1fr 3fr;
-  gap: 30px;
-  align-items: start;
-  max-height: 30vh;
-  overflow-y: auto;
-  margin: auto;
-}
-
-.spirit-detail-left-section {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  margin: auto;
-}
-
-.spirit-detail-right-section {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.spirit-detail-right-section h4 {
-  margin: 0;
-  color: #333;
-  font-size: 1.1rem;
-}
-
-.spirit-detail-image-section {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.spirit-detail-image {
-  width: 100%;
-  max-width: 180px;
-  height: auto;
-  object-fit: contain;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.spirit-detail-rarity-section {
-  text-align: center;
-  margin-bottom: 10px;
-}
-
-.spirit-detail-rarity-badge {
-  display: inline-block;
-  padding: 8px 14px;
-  border-radius: 15px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  border: 1px solid rgba(128, 128, 128, 0.2);
-  /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); */
-}
-
-.spirit-detail-description-section {
-  text-align: center;
-}
-
-.spirit-detail-description-section p {
-  margin: 0;
-  color: #666;
-  line-height: 1.5;
-}
-
-.spirit-detail-stats-section h4 {
-  margin: 0 0 10px 0;
-  color: #333;
-  font-size: 1.1rem;
-}
-
-.spirit-detail-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15px, 1fr));
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.spirit-detail-stat-item {
-  background: #f5f5f5;
-  padding: 8px 12px;
-  border-radius: 8px;
-  text-align: center;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #333;
-  border: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.spirit-detail-equipped-info {
-  text-align: center;
-  margin-top: 10px;
-}
-
-.spirit-detail-equipped-info p {
-  margin: 0;
-  color: #333;
-  font-weight: 500;
-  font-size: 0.9rem;
-}
-
-.spirit-detail-actions-section {
-  margin: 20px 0;
-  padding-top: 20px;
-  border-top: 1px solid #e0e0e0;
-}
-
-.spirit-detail-equip-section,
-.spirit-detail-unequip-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: center;
-}
-
-.spirit-detail-pet-select-label {
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 5px;
-}
-
-.spirit-detail-pet-select {
-  width: 100%;
-  max-width: 300px;
-  padding: 8px 8px;
-  border: 2px solid #ddd;
-  border-radius: 6px;
-  font-size: 1rem;
-  background: white;
-  cursor: pointer;
-  transition: border-color 0.2s ease;
-}
-
-.spirit-detail-pet-select:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-}
-
-.spirit-detail-equip-btn,
-.spirit-detail-unequip-btn {
-  padding: 10px 10px;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  width: 100%;
-  max-width: 150px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.spirit-detail-equip-btn {
-  background: #e8f5e8;
-  color: #13431e;
-  /* border: 2px solid #d0d0d0; */
-}
-
-.spirit-detail-equip-btn:hover:not(:disabled) {
-  background: #e1fee1;
-  border-color: #c0c0c0;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.spirit-detail-equip-btn:disabled {
-  background: #f5f5f5;
-  color: #999;
-  cursor: not-allowed;
-  opacity: 0.6;
-  border-color: #e0e0e0;
-}
-
-.spirit-detail-unequip-btn {
-  background: #ffe1e1;
-  color: #7d1212;
-  /* border: 2px solid #d0d0d0; */
-}
-
-.spirit-detail-unequip-btn:hover {
-  background: #d0d0d0;
-  border-color: #c0c0c0;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .spirit-detail-modal {
-    width: 95%;
-    margin: 10px;
-  }
-  
-  .spirit-detail-modal-content {
-    grid-template-columns: 1fr 2fr;
-    gap: 20px;
-  }
-  
-  .spirit-detail-left-section {
-    order: 1;
-  }
-  
-  .spirit-detail-right-section {
-    order: 2;
-  }
-  
-  .spirit-detail-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-}
-
 .pet-list-info h3, .spirit-header h3 {
   margin: 0;
   font-size: 1.2rem;
@@ -2003,13 +1702,6 @@ h1.peta-sectiontitle {
   .pet-header {
     margin-bottom: 0px;
   }
-  .spirit-detail-modal-header, .detail-header{
-    padding: 8px 20px;
-  }
-  .spirit-detail-actions-section{
-    padding: 10px 20px;
-    margin: auto;
-  }
   .pet-header h3, .spirit-header h3 {
     font-size: 1rem;
   }
@@ -2094,24 +1786,16 @@ h1.peta-sectiontitle {
   cursor: pointer;
 }
 
-/* Animation delays for spirits and items */
-.spirit-item:nth-child(1) .pet-spirit-image,
-.spirit-item:nth-child(1) .remove-button { animation-delay: 0.31s; }
-.spirit-item:nth-child(2) .pet-spirit-image,
-.spirit-item:nth-child(2) .remove-button { animation-delay: 0.33s; }
-.spirit-item:nth-child(3) .pet-spirit-image,
-.spirit-item:nth-child(3) .remove-button { animation-delay: 0.35s; }
-.spirit-item:nth-child(4) .pet-spirit-image,
-.spirit-item:nth-child(4) .remove-button { animation-delay: 0.37s; }
+/* Animation delays for spirits and items (pet profile) */
+.equipped-spirits .equipped-spirit-item:nth-child(1) .pet-spirit-image { animation-delay: 0.31s; }
+.equipped-spirits .equipped-spirit-item:nth-child(2) .pet-spirit-image { animation-delay: 0.33s; }
+.equipped-spirits .equipped-spirit-item:nth-child(3) .pet-spirit-image { animation-delay: 0.35s; }
+.equipped-spirits .equipped-spirit-item:nth-child(4) .pet-spirit-image { animation-delay: 0.37s; }
 
-.equipped-item-image:nth-child(1),
-.remove-button:nth-child(1) { animation-delay: 0.34s; }
-.equipped-item-image:nth-child(2),
-.remove-button:nth-child(2) { animation-delay: 0.36s; }
-.equipped-item-image:nth-child(3),
-.remove-button:nth-child(3) { animation-delay: 0.38s; }
-.equipped-item-image:nth-child(4),
-.remove-button:nth-child(4) { animation-delay: 0.4s; }
+.equipped-items .equipped-item:nth-child(1) .equipped-item-image { animation-delay: 0.34s; }
+.equipped-items .equipped-item:nth-child(2) .equipped-item-image { animation-delay: 0.36s; }
+.equipped-items .equipped-item:nth-child(3) .equipped-item-image { animation-delay: 0.38s; }
+.equipped-items .equipped-item:nth-child(4) .equipped-item-image { animation-delay: 0.4s; }
 
 /* Pet list */
 .pet-list {
@@ -2242,33 +1926,12 @@ h1.peta-sectiontitle {
   font-size: 15px;
 }
 
-.remove-button{
-  position: absolute;
-  top: -10px;
-  right: -20px;
-  cursor: pointer;
-  border: none;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 2px 5px;
-  z-index: 1;
-}
-
-.remove-button > .icon-button-1 {
-  width: 12px;
-  height: 12px;
-}
-
 /* Animation for equipped items */
 .pet-spirit-image {
   animation: fadeInUp 0.3s ease-out !important;
   animation-fill-mode: both !important;
 }
 .equipped-item-image {
-  animation: fadeInUp 0.3s ease-out !important;
-  animation-fill-mode: both !important;
-}
-
-.remove-button {
   animation: fadeInUp 0.3s ease-out !important;
   animation-fill-mode: both !important;
 }
@@ -2321,11 +1984,6 @@ progress {
     height: 50px !important;
   }
 
-  .remove-button > .icon-button-1 {
-    width: 12px !important;
-    height: 12px !important;  
-  }
-
   .release-button {
     padding: 15px 30px;
     font-size: 14px;
@@ -2362,17 +2020,6 @@ progress {
   .release-button {
     padding: 12px 25px;
     font-size: 13px;
-  }
-
-  .remove-button {
-    top: -5px;
-    right: -10px;
-    padding: 1px 3px;
-  }
-
-  .icon-button-1 {
-    width: 12px;
-    height: 12px;
   }
 
   .pet-spirit-image {
@@ -2851,7 +2498,7 @@ progress {
   background: white;
   width: 100%;
   max-width: 450px;
-  border-radius: 12px;
+  border-radius: var(--border-radius);
   position: relative;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   overflow: hidden;
@@ -2908,12 +2555,6 @@ progress {
   min-width: 0;
   gap: 4px;
   color: var(--color-modal-header-text);
-}
-
-.inventory-item-modal-header-info-label {
-  font-size: var(--font-xs);
-  font-weight: 600;
-  color: #383838;
 }
 
 .inventory-item-modal-name {
@@ -3162,6 +2803,282 @@ progress {
   color: var(--color-modal-remove-text);
 }
 
+/* ========== Global UI — nút trợ giúp "?" (dùng lại mọi modal / panel game) ==========
+ * Popover: component ModalHelpIconButton — click mở box phía trên, click ngoài đóng.
+ * --section-end đặt trên .modal-help-icon-btn-wrap (không đặt trực tiếp lên button).
+ */
+.modal-help-icon-btn-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+/* Căn phải, giữa dọc — cha có position: relative */
+.modal-help-icon-btn-wrap.modal-help-icon-btn--section-end {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+}
+
+.modal-help-icon-btn {
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin: 0;
+  border-radius: 50%;
+  border: 1px solid #c0c0c0;
+  background: var(--color-bg);
+  color: var(--color-modal-header-text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.modal-help-icon-btn:hover {
+  background: #f0f0f0;
+  color: #222;
+  border-color: #b0b0b0;
+}
+
+.modal-help-icon-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Popover nút ? — render qua portal + position:fixed (inline), modal giữ overflow:hidden + border-radius */
+.modal-help-icon-popover {
+  min-width: 160px;
+  max-width: 280px;
+  padding: 10px 12px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 500;
+  text-align: center;
+  pointer-events: auto;
+}
+
+
+.spirit-detail-modal--dark.inventory-item-modal .inventory-item-modal-header {
+  background: var(--color-modal-header);
+}
+
+.spirit-detail-modal__spirit-img.inventory-item-modal-image {
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: none;
+}
+
+/* Mô tả linh thú trong header (dưới độ hiếm) */
+.spirit-detail-modal-header-description {
+  margin: 8px 0 0;
+  font-size: var(--font-xs);
+  line-height: 1.45;
+  color: var(--color-modal-header-text);
+  opacity: 0.92;
+  max-height: 4.35em;
+  overflow-y: auto;
+  word-break: break-word;
+}
+
+.spirit-detail-modal-header-description--empty {
+  font-style: italic;
+  opacity: 0.65;
+}
+
+.spirit-detail-modal--dark .inventory-item-modal-body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  min-height: auto;
+  padding: 10px 20px;
+}
+
+.spirit-detail-equipped-line {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #666;
+  text-align: center;
+}
+
+.spirit-detail-pet-effect {
+  margin-top: 4px;
+}
+
+.spirit-detail-section-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 40px 10px 16px;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  background: var(--color-modal-header);
+  border: 1px solid #d8d8d8;
+}
+
+.spirit-detail-section-bar-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-modal-header-text);
+}
+
+.spirit-detail-section-bar-deco {
+  width: 6px;
+  height: 6px;
+  background: #b0b0b0;
+  transform: rotate(45deg);
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.spirit-detail-section-bar-deco--left {
+  margin-right: 4px;
+}
+
+.spirit-detail-section-bar-deco--right {
+  margin-left: 4px;
+}
+
+/* Chiều cao mỗi hàng Pet Effect: chỉnh --spirit-pet-effect-row-h (desktop) và trong @media mobile bên dưới */
+.spirit-detail-pet-effect-rows {
+  --spirit-pet-effect-row-h: 44px;
+  --spirit-pet-effect-gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(4, var(--spirit-pet-effect-row-h));
+  gap: var(--spirit-pet-effect-gap);
+  min-height: calc(
+    4 * var(--spirit-pet-effect-row-h) + 3 * var(--spirit-pet-effect-gap)
+  );
+  background: transparent;
+  align-content: start;
+}
+
+/* Slot trống: chiếm đúng 1 track grid, không viền */
+.spirit-detail-pet-effect-row--empty-slot {
+  height: 100%;
+  min-height: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.spirit-detail-pet-effect-row:not(.spirit-detail-pet-effect-row--empty-slot) {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 40px 1fr minmax(72px, auto);
+  align-items: center;
+  padding: 6px 12px;
+  box-sizing: border-box;
+  border: 1px solid #dcdcdc;
+  border-radius: 30px;
+  overflow: hidden;
+}
+
+.spirit-detail-pet-effect-row--stripe-a {
+  background: #ffffff;
+}
+
+.spirit-detail-pet-effect-row--stripe-b {
+  background: #f3f5f7;
+}
+
+.spirit-detail-pet-effect-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.spirit-detail-pet-effect-icon[data-stat-type="str"]::before { content: '⚔'; }
+.spirit-detail-pet-effect-icon[data-stat-type="def"]::before { content: '🛡'; }
+.spirit-detail-pet-effect-icon[data-stat-type="hp"]::before { content: '❤'; }
+.spirit-detail-pet-effect-icon[data-stat-type="mp"]::before { content: '💧'; }
+.spirit-detail-pet-effect-icon[data-stat-type="spd"]::before { content: '⚡'; }
+.spirit-detail-pet-effect-icon[data-stat-type="intelligence"]::before { content: '📘'; }
+
+.spirit-detail-pet-effect-label {
+  font-size: var(--font-xs);
+  color: #2c3e50;
+  text-align: left;
+}
+
+.spirit-detail-pet-effect-value {
+  font-size: 14px;
+  font-weight: 500;
+  /* color: var(--color-modal-power-text); */
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  justify-self: end;
+}
+
+.spirit-detail-modal--dark .inventory-item-modal-footer {
+  background: var(--color-modal-header);
+}
+
+.spirit-detail-modal__footer {
+  flex-wrap: wrap;
+}
+
+.spirit-detail-modal-footer-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.spirit-detail-modal-footer-actions--equip .inventory-item-modal-action-btn {
+  max-width: none;
+}
+
+.spirit-detail-modal-footer-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-modal-header-text);
+  text-align: left;
+}
+
+.spirit-detail-modal-footer-select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.spirit-detail-modal-footer-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
 /* Responsive Design for Inventory Item Modal */
 @media (max-width: 768px) {
   .inventory-item-modal {
@@ -3193,6 +3110,32 @@ progress {
   .inventory-item-modal-action-btn {
     padding: 10px 20px;
     font-size: 14px;
+  }
+
+
+  .spirit-detail-pet-effect-rows {
+    --spirit-pet-effect-row-h: 36px;
+    --spirit-pet-effect-gap: 6px;
+  }
+
+  .spirit-detail-pet-effect-row:not(.spirit-detail-pet-effect-row--empty-slot) {
+    grid-template-columns: 32px 1fr minmax(56px, auto);
+    padding: 4px 8px;
+  }
+
+  .spirit-detail-pet-effect-icon {
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
+    border-radius: 6px;
+  }
+
+  .spirit-detail-pet-effect-label {
+    font-size: var(--font-xs);
+  }
+
+  .spirit-detail-pet-effect-value {
+    font-size: 13px;
   }
 }
 

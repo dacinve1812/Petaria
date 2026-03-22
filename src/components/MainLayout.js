@@ -80,6 +80,8 @@ function MainLayout() {
             '/restaurant': 'NHÀ HÀNG',
             '/healia-river': 'SÔNG HEALIA',
             '/battle': 'ĐẤU TRƯỜNG',
+            '/battle/arena': 'ĐẤU TRƯỜNG',
+            '/battle/arena/arenabattle': 'ĐẤU TRƯỜNG',
             '/hunting-world': 'ĐI SĂN',
             '/guild': 'BANG HỘI',
             '/quest': 'NHIỆM VỤ',

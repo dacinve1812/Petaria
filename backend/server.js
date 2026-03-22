@@ -2196,7 +2196,8 @@ app.get('/api/pets/:petId/equipment', async (req, res) => {
   const { petId } = req.params;
   try {
     const [rows] = await pool.promise().query(
-      `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, i.durability_left,
+      `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, it.description, it.type, it.rarity,
+              i.durability_left,
               ed.equipment_type, ed.magic_value AS power, ed.power_min, ed.power_max,
               ed.durability_max AS max_durability, i.is_broken
        FROM inventory i

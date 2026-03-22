@@ -566,36 +566,34 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
           
           <img 
             src={`/images/equipments/${displayItem.image_url}`} 
-            alt={displayItem.name} 
+            alt={displayItem.name || displayItem.item_name || ''} 
             className="inventory-item-modal-image" 
           />
           
           <div className="inventory-item-modal-header-info">
-            <h3 className="inventory-item-modal-name">{displayItem.name}    </h3>
+            <h3 className="inventory-item-modal-name">
+              {displayItem.name || displayItem.item_name || '-'}
+            </h3>
             <div className="inventory-item-modal-quantity-value">
-              <span className="inventory-item-modal-header-info-label">Loại: </span>
-              {displayItem.type || item.type || '-'}
+              Loại: {displayItem.type || item.type || '-'}
             </div>
             <div className="inventory-item-modal-rarity">
-              <span className="inventory-item-modal-header-info-label">Độ hiếm: </span>
+              Độ hiếm:{' '}
               <span style={{ color: getRarityColor(displayItem.rarity) }}>
                 {getRarityText(displayItem.rarity)}
               </span>
             </div>
             <div className="inventory-item-modal-quantity-value">
-              <span className="inventory-item-modal-header-info-label">Chỉ số ma thuật: </span>
-              {fetchedEquipmentData?.magic_value ?? displayItem.power ?? item.power ?? 0}
+              Chỉ số ma thuật: {fetchedEquipmentData?.magic_value ?? displayItem.power ?? item.power ?? 0}
             </div>
             {item.type === 'equipment' && mode !== 'shop' && (
               <div className="inventory-item-modal-quantity-value">
-                <span className="inventory-item-modal-header-info-label">Độ bền: </span>
-                {item.durability_left}/{item.max_durability}
+                Độ bền: {item.durability_left}/{item.max_durability}
               </div>
             )}
             {item.type !== 'equipment' && (
               <div className="inventory-item-modal-quantity-value">
-                <span className="inventory-item-modal-header-info-label">Sở hữu: </span>
-                {mode === 'shop' ? userOwnedQuantity : item.quantity}
+                Sở hữu: {mode === 'shop' ? userOwnedQuantity : item.quantity}
               </div>
             )}
           </div>

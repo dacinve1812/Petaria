@@ -353,14 +353,14 @@
 
 .arena-pet-level {
   font-weight: 500;
-  font-size: 0.85rem;
+  /* font-size: 0.85rem; */
   color: #555;
   margin-left: 6px;
 }
 
 .arena-pet-stats {
   margin: 6px 0 0;
-  font-size: 0.8rem;
+  /* font-size: 0.8rem; */
   color: #555;
   display: flex;
   flex-direction: column;
@@ -466,8 +466,8 @@
 }
 
 .arena-equipment-item img {
-  width: 44px;
-  height: 44px;
+  width: 55px;
+  height: 55px;
   object-fit: contain;
   margin-bottom: 0;
   flex-shrink: 0;
@@ -768,7 +768,7 @@
     margin: 0 auto;
   }
   .arena-pet-name {
-    font-size: 0.8rem;
+    /* font-size: 0.8rem; */
     margin-top: 4px;
   }
   .arena-equipment-item {

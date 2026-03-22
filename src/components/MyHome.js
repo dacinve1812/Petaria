@@ -3,6 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import TemplatePage from './template/TemplatePage';
 import './MyHome.css';
 import GlobalBanner from './GlobalBanner';
+import SpiritDetailModal from './spirit/SpiritDetailModal';
 import { resolveAssetPath } from '../utils/pathUtils';
 
 
@@ -540,28 +541,6 @@ function SpiritManagement({ userSpirits, spiritUserPets, isLoading, searchTerm, 
     }
   };
 
-  const formatStatValue = (stat) => {
-    const value = stat.stat_value;
-    const modifier = stat.stat_modifier;
-    const type = stat.stat_type;
-    
-    let statText = '';
-    switch (type) {
-      case 'hp': statText = 'HP'; break;
-      case 'mp': statText = 'MP'; break;
-      case 'str': statText = 'STR'; break;
-      case 'def': statText = 'DEF'; break;
-      case 'spd': statText = 'SPD'; break;
-      case 'intelligence': statText = 'INT'; break;
-      default: statText = type.toUpperCase();
-    }
-
-    const sign = value >= 0 ? '+' : '';
-    const modifierText = modifier === 'percentage' ? '%' : '';
-    
-    return `${sign}${value}${modifierText} ${statText}`;
-  };
-
   const openEquipModal = (spirit) => {
     setSelectedSpirit(spirit);
     setSelectedPet(null);
@@ -726,128 +705,61 @@ function SpiritManagement({ userSpirits, spiritUserPets, isLoading, searchTerm, 
         </div>
       )}
 
-      {/* Spirit Detail Modal */}
       {showDetailModal && selectedSpiritDetail && (
-        <div 
-          className="detail-modal-overlay"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowDetailModal(false);
-              setSelectedSpiritDetail(null);
-              setSelectedPet(null);
-            }
+        <SpiritDetailModal
+          spirit={selectedSpiritDetail}
+          equippedPetName={
+            selectedSpiritDetail.is_equipped && selectedSpiritDetail.equipped_pet_name
+              ? selectedSpiritDetail.equipped_pet_name
+              : undefined
+          }
+          onClose={() => {
+            setShowDetailModal(false);
+            setSelectedSpiritDetail(null);
+            setSelectedPet(null);
           }}
         >
-          <div className="spirit-detail-modal">
-            <div className="spirit-detail-modal-header">
-              <h3>{selectedSpiritDetail.name}</h3>
-              <button 
-                className="spirit-detail-close-btn"
-                onClick={() => {
-                  setShowDetailModal(false);
-                  setSelectedSpiritDetail(null);
-                  setSelectedPet(null);
+          {!selectedSpiritDetail.is_equipped ? (
+            <div className="spirit-detail-modal-footer-actions spirit-detail-modal-footer-actions--equip">
+              <label className="spirit-detail-modal-footer-label" htmlFor="spirit-equip-pet-select">
+                Chọn thú cưng để trang bị:
+              </label>
+              <select
+                id="spirit-equip-pet-select"
+                value={selectedPet?.id || ''}
+                onChange={(e) => {
+                  const petId = e.target.value;
+                  const pet = spiritUserPets.find((p) => p.id === parseInt(petId, 10));
+                  setSelectedPet(pet);
                 }}
+                className="spirit-detail-modal-footer-select"
               >
-                ×
+                <option value="">-- Chọn thú cưng --</option>
+                {spiritUserPets.map((pet) => (
+                  <option key={pet.id} value={pet.id}>
+                    {pet.name} (Level {pet.level})
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="inventory-item-modal-action-btn"
+                disabled={!selectedPet}
+                onClick={() => handleEquipSpirit(selectedSpiritDetail.id, selectedPet.id)}
+              >
+                Equip
               </button>
             </div>
-            
-            <div className="spirit-detail-modal-content">
-              <div className="spirit-detail-left-section">
-                {/* Rarity Badge above image */}
-                <div className="spirit-detail-rarity-section">
-                  <span 
-                    className="spirit-detail-rarity-badge"
-                    style={{ color: getRarityColor(selectedSpiritDetail.rarity) }}
-                  >
-                    {getRarityText(selectedSpiritDetail.rarity)}
-                  </span>
-                </div>
-                
-                {/* Spirit Image */}
-                <div className="spirit-image">
-                  <img 
-                    src={`/images/spirit/${selectedSpiritDetail.image_url}`} 
-                    alt={selectedSpiritDetail.name}
-                    
-                    onError={(e) => {
-                      e.target.src = '/images/spirit/angelpuss.gif';
-                    }}
-                  />
-                </div>
-                
-                {/* Equipped Status below image */}
-                {selectedSpiritDetail.is_equipped && selectedSpiritDetail.equipped_pet_name && (
-                  <div className="spirit-detail-equipped-info">
-                    <p>Đang trang bị cho: {selectedSpiritDetail.equipped_pet_name}</p>
-                  </div>
-                )}
-              </div>
-              
-              <div className="spirit-detail-right-section">
-                <h4>Mô tả:</h4>
-                <div className="spirit-detail-description-section">
-                  <p>{selectedSpiritDetail.description}</p>
-                </div>
-                
-                <div className="spirit-detail-stats-section">
-                  <h4>Chỉ số:</h4>
-                  <div className="spirit-detail-stats-grid">
-                    {selectedSpiritDetail.stats && selectedSpiritDetail.stats.map((stat, index) => (
-                      <div key={index} className="spirit-detail-stat-item">
-                        {formatStatValue(stat)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                
-              </div>
-              
-            </div>
-            {/* Pet Selection and Action Buttons */}
-            <div className="spirit-detail-actions-section">
-                  {!selectedSpiritDetail.is_equipped ? (
-                    <div className="spirit-detail-equip-section">
-                      <label className="spirit-detail-pet-select-label">Chọn thú cưng để trang bị:</label>
-                      <select
-                        value={selectedPet?.id || ''}
-                        onChange={(e) => {
-                          const petId = e.target.value;
-                          const pet = spiritUserPets.find(p => p.id === parseInt(petId));
-                          setSelectedPet(pet);
-                        }}
-                        className="spirit-detail-pet-select"
-                      >
-                        <option value="">-- Chọn thú cưng --</option>
-                        {spiritUserPets.map((pet) => (
-                          <option key={pet.id} value={pet.id}>
-                            {pet.name} (Level {pet.level})
-                          </option>
-                        ))}
-                      </select>
-                      <button 
-                        className="spirit-detail-equip-btn"
-                        disabled={!selectedPet}
-                        onClick={() => handleEquipSpirit(selectedSpiritDetail.id, selectedPet.id)}
-                      >
-                        Equip
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="spirit-detail-unequip-section">
-                      <button 
-                        className="spirit-detail-unequip-btn"
-                        onClick={() => handleUnequipSpirit(selectedSpiritDetail.id)}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  )}
-                </div>
-          </div>
-        </div>
+          ) : (
+            <button
+              type="button"
+              className="inventory-item-modal-action-btn unequip"
+              onClick={() => handleUnequipSpirit(selectedSpiritDetail.id)}
+            >
+              Remove
+            </button>
+          )}
+        </SpiritDetailModal>
       )}
     </>
   );
