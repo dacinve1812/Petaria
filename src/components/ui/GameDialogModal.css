@@ -1,0 +1,502 @@
+/* ===== Game-style dialog (confirm / alert / embed form) ===== */
+
+.game-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(2px);
+}
+
+.game-dialog-modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 420px;
+  border-radius: 22px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #f4f2ef;
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  overflow: hidden;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Góc trang trí (nhẹ) — căn theo vùng header */
+.game-dialog-modal__corner {
+  position: absolute;
+  top: 26px;
+  width: 7px;
+  height: 7px;
+  transform: translateY(-50%) rotate(45deg);
+  background: rgba(180, 180, 180, 0.45);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.game-dialog-modal__corner--tl {
+  left: 18px;
+}
+
+.game-dialog-modal__corner--tr {
+  right: 18px;
+}
+
+.game-dialog-modal__header {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  min-height: 5.5rem;
+  padding: 16px 44px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0;
+}
+
+.game-dialog-modal__title {
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  font-size: var(--font-md);
+  font-weight: 700;
+  line-height: 1.35;
+  color: #2a2a2a;
+  letter-spacing: 0.02em;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* align-items: center trên header làm divider co hẹp — cần stretch để line ngang full width */
+.game-dialog-modal__divider {
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 12px;
+  height: 1px;
+  flex-shrink: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 0, 0, 0.12) 15%,
+    rgba(0, 0, 0, 0.12) 85%,
+    transparent
+  );
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-dialog-modal__divider-diamond {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: linear-gradient(135deg, #d4d2cf, #a8a6a3);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.game-dialog-modal__body {
+  padding: 8px 22px 20px;
+  min-height: 48px;
+  color: #3d3d3d;
+  /* font-size: 0.95rem; */
+  line-height: 1.45;
+  text-align: center;
+}
+
+.game-dialog-modal__body .pet-selection-modal-instruction {
+  margin-bottom: 16px;
+}
+
+.game-dialog-modal__body .pet-selection-modal-instruction p {
+  color: #3d3d3d;
+}
+
+.game-dialog-modal__body .pet-selection-modal-instruction .highlight {
+  color: #c75c5c;
+  font-weight: 700;
+}
+
+.game-dialog-modal__body .pet-selection-modal-label {
+  text-align: left;
+  color: #333;
+}
+
+.game-dialog-modal__body .pet-selection-modal-select {
+  border-color: #d0cec9;
+  border-radius: 10px;
+}
+
+.game-dialog-modal__cost-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.game-dialog-modal__cost-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  background: #e2e0dc;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  font-weight: 700;
+  color: #2a2a2a;
+}
+
+.game-dialog-modal__cost-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.game-dialog-modal__cost-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Footer — dark dock with subtle radar */
+.game-dialog-modal__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  padding: 18px 16px 20px;
+  background:
+    radial-gradient(
+      ellipse 120% 80% at 50% 0%,
+      rgba(212, 175, 95, 0.12),
+      transparent 55%
+    ),
+    repeating-radial-gradient(
+      circle at 50% 40%,
+      transparent 0,
+      transparent 6px,
+      rgba(212, 175, 95, 0.04) 6px,
+      rgba(212, 175, 95, 0.04) 7px
+    ),
+    #2c2b29;
+  border-top: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+/* Tone accents (title underline / optional future use) */
+.game-dialog-modal--tone-warning .game-dialog-modal__title {
+  color: #8a5a2a;
+}
+
+.game-dialog-modal--tone-error .game-dialog-modal__title {
+  color: #a33;
+}
+
+.game-dialog-modal--tone-info .game-dialog-modal__title {
+  color: #2a5a8a;
+}
+
+/* ===== Game modal buttons (pill + square icon) ===== */
+
+.game-modal-btn {
+  --game-btn-bg: #fdfcfa;
+  --game-btn-border: #1a1a1a;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 22px 0 14px;
+  border-radius: 9999px;
+  border: 2px solid var(--game-btn-border);
+  background: var(--game-btn-bg);
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #1f1f1f;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.08);
+  transition: transform 0.12s, box-shadow 0.12s, filter 0.12s;
+  flex: 1 1 140px;
+  max-width: 200px;
+}
+
+.game-modal-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+.game-modal-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.game-modal-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.2);
+}
+
+.game-modal-btn__deco {
+  position: absolute;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  transform: rotate(45deg);
+  background: rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+
+.game-modal-btn__deco--left {
+  left: 10px;
+}
+
+.game-modal-btn__deco--right {
+  right: 10px;
+}
+
+.game-modal-btn__icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.game-modal-btn__x {
+  color: #ff3b3b;
+  font-size: 14px !important;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.game-modal-btn__ring {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #f0c14a;
+  box-shadow:
+    0 0 6px rgba(240, 193, 74, 0.85),
+    inset 0 0 4px rgba(240, 193, 74, 0.35);
+}
+
+.game-modal-btn__bang {
+  color: #f0c14a;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.game-modal-btn--cancel {
+  padding-left: 12px;
+}
+
+.game-modal-btn--danger .game-modal-btn__icon {
+  background: #3a1515;
+}
+
+/* Single-button footer (alert / info) */
+.game-dialog-modal__footer--single {
+  justify-content: center;
+}
+
+.game-dialog-modal__footer--single .game-modal-btn {
+  flex: 0 1 220px;
+  max-width: 280px;
+}
+
+/* ----- Mobile & narrow screens ----- */
+@media (max-width: 480px) {
+  .game-dialog-overlay {
+    padding: max(10px, env(safe-area-inset-top, 0px))
+      max(12px, env(safe-area-inset-right, 0px))
+      max(10px, env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+    align-items: center;
+    align-content: center;
+  }
+
+  .game-dialog-modal {
+    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
+    border-radius: 16px;
+    min-height: 0;
+  }
+
+  .game-dialog-modal__header {
+    padding: 12px 32px 8px;
+  }
+
+  .game-dialog-modal__title {
+    line-height: 1.32;
+  }
+
+  .game-dialog-modal__corner {
+    top: 22px;
+  }
+
+  .game-dialog-modal__corner--tl {
+    left: 12px;
+  }
+
+  .game-dialog-modal__corner--tr {
+    right: 12px;
+  }
+
+  .game-dialog-modal__divider {
+    margin-top: 10px;
+  }
+
+  /* Nội dung dài: cuộn trong body, header/footer cố định */
+  .game-dialog-modal__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    padding: 6px 14px 14px;
+    /* font-size:; */
+    line-height: 1.42;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    text-align: center;
+  }
+
+  .game-dialog-modal__body .pet-selection-modal-qty-btn {
+    min-height: 40px;
+    min-width: 40px;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .game-dialog-modal__body .pet-selection-modal-qty-display {
+    min-width: 52px;
+    font-size: 13px;
+  }
+
+  .game-dialog-modal__cost-wrap {
+    margin-top: 12px;
+  }
+
+  .game-dialog-modal__cost-pill {
+    padding: 8px 14px;
+    font-size: 0.9rem;
+  }
+
+  /* Hai nút cùng hàng — vẫn dùng class desktop: game-modal-btn, game-modal-btn--cancel, … */
+  .game-dialog-modal__footer {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    justify-content: center;
+    align-items: stretch;
+  }
+
+  .game-dialog-modal__footer .game-modal-btn--cancel {
+    padding-left: 8px;
+  }
+
+  .game-dialog-modal__footer .game-modal-btn__icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    flex-shrink: 0;
+  }
+
+  .game-dialog-modal__footer .game-modal-btn__ring {
+    width: 14px;
+    height: 14px;
+  }
+
+  .game-dialog-modal__footer .game-modal-btn__deco {
+    width: 5px;
+    height: 5px;
+    margin-top: -2.5px;
+  }
+
+  .game-dialog-modal__footer .game-modal-btn__deco--left {
+    left: 8px;
+  }
+
+  .game-dialog-modal__footer .game-modal-btn__deco--right {
+    right: 8px;
+  }
+
+  .game-dialog-modal__footer .game-modal-btn__label {
+    /* flex: 1 1 auto; */
+    min-width: 0;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Giảm xung đột hover global `button:hover` */
+  .game-dialog-modal__footer .game-modal-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  }
+
+  .game-dialog-modal__footer .game-modal-btn:disabled {
+    background: #e4e2df !important;
+    color: #5c5a58 !important;
+    border-color: #9a9896 !important;
+    opacity: 1;
+    filter: none;
+  }
+
+  .game-dialog-modal__footer .game-modal-btn:disabled .game-modal-btn__icon {
+    opacity: 0.85;
+  }
+
+  /* Alert / info: một nút — vẫn game-modal-btn */
+  .game-dialog-modal__footer--single {
+    justify-content: center;
+  }
+
+  .game-dialog-modal__footer--single .game-modal-btn {
+    flex: 0 1 auto !important;
+    width: auto !important;
+    max-width: min(92%, 260px) !important;
+    min-width: 0;
+  }
+}
+
+/* Màn hình rất hẹp (320–360px) */
+@media (max-width: 360px) {
+  .game-dialog-overlay {
+    padding-left: max(8px, env(safe-area-inset-left, 0px));
+    padding-right: max(8px, env(safe-area-inset-right, 0px));
+  }
+
+  .game-dialog-modal {
+    border-radius: 14px;
+  }
+
+  .game-dialog-modal__header {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  .game-dialog-modal__body {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+@media (max-width: 480px) and (prefers-reduced-motion: reduce) {
+  .game-modal-btn:hover:not(:disabled) {
+    transform: none;
+  }
+}

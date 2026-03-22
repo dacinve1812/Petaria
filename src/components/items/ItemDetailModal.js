@@ -1,5 +1,5 @@
 // Updated ItemDetailModal.js with support for unequip and use item for pets
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import PetSelectionModal from './PetSelectionModal';
 
 function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem }) {
@@ -13,6 +13,9 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   const [itemEffects, setItemEffects] = useState([]);
   const [selectedAction, setSelectedAction] = useState('');
   const [showActionDropdown, setShowActionDropdown] = useState(false);
+  /** Chặn ghost click (mobile): cùng lần chạm có thể kích hoạt luôn item đầu menu → setSelectedAction → mất nút trigger */
+  const [dropdownPointerGuard, setDropdownPointerGuard] = useState(false);
+  const dropdownGuardTimerRef = useRef(null);
   const [sellQuantity, setSellQuantity] = useState(1);
   const [userOwnedQuantity, setUserOwnedQuantity] = useState(0);
   const [fetchedEquipmentData, setFetchedEquipmentData] = useState(null);
@@ -24,6 +27,12 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
       setItemDetails(item);
       setSelectedAction('');
       setSellQuantity(1);
+      setShowActionDropdown(false);
+      setDropdownPointerGuard(false);
+      if (dropdownGuardTimerRef.current) {
+        clearTimeout(dropdownGuardTimerRef.current);
+        dropdownGuardTimerRef.current = null;
+      }
       
       // Fetch item effects
       const itemId = item.item_id || item.id;
@@ -167,6 +176,11 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   const handleActionSelect = (actionValue) => {
     setSelectedAction(actionValue);
     setShowActionDropdown(false);
+    setDropdownPointerGuard(false);
+    if (dropdownGuardTimerRef.current) {
+      clearTimeout(dropdownGuardTimerRef.current);
+      dropdownGuardTimerRef.current = null;
+    }
     
     if (actionValue === 'equip') {
       handleActionClick();
@@ -184,23 +198,60 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
     }
   };
 
+  const toggleActionDropdown = () => {
+    if (showActionDropdown) {
+      setShowActionDropdown(false);
+      setDropdownPointerGuard(false);
+      if (dropdownGuardTimerRef.current) {
+        clearTimeout(dropdownGuardTimerRef.current);
+        dropdownGuardTimerRef.current = null;
+      }
+      return;
+    }
+    setShowActionDropdown(true);
+    setDropdownPointerGuard(true);
+    if (dropdownGuardTimerRef.current) {
+      clearTimeout(dropdownGuardTimerRef.current);
+    }
+    dropdownGuardTimerRef.current = setTimeout(() => {
+      setDropdownPointerGuard(false);
+      dropdownGuardTimerRef.current = null;
+    }, 380);
+  };
+
   const getActionLabel = (actionValue) => {
     const actions = getAvailableActions();
     const action = actions.find(a => a.value === actionValue);
     return action ? action.label : actionValue;
   };
 
-  // Close dropdown when clicking outside
+  // Đóng khi click / chạm ra ngoài — chỉ gắn listener khi menu đã mở, trễ 1 tick để tránh race với lần mở
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showActionDropdown && !event.target.closest('.inventory-item-modal-dropdown')) {
+    if (!showActionDropdown) return undefined;
+
+    const handlePointerOutside = (event) => {
+      if (!event.target.closest('.inventory-item-modal-dropdown')) {
         setShowActionDropdown(false);
+        setDropdownPointerGuard(false);
+        if (dropdownGuardTimerRef.current) {
+          clearTimeout(dropdownGuardTimerRef.current);
+          dropdownGuardTimerRef.current = null;
+        }
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      if (cancelled) return;
+      document.addEventListener('mousedown', handlePointerOutside);
+      document.addEventListener('touchstart', handlePointerOutside, { passive: true });
+    }, 0);
+
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      cancelled = true;
+      window.clearTimeout(t);
+      document.removeEventListener('mousedown', handlePointerOutside);
+      document.removeEventListener('touchstart', handlePointerOutside);
     };
   }, [showActionDropdown]);
 
@@ -554,7 +605,7 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
         }
       }}
     >
-      <div className="inventory-item-modal">
+      <div className="inventory-item-modal inventory-item-modal--allow-dropdown-overflow">
         {/* Header */}
         <div className="inventory-item-modal-header">
           <button 
@@ -702,6 +753,7 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
             <div className="inventory-item-modal-action-container">
               {item.type === 'equipment' && item.is_equipped ? (
                 <button
+                  type="button"
                   className="inventory-item-modal-action-btn unequip"
                   onClick={handleActionClick}
                   disabled={loading}
@@ -712,17 +764,26 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
                 <>
                   {!selectedAction && (
                     <div className="inventory-item-modal-dropdown">
-                      <button 
+                      <button
+                        type="button"
                         className="inventory-item-modal-action-btn dropdown-trigger"
-                        onClick={() => setShowActionDropdown(!showActionDropdown)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleActionDropdown();
+                        }}
                         disabled={loading}
                       >
                         {loading ? 'Đang xử lý...' : 'Chọn hành động'}
                       </button>
                       {showActionDropdown && (
-                        <div className="inventory-item-modal-dropdown-menu">
+                        <div
+                          className={`inventory-item-modal-dropdown-menu${
+                            dropdownPointerGuard ? ' inventory-item-modal-dropdown-menu--pointer-guard' : ''
+                          }`}
+                        >
                           {getAvailableActions().map((actionOption) => (
                             <button
+                              type="button"
                               key={actionOption.value}
                               className="inventory-item-modal-dropdown-item"
                               onClick={() => handleActionSelect(actionOption.value)}

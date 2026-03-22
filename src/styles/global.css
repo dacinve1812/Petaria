@@ -2504,6 +2504,11 @@ progress {
   overflow: hidden;
 }
 
+/* ItemDetailModal: menu dropdown mở lên trên — overflow hidden sẽ cắt menu / gây layout lạ */
+.inventory-item-modal--allow-dropdown-overflow {
+  overflow: visible;
+}
+
 .inventory-item-modal-header {
   background: var(--color-modal-header);
   /* color: white; */
@@ -3166,6 +3171,11 @@ progress {
   overflow-x: hidden;
   z-index: 1000;
   margin-bottom: 8px;
+}
+
+/* ~380ms sau khi mở: chặn ghost click / double-tap kích hoạt nhầm item đầu tiên */
+.inventory-item-modal-dropdown-menu--pointer-guard {
+  pointer-events: none;
 }
 
 .inventory-item-modal-dropdown-item {
@@ -4397,7 +4407,6 @@ progress {
 
 .pet-selection-modal-instruction p {
   margin: 0 0 8px 0;
-  font-size: 14px;
   color: #2c3e50;
 }
 
@@ -4416,7 +4425,7 @@ progress {
 
 .pet-selection-modal-label {
   display: block;
-  font-size: 14px;
+  /* font-size: 14px; */
   font-weight: 500;
   color: #2c3e50;
   margin-bottom: 8px;
@@ -4427,7 +4436,7 @@ progress {
   padding: 10px 12px;
   border: 2px solid #e9ecef;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   background: white;
   cursor: pointer;
   transition: border-color 0.2s;

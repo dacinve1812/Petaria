@@ -55,7 +55,7 @@ function ShopItemList({ items = [], onItemClick, subTabValue = 'peta' }) {
     <div className='item-list-container'>
       {items.map((item, index) => (
         <ShopItemCard
-          key={`${item.id}-${index}`}
+          key={`${item.shop_item_id ?? item.id}-${index}`}
           stock={item.stock_limit}
           item={item}
           currency={item.currency_type}

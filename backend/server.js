@@ -1782,7 +1782,7 @@ app.get('/api/shop/:shop_code', async (req, res) => {
 
     const [items] = await db.query(`
       SELECT 
-        si.id,
+        si.id AS shop_item_id,
         si.item_id,
         si.shop_id,
         si.custom_price,
@@ -1797,6 +1797,7 @@ app.get('/api/shop/:shop_code', async (req, res) => {
         i.rarity,
         i.image_url,
         i.sell_price,
+        i.id AS id,
         COALESCE(si.custom_price, i.buy_price) AS price
       FROM shop_items si
       JOIN items i ON si.item_id = i.id
@@ -1862,8 +1863,16 @@ app.post('/api/shop/buy', async (req, res) => {
     
     const itemRow = itemRows[0];
 
-    if (itemRow.stock_limit == null || itemRow.stock_limit <= 0) {
-      return res.status(400).json({ error: 'Vật phẩm đã hết hàng' });
+    // stock_limit NULL = không giới hạn; chỉ chặn khi có số và <= 0 hoặc không đủ số lượng mua
+    const hasStockCap =
+      itemRow.stock_limit !== null && itemRow.stock_limit !== undefined;
+    if (hasStockCap) {
+      if (itemRow.stock_limit <= 0) {
+        return res.status(400).json({ error: 'Vật phẩm đã hết hàng' });
+      }
+      if (itemRow.stock_limit < quantity) {
+        return res.status(400).json({ error: 'Không đủ số lượng trong kho shop' });
+      }
     }
 
     const price = itemRow.custom_price ?? itemRow.buy_price;
@@ -1873,8 +1882,9 @@ app.post('/api/shop/buy', async (req, res) => {
       return res.status(400).json({ error: 'Loại tiền không hợp lệ' });
     }
 
-    // 4. Lấy thông tin người dùng
-    const [userRow] = await db.query(`SELECT peta, petagold FROM users WHERE id = ?`, [user_id]);
+    // 4. Lấy thông tin người dùng (mysql2: [rows, fields] — phải lấy rows[0])
+    const [userRows] = await db.query(`SELECT peta, petagold FROM users WHERE id = ?`, [user_id]);
+    const userRow = userRows[0];
     if (!userRow) return res.status(404).json({ error: 'Người dùng không tồn tại' });
 
     const totalPrice = price * quantity;
@@ -1917,15 +1927,18 @@ app.post('/api/shop/buy', async (req, res) => {
       }
     }
 
-    // 7. Trừ stock nếu có
-    if (itemRow.stock_limit !== null) {
-      const result = await db.query(`
+    // 7. Trừ stock nếu shop có giới hạn (NULL = không trừ)
+    if (hasStockCap) {
+      const [upd] = await db.query(
+        `
         UPDATE shop_items
-        SET stock_limit = stock_limit - 1
-        WHERE shop_id = ? AND item_id = ? AND stock_limit > 0
-      `, [shop.id, item_id]);
+        SET stock_limit = stock_limit - ?
+        WHERE shop_id = ? AND item_id = ? AND stock_limit >= ?
+      `,
+        [quantity, shop.id, item_id, quantity]
+      );
 
-      if (result.affectedRows === 0) {
+      if (!upd.affectedRows) {
         return res.status(400).json({ error: 'Không thể cập nhật stock (có thể đã hết hàng)' });
       }
     }

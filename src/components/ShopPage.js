@@ -18,7 +18,6 @@ function ShopPage() {
   
   // Data states
   const [shops, setShops] = useState([]);
-  const [selectedShop, setSelectedShop] = useState(null);
   const [shopItems, setShopItems] = useState([]);
   const [filteredShopItems, setFilteredShopItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -73,10 +72,6 @@ function ShopPage() {
       .then(res => res.json())
       .then(data => {
         setShops(data);
-        // Auto-select first shop if available and no shop is currently selected
-        if (data && data.length > 0 && !selectedShop) {
-          setSelectedShop(data[0]);
-        }
       })
       .catch(error => {
         console.error('Error loading shops:', error);
@@ -154,18 +149,19 @@ function ShopPage() {
   // Calculate current tab data before using in useEffect
   const currentMainTabData = mainTabs[currentMainTab];
   const currentSubTabData = currentMainTabData?.subTabs?.[currentSubTab];
+  /** Shop code đang xem — phải khớp với GET /api/shop/:code (không dùng selectedShop từ /api/shops[0]) */
+  const activeShopCode = currentSubTabData?.value ?? currentMainTabData?.value ?? 'general';
 
   useEffect(() => {
-    if (!currentSubTabData || !user || !user.token) return;
-    
-    // Get shop restock interval
-    const shop = shops.find(s => s.code === currentSubTabData.value);
+    if (!user || !user.token) return;
+
+    const shop = shops.find((s) => s.code === activeShopCode);
     if (shop) {
       setCurrentShopRestockInterval(shop.shop_restock_interval);
     }
-    
-    fetchShopItems(currentSubTabData.value);
-  }, [currentSubTabData?.value, user?.token, shops]); // Add shops to dependencies
+
+    fetchShopItems(activeShopCode);
+  }, [activeShopCode, user?.token, shops]);
 
   // Load shops data on component mount
   useEffect(() => {
@@ -230,8 +226,9 @@ function ShopPage() {
       },
       body: JSON.stringify({
         user_id: user.userId,
-        shop_code: selectedShop.code,
-        item_id: item.id,
+        shop_code: activeShopCode,
+        // API shop list: si.id = id dòng shop_items; mua hàng cần id vật phẩm (items.id) = item_id
+        item_id: item.item_id != null ? item.item_id : item.id,
         quantity: quantity
       })
     });
@@ -239,7 +236,7 @@ function ShopPage() {
     const data = await res.json();
     if (res.ok) {
       alert('Mua thành công!');
-      fetchShopItems(selectedShop.code);
+      fetchShopItems(activeShopCode);
       setSelectedItem(null);
     } else {
       alert(data.error || 'Đã có lỗi xảy ra');
@@ -391,7 +388,7 @@ function ShopPage() {
                 <ShopItemList 
                   items={filteredShopItems} 
                   onItemClick={(item) => setSelectedItem(item)}
-                  subTabValue={currentSubTabData?.value || 'peta'}
+                  subTabValue={activeShopCode}
                 />
               </div>
             </div>
