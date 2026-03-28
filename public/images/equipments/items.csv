@@ -1,0 +1,62 @@
+﻿id,name,description,type,rarity,image_url,buy_price,sell_price
+3,1/2 Smiley Pizza,A cheese and tomato pizza with the tomatoes arranged in a smiley face shape.,food,common,food_smiley_pizza_3.gif,1500,20000
+4,10th Birthday Crowned Cupcake,No one knows how to celebrate quite like royals. This cupcake was released to celebrate the NC Malls tenth birthday.,food,common,mall_cupcake_crown.gif,1000,15000
+8,Altador Dog,Giúp tăng lượng máu nhất định,food,common,alf_hotdog.gif,200,2000
+27,Sách bùa chú Petaria,,booster,epic,boo_morguss_spells.gif,0,0
+28,Card Magic 101,,booster,epic,boo_advc2018_cardmagic.gif,0,0
+29,Grimoire of Affluence,,booster,epic,boo_grimoire_affluence.gif,0,0
+31,Strangely Etched Tablet,,booster,epic,qa_strangely_etched.gif,0,0
+32,The Art of Making Lavaballs,,booster,epic,boo_lava_artof_make.gif,0,0
+33,Almost Abandoned Attic Catalogue,,booster,epic,5e902b6e80.gif,0,0
+34,Sách lịch sử Petaria,,booster,epic,boo_founder.gif,0,0
+35,Sách tử thần Petaria,,booster,epic,book_bones.gif,0,0
+36,Sách hiệp sĩ Petaria,,booster,epic,boo_ixi_heroes.gif,0,0
+37,Rainbow Kau Plushie,,misc,common,toy_kaurainbow.gif,0,0
+38,Blue Scorchio Trumpet,,misc,common,inst_bluescorchio_trumpet.gif,0,0
+39,Shenkuu Snowglobe,,misc,common,toy_shenkuusnowglobe.gif,0,0
+40,Mynci in the Box,,misc,common,toy_mynci_mynciinthebox.gif,0,0
+41,Wintery Mountainscape Kite,,misc,common,toy_wintery_kite.gif,0,0
+42,Tangram Alphabet Game,,misc,rare,toy_ddY21_tangram_alphabets.gif,0,0
+43,Magnetic Tiles Koujong Toy,,misc,common,toy_magnetic_tiles.gif,0,0
+44,Neopets Tarot Cards,,misc,common,mall_tarotcardprize.gif,0,0
+45,Rainbow Scooter,,misc,rare,toy_rainbowscooter.gif,0,0
+46,Honey Potion,,consumable,common,earth_faerie_honeypotion.gif,0,0
+47,Trường Sinh Dược,,consumable,common,pot_kauv_amazing.gif,0,0
+48,Pirate Hissi Morphing Potion,,consumable,common,pot_hissi_pirate.gif,0,0
+49,Faerie Poogle Morphing Potion,,consumable,common,pot_poogle_faerie.gif,0,0
+50,Acara Transmogrification Potion,,consumable,common,pot_acara_mutant.gif,0,0
+51,Sâm Tửu,,consumable,common,battle_potion.gif,0,0
+52,Camouflage Scorchio Morphing Potion,,consumable,common,pot_scorchio_camouflage.gif,0,0
+53,Cloud Shoyru Morphing Potion,,consumable,common,pot_shoyru_cloud.gif,0,0
+54,Faerie Peophin Morphing Potion,,consumable,common,pot_peophin_faerie.gif,0,0
+55,Faerie Techo Morphing Potion,,consumable,common,pot_techo_faerie.gif,0,0
+56,Fire Lupe Morphing Potion,,consumable,common,pot_lupe_fire.gif,0,0
+57,Poogle Transmogrification Potion,,consumable,common,pot_poogle_mutant.gif,0,0
+58,Potion of Healing,,consumable,common,pot_twr_potenthealing.gif,0,0
+59,Potion of Good Dreams,,consumable,common,bd_sais_potionofgooddream.gif,0,0
+60,Red Buzz Morphing Potion,,consumable,common,pot_buzz_red.gif,0,0
+61,Revive Potion,,consumable,common,hpo_revive_healingpotion.gif,0,0
+62,Super Strength Healing Potion,,consumable,rare,mag_healing_striped.gif,0,0
+63,Bottled Good Will,,consumable,common,mpo_bottled_goodwill.gif,0,0
+64,Velms Healing Potion,,consumable,common,bd_nq2_velm_potion.gif,0,0
+65,Thần Được Exp No.1,,consumable,rare,mpo_kayla_7.gif,0,0
+66,Thần Được Exp No.2,,consumable,rare,mpo_kayla_8.gif,0,0
+67,Thần Được Exp No.3,,consumable,epic,mpo_kayla_5.gif,0,0
+68,Thần Được Exp No.4,,consumable,epic,mpo_kayla_3.gif,0,0
+69,Thần Được Exp No.5,,consumable,legendary,mpo_kayla_6.gif,0,0
+70,Thần dược tiến hóa Epsilon,,evolve,legendary,pot_acara_ghost.gif,1,1000000
+71,Thần dược tiến hóa Alpha,,evolve,legendary,pot_acara_cloud.gif,0,0
+72,Thần dược tiến hóa Beta,,evolve,legendary,morph_aca_disco.gif,0,0
+73,Thần dược tiến hóa Gamma,,evolve,legendary,morph_aca_fire.gif,0,0
+74,Thần dược tiến hóa Delta,,evolve,legendary,pot_acara_island.gif,0,0
+75,Thần dược tiến hóa Sigma,,evolve,legendary,morph_aca_check.gif,0,0
+76,Khiên hồng ngọc,,equipment,common,bd_acara_shield.gif,5000,2000
+77,Khiên đuôi rồng,,equipment,rare,king_skarl_royalshield.gif,120000,12000
+78,Boomrang chuối,"Một thanh kiếm tuyệt vời, nếu nó bay ra khỏi tay bạn, bạn có thể chắc chắn rằng nó sẽ trở lại.",equipment,rare,bd_boomerang_sword.gif,10000,5000
+81,Cung băng tinh,,equipment,common,mbd_arrowbow.gif,10000,5000
+96,Bánh mì cơ bản,Bánh mì đơn giản giúp pet no bụng.,food,common,alf_bread.gif,50,25
+97,Táo tươi,Táo ngọt giúp pet hết đói.,food,common,tropical_snowberry.gif,60,30
+98,Bánh kem ngọt,Bánh kem thơm ngon giúp pet no bụng hơn.,food,uncommon,mall_cake_wonderland.gif,150,75
+99,Pizza hạnh phúc,Pizza với hình mặt cười làm pet rất vui.,food,uncommon,food_smiley_pizza_3.gif,200,100
+100,Bữa tiệc hoàng gia,Bữa ăn sang trọng giúp pet no bụng hoàn toàn.,food,rare,foo_adca2014_aheartymeal.gif,500,250
+101,Thức ăn thần thánh,Thức ăn quý hiếm giúp pet luôn no bụng.,food,epic,food_diamondhotdog.gif,1000,500

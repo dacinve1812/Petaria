@@ -134,19 +134,19 @@ Trong **Đấu trường Arena**, trận đấu diễn ra theo lượt: **Pet** 
 
 #### Arena Match State (Redis) — Luồng trận đấu chuyên nghiệp
 
-Để xử lý hàng trăm nghìn trận đấu mà không làm nghẽn MySQL, trạng thái trận (match state) được lưu trên **Redis** với TTL ~1 giờ. MySQL chỉ dùng khi **bắt đầu** (đọc pet/boss/equipment) và **kết thúc** (cập nhật HP, loot, EXP).
+Để xử lý hàng trăm nghìn trận đấu mà không làm nghẽn MySQL, trạng thái trận (match state) được lưu trên **Redis** với TTL cấu hình được (mặc định **1800 giây = 30 phút**, biến môi trường `REDIS_MATCH_TTL`). MySQL chỉ dùng khi **bắt đầu** (đọc pet/boss/equipment) và **kết thúc** (cập nhật HP, loot, EXP) — hoặc khi **terminate** (rời trận).
 
 **1. Trước trận (Pre-Battle)**  
 Khi người chơi bấm Battle, backend xử lý:
 
 - **Check HP**: Query bảng `pets`; nếu `current_hp <= 0` → trả lỗi 400: *"Thú cưng quá mệt mỏi, hãy cho ăn/nghỉ ngơi để hồi phục."*
 - **Check Active Match**: Kiểm tra Redis key `match:user_id`. Nếu tồn tại → trả 400 với `code: 'ACTIVE_MATCH'` và gửi kèm object `match` (trận đang dang dở) để frontend chuyển sang trang battle và resume.
-- Nếu không có trận đang chơi: tạo state ban đầu (player, enemy, equipment, turn_count, history), lưu vào Redis với TTL (ví dụ 3600s), trả state cho client.
+- Nếu không có trận đang chơi: tạo state ban đầu (player, enemy, equipment, turn_count, history), lưu vào Redis với `{ EX: REDIS_MATCH_TTL }`, trả state cho client.
 
 **2. Cấu trúc dữ liệu Redis**  
 - **Key**: `match:user_id` (ví dụ `match:42`).
 - **Value**: JSON object gồm `player`, `enemy`, `equipment`, `turn_count`, `history`, `finished`, `result`.
-- **TTL**: 3600 giây (1 giờ); hết hạn thì key tự xóa.
+- **TTL**: `REDIS_MATCH_TTL` (giây), **mặc định 1800** (30 phút), có thể ghi đè trong `.env`. Mỗi lần **`POST /api/arena/match/turn`** mà trận **chưa kết thúc**, server ghi lại key với cùng TTL → **thời gian sống được gia hạn** thêm một khoảng `REDIS_MATCH_TTL` kể từ lần `SET` đó (không phải chỉ tính từ lúc `match/start`). Hết hạn thì Redis **tự xóa key** (không gọi `finalizeMatchInMySQL`).
 
 **3. Trong trận — Xử lý lượt (chỉ Redis)**  
 - Mỗi hành động (tấn công vũ khí, tấn công thường, phòng thủ khiên, phòng thủ vật lý) gọi **POST /api/arena/match/turn** với `action` + tham số (itemId, power_min, power_max, moveName).
@@ -169,6 +169,11 @@ Khi người chơi bấm Battle, backend xử lý:
   - **Thua**: set `current_hp = 0` cho pet trong DB.
 - Sau khi finalize: xóa key `match:user_id` trên Redis.
 
+**6b. Key Redis hết hạn (TTL) mà không qua kết thúc / terminate**  
+- Backend **không** có bước đồng bộ HP từ Redis sang MySQL khi key bị Redis xóa do TTL.  
+- **`pets.current_hp` trong MySQL** giữ nguyên giá trị **trước khi vào trận** (hoặc sau lần cập nhật DB gần nhất), **không** phản ánh HP “đang đánh dở” đã mất cùng key Redis.  
+- Thiết kế này tránh orphan state: user coi như **không còn trận dở**; nếu cần chính sách khác (ví dụ coi như thua và set HP = 0), phải bổ sung job hoặc logic khi `match/status` trả 404 sau khi từng có match.
+
 **7. API Match (Redis)**  
 | Method | Endpoint | Mô tả |
 |--------|----------|--------|
@@ -178,8 +183,8 @@ Khi người chơi bấm Battle, backend xử lý:
 | POST | `/api/arena/match/terminate` | Force thua: cập nhật HP pet, xóa Redis. |
 
 **8. Frontend (tóm tắt)**  
-- **ArenaPage**: Bấm Battle → gọi `match/start`; 200 → navigate với `matchState` + `useRedisMatch: true`; 400 ACTIVE_MATCH → navigate với `data.match` để resume; 400 khác (pet faint) → hiển thị lỗi.
-- **ArenaBattlePage**: Nếu có `matchState` hoặc restore từ `match/status` → dùng **match/turn** cho mọi action (không gọi simulate-turn/simulate-defend riêng). Khi `finished` và `result === 'win'` → gọi gain-exp + claim-loot. Nút "Quay lại Đấu trường" khi đang đánh → confirm → terminate → navigate. "Khiêu chiến lại" sau khi hết trận (Redis mode) → navigate về `/battle/arena`.
+- **ArenaPage**: Khi mở `/battle/arena`, gọi `GET /api/arena/match/status`: nếu còn trận dở → hiện **GameDialogModal** (“Bạn đang trong trận đấu, tiếp tục trận đấu?”); **Tiếp tục** → navigate battle với `matchState` + `useRedisMatch: true`; **Hủy** → về `/battle` (trận vẫn trên Redis). Nếu không có match → hiện lưới đối thủ; bấm Battle → `match/start`; 200 → navigate như trên; 400 ACTIVE_MATCH → navigate với `data.match` để resume; 400 khác (pet faint) → hiển thị lỗi.
+- **ArenaBattlePage**: Nếu có `matchState` hoặc restore từ `match/status` → dùng **match/turn** cho mọi action (không gọi simulate-turn/simulate-defend riêng). Chờ `match/status` xong rồi mới gọi `battle-stats` để **không ghi đè `current_hp`** bằng máu tối đa. Khi `finished` và `result === 'win'` → gọi gain-exp + claim-loot. Nút "Quay lại Đấu trường" khi đang đánh → confirm → terminate → navigate. "Khiêu chiến lại" sau khi hết trận (Redis mode) → navigate về `/battle/arena`.
 
 **Lưu ý triển khai (VPS):** Khi deploy lên VPS, **bắt buộc cài đặt và chạy Redis** (ví dụ port 6379). Cấu hình `REDIS_URL` trong `.env` (ví dụ `REDIS_URL=redis://localhost:6379` hoặc Redis trên máy khác). Nếu Redis không chạy, server vẫn khởi động nhưng các API match (start, status, turn, terminate) sẽ trả 503 / "Match service temporarily unavailable".
 
@@ -192,7 +197,7 @@ Khi người chơi bấm Battle, backend xử lý:
    - **Terminate:** API `match/terminate` cập nhật thua cuộc vào MySQL rồi gọi `redis.del(match:user_id)`.
 
 2. **TTL (Time To Live)**  
-   Mỗi lần `SET` trận đấu (match/start hoặc match/turn khi chưa kết thúc), luôn đặt TTL (ví dụ 30 phút). Env `REDIS_MATCH_TTL` (giây); mặc định 1800. Nếu user mất mạng và không quay lại, key tự hết hạn và Redis xóa, không tốn RAM.
+   Mỗi lần `SET` trận đấu (`match/start` và **`match/turn`** khi trận chưa kết thúc), luôn dùng `{ EX: REDIS_MATCH_TTL }`. Env `REDIS_MATCH_TTL` (giây); **mặc định 1800** (30 phút). **Gia hạn:** mỗi lượt `turn` thành công reset TTL thêm một khoảng `REDIS_MATCH_TTL`. Nếu user không đánh tiếp và không terminate, sau khoảng thời gian đó key tự hết hạn → Redis xóa, không tốn RAM; **MySQL không được cập nhật HP** trong trường hợp chỉ hết TTL (xem mục **6b** ở trên).
 
 3. **Nếu Redis đầy RAM**  
    - **Mặc định:** Redis trả OOM (Out of Memory), API match/start có thể lỗi.  

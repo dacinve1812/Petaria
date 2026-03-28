@@ -214,10 +214,7 @@ function ShopPage() {
   }, []);
 
   const handleBuy = async (item, quantity = 1) => {
-    const totalPrice = item.price * quantity;
-    const confirm = window.confirm(`Bạn muốn mua ${quantity}x ${item.name} với tổng giá ${totalPrice.toLocaleString()} ${item.currency_type}?`);
-    if (!confirm) return;
-
+    // Đã xác nhận trong ItemDetailModal (Cancel / Confirm) — không dùng window.confirm
     const res = await fetch(`${API_BASE_URL}/api/shop/buy`, {
       method: 'POST',
       headers: {

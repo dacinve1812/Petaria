@@ -1,8 +1,9 @@
 import React from 'react';
+import './GameDialogModal.css';
 
 /**
  * Nút pill kiểu game (Cancel / Confirm / primary / danger).
- * Dùng chung trong GameDialogModal và các chỗ khác.
+ * `showIcon={false}` — ẩn ô icon (ring / ✕); vẫn giữ hình thoi hai bên trừ khi tùy chỉnh CSS.
  */
 function GameModalButton({
   variant = 'primary',
@@ -11,24 +12,29 @@ function GameModalButton({
   disabled = false,
   type = 'button',
   className = '',
+  showIcon = true,
   ...rest
 }) {
+  const noIconClass = showIcon ? '' : ' game-modal-btn--no-icon';
+
   return (
     <button
       type={type}
-      className={`game-modal-btn game-modal-btn--${variant} ${className}`.trim()}
+      className={`game-modal-btn game-modal-btn--${variant}${noIconClass} ${className}`.trim()}
       onClick={onClick}
       disabled={disabled}
       {...rest}
     >
       <span className="game-modal-btn__deco game-modal-btn__deco--left" aria-hidden />
-      <span className="game-modal-btn__icon" aria-hidden>
-        {variant === 'cancel' && <span className="game-modal-btn__x">✕</span>}
-        {(variant === 'confirm' || variant === 'primary') && (
-          <span className="game-modal-btn__ring" />
-        )}
-        {variant === 'danger' && <span className="game-modal-btn__bang">!</span>}
-      </span>
+      {showIcon ? (
+        <span className="game-modal-btn__icon" aria-hidden>
+          {variant === 'cancel' && <span className="game-modal-btn__x">✕</span>}
+          {(variant === 'confirm' || variant === 'primary') && (
+            <span className="game-modal-btn__ring" />
+          )}
+          {variant === 'danger' && <span className="game-modal-btn__bang">!</span>}
+        </span>
+      ) : null}
       <span className="game-modal-btn__label">{children}</span>
       <span className="game-modal-btn__deco game-modal-btn__deco--right" aria-hidden />
     </button>

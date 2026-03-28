@@ -5,6 +5,7 @@ import TemplatePage from './template/TemplatePage';
 import BackButton from './BackButton';
 import ItemDetailModal from './items/ItemDetailModal';
 import SpiritDetailModal from './spirit/SpiritDetailModal';
+import GameModalButton from './ui/GameModalButton';
 import expTable from '../data/exp_table_petaria.json';
 
 /** Chuẩn hóa dòng từ GET /api/pets/:id/equipment → shape dùng chung với ItemDetailModal (inventory). */
@@ -425,13 +426,14 @@ function PetProfile() {
           }}
         >
           {currentUserId === pet.owner_id && (
-            <button
+            <GameModalButton
               type="button"
-              className="inventory-item-modal-action-btn unequip"
+              variant="confirm"
+              className="inventory-item-modal-remove-game-btn"
               onClick={() => handleUnequipSpirit(selectedSpirit.id)}
             >
               Remove
-            </button>
+            </GameModalButton>
           )}
         </SpiritDetailModal>
       )}

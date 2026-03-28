@@ -1,6 +1,8 @@
 // Updated ItemDetailModal.js with support for unequip and use item for pets
 import React, { useEffect, useState, useRef } from 'react';
 import PetSelectionModal from './PetSelectionModal';
+import GameDialogModal from '../ui/GameDialogModal';
+import GameModalButton from '../ui/GameModalButton';
 
 function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
@@ -11,8 +13,9 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   const [showPetSelection, setShowPetSelection] = useState(false);
   const [itemDetails, setItemDetails] = useState(null);
   const [itemEffects, setItemEffects] = useState([]);
-  const [selectedAction, setSelectedAction] = useState('');
   const [showActionDropdown, setShowActionDropdown] = useState(false);
+  /** null | { mode: 'sell' } | { mode: 'placeholder', label, actionValue } */
+  const [gameDialog, setGameDialog] = useState(null);
   /** Chặn ghost click (mobile): cùng lần chạm có thể kích hoạt luôn item đầu menu → setSelectedAction → mất nút trigger */
   const [dropdownPointerGuard, setDropdownPointerGuard] = useState(false);
   const dropdownGuardTimerRef = useRef(null);
@@ -25,8 +28,8 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   useEffect(() => {
     if (item) {
       setItemDetails(item);
-      setSelectedAction('');
       setSellQuantity(1);
+      setGameDialog(null);
       setShowActionDropdown(false);
       setDropdownPointerGuard(false);
       if (dropdownGuardTimerRef.current) {
@@ -151,7 +154,7 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   const getAvailableActions = () => {
     if (item?.type === 'equipment' && !item?.is_equipped) {
       return [
-        { value: 'equip', label: 'Equip' },
+        { value: 'equip', label: 'Trang bị cho thú cưng' },
         { value: 'sell', label: 'Bán ve chai' },
         { value: 'sell_auction', label: 'Đặt vào cửa hàng' },
         { value: 'exhibition', label: 'Mang vào phòng triển lãm' },
@@ -174,25 +177,27 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   };
 
   const handleActionSelect = (actionValue) => {
-    setSelectedAction(actionValue);
     setShowActionDropdown(false);
     setDropdownPointerGuard(false);
     if (dropdownGuardTimerRef.current) {
       clearTimeout(dropdownGuardTimerRef.current);
       dropdownGuardTimerRef.current = null;
     }
-    
+
     if (actionValue === 'equip') {
       handleActionClick();
     } else if (actionValue === 'remove') {
       handleActionClick();
     } else if (actionValue === 'sell') {
       setSellQuantity(1);
+      setGameDialog({ mode: 'sell' });
     } else if (['sell_auction', 'exhibition', 'gift'].includes(actionValue)) {
-      // Placeholder actions - show alert for now
-      alert(`Tính năng "${getActionLabel(actionValue)}" sẽ được cập nhật sau!`);
+      setGameDialog({
+        mode: 'placeholder',
+        actionValue,
+        label: getActionLabel(actionValue),
+      });
     } else {
-      // For other actions, show pet selection modal
       setAction(actionValue);
       setShowPetSelection(true);
     }
@@ -703,141 +708,109 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
         </div>
 
         {/* Footer */}
-        <div className="inventory-item-modal-footer">
+        <div
+          className={`inventory-item-modal-footer${
+            mode === 'shop' ? ' inventory-item-modal-footer--shop-game' : ''
+          }`}
+        >
           {mode === 'shop' ? (
-            <div className="shop-purchase-container">
-              {/* Quantity Selector */}
-              <div className="quantity-selector">
-                
-                <div className="quantity-controls">
-                  <button 
-                    className="quantity-btn minus"
-                    onClick={() => handleQuantityChange(-1)}
-                    disabled={purchaseQuantity <= 1}
-                  >
-                    -
-                  </button>
-                  <input 
-                    type="number"
-                    className="quantity-input"
-                    value={purchaseQuantity}
-                    onChange={handleQuantityInputChange}
-                    min="1"
-                    max="99"
-                  />
-                  <button 
-                    className="quantity-btn plus"
-                    onClick={() => handleQuantityChange(1)}
-                    disabled={purchaseQuantity >= 99}
-                  >
-                    +
-                  </button>
+            <div className="shop-purchase-container shop-purchase-container--game-style">
+              <div className="shop-purchase-game-body">
+                <div className="quantity-selector shop-purchase-quantity">
+                  <div className="quantity-controls">
+                    <button
+                      type="button"
+                      className="quantity-btn minus"
+                      onClick={() => handleQuantityChange(-1)}
+                      disabled={purchaseQuantity <= 1}
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      className="quantity-input"
+                      value={purchaseQuantity}
+                      onChange={handleQuantityInputChange}
+                      min="1"
+                      max="99"
+                    />
+                    <button
+                      type="button"
+                      className="quantity-btn plus"
+                      onClick={() => handleQuantityChange(1)}
+                      disabled={purchaseQuantity >= 99}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <div className="purchase-summary shop-purchase-summary-total">
+                  <div className="total-price shop-purchase-total-price">
+                    {(item.price * purchaseQuantity).toLocaleString()}{' '}
+                    {item.currency_type === 'gem' ? 'petaGold' : 'peta'}
+                  </div>
                 </div>
               </div>
-              
-              {/* Total Price and Buy Button */}
-              <div className="purchase-summary">
-                {/* <div className="total-price">
-                  Tổng: {(item.price * purchaseQuantity).toLocaleString()} {item.currency_type === 'gem' ? 'petaGold' : 'peta'}
-                </div> */}
-                <button 
-                  className="inventory-item-modal-action-btn buy-btn"
-                  onClick={isSoldOut ? undefined : () => onBuy(item, purchaseQuantity)}
+              <footer className="game-dialog-modal__footer">
+                <GameModalButton type="button" variant="cancel" onClick={onClose}>
+                  Cancel
+                </GameModalButton>
+                <GameModalButton
+                  type="button"
+                  variant="confirm"
+                  onClick={() => onBuy(item, purchaseQuantity)}
                   disabled={isSoldOut}
                 >
-                  {isSoldOut ? 'Vật phẩm đã bán hết' : `Mua với giá ${item.price * purchaseQuantity} ${item.currency_type === 'gem' ? 'petaGold' : 'peta'}`}
-                </button>
-              </div>
+                  {isSoldOut ? 'Hết hàng' : 'Confirm'}
+                </GameModalButton>
+              </footer>
             </div>
           ) : (
             <div className="inventory-item-modal-action-container">
               {item.type === 'equipment' && item.is_equipped ? (
-                <button
+                <GameModalButton
                   type="button"
-                  className="inventory-item-modal-action-btn unequip"
+                  variant="confirm"
+                  className="inventory-item-modal-remove-game-btn"
                   onClick={handleActionClick}
                   disabled={loading}
                 >
                   {loading ? 'Đang xử lý...' : 'Remove'}
-                </button>
+                </GameModalButton>
               ) : (
-                <>
-                  {!selectedAction && (
-                    <div className="inventory-item-modal-dropdown">
-                      <button
-                        type="button"
-                        className="inventory-item-modal-action-btn dropdown-trigger"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleActionDropdown();
-                        }}
-                        disabled={loading}
-                      >
-                        {loading ? 'Đang xử lý...' : 'Chọn hành động'}
-                      </button>
-                      {showActionDropdown && (
-                        <div
-                          className={`inventory-item-modal-dropdown-menu${
-                            dropdownPointerGuard ? ' inventory-item-modal-dropdown-menu--pointer-guard' : ''
-                          }`}
+                <div className="inventory-item-modal-dropdown">
+                  <GameModalButton
+                    type="button"
+                    variant="primary"
+                    showIcon={false}
+                    className="inventory-item-modal-dropdown-trigger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleActionDropdown();
+                    }}
+                    disabled={loading}
+                  >
+                    {loading ? 'Đang xử lý...' : 'Chọn hành động'}
+                  </GameModalButton>
+                  {showActionDropdown && (
+                    <div
+                      className={`inventory-item-modal-dropdown-menu${
+                        dropdownPointerGuard ? ' inventory-item-modal-dropdown-menu--pointer-guard' : ''
+                      }`}
+                    >
+                      {getAvailableActions().map((actionOption) => (
+                        <button
+                          type="button"
+                          key={actionOption.value}
+                          className="inventory-item-modal-dropdown-item"
+                          onClick={() => handleActionSelect(actionOption.value)}
                         >
-                          {getAvailableActions().map((actionOption) => (
-                            <button
-                              type="button"
-                              key={actionOption.value}
-                              className="inventory-item-modal-dropdown-item"
-                              onClick={() => handleActionSelect(actionOption.value)}
-                            >
-                              {actionOption.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                          {actionOption.label}
+                        </button>
+                      ))}
                     </div>
                   )}
-
-                  {selectedAction === 'sell' && (
-                    <div className="quantity-selector" style={{ marginTop: 10, display: 'flex', flexDirection: 'column' }}>
-                      <div className="quantity-controls">
-                        <button
-                          className="quantity-btn minus"
-                          onClick={() => changeSellQuantity(-1)}
-                          disabled={loading || sellQuantity <= 1}
-                        >
-                          -
-                        </button>
-                        <input
-                          type="number"
-                          className="quantity-input"
-                          value={sellQuantity}
-                          min="1"
-                          max={Math.max(1, ownedQty)}
-                          onChange={handleSellQuantityInput}
-                          disabled={loading}
-                        />
-                        <button
-                          className="quantity-btn plus"
-                          onClick={() => changeSellQuantity(1)}
-                          disabled={loading || sellQuantity >= Math.max(1, ownedQty)}
-                        >
-                          +
-                        </button>
-                      </div>
-                      <div className="purchase-summary" style={{ marginTop: 8, display: 'flex', flexDirection: 'column' }}>
-                        <div className="total-price">
-                          {sellTotal} peta
-                        </div>
-                        <button
-                          className="inventory-item-modal-action-btn buy-btn"
-                          onClick={handleSellItem}
-                          disabled={loading || ownedQty <= 0}
-                        >
-                          {loading ? 'Đang xử lý...' : 'Xác nhận bán'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
+                </div>
               )}
             </div>
           )}
@@ -853,6 +826,78 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
         item={item}
         action={item.type === 'equipment' ? 'equip' : 'use'}
       />
+
+      {/* Bán: quantity + xác nhận trên nút Confirm của GameDialogModal */}
+      {gameDialog?.mode === 'sell' && (
+        <GameDialogModal
+          isOpen
+          onClose={() => setGameDialog(null)}
+          className="game-dialog-modal--global-item"
+          title="Xác nhận bán vật phẩm"
+          mode="confirm"
+          cancelLabel="Cancel"
+          confirmLabel="Confirm"
+          onConfirm={handleSellItem}
+          confirmDisabled={loading || ownedQty <= 0}
+          closeOnOverlayClick
+          contentClassName="item-detail-game-dialog-body"
+        >
+          <p className="item-detail-sell-dialog-intro">
+            Chọn số lượng <span className="highlight">{displayItem.name || displayItem.item_name || 'vật phẩm'}</span> muốn bán.
+          </p>
+          <div className="quantity-selector item-detail-sell-quantity">
+            <div className="quantity-controls">
+              <button
+                type="button"
+                className="quantity-btn minus"
+                onClick={() => changeSellQuantity(-1)}
+                disabled={loading || sellQuantity <= 1}
+              >
+                -
+              </button>
+              <input
+                type="number"
+                className="quantity-input"
+                value={sellQuantity}
+                min="1"
+                max={Math.max(1, ownedQty)}
+                onChange={handleSellQuantityInput}
+                disabled={loading}
+              />
+              <button
+                type="button"
+                className="quantity-btn plus"
+                onClick={() => changeSellQuantity(1)}
+                disabled={loading || sellQuantity >= Math.max(1, ownedQty)}
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div className="purchase-summary item-detail-sell-summary">
+            <div className="total-price">{sellTotal.toLocaleString()} peta</div>
+          </div>
+        </GameDialogModal>
+      )}
+
+      {gameDialog?.mode === 'placeholder' && (
+        <GameDialogModal
+          isOpen
+          onClose={() => setGameDialog(null)}
+          className="game-dialog-modal--global-item"
+          title={gameDialog.label}
+          mode="alert"
+          tone="info"
+          confirmLabel="Confirm"
+          onConfirm={() => setGameDialog(null)}
+          closeOnOverlayClick
+          contentClassName="item-detail-game-dialog-body"
+        >
+          <p>
+            Tính năng <strong>{gameDialog.label}</strong> sẽ được cập nhật sau.
+          </p>
+        </GameDialogModal>
+      )}
     </div>
   );
 }

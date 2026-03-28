@@ -2,14 +2,7 @@ import React, { useEffect, useId } from 'react';
 import GameModalButton from './GameModalButton';
 import './GameDialogModal.css';
 
-/**
- * Modal dialog kiểu gacha/game: header + body + footer tối với Cancel/Confirm.
- * - mode="confirm": 2 nút (Cancel + Confirm)
- * - mode="alert" | "info": chỉ 1 nút OK (Confirm)
- *
- * children: nội dung tuỳ biến (vd. form chọn pet trong PetSelectionModal).
- * Đóng: Cancel / click overlay (closeOnOverlayClick) — không dùng nút (×).
- */
+/** Modal confirm/alert kiểu game. Chi tiết + chuẩn item/inventory: `docs/GLOBAL_GAME_UI.md`, `docs/GLOBAL_ITEM_MODAL_CSS.md`. */
 function GameDialogModal({
   isOpen,
   onClose,

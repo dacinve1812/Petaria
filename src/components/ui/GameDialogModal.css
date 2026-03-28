@@ -1,4 +1,9 @@
-/* ===== Game-style dialog (confirm / alert / embed form) ===== */
+/* Game-style dialog — chuẩn item/inventory: docs/GLOBAL_ITEM_MODAL_CSS.md, GLOBAL_GAME_UI.md */
+
+/* Hook: chỉnh max-width chung cho dialog gắn item */
+.game-dialog-modal.game-dialog-modal--global-item {
+  max-width: 420px;
+}
 
 .game-dialog-overlay {
   position: fixed;
@@ -9,7 +14,7 @@
   justify-content: center;
   padding: 20px;
   background: rgba(0, 0, 0, 0.52);
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(0.2px);
 }
 
 .game-dialog-modal {
@@ -18,7 +23,7 @@
   flex-direction: column;
   width: 100%;
   max-width: 420px;
-  border-radius: 22px;
+  border-radius: var(--border-radius);
   border: 1px solid rgba(0, 0, 0, 0.12);
   background: #f4f2ef;
   box-shadow:
@@ -108,7 +113,7 @@
 
 .game-dialog-modal__body {
   padding: 8px 22px 20px;
-  min-height: 48px;
+  min-height: 80px;
   color: #3d3d3d;
   /* font-size: 0.95rem; */
   line-height: 1.45;
@@ -200,14 +205,14 @@
 }
 
 .game-dialog-modal--tone-info .game-dialog-modal__title {
-  color: #2a5a8a;
+  color: #2e455c;
 }
 
 /* ===== Game modal buttons (pill + square icon) ===== */
 
 .game-modal-btn {
   --game-btn-bg: #fdfcfa;
-  --game-btn-border: #1a1a1a;
+  --game-btn-border: #312d1d84;
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -216,7 +221,7 @@
   min-height: 44px;
   padding: 0 22px 0 14px;
   border-radius: 9999px;
-  border: 2px solid var(--game-btn-border);
+  border: 1.5px solid var(--game-btn-border);
   background: var(--game-btn-bg);
   cursor: pointer;
   font-size: 0.92rem;
@@ -302,6 +307,41 @@
   padding-left: 12px;
 }
 
+/* Không hiện icon — nền kem kiểu “Premium Shop”, chữ đậm, viền nâu nhạt */
+.game-modal-btn.game-modal-btn--no-icon {
+  --game-btn-bg: linear-gradient(to top, #eed4a3, #f1e5c6 );
+  --game-btn-border: rgb(197, 193, 178);
+  padding: 0 22px;
+  gap: 0;
+  justify-content: center;
+  background: var(--game-btn-bg);
+  border-color: var(--game-btn-border);
+  color: #1a1a1a;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 2px 4px rgba(62, 48, 32, 0.07);
+}
+
+.game-modal-btn.game-modal-btn--no-icon:hover:not(:disabled) {
+  /* background: #faf3e4; */
+  border-color: rgba(92, 72, 48, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 4px 10px rgba(62, 48, 32, 0.1);
+}
+
+.game-modal-btn.game-modal-btn--no-icon:active:not(:disabled) {
+  background: #efe4cc;
+}
+
+.game-modal-btn.game-modal-btn--no-icon .game-modal-btn__deco {
+  background: rgba(80, 70, 58, 0.28);
+}
+
+.game-modal-btn.game-modal-btn--no-icon.game-modal-btn--cancel {
+  padding-left: 22px;
+}
+
 .game-modal-btn--danger .game-modal-btn__icon {
   background: #3a1515;
 }
@@ -330,8 +370,8 @@
   .game-dialog-modal {
     max-height: calc(100vh - 20px);
     max-height: calc(100dvh - 20px);
-    border-radius: 16px;
     min-height: 0;
+
   }
 
   .game-dialog-modal__header {
@@ -356,6 +396,9 @@
 
   .game-dialog-modal__divider {
     margin-top: 10px;
+  }
+  .pet-selection-modal-select{
+    font-size: var(--font-sm);
   }
 
   /* Nội dung dài: cuộn trong body, header/footer cố định */
@@ -401,6 +444,7 @@
     flex-shrink: 0;
     justify-content: center;
     align-items: stretch;
+    padding: 12px 10px 14px;
   }
 
   .game-dialog-modal__footer .game-modal-btn--cancel {
@@ -471,6 +515,9 @@
     max-width: min(92%, 260px) !important;
     min-width: 0;
   }
+  .game-modal-btn{
+    min-height: 38px !important;
+  }
 }
 
 /* Màn hình rất hẹp (320–360px) */
@@ -499,4 +546,55 @@
   .game-modal-btn:hover:not(:disabled) {
     transform: none;
   }
+  .game-modal-btn {
+    min-height: 38px;
+  }
+}
+
+/* ItemDetailModal — bán / placeholder trong GameDialogModal */
+/*
+ * Căn giữa <p>: margin:auto không tác dụng khi block rộng 100% — cần text-align + khối hẹp (fit-content/max-width) + margin-inline auto
+ */
+.game-dialog-modal__body.item-detail-game-dialog-body p {
+  text-align: center;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+
+.game-dialog-modal__body.item-detail-game-dialog-body .item-detail-sell-dialog-intro {
+  margin: 0 auto 12px;
+  text-align: center;
+}
+
+.game-dialog-modal__body.item-detail-game-dialog-body .highlight {
+  color: #c75c5c;
+  font-weight: 700;
+}
+
+.game-dialog-modal__body.item-detail-game-dialog-body .item-detail-sell-quantity {
+  justify-content: center;
+  margin: 12px auto;
+}
+
+.game-dialog-modal__body.item-detail-game-dialog-body .item-detail-sell-summary {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.game-dialog-modal__body.item-detail-game-dialog-body .item-detail-sell-summary .total-price {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #2a2a2a;
+}
+
+.game-dialog-modal__body.item-detail-game-dialog-body .item-detail-sell-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #666;
 }

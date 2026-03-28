@@ -132,6 +132,11 @@
 }
 
 /* ========== Arena Battle Redesign (screenshot layout) ========== */
+/* Trận đã kết thúc: chặn tương tác phía dưới (nút bấm ở overlay kết quả) */
+.arena-battle-container--ended {
+  pointer-events: none;
+}
+
 .arena-battle-container {
   max-width: 900px;
   margin: 0 auto;

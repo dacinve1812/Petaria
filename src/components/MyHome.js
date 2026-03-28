@@ -4,6 +4,7 @@ import TemplatePage from './template/TemplatePage';
 import './MyHome.css';
 import GlobalBanner from './GlobalBanner';
 import SpiritDetailModal from './spirit/SpiritDetailModal';
+import GameModalButton from './ui/GameModalButton';
 import { resolveAssetPath } from '../utils/pathUtils';
 
 
@@ -751,13 +752,14 @@ function SpiritManagement({ userSpirits, spiritUserPets, isLoading, searchTerm, 
               </button>
             </div>
           ) : (
-            <button
+            <GameModalButton
               type="button"
-              className="inventory-item-modal-action-btn unequip"
+              variant="confirm"
+              className="inventory-item-modal-remove-game-btn"
               onClick={() => handleUnequipSpirit(selectedSpiritDetail.id)}
             >
               Remove
-            </button>
+            </GameModalButton>
           )}
         </SpiritDetailModal>
       )}

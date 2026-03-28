@@ -114,10 +114,11 @@ function PetSelectionModal({
     <GameDialogModal
       isOpen={isOpen}
       onClose={onClose}
+      className="game-dialog-modal--global-item"
       title={`${getActionText()} Item`}
       mode="confirm"
       cancelLabel="Cancel"
-      confirmLabel={loading ? 'Đang xử lý...' : `Confirm`}
+      confirmLabel="Confirm"
       onConfirm={submitSelection}
       confirmDisabled={(requiresPetSelection() && !selectedPetId) || loading}
       closeOnOverlayClick

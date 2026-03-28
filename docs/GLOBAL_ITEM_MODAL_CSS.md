@@ -5,7 +5,50 @@ Toàn bộ style nằm trong **`src/styles/global.css`** (cùng với responsive
 
 Component React tham chiếu: **`src/components/items/ItemDetailModal.js`**.
 
-**UI chung toàn game** (nút `?`, modal spirit, …): xem **[GLOBAL_GAME_UI.md](./GLOBAL_GAME_UI.md)**.
+**UI chung toàn game** (nút `?`, modal spirit, **`GameDialogModal`**, …): xem **[GLOBAL_GAME_UI.md](./GLOBAL_GAME_UI.md)**.
+
+---
+
+## `GameDialogModal` — item / inventory
+
+Dùng cho **bán vật phẩm**, **chọn pet** (equip / use), **placeholder** tính năng chưa làm — luôn **trên** overlay modal chi tiết item (`inventory-item-modal-overlay`), không thay thế card `inventory-item-modal`.
+
+| File | Vai trò |
+|------|---------|
+| `src/components/ui/GameDialogModal.js` | Component |
+| `src/components/ui/GameDialogModal.css` | Style dialog + mobile + hook item |
+| `src/components/ui/GameModalButton.js` | Nút pill Cancel / Confirm |
+
+### Chuẩn props (luồng item)
+
+1. **Nhãn nút:** luôn **`Cancel`** và **`Confirm`** (default của component; có thể không truyền `cancelLabel` / `confirmLabel`).
+2. **Loading / không hợp lệ:** chỉ **`confirmDisabled`**, **không** đổi text nút (tránh `"Đang xử lý..."` trên Confirm).
+3. **Modifier chung:** `className="game-dialog-modal--global-item"` trên `GameDialogModal` → hook trong `GameDialogModal.css` (`.game-dialog-modal.game-dialog-modal--global-item`).
+4. **Body có quantity / form:** `contentClassName="item-detail-game-dialog-body"` → rules trong `GameDialogModal.css` (intro, `.highlight`, căn `quantity-selector`, `purchase-summary`).
+
+### Tái dùng class quantity từ global modal item
+
+Trong body `GameDialogModal` (VD dialog bán), có thể dùng lại **cùng class** đã định nghĩa trong `global.css`:
+
+- `quantity-selector`, `quantity-controls`, `quantity-btn` (`.minus` / `.plus`), `quantity-input`
+- `purchase-summary`, `total-price`
+
+→ Giao diện đồng bộ với shop / form số lượng trong footer `inventory-item-modal`.
+
+### Chỗ gọi trong codebase
+
+| Màn hình | Mô tả |
+|----------|--------|
+| **`ItemDetailModal.js`** | `mode === 'sell'`: title bán, body quantity + tổng peta, **Confirm** gọi API bán. `mode === 'placeholder'`: `mode="alert"`, một nút **Confirm**, nội dung “sẽ cập nhật sau”. |
+| **`PetSelectionModal.js`** | Shell `GameDialogModal` + nội dung chọn pet / số lượng; **Cancel** / **Confirm**. |
+
+### Dropdown “Chọn hành động”
+
+Footer modal item vẫn dùng **`inventory-item-modal-dropdown`** + **`dropdown-trigger`**; chọn option **không** ẩn nút — mở `GameDialogModal` (bán / placeholder) hoặc `PetSelectionModal` (equip / use / …).
+
+### Overflow
+
+Trên card modal item dùng **`inventory-item-modal--allow-dropdown-overflow`** khi cần menu dropdown không bị `overflow: hidden` cắt (xem rule trong `global.css`).
 
 ---
 
@@ -63,9 +106,10 @@ Component React tham chiếu: **`src/components/items/ItemDetailModal.js`**.
 - **`inventory-item-modal-footer`**
 - **`inventory-item-modal-action-container`**
 - **`inventory-item-modal-action-btn`** — Nút chính; modifier:
-  - **`inventory-item-modal-action-btn.unequip`** — Kiểu nút Remove / tháo đồ.
   - **`inventory-item-modal-action-btn.buy-btn`** — Mua / xác nhận (shop hoặc tái dùng).
-  - **`inventory-item-modal-action-btn.dropdown-trigger`** — Mở menu hành động.
+  - **`inventory-item-modal-action-btn.dropdown-trigger`** — (legacy) có thể còn ở chỗ khác.
+- **Remove / gỡ trang bị:** **`GameModalButton`** `variant="confirm"` + class **`inventory-item-modal-remove-game-btn`** — `ItemDetailModal` (equipment đang mặc), footer **`SpiritDetailModal`** tại `MyHome` / `PetProfile`.
+- **Chọn hành động:** **`GameModalButton`** `variant="primary"` `showIcon={false}` + class dropdown trigger.
 - **`inventory-item-modal-dropdown`**
 - **`inventory-item-modal-dropdown-menu`**
 - **`inventory-item-modal-dropdown-item`**
@@ -113,4 +157,4 @@ Trong **`src/styles/variables.css`** (hoặc tương đương):
 
 ---
 
-*Cập nhật: thống nhất PetProfile với modal inventory + bổ sung API equipment trả `description`, `type`, `rarity`.*
+*Cập nhật: mục `GameDialogModal` (item/inventory), liên kết GLOBAL_GAME_UI.md; dropdown + bán qua dialog.*

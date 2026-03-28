@@ -3,11 +3,51 @@
 Tài liệu tổng hợp **class global** có thể tái sử dụng trên nhiều màn (modal, panel, form).  
 Style nằm trong **`src/styles/global.css`**; biến màu trong **`src/styles/variables.css`**.
 
-Liên quan: **[GLOBAL_ITEM_MODAL_CSS.md](./GLOBAL_ITEM_MODAL_CSS.md)** — modal vật phẩm (`inventory-item-modal-*`).
+Liên quan: **[GLOBAL_ITEM_MODAL_CSS.md](./GLOBAL_ITEM_MODAL_CSS.md)** — modal vật phẩm (`inventory-item-modal-*`) và **chuẩn dùng `GameDialogModal` kèm item** (bán, chọn pet, placeholder).
 
 ---
 
-## 1. Nút trợ giúp `?` — popover khi click
+## 1. `GameDialogModal` & `GameModalButton` (UI dialog kiểu game)
+
+**Component:** `src/components/ui/GameDialogModal.js`  
+**CSS:** `src/components/ui/GameDialogModal.css`  
+**Nút pill:** `src/components/ui/GameModalButton.js` (variant `cancel` | `confirm` | `primary` | `danger`; prop **`showIcon={false}`** để ẩn ô icon ring/✕, vẫn có hình thoi hai bên).
+
+### Vai trò
+
+- Dialog **confirm** (2 nút) hoặc **alert / info** (1 nút).
+- Header có title + divider; body nhận `children`; footer nền tối với nút pill.
+- **Không** nút × — đóng bằng **Cancel** (hoặc nút duy nhất ở alert), hoặc **click overlay** nếu `closeOnOverlayClick`.
+
+### Props thường dùng
+
+| Prop | Ghi chú |
+|------|---------|
+| `isOpen`, `onClose`, `title`, `children` | Bắt buộc / cốt lõi |
+| `mode` | `"confirm"` (2 nút) hoặc `"alert"` / `"info"` (1 nút) |
+| `tone` | `"default"` \| `"info"` \| `"warning"` \| `"error"` — accent nhẹ title |
+| `cancelLabel`, `confirmLabel` | Mặc định **`Cancel`** và **`Confirm`** |
+| `onConfirm`, `onCancel` | Hành động nút (alert: `onConfirm` hoặc `onClose`) |
+| `confirmDisabled` | Khi loading / invalid — **chỉ disable**, không đổi text nút Confirm |
+| `costPill` | Tuỳ chọn: object `{ amount, icon?, … }` hoặc React node |
+| `className` | Thêm lên root `.game-dialog-modal` |
+| `contentClassName` | Thêm lên `.game-dialog-modal__body` |
+| `footer` | Ghi đè toàn bộ footer (hiếm) |
+
+### Chuẩn dùng với **item / inventory**
+
+Luôn nhãn **`Cancel`** và **`Confirm`** (trùng với default của component; có thể không truyền `cancelLabel` / `confirmLabel`). Khi loading / invalid: chỉ **`confirmDisabled`**, **không** đổi text nút Confirm.
+
+Modifier **`className="game-dialog-modal--global-item"`** + body form/số lượng **`contentClassName="item-detail-game-dialog-body"`** — chi tiết trong **[GLOBAL_ITEM_MODAL_CSS.md](./GLOBAL_ITEM_MODAL_CSS.md)** (mục **GameDialogModal — item / inventory**).
+
+### Responsive & global CSS
+
+- Rule mobile / footer nút / safe-area nằm trong **`GameDialogModal.css`**.
+- Trên mobile, `global.css` có ngoại lệ `font-size` cho `.game-dialog-modal .game-modal-btn*` — đừng xóa khi sửa typography chung.
+
+---
+
+## 2. Nút trợ giúp `?` — popover khi click
 
 **Component (khuyến nghị):** `src/components/ui/ModalHelpIconButton.js`  
 - **Click** nút `?` → mở box (`modal-help-icon-popover`) qua **`createPortal` → `document.body`** + **`position: fixed`** (căn theo nút, mặc định phía trên; thiếu chỗ thì lật xuống dưới).  
@@ -53,7 +93,7 @@ Có thể dùng thuần `<button className="modal-help-icon-btn">` nếu không 
 
 ---
 
-## 2. Modal linh thú (Spirit) — tái dùng layout item modal
+## 3. Modal linh thú (Spirit) — tái dùng layout item modal
 
 **Component:** `src/components/spirit/SpiritDetailModal.js`
 
@@ -83,7 +123,7 @@ Trong `@media (max-width: 768px)` cùng file: override hai biến + thu nhỏ ic
 
 ---
 
-## 3. Hướng mở rộng (toàn game)
+## 4. Hướng mở rộng (toàn game)
 
 - **Ưu tiên** thêm primitive global (prefix ngắn, không gắn tên màn) thay vì copy style theo từng feature.
 - Modal mới nên **bám** `inventory-item-modal-*` nếu UX tương tự (đóng overlay, header xám, footer nút).
@@ -91,4 +131,4 @@ Trong `@media (max-width: 768px)` cùng file: override hai biến + thu nhỏ ic
 
 ---
 
-*Cập nhật: `ModalHelpIconButton` + popover (click mở, click ngoài / Escape đóng); doc Spirit modal + UI chung.*
+*Cập nhật: thêm mục `GameDialogModal` / `GameModalButton`; liên kết chuẩn item → GLOBAL_ITEM_MODAL_CSS.md.*

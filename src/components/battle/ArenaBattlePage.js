@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { UserContext } from '../../UserContext';
 import TemplatePage from '../template/TemplatePage';
+import GameModalButton from '../ui/GameModalButton';
+import { BattleBannerOverlay, BattleResultDimOverlay } from './BattleOverlays';
 import '../css/BattlePage.css';
 import '../css/ArenaBattlePage.css';
 import expTable from '../../data/exp_table_petaria.json';
@@ -53,6 +55,14 @@ function ArenaBattlePage() {
     const [autoMode, setAutoMode] = useState(false);
     const [isBlitzMode, setIsBlitzMode] = useState(false);
     const [battleEnded, setBattleEnded] = useState(false);
+    const [startBannerVisible, setStartBannerVisible] = useState(() => {
+      const tc = initialMatchState?.turn_count ?? 0;
+      const histLen = initialMatchState?.history?.length ?? 0;
+      if (fromMatch && (tc > 0 || histLen > 1)) return false;
+      return true;
+    });
+    /** null | 'finish' | 'result' — sau khi battleEnded: FINISH 2s rồi màn kết quả */
+    const [postBattlePhase, setPostBattlePhase] = useState(null);
       const [equippedItems, setEquippedItems] = useState(() => {
         if (fromMatch && Array.isArray(initialMatchState?.equipment)) {
           return initialMatchState.equipment.map((e) => ({ ...e, image_url: e.image_url || '' }));
@@ -70,7 +80,9 @@ function ArenaBattlePage() {
     const holdTimerRef = React.useRef(null);
     const longPressTriggeredRef = React.useRef(false);
     const equipItemElsRef = React.useRef({});
-  
+
+    const battleUiLocked = actionLocked || battleEnded || startBannerVisible;
+
     const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
     const userName = user?.username || user?.name || 'Người chơi';
 
@@ -168,7 +180,7 @@ function ArenaBattlePage() {
     };
   
       const handleAttackWithItem = async (item) => {
-      if (actionLocked) return;
+      if (battleUiLocked) return;
       if (item.durability_left <= 0) return;
       setActionLocked(true);
       const powerMin = item.power_min != null ? item.power_min : 0;
@@ -248,7 +260,7 @@ function ArenaBattlePage() {
     };
   
     const handleDefend = async (shieldItem) => {
-      if (actionLocked) return;
+      if (battleUiLocked) return;
       if (!shieldItem || shieldItem.equipment_type !== 'shield' || shieldItem.durability_left <= 0) return;
       setActionLocked(true);
       const powerMin = shieldItem.power_min != null ? shieldItem.power_min : 0;
@@ -298,7 +310,7 @@ function ArenaBattlePage() {
     };
 
     const handleNormalAttack = async () => {
-      if (actionLocked) return;
+      if (battleUiLocked) return;
       setActionLocked(true);
       if (isRedisMatch) {
         try {
@@ -358,7 +370,7 @@ function ArenaBattlePage() {
 
     /** Phòng thủ vật lý cơ bản (không cần khiên): cùng công thức defend với khiên, dùng power cố định 7, 10. */
     const handleBasicDefend = async () => {
-      if (actionLocked) return;
+      if (battleUiLocked) return;
       setActionLocked(true);
       if (isRedisMatch) {
         try {
@@ -452,6 +464,7 @@ function ArenaBattlePage() {
     };
   
     const handleBlitz = async () => {
+      if (battleUiLocked) return;
       const firstWeapon = equippedItems.find(i => i.equipment_type !== 'shield');
       const playerPowerMin = firstWeapon?.power_min != null ? firstWeapon.power_min : 0;
       const playerPowerMax = firstWeapon?.power_max != null ? firstWeapon.power_max : 0;
@@ -488,32 +501,50 @@ function ArenaBattlePage() {
   
   // Reconnect: nếu vào trang không có matchState nhưng user đã đăng nhập -> kiểm tra match đang chơi
   const [redisMatchRestored, setRedisMatchRestored] = useState(false);
+  /** Chỉ gọi battle-stats/equipment sau khi đã biết có/không match Redis — tránh ghi đè current_hp = max HP */
+  const [redisStatusChecked, setRedisStatusChecked] = useState(() => !!fromMatch);
   useEffect(() => {
-    if (!user?.token || fromMatch || redisMatchRestored) return;
-    fetch(`${API_BASE_URL}/api/arena/match/status`, { headers: { Authorization: `Bearer ${user.token}` } })
-      .then((res) => {
+    if (fromMatch || redisMatchRestored) return;
+    if (!user?.token) {
+      setRedisStatusChecked(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/arena/match/status`, {
+          headers: { Authorization: `Bearer ${user.token}` },
+        });
         if (!res.ok) {
           if (res.status === 404 && !playerPet) navigate('/battle/arena', { replace: true });
           return;
         }
-        return res.json();
-      })
-      .then((data) => {
-        if (!data?.player) return;
-        setPlayer({ ...data.player, current_def_dmg: data.player.current_def_dmg ?? 0 });
-        setEnemy({ ...data.enemy, current_def_dmg: data.enemy.current_def_dmg ?? 0 });
-        setTurn(data.turn_count ?? 0);
-        setLog(Array.isArray(data.history) ? data.history : []);
-        if (Array.isArray(data.equipment)) setEquippedItems(data.equipment.map((e) => ({ ...e, image_url: e.image_url || '' })));
-        setRedisMatchRestored(true);
-        setIsRedisMatch(true);
-      })
-      .catch(() => {
+        const data = await res.json();
+        if (cancelled) return;
+        if (data?.player) {
+          setPlayer({ ...data.player, current_def_dmg: data.player.current_def_dmg ?? 0 });
+          setEnemy({ ...data.enemy, current_def_dmg: data.enemy.current_def_dmg ?? 0 });
+          setTurn(data.turn_count ?? 0);
+          setLog(Array.isArray(data.history) ? data.history : []);
+          if (Array.isArray(data.equipment)) {
+            setEquippedItems(data.equipment.map((e) => ({ ...e, image_url: e.image_url || '' })));
+          }
+          setRedisMatchRestored(true);
+          setIsRedisMatch(true);
+        }
+      } catch (err) {
         if (!playerPet) navigate('/battle/arena', { replace: true });
-      });
-  }, [user?.token, fromMatch, redisMatchRestored, navigate, playerPet]);
+      } finally {
+        if (!cancelled) setRedisStatusChecked(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.token, fromMatch, redisMatchRestored, navigate, playerPet, API_BASE_URL]);
 
       useEffect(() => {
+    if (!redisStatusChecked) return;
     if (!player?.id) return;
     if (isRedisMatch) return; // Đã có từ matchState / status
     // Lấy battle stats với đầy đủ bonus (cached)
@@ -533,11 +564,35 @@ function ArenaBattlePage() {
       .then(res => res.json())
       .then(setEquippedItems)
       .catch(err => console.error('Error loading equipment:', err));
-    }, [player?.id, isRedisMatch]);
+    }, [player?.id, isRedisMatch, redisStatusChecked, API_BASE_URL]);
   
     useEffect(() => {
-      if (player.current_hp <= 0 || enemy.current_hp <= 0) setBattleEnded(true);
+      if (player.current_hp <= 0 || enemy.current_hp <= 0) {
+        setBattleEnded(true);
+        if ((enemy.current_hp ?? 0) <= 0 && (player.current_hp ?? 0) > 0) setResultEffect('win');
+        else if ((player.current_hp ?? 0) <= 0) setResultEffect('lose');
+      }
     }, [player.current_hp, enemy.current_hp]);
+
+    useEffect(() => {
+      if (turn > 0 || log.length > 1) setStartBannerVisible(false);
+    }, [turn, log]);
+
+    useEffect(() => {
+      if (!startBannerVisible) return undefined;
+      const t = window.setTimeout(() => setStartBannerVisible(false), 1800);
+      return () => window.clearTimeout(t);
+    }, [startBannerVisible]);
+
+    useEffect(() => {
+      if (!battleEnded) {
+        setPostBattlePhase(null);
+        return undefined;
+      }
+      setPostBattlePhase('finish');
+      const t = window.setTimeout(() => setPostBattlePhase('result'), 1800);
+      return () => window.clearTimeout(t);
+    }, [battleEnded]);
 
     const gainExpIfVictory = async () => {
         if (player.current_hp > 0 && battleEnded) {
@@ -686,9 +741,11 @@ function ArenaBattlePage() {
         setAutoMode(false);
         setIsBlitzMode(false);
         setBattleEnded(false);
+        setPostBattlePhase(null);
         setAttackAnimation('');
         setResultEffect('');
         setActionLocked(false);
+        setStartBannerVisible(true);
       
         // ✅ Gọi lại API lấy item trang bị
         fetch(`${API_BASE_URL}/api/pets/${newPlayer.id}/equipment`)
@@ -703,7 +760,7 @@ function ArenaBattlePage() {
       }, [location.state?._refresh]);
 
       const handleGo = () => {
-        if (!selectedAction || actionLocked) return;
+        if (!selectedAction || battleUiLocked) return;
         if (selectedAction === 'normal_attack') handleNormalAttack();
         else if (selectedAction === 'basic_defend') handleBasicDefend();
         setSelectedAction('');
@@ -714,40 +771,47 @@ function ArenaBattlePage() {
         { value: 'basic_defend', label: 'Phòng thủ vật lý' },
       ];
 
-    if (battleEnded) {
-      return (
-        <TemplatePage showSearch={false} showTabs={false}>
-          <div className={`arena-battle-result-screen ${resultEffect === 'win' ? 'arena-result-win' : 'arena-result-lose'}`}>
-            <div className="arena-result-card">
-              <h2 className="arena-result-title">{resultEffect === 'win' ? '🎉 Thắng lợi!' : '💀 Thất bại!'}</h2>
-              {resultEffect === 'win' && (
-                <div className="arena-result-rewards">
-                  {battleReward.expGained > 0 && <p>+{battleReward.expGained} EXP</p>}
-                  {battleReward.levelUp && <p>✨ Lên cấp {battleReward.newLevel}!</p>}
-                  {battleReward.loot?.length > 0 && (
-                    <div>
-                      <p>Phần thưởng:</p>
-                      <ul>
-                        {battleReward.loot.map((entry, i) => (
-                          <li key={i}>+{entry.quantity} {entry.item_id === 0 ? 'Peta' : entry.name || 'Item'}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-              <button type="button" className="arena-result-back-btn" onClick={() => navigate('/battle/arena')}>
-                Về Đấu trường
-              </button>
-            </div>
-          </div>
-        </TemplatePage>
-      );
-    }
+    const outcomeWin = resultEffect === 'win';
 
     return (
         <TemplatePage showSearch={false} showTabs={false}>
-        <div className="arena-battle-container">
+        <BattleBannerOverlay
+          open={startBannerVisible && !battleEnded}
+          imageSrc="/images/banner/start-layout.png"
+          alt="Start"
+          dimOpacity={0.5}
+        />
+        <BattleBannerOverlay
+          open={postBattlePhase === 'finish'}
+          imageSrc="/images/banner/finish-layout.png"
+          alt="Finish"
+          dimOpacity={0.5}
+        />
+        <BattleResultDimOverlay
+          open={postBattlePhase === 'result'}
+          outcome={outcomeWin ? 'win' : 'lose'}
+          dimOpacity={0.2}
+          rewards={battleReward.loot || []}
+          petProgress={[
+            {
+              id: player?.id || 'arena-player',
+              name: player?.name || userName,
+              image: player?.image || '',
+              expGained: battleReward.expGained || 0,
+              levelUp: !!battleReward.levelUp,
+              newLevel: battleReward.newLevel,
+            },
+          ]}
+          expGained={battleReward.expGained || 0}
+          levelUp={!!battleReward.levelUp}
+          newLevel={battleReward.newLevel}
+          footer={
+            <GameModalButton type="button" variant="primary" showIcon={false} onClick={() => navigate('/battle/arena')}>
+              Về Đấu trường
+            </GameModalButton>
+          }
+        />
+        <div className={`arena-battle-container${battleEnded ? ' arena-battle-container--ended' : ''}`}>
           {/* Top: [Avatar + Speed] [HP bar + Name] | VS | [HP bar + Name] [Avatar + Speed] */}
           <header className="arena-battle-header">
             <div className="arena-header-player">
@@ -828,14 +892,14 @@ function ArenaBattlePage() {
                 const magicVal = item.magic_value ?? item.power ?? 0;
                 const disabled = (item.durability_left ?? 0) <= 0;
                 const handleClick = () => {
-                  if (actionLocked || disabled) return;
+                  if (battleUiLocked || disabled) return;
                   if (isShield) handleDefend(item);
                   else handleAttackWithItem(item);
                 };
                 const handlePointerDown = (e) => {
                   e.stopPropagation();
                   e.preventDefault();
-                  if (actionLocked || disabled) return;
+                  if (battleUiLocked || disabled) return;
                   // Keep receiving pointer events even if finger moves a bit
                   try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
                   longPressTriggeredRef.current = false;
@@ -857,9 +921,10 @@ function ArenaBattlePage() {
                   <div
                     key={item.id}
                     ref={(el) => { if (el) equipItemElsRef.current[item.id] = el; }}
-                    className={`arena-equipment-item ${disabled ? 'disabled' : ''}`}
+                    className={`arena-equipment-item ${disabled || battleUiLocked ? 'disabled' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (battleUiLocked) return;
                       // If info is open, keep it open (close by clicking outside modal)
                       if (infoItemId === item.id) return;
                       // Long-press is for info only (never use item)
@@ -870,8 +935,8 @@ function ArenaBattlePage() {
                       handleClick();
                     }}
                     role="button"
-                    tabIndex={disabled ? -1 : 0}
-                    onKeyDown={(e) => !disabled && (e.key === 'Enter' || e.key === ' ') && handleClick()}
+                    tabIndex={disabled || battleUiLocked ? -1 : 0}
+                    onKeyDown={(e) => !disabled && !battleUiLocked && (e.key === 'Enter' || e.key === ' ') && handleClick()}
                     onPointerDown={handlePointerDown}
                     onPointerUp={handlePointerUp}
                     onPointerCancel={handlePointerUp}
@@ -922,14 +987,14 @@ function ArenaBattlePage() {
               className="arena-action-select"
               value={selectedAction}
               onChange={(e) => setSelectedAction(e.target.value)}
-              disabled={actionLocked}
+              disabled={battleUiLocked}
             >
               <option value="">Chọn hành động cho {player?.name}</option>
               {actionOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
-            <button type="button" className="arena-action-go" onClick={handleGo} disabled={!selectedAction || actionLocked}>
+            <button type="button" className="arena-action-go" onClick={handleGo} disabled={!selectedAction || battleUiLocked}>
               Go!
             </button>
           </div>

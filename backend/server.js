@@ -68,7 +68,7 @@ const db = pool.promise();
 // Redis client cho Arena Match State (optional)
 // Quản lý RAM: mỗi SET match phải có TTL; khi kết thúc trận (finalize) hoặc terminate phải DEL key ngay.
 let redisClient = null;
-const REDIS_MATCH_TTL = parseInt(process.env.REDIS_MATCH_TTL, 10) || 1800; // 30 phút mặc định (env: REDIS_MATCH_TTL)
+const REDIS_MATCH_TTL = parseInt(process.env.REDIS_MATCH_TTL, 10) || 3600; // 1 giờ mặc định (env: REDIS_MATCH_TTL)
 const REDIS_MATCH_PREFIX = 'match:';
 
 async function initRedis() {
@@ -3191,16 +3191,21 @@ app.post('/api/arena/claim-loot', async (req, res) => {
     }
 
     const loot = calculateLoot(dropTable);
+    const responseLoot = [];
     const userId = tokenUserId;
 
     for (const entry of loot) {
       if (entry.item_id === 0) {
         await db.query('UPDATE users SET peta = peta + ? WHERE id = ?', [entry.quantity, userId]);
+        responseLoot.push({
+          ...entry,
+          image_url: null,
+        });
         continue;
       }
       const itemId = entry.item_id;
       const quantity = entry.quantity;
-      const [itemRows] = await db.query('SELECT id, type FROM items WHERE id = ?', [itemId]);
+      const [itemRows] = await db.query('SELECT id, type, image_url, name FROM items WHERE id = ?', [itemId]);
       if (!itemRows.length) continue;
       const itemRow = itemRows[0];
       if (itemRow.type === 'equipment') {
@@ -3223,9 +3228,14 @@ app.post('/api/arena/claim-loot', async (req, res) => {
           await db.query('INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, ?)', [userId, itemId, quantity]);
         }
       }
+      responseLoot.push({
+        ...entry,
+        name: itemRow.name || entry.name || 'Item',
+        image_url: itemRow.image_url || null,
+      });
     }
 
-    res.json({ success: true, loot });
+    res.json({ success: true, loot: responseLoot });
   } catch (err) {
     if (err.name === 'JsonWebTokenError') return res.status(401).json({ message: 'Invalid token' });
     console.error('Error claiming arena loot:', err);
