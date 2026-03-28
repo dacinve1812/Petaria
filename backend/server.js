@@ -303,6 +303,89 @@ app.delete('/api/site-config/saved-configs/:id', async (req, res) => {
   }
 });
 
+// ---------- Hunting maps (public read — dữ liệu trong bảng hunting_maps) ----------
+function huntingMapRowToFullClient(row) {
+  let tiles = [];
+  try {
+    tiles = typeof row.tiles_json === 'string' ? JSON.parse(row.tiles_json) : row.tiles_json;
+    if (!Array.isArray(tiles)) tiles = [];
+  } catch {
+    tiles = [];
+  }
+  let encounterPool = [];
+  try {
+    const ep = row.encounter_pool_json;
+    if (ep == null) encounterPool = [];
+    else encounterPool = typeof ep === 'string' ? JSON.parse(ep) : ep;
+    if (!Array.isArray(encounterPool)) encounterPool = [];
+  } catch {
+    encounterPool = [];
+  }
+  const fg = row.foreground_url && String(row.foreground_url).trim() ? String(row.foreground_url).trim() : null;
+  return {
+    id: row.id,
+    name: row.name,
+    entryFee: row.entry_fee,
+    currency: row.currency,
+    maxSteps: row.max_steps,
+    thumb: row.thumb || '',
+    width: row.width,
+    height: row.height,
+    tileSize: row.tile_size,
+    start: { x: row.start_x, y: row.start_y },
+    assets: {
+      background: row.background_url,
+      ...(fg ? { foreground: fg } : {}),
+    },
+    tiles,
+    encounterPool,
+  };
+}
+
+function huntingMapRowToListClient(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    entryFee: row.entry_fee,
+    currency: row.currency,
+    maxSteps: row.max_steps,
+    thumb: row.thumb || '',
+    width: row.width,
+    height: row.height,
+    tileSize: row.tile_size,
+    sort_order: row.sort_order,
+    updated_at: row.updated_at,
+  };
+}
+
+app.get('/api/hunting/maps', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT id, name, entry_fee, currency, max_steps, thumb, width, height, tile_size, sort_order, updated_at
+       FROM hunting_maps ORDER BY sort_order ASC, id ASC`
+    );
+    res.json(rows.map(huntingMapRowToListClient));
+  } catch (err) {
+    console.error('GET /api/hunting/maps', err);
+    res.status(500).json({ message: 'Lỗi tải danh sách map săn' });
+  }
+});
+
+app.get('/api/hunting/maps/:id', async (req, res) => {
+  const id = String(req.params.id || '').toLowerCase();
+  if (id === 'forest') {
+    return res.status(404).json({ message: 'Map forest là built-in (client)' });
+  }
+  try {
+    const [rows] = await db.query('SELECT * FROM hunting_maps WHERE id = ?', [id]);
+    if (!rows.length) return res.status(404).json({ message: 'Không tìm thấy map' });
+    res.json(huntingMapRowToFullClient(rows[0]));
+  } catch (err) {
+    console.error('GET /api/hunting/maps/:id', err);
+    res.status(500).json({ message: 'Lỗi tải map' });
+  }
+});
+
 // Navbar Configuration API Endpoints
 app.get('/api/site-config/navbar', async (req, res) => {
   try {
@@ -2463,6 +2546,185 @@ const checkAdminRoleNpc = async (req, res, next) => {
     return res.status(401).json({ error: 'Invalid token' });
   }
 };
+
+// ---------- Admin: hunting_maps (CRUD) ----------
+function parseHuntingMapBody(body, opts = {}) {
+  const id =
+    opts.existingId != null
+      ? String(opts.existingId).toLowerCase().trim()
+      : String(body.id || '')
+          .toLowerCase()
+          .trim();
+  if (!id || !/^[_a-z0-9]+$/.test(id)) {
+    return { error: 'map id chỉ gồm chữ thường, số, gạch dưới' };
+  }
+  if (id === 'forest') return { error: 'Không được dùng id forest (built-in)' };
+  const name = String(body.name || id);
+  const entryFee = Math.max(0, parseInt(body.entryFee ?? body.entry_fee ?? 0, 10) || 0);
+  const currency = body.currency === 'petagold' ? 'petagold' : 'peta';
+  const maxRaw = body.maxSteps ?? body.max_steps;
+  const maxSteps =
+    maxRaw == null || maxRaw === '' ? null : Math.max(0, parseInt(maxRaw, 10) || 0);
+  const thumb = body.thumb != null ? String(body.thumb) : '';
+  const width = parseInt(body.width, 10);
+  const height = parseInt(body.height, 10);
+  const tileSize = Math.max(1, parseInt(body.tileSize ?? body.tile_size ?? 16, 10) || 16);
+  const startX = Math.max(0, parseInt(body.start?.x ?? body.start_x ?? 0, 10) || 0);
+  const startY = Math.max(0, parseInt(body.start?.y ?? body.start_y ?? 0, 10) || 0);
+  const assets = body.assets || {};
+  const background = String(assets.background ?? body.background_url ?? '').trim();
+  if (!background) return { error: 'Thiếu assets.background' };
+  const fgRaw = assets.foreground != null ? String(assets.foreground).trim() : body.foreground_url;
+  const foreground = fgRaw && String(fgRaw).trim() ? String(fgRaw).trim() : null;
+  const tiles = body.tiles;
+  if (!Array.isArray(tiles)) return { error: 'tiles phải là mảng' };
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1) {
+    return { error: 'width/height không hợp lệ' };
+  }
+  if (tiles.length !== width * height) {
+    return { error: `tiles.length phải bằng width×height (${width * height})` };
+  }
+  const encounterPool = Array.isArray(body.encounterPool ?? body.encounter_pool)
+    ? body.encounterPool ?? body.encounter_pool
+    : [];
+  const sortOrder = parseInt(body.sort_order ?? body.sortOrder ?? 0, 10) || 0;
+  return {
+    value: {
+      id,
+      name,
+      entry_fee: entryFee,
+      currency,
+      max_steps: maxSteps,
+      thumb: thumb || null,
+      width,
+      height,
+      tile_size: tileSize,
+      start_x: startX,
+      start_y: startY,
+      background_url: background,
+      foreground_url: foreground,
+      tiles_json: JSON.stringify(tiles),
+      encounter_pool_json: JSON.stringify(encounterPool),
+      sort_order: sortOrder,
+    },
+  };
+}
+
+app.get('/api/admin/hunting-maps', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM hunting_maps ORDER BY sort_order ASC, id ASC');
+    res.json(rows.map(huntingMapRowToFullClient));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+app.get('/api/admin/hunting-maps/:id', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const id = String(req.params.id || '').toLowerCase();
+    const [rows] = await db.query('SELECT * FROM hunting_maps WHERE id = ?', [id]);
+    if (!rows.length) return res.status(404).json({ message: 'Không tìm thấy' });
+    res.json(huntingMapRowToFullClient(rows[0]));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+app.post('/api/admin/hunting-maps', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const parsed = parseHuntingMapBody(req.body, {});
+    if (parsed.error) return res.status(400).json({ message: parsed.error });
+    const v = parsed.value;
+    const [exists] = await db.query('SELECT id FROM hunting_maps WHERE id = ?', [v.id]);
+    if (exists.length) return res.status(409).json({ message: 'Map id đã tồn tại' });
+    await db.query(
+      `INSERT INTO hunting_maps (
+        id, name, entry_fee, currency, max_steps, thumb, width, height, tile_size,
+        start_x, start_y, background_url, foreground_url, tiles_json, encounter_pool_json, sort_order
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        v.id,
+        v.name,
+        v.entry_fee,
+        v.currency,
+        v.max_steps,
+        v.thumb,
+        v.width,
+        v.height,
+        v.tile_size,
+        v.start_x,
+        v.start_y,
+        v.background_url,
+        v.foreground_url,
+        v.tiles_json,
+        v.encounter_pool_json,
+        v.sort_order,
+      ]
+    );
+    const [rows] = await db.query('SELECT * FROM hunting_maps WHERE id = ?', [v.id]);
+    res.status(201).json(huntingMapRowToFullClient(rows[0]));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+app.put('/api/admin/hunting-maps/:id', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const paramId = String(req.params.id || '').toLowerCase();
+    if (paramId === 'forest') return res.status(400).json({ message: 'forest không lưu DB' });
+    const [existing] = await db.query('SELECT id FROM hunting_maps WHERE id = ?', [paramId]);
+    if (!existing.length) return res.status(404).json({ message: 'Không tìm thấy' });
+    const parsed = parseHuntingMapBody(req.body, { existingId: paramId });
+    if (parsed.error) return res.status(400).json({ message: parsed.error });
+    const v = parsed.value;
+    if (v.id !== paramId) return res.status(400).json({ message: 'Không đổi id map' });
+    await db.query(
+      `UPDATE hunting_maps SET
+        name=?, entry_fee=?, currency=?, max_steps=?, thumb=?, width=?, height=?, tile_size=?,
+        start_x=?, start_y=?, background_url=?, foreground_url=?, tiles_json=?, encounter_pool_json=?, sort_order=?
+      WHERE id=?`,
+      [
+        v.name,
+        v.entry_fee,
+        v.currency,
+        v.max_steps,
+        v.thumb,
+        v.width,
+        v.height,
+        v.tile_size,
+        v.start_x,
+        v.start_y,
+        v.background_url,
+        v.foreground_url,
+        v.tiles_json,
+        v.encounter_pool_json,
+        v.sort_order,
+        paramId,
+      ]
+    );
+    const [rows] = await db.query('SELECT * FROM hunting_maps WHERE id = ?', [paramId]);
+    res.json(huntingMapRowToFullClient(rows[0]));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+app.delete('/api/admin/hunting-maps/:id', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const id = String(req.params.id || '').toLowerCase();
+    if (id === 'forest') return res.status(400).json({ message: 'Không xóa forest' });
+    const [r] = await db.query('DELETE FROM hunting_maps WHERE id = ?', [id]);
+    if (r.affectedRows === 0) return res.status(404).json({ message: 'Không tìm thấy' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
 
 // Helper: parse CSV text (first line = headers)
 function parseCSV(text) {

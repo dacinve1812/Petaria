@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import EncounterModal from './EncounterModal';
+import ItemEncounterModal from './ItemEncounterModal';
 import SimpleFlashOverlay from './SimpleFlashOverlay';
 
 function EncounterModalContainer() {
   const [wildPet, setWildPet] = useState(null);
+  const [itemEncounter, setItemEncounter] = useState(null);
+  const [encounterType, setEncounterType] = useState('species');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showScreenFlash, setShowScreenFlash] = useState(false);
   const isProcessingRef = useRef(false); // Prevent duplicate processing
@@ -15,15 +18,22 @@ function EncounterModalContainer() {
         return;
       }
 
-      const { wildPet } = event.detail;
-      
+      const detail = event.detail || {};
+      const type = detail.encounterType === 'item' ? 'item' : 'species';
+
       isProcessingRef.current = true; // Mark as processing
-      
+
       // Trigger screen flash first
       setShowScreenFlash(true);
-      
-      // Set wild pet data
-      setWildPet(wildPet);
+
+      setEncounterType(type);
+      if (type === 'item') {
+        setItemEncounter(detail.itemEncounter || null);
+        setWildPet(null);
+      } else {
+        setWildPet(detail.wildPet);
+        setItemEncounter(null);
+      }
     };
 
     window.addEventListener('wildPetEncounter', handleEncounter);
@@ -42,8 +52,10 @@ function EncounterModalContainer() {
   const handleClose = () => {
     setIsModalOpen(false);
     setWildPet(null);
+    setItemEncounter(null);
+    setEncounterType('species');
     isProcessingRef.current = false; // Reset processing flag
-    
+
     // Dispatch event to re-enable player movement
     const closeEvent = new CustomEvent('encounterModalClosed');
     window.dispatchEvent(closeEvent);
@@ -72,7 +84,10 @@ function EncounterModalContainer() {
       />
 
       {/* Encounter Modal */}
-      {isModalOpen && wildPet && (
+      {isModalOpen && encounterType === 'item' && itemEncounter && (
+        <ItemEncounterModal item={itemEncounter} onClose={handleClose} />
+      )}
+      {isModalOpen && encounterType !== 'item' && wildPet && (
         <EncounterModal
           wildPet={wildPet}
           onClose={handleClose}

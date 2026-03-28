@@ -1,0 +1,679 @@
+.hmap-admin-loading {
+  padding: 2rem;
+}
+
+.hmap-admin {
+  /* max-width: min(1600px, 100%); */
+  /* margin: 0 auto; */
+  padding: 1rem 1.25rem 3rem;
+  background: #f8f9fa;
+  min-height: 100vh;
+}
+
+.hmap-admin-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.hmap-admin-header h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.hmap-admin-nav {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.hmap-admin-nav a {
+  color: #9ab0ff;
+  text-decoration: none;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid rgba(154, 176, 255, 0.35);
+  border-radius: 6px;
+}
+
+.hmap-admin-nav a:hover {
+  background: rgba(154, 176, 255, 0.12);
+}
+
+/* Danh sách trên, editor dưới — đủ chiều ngang cho lưới nhiều cột */
+.hmap-admin-columns {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  align-items: stretch;
+}
+
+.hmap-admin-list {
+  max-width: 720px;
+}
+
+.hmap-admin-list h2,
+.hmap-admin-editor h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.hmap-admin-create-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.hmap-admin-create-row input {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #2a3148;
+  background: #151a2a;
+  color: #e8ebff;
+}
+
+.hmap-hint {
+  font-size: 0.8rem;
+  color: #9aa3c4;
+  margin: 0 0 1rem;
+  line-height: 1.45;
+}
+
+.hmap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.hmap-table th,
+.hmap-table td {
+  border: 1px solid #2a3148;
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+}
+
+.hmap-table th {
+  background: #1a2035;
+  color: white;
+}
+
+.hmap-badge {
+  font-size: 0.7rem;
+  color: #7a8fcc;
+  margin-left: 0.25rem;
+}
+
+.hmap-badge--local {
+  color: #c9a227;
+}
+
+.hmap-server-error {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: #f0a8a8;
+}
+
+.hmap-btn {
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #3d4966;
+  background: #252b40;
+  color: #e8ebff;
+  cursor: pointer;
+  margin-right: 0.35rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.hmap-btn.primary {
+  background: linear-gradient(135deg, #4a5fc7 0%, #6b4f9a 100%);
+  border-color: transparent;
+}
+
+.hmap-btn.success {
+  background: linear-gradient(135deg, #2d7a4a 0%, #1f5c38 100%);
+  border-color: transparent;
+}
+
+.hmap-btn.sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.hmap-btn.danger {
+  border-color: #8b3a3a;
+  color: #ffb4b4;
+}
+
+.hmap-note {
+  background: #1a2035;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #c5cae0;
+}
+
+.hmap-duplicate {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.hmap-duplicate input {
+  flex: 1;
+  min-width: 160px;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #2a3148;
+  background: #151a2a;
+  color: #e8ebff;
+}
+
+.hmap-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.hmap-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: #9aa3c4;
+}
+
+.hmap-form-grid input,
+.hmap-form-grid select {
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #2a3148;
+  background: #151a2a;
+  color: #e8ebff;
+}
+
+.hmap-resize {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.hmap-resize label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+}
+
+.hmap-resize input {
+  width: 80px;
+  padding: 0.4rem;
+  border-radius: 6px;
+  border: 1px solid #2a3148;
+  background: #151a2a;
+  color: #e8ebff;
+}
+
+.hmap-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.hmap-tools span {
+  font-size: 0.85rem;
+  margin-right: 0.25rem;
+}
+
+.hmap-tools button {
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid #3d4966;
+  background: #252b40;
+  color: #e8ebff;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.hmap-tools button.active {
+  background: #3d4f80;
+  border-color: #6b7fd7;
+}
+
+.hmap-legend {
+  font-size: 0.78rem;
+  color: #7a849e;
+  margin: 0 0 1rem;
+}
+
+.hmap-visual-wrap {
+  margin-bottom: 1rem;
+  overflow-x: auto;
+  overflow-y: visible;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.hmap-visual {
+  position: relative;
+  margin: 0 auto;
+  background-size: 100% 100%;
+  background-position: 0 0;
+  background-repeat: no-repeat;
+  border: 1px solid #2a3148;
+  border-radius: 8px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.hmap-visual.no-bg {
+  background: repeating-linear-gradient(
+    0deg,
+    #1a1f2e,
+    #1a1f2e 8px,
+    #151a28 8px,
+    #151a28 16px
+  );
+}
+
+.hmap-cell-grid {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+
+/* Reset toàn bộ style nút global (global.css: flex, hover transform, overflow…) */
+.hmap-admin .hmap-cell {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  display: block;
+  min-width: 0;
+  min-height: 8px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent !important;
+  cursor: pointer;
+  box-shadow: none !important;
+  overflow: visible;
+  transition: none;
+  transform: none !important;
+  align-items: unset;
+  justify-content: unset;
+  flex-direction: unset;
+  gap: unset;
+}
+
+.hmap-admin .hmap-cell:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.hmap-admin .hmap-cell:active {
+  animation: none !important;
+}
+
+.hmap-admin .hmap-cell:focus-visible {
+  outline: 2px solid rgba(120, 160, 255, 0.7);
+  outline-offset: -1px;
+  z-index: 1;
+}
+
+.hmap-admin .hmap-cell.path {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.hmap-admin .hmap-cell.path:hover {
+  background: rgba(100, 200, 255, 0.22) !important;
+}
+
+.hmap-admin .hmap-cell.wall {
+  background: rgba(180, 60, 80, 0.45) !important;
+}
+
+.hmap-admin .hmap-cell.encounter {
+  background: rgba(80, 180, 120, 0.35) !important;
+}
+
+.hmap-admin .hmap-cell.start {
+  background: rgba(230, 200, 80, 0.55) !important;
+}
+
+.hmap-visual-caption {
+  font-size: 0.75rem;
+  color: #6d7794;
+  margin-top: 0.35rem;
+  word-break: break-all;
+}
+
+.hmap-json-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #9aa3c4;
+}
+
+.hmap-json-label textarea {
+  font-family: ui-monospace, monospace;
+  font-size: 0.78rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #2a3148;
+  background: #0c0f18;
+  color: #c8d0f0;
+  resize: vertical;
+}
+
+.hmap-io {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.hmap-file input {
+  margin-left: 0.35rem;
+}
+
+.hmap-toast {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 90vw;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  z-index: 9999;
+}
+
+.hmap-toast.success {
+  background: #1e4d32;
+  color: #c8f5d9;
+}
+
+.hmap-toast.error {
+  background: #5c2424;
+  color: #ffd0d0;
+}
+
+.hmap-toast.info {
+  background: #2a3358;
+  color: #d6dcff;
+}
+
+/* —— Encounter pool (species + item) —— */
+.hmap-encounter-section {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(154, 176, 255, 0.2);
+  background: rgba(20, 24, 40, 0.5);
+}
+
+.hmap-encounter-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  color: #e0e6ff;
+}
+
+.hmap-encounter-actions {
+  margin: 0.5rem 0 0.75rem;
+}
+
+.hmap-enc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.hmap-enc-modal {
+  max-width: min(920px, 96vw);
+  max-height: 90vh;
+  overflow: auto;
+  background: #151a2a;
+  padding: 1.25rem 1.35rem;
+  border-radius: 12px;
+  border: 1px solid #2a3148;
+  color: #e0e6ff;
+}
+
+.hmap-enc-modal h4 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  color: #e8ebff;
+}
+
+.hmap-enc-hint {
+  font-size: 0.82rem;
+  color: #9aa3c4;
+  margin: 0 0 0.75rem;
+  line-height: 1.45;
+}
+
+.hmap-enc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.hmap-enc-loading {
+  font-size: 0.85rem;
+  color: #9aa3c4;
+}
+
+.hmap-enc-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.hmap-enc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.hmap-enc-table th,
+.hmap-enc-table td {
+  border: 1px solid #2a3148;
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.hmap-enc-table th {
+  background: #1a2035;
+  color: #c5cae8;
+}
+
+.hmap-enc-empty {
+  text-align: center;
+  color: #7a8199;
+  padding: 1rem !important;
+}
+
+.hmap-enc-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #0c0f18;
+}
+
+.hmap-enc-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.hmap-enc-badge.sp {
+  background: rgba(80, 160, 120, 0.35);
+  color: #b8f0d0;
+}
+
+.hmap-enc-badge.it {
+  background: rgba(120, 140, 220, 0.35);
+  color: #d0d8ff;
+}
+
+.hmap-enc-name {
+  font-weight: 600;
+  color: #e8ebff;
+}
+
+.hmap-enc-id {
+  font-size: 0.72rem;
+  color: #7a8199;
+}
+
+.hmap-enc-num {
+  width: 5rem;
+  padding: 0.25rem 0.35rem;
+  border-radius: 6px;
+  border: 1px solid #2a3148;
+  background: #0c0f18;
+  color: #e0e6ff;
+}
+
+.hmap-enc-num.sm {
+  width: 3rem;
+}
+
+.hmap-enc-qty {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hmap-enc-dash {
+  color: #5a6078;
+}
+
+.hmap-enc-json-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: #9aa3c4;
+}
+
+.hmap-enc-json {
+  font-family: ui-monospace, monospace;
+  font-size: 0.76rem;
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #2a3148;
+  background: #0c0f18;
+  color: #c8d0f0;
+  resize: vertical;
+}
+
+.hmap-enc-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 10060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.hmap-enc-picker {
+  background: #151a2a;
+  border: 1px solid #2a3148;
+  border-radius: 12px;
+  max-width: min(720px, 96vw);
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.hmap-enc-picker-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #2a3148;
+}
+
+.hmap-enc-picker-head h5 {
+  margin: 0;
+  flex: 1 1 auto;
+  color: #e8ebff;
+}
+
+.hmap-enc-search {
+  flex: 1 1 160px;
+  min-width: 120px;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid #2a3148;
+  background: #0c0f18;
+  color: #e0e6ff;
+}
+
+.hmap-enc-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.5rem;
+  padding: 0.75rem;
+  overflow-y: auto;
+}
+
+.hmap-enc-pick-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border-radius: 10px;
+  border: 1px solid #2a3148;
+  background: #1a2035;
+  color: #e0e6ff;
+  cursor: pointer;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.hmap-enc-pick-card:hover {
+  border-color: #5a6fc7;
+  background: #222842;
+}
+
+.hmap-enc-pick-card img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.hmap-enc-pick-card small {
+  opacity: 0.75;
+}

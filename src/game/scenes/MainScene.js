@@ -1,464 +1,570 @@
 import Phaser from 'phaser';
-import { CAMERA_ZOOM, HERO_COLLIDER_OFFSET, HERO_COLLIDER_SIZE, HERO_SCALE } from '../config/huntingConfig';
-import { PLAYER_CONFIG, getPlayerSpeed } from '../config/playerConfig';
-import { collisions } from '../../../src/game/map/forest/collisions.js';
+import {
+  CAMERA_ZOOM,
+  CAMERA_ZOOM_MAX,
+  CAMERA_ZOOM_MIN,
+  HERO_COLLIDER_OFFSET,
+  HERO_COLLIDER_SIZE,
+  HERO_SCALE,
+  HERO_TILE_Y_OFFSET,
+  MOVE_SPEED_MAX,
+  MOVE_SPEED_MIN,
+} from '../config/huntingConfig';
+import { PLAYER_CONFIG } from '../config/playerConfig';
+import { getHuntingMap, normalizeHuntingMapRecord } from '../map/mapRegistry.js';
+import { TILE } from '../map/tiles.js';
 import { EncounterManager } from '../managers/EncounterManager.js';
+import {
+  loadHuntingSession,
+  saveHuntingSession,
+  clearHuntingSessionIfOtherMap,
+} from '../../utils/huntingSessionStorage.js';
+
+const DIR = {
+  left: { dx: -1, dy: 0, anim: 'left' },
+  right: { dx: 1, dy: 0, anim: 'right' },
+  up: { dx: 0, dy: -1, anim: 'up' },
+  down: { dx: 0, dy: 1, anim: 'down' },
+};
+
+function setTextureFilter(scene, key, filterMode) {
+  if (!scene.textures.exists(key)) return;
+  scene.textures.get(key).setFilter(filterMode);
+}
 
 export default class MainScene extends Phaser.Scene {
   constructor(initData = {}) {
     super('MainScene');
     this.selectedMapId = initData.selectedMapId;
+    this.mapOverrideRaw = initData.mapOverride != null ? initData.mapOverride : null;
     this.player = null;
-    this.cursors = null;
+    this.huntingMap = null;
+    this.mapData = null;
+    this.gridX = 0;
+    this.gridY = 0;
+    this.isMoving = false;
+    this.stepTween = null;
     this.hasHeroAnimations = false;
     this.facingDirection = 'down';
     this.framesPerDirection = 0;
     this.standFrame = { down: 0, left: 0, right: 0, up: 0 };
-    this.collisionMap = null;
-    this.tileSize = PLAYER_CONFIG.TILE_SIZE; // Use config tile size
-    
-    // Player movement state
-    this.isMoving = false;
-    this.targetTileX = null;
-    this.targetTileY = null;
-    this.currentSpeed = getPlayerSpeed('WALK'); // Default speed
-    this.animationStopTimer = null; // Timer for smooth animation transitions
-    
-    // Encounter system
+    this.walkOnceDurationMs = 320;
+    this.moveSpeedMultiplier = 1;
+    this.defaultCameraZoom = CAMERA_ZOOM;
+    this.cameraZoom = CAMERA_ZOOM;
+    this.worldWidth = 0;
+    this.worldHeight = 0;
+
+    /** @type {string|null} */
+    this.dpadHoldDir = null;
+    /** @type {number|null} giới hạn bước từ map; null = không giới hạn */
+    this.mapMaxSteps = null;
+    /** @type {number|null} */
+    this.stepsRemaining = null;
+    this._lastDpadHoldPoll = 0;
+    /** Hết bước: khóa di chuyển, UI hiện modal */
+    this.huntingStepsExhausted = false;
+
+    this.cursors = null;
+    this.keyW = null;
+    this.keyA = null;
+    this.keyS = null;
+    this.keyD = null;
+
     this.encounterManager = null;
-    this.isEncounterModalOpen = false; // Flag to track encounter modal state
+    this.isEncounterModalOpen = false;
+
+    this._onHuntingInput = null;
+    this._onEncounterModalClosed = null;
   }
 
   init(data) {
     if (data && data.selectedMapId) this.selectedMapId = data.selectedMapId;
+    if (data && data.mapOverride != null) this.mapOverrideRaw = data.mapOverride;
+    this.mapData =
+      this.mapOverrideRaw != null
+        ? normalizeHuntingMapRecord(this.mapOverrideRaw)
+        : getHuntingMap(this.selectedMapId);
+    this.huntingMap = this.mapData;
+  }
+
+  get tileSize() {
+    return this.mapData ? this.mapData.tileSize : PLAYER_CONFIG.TILE_SIZE;
+  }
+
+  tileIndex(gx, gy) {
+    return gy * this.mapData.width + gx;
+  }
+
+  getTile(gx, gy) {
+    if (gx < 0 || gx >= this.mapData.width || gy < 0 || gy >= this.mapData.height) {
+      return TILE.WALL;
+    }
+    return this.mapData.tiles[this.tileIndex(gx, gy)];
+  }
+
+  isWalkable(gx, gy) {
+    return this.getTile(gx, gy) !== TILE.WALL;
+  }
+
+  isEncounterTile(gx, gy) {
+    return this.getTile(gx, gy) === TILE.ENCOUNTER;
+  }
+
+  tileCenterWorld(gx, gy) {
+    return {
+      x: (gx + 0.5) * this.tileSize,
+      y: (gy + 0.5) * this.tileSize + HERO_TILE_Y_OFFSET,
+    };
+  }
+
+  resolveStartTile() {
+    const { x, y } = this.mapData.start;
+    if (this.isWalkable(x, y)) return { gx: x, gy: y };
+    for (let gy = 0; gy < this.mapData.height; gy++) {
+      for (let gx = 0; gx < this.mapData.width; gx++) {
+        if (this.isWalkable(gx, gy)) return { gx, gy };
+      }
+    }
+    return { gx: 0, gy: 0 };
   }
 
   create() {
-    // Display large forest-map image as a temporary background.
-    // Later we will switch to a Tiled JSON tilemap with collisions.
-    const bg = this.add.image(0, 0, 'forest-map').setOrigin(0, 0);
-    bg.setDepth(0); // Background layer - lowest depth
+    const map = this.mapData;
+    clearHuntingSessionIfOtherMap(this.selectedMapId);
 
-    // Enable world bounds to image size
-    const worldWidth = bg.width;
-    const worldHeight = bg.height;
+    const bg = this.add.image(0, 0, 'hunting-map-bg').setOrigin(0, 0);
+    bg.setDepth(0);
+    // pixelArt toàn game = NEAREST; với ảnh nền độ phân giải cao thu nhỏ xuống canvas, LINEAR giữ chi tiết mượt hơn.
+    setTextureFilter(this, 'hunting-map-bg', Phaser.Textures.FilterMode.LINEAR);
+
+    // Luôn khớp thế giới với lưới logic: width×tileSize × height×tileSize (giống Admin: ảnh stretch full lưới).
+    // Nếu dùng kích thước pixel gốc của ảnh khi lưới nhỏ hơn (vd forest 800×640 với map 30×20@16),
+    // va chạm / spawn chỉ khớp góc trên-trái — nhìn như "sai block" và sai start.
+    const worldWidth = map.width * this.tileSize;
+    const worldHeight = map.height * this.tileSize;
+    const natW = bg.width;
+    const natH = bg.height;
+    if (natW !== worldWidth || natH !== worldHeight) {
+      console.warn(
+        `[hunting map "${map.id}"] Ảnh nền ${natW}×${natH}px ≠ lưới ${worldWidth}×${worldHeight}px (width×tileSize × height×tileSize). Đã scale để khớp lưới.`
+      );
+      bg.setDisplaySize(worldWidth, worldHeight);
+    }
+    this.worldWidth = worldWidth;
+    this.worldHeight = worldHeight;
     this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
     this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
 
-    // Initialize collision map
-    this.initCollisionMap();
+    this.mapMaxSteps = map.maxSteps != null ? map.maxSteps : null;
+    this.stepsRemaining = this.mapMaxSteps != null ? this.mapMaxSteps : null;
 
-    // Visual debugging: Draw collision blocks
-    // this.drawCollisionBlocks();
+    const start = this.resolveStartTile();
+    this.gridX = start.gx;
+    this.gridY = start.gy;
 
-    // Create placeholder player
-    // Use provided hero spritesheet if available with enough frames, else fallback
+    const saved = loadHuntingSession(this.selectedMapId, this.mapMaxSteps);
+    if (saved) {
+      this.stepsRemaining = saved.stepsRemaining;
+      if (
+        saved.gridX != null &&
+        saved.gridY != null &&
+        this.isWalkable(saved.gridX, saved.gridY)
+      ) {
+        this.gridX = saved.gridX;
+        this.gridY = saved.gridY;
+      }
+    }
+
+    const spawn = this.tileCenterWorld(this.gridX, this.gridY);
+
     const hasHeroSheet = this.textures.exists('hero') && this.textures.get('hero').frameTotal >= 12;
     const textureKey = hasHeroSheet ? 'hero' : 'hero-fallback';
-    
-    // Ensure player starts at exact tile center (not between tiles)
-    const startTileX = (10 * this.tileSize) + (this.tileSize / 2) ;  // 160 + 8 = 168
-    const startTileY = (10 * this.tileSize) + (this.tileSize / 2);  // 160 + 8 = 168
 
-    
-    this.player = this.physics.add.sprite(startTileX, startTileY, textureKey, 0);
+    this.player = this.physics.add.sprite(spawn.x, spawn.y, textureKey, 0);
     if (textureKey !== 'hero-fallback') {
       this.player.setScale(HERO_SCALE);
     }
     this.player.setCollideWorldBounds(true);
-    this.player.setSize(HERO_COLLIDER_SIZE, HERO_COLLIDER_SIZE).setOffset(HERO_COLLIDER_OFFSET.x, HERO_COLLIDER_OFFSET.y);
-    
-    // Set player depth to be above background but below foreground
+    this.player
+      .setSize(HERO_COLLIDER_SIZE, HERO_COLLIDER_SIZE)
+      .setOffset(HERO_COLLIDER_OFFSET.x, HERO_COLLIDER_OFFSET.y);
     this.player.setDepth(1);
 
-    // Simple 4-direction animations if spritesheet exists
     if (hasHeroSheet) {
-      const total = this.textures.get('hero').frameTotal;
-      // Support 12 (3 frames/dir) or 16 (4 frames/dir)
-      this.framesPerDirection = Math.floor(total / 4);
-      const fpd = this.framesPerDirection;
-      if ((fpd === 3 || fpd === 4) && !this.anims.exists('walk-down')) {
-        const ranges = {
-          down: { start: 0, end: 3 },
-          left: { start: 4, end: 7 },
-          right: { start: 8, end: 11 },
-          up: { start: 12, end: 15 },
-        };
-        this.anims.create({ key: 'walk-down', frames: this.anims.generateFrameNumbers('hero', ranges.down), frameRate: PLAYER_CONFIG.ANIMATION.WALK_FRAME_RATE, repeat: -1 });
-        this.anims.create({ key: 'walk-left', frames: this.anims.generateFrameNumbers('hero', ranges.left), frameRate: PLAYER_CONFIG.ANIMATION.WALK_FRAME_RATE, repeat: -1 });
-        this.anims.create({ key: 'walk-right', frames: this.anims.generateFrameNumbers('hero', ranges.right), frameRate: PLAYER_CONFIG.ANIMATION.WALK_FRAME_RATE, repeat: -1 });
-        this.anims.create({ key: 'walk-up', frames: this.anims.generateFrameNumbers('hero', ranges.up), frameRate: PLAYER_CONFIG.ANIMATION.WALK_FRAME_RATE, repeat: -1 });
-        // Choose a stand frame per direction (center frame for 3, second for 4)
-        this.standFrame.down = ranges.down.start + (fpd === 3 ? 1 : 1);
-        this.standFrame.left = ranges.left.start + (fpd === 3 ? 1 : 1);
-        this.standFrame.right = ranges.right.start + (fpd === 3 ? 1 : 1);
-        this.standFrame.up = ranges.up.start + (fpd === 3 ? 1 : 1);
-        this.hasHeroAnimations = true;
-      }
+      this.setupHeroAnimations();
     }
 
-    // Camera follow
     this.cameras.main.startFollow(this.player, true, 0.15, 0.15);
-    this.cameras.main.setZoom(CAMERA_ZOOM);
+    this.defaultCameraZoom = CAMERA_ZOOM;
+    this.cameraZoom = CAMERA_ZOOM;
+    this.cameras.main.setZoom(this.cameraZoom);
 
-    // Add foreground layer LAST so it renders on top of everything
-    // Foreground is exported at 250% zoom to match camera zoom 2.5x
-    const foreground = this.add.image(0, 0, 'forest-map-foreground').setOrigin(0, 0);
-    foreground.setDepth(2); // Foreground layer - highest depth (above hero)
-    
-    // Force depth sorting to ensure correct layer order
+    if (map.assets.foreground && this.textures.exists('hunting-map-fg')) {
+      const foreground = this.add.image(0, 0, 'hunting-map-fg').setOrigin(0, 0);
+      setTextureFilter(this, 'hunting-map-fg', Phaser.Textures.FilterMode.LINEAR);
+      const fgw = foreground.width;
+      const fgh = foreground.height;
+      if (fgw !== worldWidth || fgh !== worldHeight) {
+        foreground.setDisplaySize(worldWidth, worldHeight);
+      }
+      foreground.setDepth(2);
+    }
+
+    setTextureFilter(this, 'hero', Phaser.Textures.FilterMode.NEAREST);
+    setTextureFilter(this, 'hero-fallback', Phaser.Textures.FilterMode.NEAREST);
+
     this.children.sort('depth');
 
-    // Input
+    window.dispatchEvent(
+      new CustomEvent('petaria-hunting-camera-state', {
+        detail: { zoom: this.cameraZoom },
+      })
+    );
+    window.dispatchEvent(
+      new CustomEvent('petaria-hunting-speed-state', {
+        detail: { multiplier: this.moveSpeedMultiplier },
+      })
+    );
+
+    this.emitStepsState();
+
+    if (this.mapMaxSteps != null && this.stepsRemaining === 0) {
+      this.huntingStepsExhausted = true;
+      this.dpadHoldDir = null;
+      window.dispatchEvent(new CustomEvent('petaria-hunting-steps-exhausted'));
+    }
+
+    this.persistHuntingSession();
+
     this.cursors = this.input.keyboard.createCursorKeys();
-    
-    // Add speed control keys (optional)
-    this.addSpeedControls();
+    this.keyW = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+    this.keyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+    this.keyS = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+    this.keyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
 
-    // Initialize encounter manager
-    this.encounterManager = new EncounterManager(this);
-    
-    // Set up encounter callback to communicate with React
-    this.encounterManager.setEncounterCallback((wildPet) => {
-      // Disable player movement when encounter modal is open
+    this.encounterManager = new EncounterManager(this, {
+      isEncounterTile: (tx, ty) => this.isEncounterTile(tx, ty),
+      encounterPool: map.encounterPool,
+    });
+
+    this.encounterManager.setEncounterCallback((result) => {
       this.isEncounterModalOpen = true;
-      
-      // Dispatch custom event to communicate with React
-      const encounterEvent = new CustomEvent('wildPetEncounter', {
-        detail: { wildPet }
-      });
-      window.dispatchEvent(encounterEvent);
+      window.dispatchEvent(
+        new CustomEvent('wildPetEncounter', {
+          detail: {
+            encounterType: result.encounterType,
+            wildPet: result.wildPet,
+            itemEncounter: result.item,
+          },
+        })
+      );
     });
-    
-    // Listen for encounter modal close to re-enable movement
-    window.addEventListener('encounterModalClosed', () => {
+
+    this._onEncounterModalClosed = () => {
       this.isEncounterModalOpen = false;
-      // console.log('🎯 Encounter modal closed - movement re-enabled');
-    });
-  }
+    };
+    window.addEventListener('encounterModalClosed', this._onEncounterModalClosed);
 
-  // Add keyboard controls for speed adjustment
-  addSpeedControls() {
-    // Speed control keys
-    this.input.keyboard.on('keydown-ONE', () => {
-      this.setPlayerSpeed('SLOW');
-      // console.log('Speed set to SLOW:', this.currentSpeed);
-    });
-    
-    this.input.keyboard.on('keydown-TWO', () => {
-      this.setPlayerSpeed('WALK');
-      // console.log('Speed set to WALK:', this.currentSpeed);
-    });
-    
-    this.input.keyboard.on('keydown-THREE', () => {
-      this.setPlayerSpeed('FAST');
-      // console.log('Speed set to FAST:', this.currentSpeed);
-    });
-    
-    this.input.keyboard.on('keydown-FOUR', () => {
-      this.setPlayerSpeed('RUN');
-      // console.log('Speed set to RUN:', this.currentSpeed);
-    });
-    
-    // DEBUG: Test encounter system
-    this.input.keyboard.on('keydown-E', () => {
-      // console.log('🎯 Testing encounter system...');
-      if (this.encounterManager) {
-        const cooldownStatus = this.encounterManager.getCooldownStatus();
-        // console.log('Cooldown status:', cooldownStatus);
-        
-        // Force encounter for testing
-        const currentTileX = Math.floor(this.player.x / this.tileSize);
-        const currentTileY = Math.floor(this.player.y / this.tileSize);
-        // console.log('Current tile position:', { x: currentTileX, y: currentTileY });
-        
-        const isBattleZone = this.encounterManager.isInBattleZone(currentTileX, currentTileY);
-        // console.log('Is in battle zone:', isBattleZone);
-        
-        if (isBattleZone) {
-          // console.log('🎯 Player is in battle zone - checking for encounter...');
-          this.encounterManager.checkForEncounter(currentTileX, currentTileY);
-        } else {
-          // console.log('❌ Player is NOT in battle zone');
+    this._onHuntingInput = (e) => {
+      const dir = e.detail?.dir;
+      if (!dir || this.isEncounterModalOpen) return;
+      if (!this.isMoving) {
+        this.tryStepDir(dir);
+      }
+    };
+    window.addEventListener('petaria-hunting-move', this._onHuntingInput);
+
+    this._onDpad = (e) => {
+      const phase = e.detail?.phase;
+      const dir = e.detail?.dir;
+      if (phase === 'down' && dir) {
+        this.dpadHoldDir = dir;
+        if (!this.isMoving && !this.isEncounterModalOpen) {
+          this.tryStepDir(dir);
         }
+      } else if (phase === 'up' || phase === 'cancel') {
+        this.dpadHoldDir = null;
+      }
+    };
+    window.addEventListener('petaria-hunting-dpad', this._onDpad);
+
+    this._onHuntingCamera = (e) => {
+      const action = e.detail?.action;
+      const cam = this.cameras.main;
+      if (!cam) return;
+      if (action === 'zoomIn') {
+        this.cameraZoom = Phaser.Math.Clamp(this.cameraZoom * 1.12, CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX);
+      } else if (action === 'zoomOut') {
+        this.cameraZoom = Phaser.Math.Clamp(this.cameraZoom / 1.12, CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX);
+      } else if (action === 'zoomReset') {
+        this.cameraZoom = this.defaultCameraZoom;
+      } else if (action === 'zoomFit') {
+        const gw = this.scale?.width || cam.width;
+        const gh = this.scale?.height || cam.height;
+        if (this.worldWidth > 0 && this.worldHeight > 0 && gw > 0 && gh > 0) {
+          const pad = 0.92;
+          const zx = (gw * pad) / this.worldWidth;
+          const zy = (gh * pad) / this.worldHeight;
+          this.cameraZoom = Phaser.Math.Clamp(Math.min(zx, zy), CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX);
+        }
+      } else {
+        return;
+      }
+      cam.setZoom(this.cameraZoom);
+      window.dispatchEvent(
+        new CustomEvent('petaria-hunting-camera-state', {
+          detail: { zoom: this.cameraZoom },
+        })
+      );
+    };
+    window.addEventListener('petaria-hunting-camera', this._onHuntingCamera);
+
+    this._onHuntingSpeed = (e) => {
+      const action = e.detail?.action;
+      if (action === 'faster') {
+        this.moveSpeedMultiplier = Phaser.Math.Clamp(this.moveSpeedMultiplier * 1.2, MOVE_SPEED_MIN, MOVE_SPEED_MAX);
+      } else if (action === 'slower') {
+        this.moveSpeedMultiplier = Phaser.Math.Clamp(this.moveSpeedMultiplier / 1.2, MOVE_SPEED_MIN, MOVE_SPEED_MAX);
+      } else if (action === 'speedReset') {
+        this.moveSpeedMultiplier = 1;
+      } else {
+        return;
+      }
+      window.dispatchEvent(
+        new CustomEvent('petaria-hunting-speed-state', {
+          detail: { multiplier: this.moveSpeedMultiplier },
+        })
+      );
+    };
+    window.addEventListener('petaria-hunting-move-speed', this._onHuntingSpeed);
+
+    this.addDebugControls();
+
+    this.events.once('shutdown', () => {
+      window.removeEventListener('encounterModalClosed', this._onEncounterModalClosed);
+      window.removeEventListener('petaria-hunting-move', this._onHuntingInput);
+      window.removeEventListener('petaria-hunting-dpad', this._onDpad);
+      window.removeEventListener('petaria-hunting-camera', this._onHuntingCamera);
+      window.removeEventListener('petaria-hunting-move-speed', this._onHuntingSpeed);
+      if (this.stepTween) {
+        this.stepTween.stop();
+        this.stepTween = null;
       }
     });
-    
-    // DEBUG: Show encounter info
-    this.input.keyboard.on('keydown-I', () => {
-      if (this.encounterManager) {
-        //  console.log('📊 ENCOUNTER SYSTEM INFO:');
-        // console.log('Current zone:', this.encounterManager.currentZone);
-        // console.log('Base encounter rate:', this.encounterManager.currentZone.baseEncounterRate);
-        // console.log('Cooldown seconds:', this.encounterManager.currentZone.cooldownSeconds);
-        // console.log('Available pets:', this.encounterManager.currentZone.availablePetIds);
-        
-        const cooldownStatus = this.encounterManager.getCooldownStatus();
-        // console.log('Cooldown status:', cooldownStatus);
+  }
+
+  setupHeroAnimations() {
+    const total = this.textures.get('hero').frameTotal;
+    this.framesPerDirection = Math.floor(total / 4);
+    const fpd = this.framesPerDirection;
+    if (!(fpd === 3 || fpd === 4)) return;
+
+    const dirs = ['down', 'left', 'right', 'up'];
+    const ranges = dirs.map((_, i) => ({
+      start: i * fpd,
+      end: i * fpd + fpd - 1,
+    }));
+
+    const rate = PLAYER_CONFIG.ANIMATION.WALK_FRAME_RATE;
+    dirs.forEach((dir, i) => {
+      const keyLoop = `walk-${dir}`;
+      const keyOnce = `walk-${dir}-once`;
+      if (!this.anims.exists(keyLoop)) {
+        const frames = this.anims.generateFrameNumbers('hero', ranges[i]);
+        this.anims.create({
+          key: keyLoop,
+          frames,
+          frameRate: rate,
+          repeat: -1,
+        });
+        this.anims.create({
+          key: keyOnce,
+          frames,
+          frameRate: rate,
+          repeat: 0,
+        });
       }
+      this.standFrame[dir] = ranges[i].start + 1;
+    });
+
+    this.walkOnceDurationMs = (fpd / rate) * 1000;
+    this.hasHeroAnimations = true;
+    this.applyStandFrame();
+  }
+
+  applyStandFrame() {
+    if (!this.hasHeroAnimations || !this.player || this.player.texture.key !== 'hero') return;
+    const fi = this.standFrame[this.facingDirection] ?? 0;
+    this.player.anims.stop();
+    this.player.setFrame(fi);
+  }
+
+  getHeldDirectionKey() {
+    if (this.cursors.left.isDown || this.keyA.isDown) return 'left';
+    if (this.cursors.right.isDown || this.keyD.isDown) return 'right';
+    if (this.cursors.up.isDown || this.keyW.isDown) return 'up';
+    if (this.cursors.down.isDown || this.keyS.isDown) return 'down';
+    return null;
+  }
+
+  /** Bàn phím ưu tiên hơn D-pad khi cả hai có thể active */
+  getChainedMoveDir() {
+    return this.getHeldDirectionKey() || this.dpadHoldDir;
+  }
+
+  hasStepsRemaining() {
+    if (this.huntingStepsExhausted) return false;
+    if (this.stepsRemaining == null) return true;
+    return this.stepsRemaining > 0;
+  }
+
+  persistHuntingSession() {
+    if (this.mapMaxSteps == null || this.stepsRemaining == null) return;
+    saveHuntingSession(this.selectedMapId, {
+      maxSteps: this.mapMaxSteps,
+      stepsRemaining: this.stepsRemaining,
+      gridX: this.gridX,
+      gridY: this.gridY,
     });
   }
 
-  // Set player speed
-  setPlayerSpeed(speedType) {
-    this.currentSpeed = getPlayerSpeed(speedType);
+  emitStepsState() {
+    window.dispatchEvent(
+      new CustomEvent('petaria-hunting-steps-changed', {
+        detail: {
+          remaining: this.stepsRemaining,
+          max: this.mapMaxSteps,
+          unlimited: this.mapMaxSteps == null,
+        },
+      })
+    );
   }
 
-  // Get current player speed
-  getPlayerSpeed() {
-    return this.currentSpeed;
+  consumeJustPressedDirection() {
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.left) || Phaser.Input.Keyboard.JustDown(this.keyA)) {
+      return 'left';
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.right) || Phaser.Input.Keyboard.JustDown(this.keyD)) {
+      return 'right';
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.keyW)) {
+      return 'up';
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.down) || Phaser.Input.Keyboard.JustDown(this.keyS)) {
+      return 'down';
+    }
+    return null;
   }
 
-  initCollisionMap() {
-    // Convert 1D array to 2D grid for easier collision checking
-    const mapWidth = 50; // Based on your collision data structure
-    const mapHeight = 40; // Based on your collision data structure
-    
-    this.collisionMap = [];
-    for (let y = 0; y < mapHeight; y++) {
-      this.collisionMap[y] = [];
-      for (let x = 0; x < mapWidth; x++) {
-        const index = y * mapWidth + x;
-        this.collisionMap[y][x] = collisions[index] || 0;
+  tryStepDir(dirKey) {
+    if (!this.hasStepsRemaining()) return;
+    const spec = DIR[dirKey];
+    if (!spec) return;
+    const ngx = this.gridX + spec.dx;
+    const ngy = this.gridY + spec.dy;
+    if (!this.isWalkable(ngx, ngy)) return;
+    this.startStep(ngx, ngy, dirKey);
+  }
+
+  startStep(ngx, ngy, dirKey) {
+    this.isMoving = true;
+    this.facingDirection = dirKey;
+    const world = this.tileCenterWorld(ngx, ngy);
+
+    if (this.stepTween) {
+      this.stepTween.stop();
+      this.stepTween = null;
+    }
+
+    const mult = this.moveSpeedMultiplier;
+    if (this.hasHeroAnimations && this.player.anims) {
+      this.player.anims.timeScale = mult;
+      this.player.anims.play(`walk-${dirKey}-once`, true);
+    }
+
+    const stepMs = this.walkOnceDurationMs / mult;
+    this.stepTween = this.tweens.add({
+      targets: this.player,
+      x: world.x,
+      y: world.y,
+      duration: stepMs,
+      ease: 'Linear',
+      onComplete: () => {
+        this.stepTween = null;
+        this.finishStep(ngx, ngy);
+      },
+    });
+  }
+
+  finishStep(ngx, ngy) {
+    this.gridX = ngx;
+    this.gridY = ngy;
+    this.player.x = this.tileCenterWorld(this.gridX, this.gridY).x;
+    this.player.y = this.tileCenterWorld(this.gridX, this.gridY).y;
+    this.isMoving = false;
+    if (this.player?.anims) {
+      this.player.anims.timeScale = 1;
+    }
+    this.applyStandFrame();
+    this.checkForEncounter();
+
+    if (this.mapMaxSteps != null && this.stepsRemaining != null) {
+      this.stepsRemaining = Math.max(0, this.stepsRemaining - 1);
+      this.emitStepsState();
+      this.persistHuntingSession();
+      if (this.stepsRemaining === 0) {
+        this.huntingStepsExhausted = true;
+        this.dpadHoldDir = null;
+        window.dispatchEvent(new CustomEvent('petaria-hunting-steps-exhausted'));
       }
+    }
+
+    const held = this.getChainedMoveDir();
+    if (held && !this.isEncounterModalOpen && this.hasStepsRemaining()) {
+      this.tryStepDir(held);
     }
   }
 
-  // Check if a specific tile is walkable
-  isTileWalkable(tileX, tileY) {
-    // Check bounds
-    if (tileX < 0 || tileX >= this.collisionMap[0].length || 
-        tileY < 0 || tileY >= this.collisionMap.length) {
-      return false;
-    }
-    
-    // Check if tile is walkable (0 = walkable, 320 = blocked)
-    return this.collisionMap[tileY][tileX] === 0;
+  checkForEncounter() {
+    if (!this.encounterManager) return;
+    this.encounterManager.checkForEncounter(this.gridX, this.gridY);
   }
 
-  // Helper function to check if two rectangles overlap (kept for reference)
-  boxesOverlap(x1, y1, w1, h1, x2, y2, w2, h2) {
-    return !(x1 + w1 <= x2 || x2 + w2 <= x1 || y1 + h1 <= y2 || y2 + h2 <= y1);
+  addDebugControls() {
+    this.input.keyboard.on('keydown-E', () => {
+      if (this.encounterManager && this.isEncounterTile(this.gridX, this.gridY)) {
+        this.encounterManager.checkForEncounter(this.gridX, this.gridY);
+      }
+    });
   }
 
   update() {
     if (!this.player || !this.cursors) return;
-    
+
     const body = this.player.body;
-    body.setVelocity(0, 0);
+    if (body) body.setVelocity(0, 0);
 
-    // If player is currently moving to a target tile, continue movement
-    if (this.isMoving && this.targetTileX !== null && this.targetTileY !== null) {
-      this.continueMovement();
-      return;
+    if (this.isMoving) return;
+
+    if (this.isEncounterModalOpen) return;
+
+    const pressed = this.consumeJustPressedDirection();
+    if (pressed) {
+      this.tryStepDir(pressed);
     }
 
-    // Get current tile position (bottom of tile for character center)
-    const currentTileX = Math.floor(this.player.x / this.tileSize) * this.tileSize + (this.tileSize / 2);
-    const currentTileY = Math.floor(this.player.y / this.tileSize) * this.tileSize + (this.tileSize / 2) - 8;
-    
-    // Only snap player to tile center if they're not moving and are significantly off-center
-    if (!this.isMoving && (Math.abs(this.player.x - currentTileX) > 2 || Math.abs(this.player.y - currentTileY) > 2)) {
-      // console.log('Snapping player to tile center:', { from: { x: this.player.x, y: this.player.y }, to: { x: currentTileX, y: currentTileY } });
-      this.player.x = currentTileX;
-      this.player.y = currentTileY;
-    }
-
-    // Handle new input for movement
-    this.handleMovementInput(currentTileX, currentTileY);
-
-         // Handle standing animation - only when completely stopped
-     if (this.hasHeroAnimations && !this.isMoving) {
-       // Add a small delay before stopping animation to avoid jarring transitions
-       if (!this.animationStopTimer) {
-         this.animationStopTimer = this.time.delayedCall(100, () => {
-           if (this.hasHeroAnimations && !this.isMoving && this.player.anims.isPlaying) {
-             this.player.anims.stop();
-             const frameIndex = this.standFrame[this.facingDirection] ?? 0;
-             if (this.player.texture && this.player.texture.key === 'hero') {
-               this.player.setFrame(frameIndex);
-             }
-           }
-           this.animationStopTimer = null;
-         });
-       }
-     } else {
-       // Clear timer if player starts moving again
-       if (this.animationStopTimer) {
-         this.animationStopTimer.destroy();
-         this.animationStopTimer = null;
-       }
-     }
-  }
-
-  // Continue movement towards target tile
-  continueMovement() {
-    const deltaTime = this.game.loop.delta / 1000;
-    
-    // Calculate direction to target tile
-    const dirX = this.targetTileX - this.player.x;
-    const dirY = this.targetTileY - this.player.y;
-    
-    // Move towards target with current speed
-    if (Math.abs(dirX) > 0.1) {
-      this.player.x += Math.sign(dirX) * this.currentSpeed * deltaTime;
-    }
-    if (Math.abs(dirY) > 0.1) {
-      this.player.y += Math.sign(dirY) * this.currentSpeed * deltaTime;
-    }
-    
-    // Check if we've reached the target tile
-    if (Math.abs(this.player.x - this.targetTileX) < 2 && Math.abs(this.player.y - this.targetTileY) < 2) {
-      // Snap to exact tile center position
-      this.player.x = this.targetTileX;
-      this.player.y = this.targetTileY;
-      this.stopMovement();
-    }
-  }
-
-  // Handle movement input and set target tile
-  handleMovementInput(currentTileX, currentTileY) {
-    // Don't allow movement if encounter modal is open
-    if (this.isEncounterModalOpen) {
-      return;
-    }
-    
-    let targetTileX = currentTileX;
-    let targetTileY = currentTileY;
-    let anim = null;
-    let moved = false;
-
-    // Priority: Left > Right > Up > Down (no diagonal movement)
-    if (this.cursors.left.isDown) {
-      targetTileX = currentTileX - this.tileSize;
-      anim = 'walk-left';
-      this.facingDirection = 'left';
-      moved = true;
-    } else if (this.cursors.right.isDown) {
-      targetTileX = currentTileX + this.tileSize;
-      anim = 'walk-right';
-      this.facingDirection = 'right';
-      moved = true;
-    } else if (this.cursors.up.isDown) {
-      targetTileY = currentTileY - this.tileSize;
-      anim = 'walk-up';
-      this.facingDirection = 'up';
-      moved = true;
-    } else if (this.cursors.down.isDown) {
-      targetTileY = currentTileY + this.tileSize;
-      anim = 'walk-down';
-      this.facingDirection = 'down';
-      moved = true;
-    }
-
-    // Start movement if input is pressed and target tile is walkable
-    if (moved && !this.isMoving) {
-      const targetTileGridX = Math.floor(targetTileX / this.tileSize);
-      const targetTileGridY = Math.floor(targetTileY / this.tileSize);
-      
-      if (this.isTileWalkable(targetTileGridX, targetTileGridY)) {
-        this.startMovement(targetTileX, targetTileY, anim);
-      } else {
-        // console.log('Target tile is not walkable!');
+    if (
+      this.dpadHoldDir &&
+      !this.isMoving &&
+      !this.isEncounterModalOpen &&
+      this.hasStepsRemaining()
+    ) {
+      const now = this.time.now;
+      if (now - this._lastDpadHoldPoll > 95) {
+        this._lastDpadHoldPoll = now;
+        this.tryStepDir(this.dpadHoldDir);
       }
     }
   }
-
-  // Start movement to target tile
-  startMovement(targetTileX, targetTileY, anim) {
-    // Ensure target coordinates are exactly at tile centers
-    this.targetTileX = Math.floor(targetTileX / this.tileSize) * this.tileSize + (this.tileSize / 2);
-    this.targetTileY = Math.floor(targetTileY / this.tileSize) * this.tileSize + (this.tileSize / 2) - 8;
-    this.isMoving = true;
-    
-    // Start walking animation - don't restart if already playing the same animation
-    if (this.hasHeroAnimations && anim) {
-      if (!this.player.anims.isPlaying || this.player.anims.currentAnim.key !== anim) {
-        this.player.anims.play(anim, true);
-      }
-    }
-  }
-
-  // Stop movement
-  stopMovement() {
-    this.isMoving = false;
-    this.targetTileX = null;
-    this.targetTileY = null;
-    
-    // Don't stop animation immediately - let it continue smoothly
-    // Animation will be handled in update() when player stops moving
-    
-    // Check for encounter when player stops moving
-    this.checkForEncounter();
-  }
-
-  // Check for encounter at current position
-  checkForEncounter() {
-    if (!this.encounterManager) return;
-    
-    // Get current tile position
-    const currentTileX = Math.floor(this.player.x / this.tileSize);
-    const currentTileY = Math.floor(this.player.y / this.tileSize);
-    
-    // Check for encounter
-    this.encounterManager.checkForEncounter(currentTileX, currentTileY);
-  }
-
-  // Visual debugging: Draw collision blocks
-  drawCollisionBlocks() {
-    this.collisionGraphics = this.add.graphics();
-    
-    // Draw grid lines first (optional, for better visualization)
-    this.collisionGraphics.lineStyle(0.5, 0x666666, 0.3); // Gray grid lines
-    for (let x = 0; x <= this.collisionMap[0].length * this.tileSize; x += this.tileSize) {
-      this.collisionGraphics.moveTo(x, 0);
-      this.collisionGraphics.lineTo(x, this.collisionMap.length * this.tileSize);
-    }
-    for (let y = 0; y <= this.collisionMap.length * this.tileSize; y += this.tileSize) {
-      this.collisionGraphics.moveTo(0, y);
-      this.collisionGraphics.lineTo(this.collisionMap[0].length * this.tileSize, y);
-    }
-    this.collisionGraphics.stroke(); // Use stroke() instead of strokePaths()
-    
-    // Draw collision blocks in red with consistent line thickness
-    this.collisionGraphics.lineStyle(1, 0xff0000, 1); // Red border, thickness 1
-    this.collisionGraphics.fillStyle(0xff0000, 0.3); // Red fill with transparency
-    
-    for (let y = 0; y < this.collisionMap.length; y++) {
-      for (let x = 0; x < this.collisionMap[0].length; x++) {
-        if (this.collisionMap[y][x] === 320) { // Blocked tile
-          const worldX = x * this.tileSize;
-          const worldY = y * this.tileSize;
-          this.collisionGraphics.fillRect(worldX, worldY, this.tileSize, this.tileSize);
-          this.collisionGraphics.strokeRect(worldX, worldY, this.tileSize, this.tileSize);
-        }
-      }
-    }
-  }
-
-
-  // Visual debugging: Draw player collision box
-  // drawPlayerCollisionBox() {
-  //   if (this.playerCollisionGraphics) {
-  //     this.playerCollisionGraphics.destroy();
-  //   }
-    
-  //   this.playerCollisionGraphics = this.add.graphics();
-    
-  //   // Player should always be at exact tile center
-  //   const currentTileX = Math.floor(this.player.x / this.tileSize) * this.tileSize + (this.tileSize / 2);
-  //   const currentTileY = Math.floor(this.player.y / this.tileSize) * this.tileSize + (this.tileSize / 2);
-    
-    // // Draw current tile position indicator (blue box - 16x16) ONLY
-    // this.playerCollisionGraphics.lineStyle(1, 0x0000ff, 0.8); // Blue border for current tile
-    // this.playerCollisionGraphics.strokeRect(currentTileX - this.tileSize / 2, currentTileY - this.tileSize / 2, this.tileSize, this.tileSize);
-    
-    // // Draw target tile indicator if moving
-    // if (this.isMoving && this.targetTileX !== null && this.targetTileY !== null) {
-    //   this.playerCollisionGraphics.lineStyle(1, 0xffff00, 0.8); // Yellow border for target tile
-    //   this.playerCollisionGraphics.strokeRect(this.targetTileX - this.tileSize / 2, this.targetTileY - this.tileSize / 2, this.tileSize, this.tileSize);
-    // }
-  }
-
-
-
+}

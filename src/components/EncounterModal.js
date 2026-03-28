@@ -51,8 +51,19 @@ function EncounterModal({ wildPet, onClose, onCatch, onBattle }) {
 
           <div className="encounter-pet-info">
             <div className="pet-sprite-placeholder">
-              {/* Placeholder for pet sprite - can be replaced with actual image later */}
-              <div className="pet-sprite-icon">🐾</div>
+              {wildPet.image ? (
+                <img
+                  src={`/images/pets/${wildPet.image}`}
+                  alt=""
+                  className="encounter-species-img"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = '/images/pets/default.png';
+                  }}
+                />
+              ) : (
+                <div className="pet-sprite-icon">🐾</div>
+              )}
             </div>
             
             <div className="pet-details">

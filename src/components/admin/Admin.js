@@ -101,6 +101,7 @@ function Admin() {
           <h2>Quản lý Site</h2>
           <ul>
             <li><Link to="/admin/site-management">Quản lý Homepage</Link></li>
+            <li><Link to="/admin/hunting-maps">Quản lý Map săn</Link></li>
             <li><Link to="/map-tool">Map tool</Link></li>
           </ul>
         </div>

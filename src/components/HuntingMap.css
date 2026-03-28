@@ -2,17 +2,282 @@
   --hunting-bg: #0f1220;
 }
 
+.hunting-map-dialog-text {
+  margin: auto;
+  line-height: 1.55;
+  font-size: 0.95rem;
+  height: 100%;
+}
+
 .hunting-map-wrapper {
   width: 100%;
-  min-height: calc(100vh - 120px);
+  max-width: 100%;
+  box-sizing: border-box;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: calc(100dvh - 88px);
+  padding: 8px 10px 12px;
   background: var(--hunting-bg);
 }
 
-.hunting-map-root canvas {
-  image-rendering: pixelated;
+@media (max-width: 600px) {
+  .hunting-map-wrapper {
+    min-height: calc(100dvh - 72px);
+    padding: 4px 6px 8px;
+  }
 }
 
+/* —— Toolbar: desktop —— */
+.hunting-map-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  background: rgba(20, 24, 40, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
 
+.hunting-map-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.hunting-map-toolbar-row--steps {
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hunting-map-toolbar-row--controls {
+  justify-content: space-between;
+}
+
+.hunting-map-steps-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e0e6ff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.hunting-map-toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.hunting-map-toolbar-label {
+  font-size: 0.8rem;
+  color: #9aa3c4;
+  margin-right: 2px;
+}
+
+.hunting-map-toolbar-value {
+  font-size: 0.8rem;
+  color: #c5cae8;
+  min-width: 3rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hunting-map-tool-btn {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(36, 42, 64, 0.95);
+  color: #e8ebff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hunting-map-tool-btn:active {
+  background: rgba(70, 86, 130, 0.95);
+}
+
+.hunting-map-tool-wide {
+  min-width: auto;
+  padding: 0 12px;
+  font-size: 0.8rem;
+}
+
+.hunting-map-game-area {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: clamp(260px, 52dvh, 720px);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hunting-map-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  color: #c8d0f0;
+  background: rgba(15, 18, 32, 0.85);
+  pointer-events: none;
+}
+
+.hunting-map-root {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.hunting-map-root canvas {
+  display: block;
+  /* auto: trình duyệt scale canvas (sau resolution/DPR) mượt hơn; pixelated dễ làm ảnh HD nhìn “thô”. Sprite vẫn NEAREST trong WebGL. */
+  image-rendering: auto;
+}
+
+.hunting-dpad {
+  position: absolute;
+  right: max(10px, env(safe-area-inset-right, 0px));
+  bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  touch-action: manipulation;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.hunting-dpad-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.hunting-dpad-mid {
+  width: 100%;
+  justify-content: center;
+}
+
+.hunting-dpad-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(20, 24, 40, 0.88);
+  color: #e8ebff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hunting-dpad-btn:active {
+  background: rgba(60, 76, 120, 0.95);
+}
+
+.hunting-dpad-up {
+  margin-bottom: 2px;
+}
+
+/* —— Mobile: toolbar + D-pad nhỏ gọn —— */
+@media (max-width: 640px) {
+  .hunting-map-toolbar {
+    padding: 5px 6px;
+    gap: 5px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+  }
+
+  .hunting-map-toolbar-row--steps {
+    padding-bottom: 4px;
+  }
+
+  .hunting-map-steps-value {
+    font-size: 0.9rem;
+  }
+
+  .hunting-map-toolbar-label {
+    font-size: 0.68rem;
+  }
+
+  .hunting-map-toolbar-value {
+    font-size: 0.68rem;
+    min-width: 2.5rem;
+  }
+
+  .hunting-map-tool-btn {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0 6px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+  }
+
+  .hunting-map-tool-wide {
+    padding: 0 8px;
+    font-size: 0.65rem;
+    min-height: 30px;
+  }
+
+  .hunting-map-toolbar-row--controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .hunting-map-toolbar-group {
+    gap: 4px;
+    justify-content: flex-start;
+  }
+
+  .hunting-dpad {
+    gap: 4px;
+    right: max(6px, env(safe-area-inset-right, 0px));
+    bottom: max(6px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .hunting-dpad-row {
+    gap: 4px;
+  }
+
+  .hunting-dpad-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+    border-radius: 8px;
+  }
+}
+
+@media (max-width: 380px) {
+  .hunting-map-tool-btn {
+    min-width: 30px;
+    min-height: 30px;
+    font-size: 0.8rem;
+  }
+
+  .hunting-map-tool-wide {
+    font-size: 0.6rem;
+    padding: 0 6px;
+  }
+
+  .hunting-dpad-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+  }
+}

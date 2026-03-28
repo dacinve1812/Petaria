@@ -15,4 +15,14 @@ export const HERO_COLLIDER_OFFSET = TILE_SIZE === 16 ? { x: 0, y: 16 } : { x: 0,
 // Camera zoom recommendation by tile size
 export const CAMERA_ZOOM = TILE_SIZE <= 16 ? 1.5 : 2;
 
+export const CAMERA_ZOOM_MIN = 0.35;
+export const CAMERA_ZOOM_MAX = 3.5;
+
+/** Hệ số tốc độ bước (1 = đồng bộ anim mặc định). */
+export const MOVE_SPEED_MIN = 0.35;
+export const MOVE_SPEED_MAX = 3.5;
+
+// Vertical offset so hero feet align with tile grid (was hard-coded as -8 in scenes)
+export const HERO_TILE_Y_OFFSET = TILE_SIZE === 16 ? -8 : -16;
+
 

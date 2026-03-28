@@ -1,33 +1,40 @@
 import Phaser from 'phaser';
 import { HERO_FRAME_SIZE } from '../config/huntingConfig';
+import { getHuntingMap, normalizeHuntingMapRecord } from '../map/mapRegistry.js';
 
 export default class PreloadScene extends Phaser.Scene {
   constructor(initData = {}) {
     super('PreloadScene');
     this.selectedMapId = initData.selectedMapId;
+    this.mapOverrideRaw = initData.mapOverride != null ? initData.mapOverride : null;
+    this.huntingMap = null;
   }
 
   init(data) {
-    // Allow scene transitions to override selectedMapId
     if (data && data.selectedMapId) this.selectedMapId = data.selectedMapId;
+    if (data && data.mapOverride != null) this.mapOverrideRaw = data.mapOverride;
+    this.huntingMap =
+      this.mapOverrideRaw != null
+        ? normalizeHuntingMapRecord(this.mapOverrideRaw)
+        : getHuntingMap(this.selectedMapId);
   }
 
   preload() {
-    // For now, we load a static image map as background to unblock collisions work
-    // Place your forest map image under public/hunting/maps/forest-map.png
-    this.load.image('forest-map', '/hunting/maps/forest-map.png');
+    const map =
+      this.mapOverrideRaw != null
+        ? normalizeHuntingMapRecord(this.mapOverrideRaw)
+        : getHuntingMap(this.selectedMapId);
 
-    // Load foreground layer for forest map
-    this.load.image('forest-map-foreground', '/hunting/maps/forest-map-forground.png');
+    this.load.image('hunting-map-bg', map.assets.background);
+    if (map.assets.foreground) {
+      this.load.image('hunting-map-fg', map.assets.foreground);
+    }
 
-    // Load hero spritesheet. HERO_FRAME_SIZE defines source frame (e.g., 64),
-    // we scale in scene to desired display size.
-    this.load.spritesheet('hero', '/hunting/sprites/hero4.png', {
+    this.load.spritesheet('hero', '/hunting/sprites/hero6.png', {
       frameWidth: HERO_FRAME_SIZE,
       frameHeight: HERO_FRAME_SIZE,
     });
 
-    // Always prepare a fallback texture in case hero.png is not provided
     const g = this.add.graphics();
     g.fillStyle(0x4caf50, 1);
     g.fillRect(0, 0, HERO_FRAME_SIZE, HERO_FRAME_SIZE);
@@ -38,8 +45,9 @@ export default class PreloadScene extends Phaser.Scene {
   }
 
   create() {
-    this.scene.start('MainScene', { selectedMapId: this.selectedMapId });
+    this.scene.start('MainScene', {
+      selectedMapId: this.selectedMapId,
+      mapOverride: this.mapOverrideRaw,
+    });
   }
 }
-
-

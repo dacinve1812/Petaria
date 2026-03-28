@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { UserProvider } from './UserContext';
 import MainLayout from './components/MainLayout';
 import EncounterModalContainer from './components/EncounterModalContainer';
@@ -22,9 +22,9 @@ import AdminCreatePet from './components/admin/AdminCreatePet';
 import ArenaPage from './components/battle/ArenaPage';
 import PveSelectPage from './components/battle/PveSelectPage';
 import ArenaBattlePage from './components/battle/ArenaBattlePage';
-import AdminAddPetForBattle from './components/admin/AdminAddPetForBattle';
 import AdminSpiritEditor from './components/admin/AdminSpiritEditor';
 import SiteManagement from './components/admin/SiteManagement';
+import AdminHuntingMapManagement from './components/admin/AdminHuntingMapManagement';
 import HomePageVer2 from './components/HomePageVer2';
 import HuntingMap from './components/HuntingMap';
 import PokedexPage from './components/PokedexPage';
@@ -47,65 +47,68 @@ import HealiaRiverPage from './components/HealiaRiverPage';
 import Restaurant from './components/Restaurant';
 import ExampleTemplatePage from './components/template/ExampleTemplatePage';
 
+const router = createBrowserRouter([
+  { path: '/login', element: <Auth /> },
+  {
+    path: '/',
+    element: <MainLayout />,
+    children: [
+      { index: true, element: <HomePageVer2 /> },
+      { path: 'orphanage', element: <Orphanage /> },
+      { path: 'myhome', element: <MyHome /> },
+      { path: 'myhome/spirits', element: <MyHome /> },
+      { path: 'admin', element: <Admin /> },
+      { path: 'profile/:userId', element: <UserProfile /> },
+      { path: 'profile', element: <UserProfile /> },
+      { path: 'pet/:uuid', element: <PetProfile /> },
+      { path: 'inventory', element: <Inventory /> },
+      { path: 'admin/edit-pet-types', element: <EditPetTypes /> },
+      { path: 'admin/edit-items', element: <EditItems /> },
+      { path: 'admin/edit-equipment-stats', element: <EditEquipmentStats /> },
+      { path: 'admin/edit-item-effects', element: <EditItemEffects /> },
+      { path: 'shop', element: <ShopPage /> },
+      { path: 'admin/edit-shop-items', element: <EditShopItems /> },
+      { path: 'admin/create-pet', element: <AdminCreatePet /> },
+      { path: 'battle', element: <PveSelectPage /> },
+      { path: 'battle/arena', element: <ArenaPage /> },
+      { path: 'admin/npc-boss-management', element: <AdminNpcBossManagement /> },
+      { path: 'admin/spirits', element: <AdminSpiritEditor /> },
+      { path: 'admin/site-management', element: <SiteManagement /> },
+      { path: 'admin/hunting-maps', element: <AdminHuntingMapManagement /> },
+      { path: 'management', element: <MyStuffManagement /> },
+      { path: 'battle/arena/arenabattle', element: <ArenaBattlePage /> },
+      { path: 'home-ver2', element: <HomePage /> },
+      { path: 'pokedex', element: <PokedexPage /> },
+      { path: 'cultivate', element: <CultivatePage /> },
+      { path: 'tasks', element: <TasksPage /> },
+      { path: 'team', element: <TeamPage /> },
+      { path: 'hunting-world', element: <HuntingWorldPage /> },
+      { path: 'hunting-world/map/:id', element: <HuntingMap /> },
+      { path: 'admin/mail-test', element: <AdminMailTest /> },
+      { path: 'admin/bank-management', element: <AdminBankManagement /> },
+      { path: 'admin/user-management', element: <AdminUserManagement /> },
+      { path: 'dev-dashboard', element: <DevDashboard /> },
+      { path: 'map-tool', element: <MapCoordinateTool /> },
+      { path: 'bank', element: <Bank /> },
+      { path: 'mail', element: <MailPage /> },
+      { path: 'healia-river', element: <HealiaRiverPage /> },
+      { path: 'restaurant', element: <Restaurant /> },
+      { path: 'auction', element: <AuctionList /> },
+      { path: 'auction/:id', element: <AuctionDetail /> },
+      { path: 'auction/create', element: <CreateAuction /> },
+      { path: 'example/*', element: <ExampleTemplatePage /> },
+    ],
+  },
+]);
+
 function App() {
   return (
-    <BrowserRouter>
-      <UserProvider>
-        <div className="App">
-          {/* Global Encounter Modal - always available */}
-          <EncounterModalContainer />
-
-          <Routes>
-            <Route path="/login" element={<Auth />} />
-            <Route path="/" element={<MainLayout />}>
-              <Route index element={<HomePageVer2 />} />
-              <Route path="orphanage" element={<Orphanage />} />
-              <Route path="myhome" element={<MyHome />} />
-              <Route path="myhome/spirits" element={<MyHome />} />
-              <Route path="admin" element={<Admin />} />
-              <Route path="profile/:userId" element={<UserProfile />} />
-              <Route path="profile" element={<UserProfile />} />
-              <Route path="pet/:uuid" element={<PetProfile />} />
-              <Route path="inventory" element={<Inventory />} />
-              <Route path="admin/edit-pet-types" element={<EditPetTypes />} />
-              <Route path="admin/edit-items" element={<EditItems />} />
-              <Route path="admin/edit-equipment-stats" element={<EditEquipmentStats />} />
-              <Route path="admin/edit-item-effects" element={<EditItemEffects />} />
-              <Route path="shop" element={<ShopPage />} />
-              <Route path="admin/edit-shop-items" element={<EditShopItems />} />
-              <Route path="admin/create-pet" element={<AdminCreatePet />} />
-              <Route path="battle" element={<PveSelectPage />} />
-              <Route path="battle/arena" element={<ArenaPage />} />
-              <Route path="admin/npc-boss-management" element={<AdminNpcBossManagement />} />
-              <Route path="admin/spirits" element={<AdminSpiritEditor />} />
-              <Route path="admin/site-management" element={<SiteManagement />} />
-              <Route path="management" element={<MyStuffManagement />} />
-              <Route path="battle/arena/arenabattle" element={<ArenaBattlePage />} />
-              <Route path="home-ver2" element={<HomePage />} />
-              <Route path="pokedex" element={<PokedexPage />} />
-              <Route path="cultivate" element={<CultivatePage />} />
-              <Route path="tasks" element={<TasksPage />} />
-              <Route path="team" element={<TeamPage />} />
-              <Route path="hunting-world" element={<HuntingWorldPage />} />
-              <Route path="hunting-world/map/:id" element={<HuntingMap />} />
-              <Route path="admin/mail-test" element={<AdminMailTest />} />
-              <Route path="admin/bank-management" element={<AdminBankManagement />} />
-              <Route path="admin/user-management" element={<AdminUserManagement />} />
-              <Route path="dev-dashboard" element={<DevDashboard />} />
-              <Route path="map-tool" element={<MapCoordinateTool />} />
-              <Route path="bank" element={<Bank />} />
-              <Route path="mail" element={<MailPage />} />
-              <Route path="healia-river" element={<HealiaRiverPage />} />
-              <Route path="restaurant" element={<Restaurant />} />
-              <Route path="auction" element={<AuctionList />} />
-              <Route path="auction/:id" element={<AuctionDetail />} />
-              <Route path="auction/create" element={<CreateAuction />} />
-              <Route path="example/*" element={<ExampleTemplatePage />} />
-            </Route>  
-          </Routes>
-        </div>
-      </UserProvider>
-    </BrowserRouter>
+    <UserProvider>
+      <div className="App">
+        <EncounterModalContainer />
+        <RouterProvider router={router} />
+      </div>
+    </UserProvider>
   );
 }
 
