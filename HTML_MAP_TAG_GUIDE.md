@@ -157,11 +157,14 @@ function HomePage() {
 
 ## 🎯 **Cách xác định tọa độ chính xác:**
 
-### 🛠️ **Sử dụng MapCoordinateTool:**
+### 🛠️ **Sử dụng MapCoordinateTool (workflow mới):**
 1. Truy cập `/map-tool` trong ứng dụng
-2. Click và kéo để tạo vùng trên map
-3. Tool sẽ tự động tính toán tọa độ
-4. Copy code và paste vào HomePage.js
+2. Đổi `image src` (hoặc chọn file local), `map name` và `preview height`
+3. Click-kéo để tạo vùng, nhập `name`, `path`, `button label`
+4. Bấm **Export JSON**
+5. Với HomePage castle map: ghi đè file `src/config/homepage-castle-map.json`
+6. Bấm **Import JSON** khi muốn mở lại preset để chỉnh tiếp
+7. `Copy Code` chỉ dùng khi cần paste thủ công vào component khác
 
 ### 📐 **Manual method:**
 1. Mở Developer Tools (F12)
@@ -269,4 +272,4 @@ HTML `<map>` tag là **giải pháp hoàn hảo** cho clickable areas trên imag
 - ✅ **Accessibility** - Tốt cho screen readers
 - ✅ **SEO friendly** - Tốt cho search engines
 
-**🎯 Sử dụng MapCoordinateTool để tạo tọa độ chính xác và copy code vào HomePage.js!**
+**🎯 Sử dụng MapCoordinateTool để tạo tọa độ chính xác và lưu preset JSON để tái sử dụng!**

@@ -1,0 +1,224 @@
+{
+  "version": 1,
+  "imageSrc": "/castle.jpg",
+  "mapName": "petaria-map",
+  "previewHeight": 640,
+  "originalHeight": 1200,
+  "naturalSize": {
+    "width": 1632,
+    "height": 1200
+  },
+  "originalCoordinates": [
+    {
+      "id": 1,
+      "coords": [
+        647,
+        655,
+        850,
+        734
+      ],
+      "name": "My Home",
+      "path": "/myhome",
+      "buttonLabel": "My Home"
+    },
+    {
+      "id": 3,
+      "coords": [
+        32,
+        417,
+        197,
+        473
+      ],
+      "name": "Quảng Cáo",
+      "path": "/",
+      "buttonLabel": "Quảng Cáo"
+    },
+    {
+      "id": 4,
+      "coords": [
+        100,
+        659,
+        289,
+        741
+      ],
+      "name": "Giải Trí",
+      "path": "/",
+      "buttonLabel": "Giải Trí"
+    },
+    {
+      "id": 5,
+      "coords": [
+        662,
+        968,
+        816,
+        1047
+      ],
+      "name": "Inventory",
+      "path": "/inventory",
+      "buttonLabel": "Inventory"
+    },
+    {
+      "id": 6,
+      "coords": [
+        443,
+        297,
+        623,
+        362
+      ],
+      "name": "Bank",
+      "path": "/bank",
+      "buttonLabel": "Bank"
+    },
+    {
+      "id": 7,
+      "coords": [
+        814,
+        336,
+        1017,
+        404
+      ],
+      "name": "Trại Mồ Côi",
+      "path": "/orphanage",
+      "buttonLabel": "Trại Mồ Côi"
+    },
+    {
+      "id": 8,
+      "coords": [
+        1120,
+        274,
+        1309,
+        338
+      ],
+      "name": "Nhà Hàng",
+      "path": "/restaurant",
+      "buttonLabel": "Nhà Hàng"
+    },
+    {
+      "id": 9,
+      "coords": [
+        1443,
+        239,
+        1580,
+        302
+      ],
+      "name": "Bưu Điên",
+      "path": "/office",
+      "buttonLabel": "Bưu Điện"
+    },
+    {
+      "id": 11,
+      "coords": [
+        1188,
+        1028,
+        1352,
+        1094
+      ],
+      "name": "Đi Săn",
+      "path": "/hunting",
+      "buttonLabel": "Đi Săn"
+    },
+    {
+      "id": 11,
+      "coords": [
+        694,
+        130,
+        822,
+        177
+      ],
+      "name": "Sông Healla",
+      "path": "/river",
+      "buttonLabel": "Sông Healla"
+    },
+    {
+      "id": 11,
+      "coords": [
+        83,
+        117,
+        263,
+        155
+      ],
+      "name": "Mua Sắm",
+      "path": "/shop",
+      "buttonLabel": "Mua Sắm"
+    }
+  ],
+  "mapButtons": [
+    {
+      "id": 1,
+      "x": 749,
+      "y": 695,
+      "path": "/myhome",
+      "label": "My Home"
+    },
+    {
+      "id": 3,
+      "x": 115,
+      "y": 445,
+      "path": "/",
+      "label": "Quảng Cáo"
+    },
+    {
+      "id": 4,
+      "x": 195,
+      "y": 700,
+      "path": "/",
+      "label": "Giải Trí"
+    },
+    {
+      "id": 5,
+      "x": 739,
+      "y": 1008,
+      "path": "/inventory",
+      "label": "Inventory"
+    },
+    {
+      "id": 6,
+      "x": 533,
+      "y": 330,
+      "path": "/bank",
+      "label": "Bank"
+    },
+    {
+      "id": 7,
+      "x": 916,
+      "y": 370,
+      "path": "/orphanage",
+      "label": "Trại Mồ Côi"
+    },
+    {
+      "id": 8,
+      "x": 1215,
+      "y": 306,
+      "path": "/restaurant",
+      "label": "Nhà Hàng"
+    },
+    {
+      "id": 9,
+      "x": 1512,
+      "y": 271,
+      "path": "/office",
+      "label": "Bưu Điện"
+    },
+    {
+      "id": 11,
+      "x": 1270,
+      "y": 1061,
+      "path": "/hunting",
+      "label": "Đi Săn"
+    },
+    {
+      "id": 11,
+      "x": 758,
+      "y": 154,
+      "path": "/river",
+      "label": "Sông Healla"
+    },
+    {
+      "id": 11,
+      "x": 173,
+      "y": 136,
+      "path": "/shop",
+      "label": "Mua Sắm"
+    }
+  ]
+}

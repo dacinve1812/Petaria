@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import GlobalBanner from './GlobalBanner';
 import PetNotice from './PetNotice';
 import './HomePageVer2.css';
@@ -8,6 +9,7 @@ import { DEFAULT_CONTENT_BLOCKS, CONTENT_BLOCK_KEYS, LIST_BLOCK_KEYS } from '../
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
 function HomePageVer2() {
+  const navigate = useNavigate();
   const [pageConfig, setPageConfig] = useState(null);
   const [customElements, setCustomElements] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -269,7 +271,27 @@ function HomePageVer2() {
                     );
                   })()
                 ) : key === 'notes' ? null : useHtml ? (
-                  <div className={className} dangerouslySetInnerHTML={{ __html: block.html }} />
+                  key === 'worldmap' ? (
+                    <div
+                      className={className + ' homepage-block-worldmap-clickable'}
+                      role="link"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        const anchor = e.target.closest('a');
+                        if (anchor) e.preventDefault();
+                        navigate('/world-map');
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          navigate('/world-map');
+                        }
+                      }}
+                      dangerouslySetInnerHTML={{ __html: block.html }}
+                    />
+                  ) : (
+                    <div className={className} dangerouslySetInnerHTML={{ __html: block.html }} />
+                  )
                 ) : null}
               </React.Fragment>
             );

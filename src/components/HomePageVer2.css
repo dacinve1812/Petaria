@@ -192,6 +192,10 @@
   margin-bottom: 4px;
 }
 
+.homepage-block-worldmap-clickable {
+  cursor: pointer;
+}
+
 /* Custom Elements Styling */
 .custom-element {
   position: relative;

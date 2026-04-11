@@ -57,7 +57,7 @@ const getHP = (base, iv, level) =>
 #### Battle Engine Logic
 
 **Trường hợp 1: Tấn công (vũ khí / kỹ năng Attack)**  
-Sát thương gây ra và trừ trực tiếp vào HP đối thủ trong lượt đó. Công thức dùng chung cho Pet và Boss (không dùng hệ số 1.45).
+Sát thương gây ra và trừ trực tiếp vào HP đối thủ trong lượt đó. Công thức dùng chung cho Pet và Boss.
 
 $$Dmg_{out} = \max(1, (Str_{attacker} \times (1 + \frac{R}{10})) \times 0.6 - Def_{defender} \times 0.5)$$
 
@@ -432,6 +432,50 @@ WHERE id = ?
 ### Utility Scripts
 - `scripts/send_test_mails.js`: gửi system mails test (dev only)
 - `scripts/setup_vip_bank_system.js`: setup cột VIP trong `users` + bảng `bank_interest_rates`
+- `scripts/generate_worldmap_zone_points.js`: generate polygon points cho World Map từ các ảnh vùng PNG
+
+### World Map Zone Workflow
+
+World map hiện dùng cơ chế:
+- **Base map**: `public/worldmap/worldmap.png`
+- **Zone overlays**: `public/worldmap/<row>-<col>.png` (vd: `1-1.png`, `1-2.png`)
+- **Polygon data cho hit area**: `src/config/worldmap-zone-points.json`
+
+Khi thay đổi/bổ sung ảnh vùng trong `public/worldmap`, chạy:
+
+```bash
+npm run gen:worldmap-points
+```
+
+Lệnh này sẽ:
+1. Quét toàn bộ PNG trong `public/worldmap` (trừ `worldmap.png`)
+2. Dò contour theo alpha channel của từng ảnh vùng
+3. Simplify polygon points
+4. Ghi kết quả ra:
+   - `scripts/worldmap-zone-points.json` (file debug/reference)
+   - `src/config/worldmap-zone-points.json` (file frontend sử dụng trực tiếp)
+
+`WorldMapPage` import trực tiếp `src/config/worldmap-zone-points.json`, nên sau khi chạy script, trang World Map cập nhật theo dữ liệu mới mà không cần chỉnh tay points.
+
+### HomePage Castle Map Workflow (JSON preset)
+
+HomePage (`castle.jpg`) hiện đọc trực tiếp preset:
+- `src/config/homepage-castle-map.json`
+
+Preset gồm:
+- `imageSrc`, `mapName`, `originalHeight`
+- `originalCoordinates` (cho `<area>`)
+- `mapButtons` (button overlay click nhanh)
+
+Quy trình đề xuất:
+1. Mở `/map-tool`
+2. Chỉnh ảnh/vùng/path/button label
+3. Bấm **Export JSON**
+4. Ghi đè file `src/config/homepage-castle-map.json`
+5. Reload app để kiểm tra
+
+Khi cần chỉnh tiếp:
+- Bấm **Import JSON** trong MapTool để nạp lại preset và sửa.
 
 ### Testing Strategy
 - **Manual testing**: Battle scenarios, level up scenarios

@@ -66,6 +66,13 @@ function MainLayout() {
 
     // Get page title based on current path
     const getPageTitle = (pathname) => {
+        if (pathname.startsWith('/region/')) {
+            return 'PETARIA';
+        }
+        if (pathname.startsWith('/hunting-world/confirm')) {
+            return 'PETARIA';
+        }
+
         const titleMap = {
             '/': 'PETARIA',
             '/home': 'PETARIA',
@@ -83,6 +90,7 @@ function MainLayout() {
             '/battle/arena': 'ĐẤU TRƯỜNG',
             '/battle/arena/arenabattle': 'ĐẤU TRƯỜNG',
             '/hunting-world': 'ĐI SĂN',
+            '/world-map': 'PETARIA',
             '/guild': 'BANG HỘI',
             '/quest': 'NHIỆM VỤ',
             '/management': 'QUẢN LÝ',

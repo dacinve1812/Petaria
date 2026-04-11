@@ -1,0 +1,111 @@
+.regionmap-page {
+  width: 100%;
+  /* height: var(--regionmap-view-height, 60dvh); */
+  background-color: white
+}
+
+.regionmap-header {
+  margin: 10px;
+  text-align: center;
+}
+
+.regionmap-header h2 {
+  margin: 10 px;
+  font-size: 30px;
+  font-weight: bold;
+  color: rgb(255, 213, 0);
+}
+
+.regionmap-header p {
+  margin: 0;
+  font-size: var(--font-md);
+}
+
+.regionmap-scroll-x {
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.regionmap-scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+.regionmap-canvas-wrap {
+  position: relative;
+  width: var(--regionmap-render-width, 100%);
+  min-width: var(--regionmap-render-width, 100%);
+  height: var(--regionmap-view-height, 60dvh);
+  margin: 0 auto;
+  overflow: hidden;
+  box-shadow:0px 0px 10px 0px rgba(0, 0, 0, 0.5);
+  /* border: 1px solid rgba(255, 255, 255, 0.14); */
+  /* background: #0e1527; */
+}
+
+.regionmap-base-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+}
+
+.regionmap-hit-layer,
+.regionmap-buttons-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.regionmap-area-hit {
+  position: absolute;
+  background: transparent;
+  border: 1px solid rgba(255, 236, 166, 0.2);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.regionmap-area-hit:hover {
+  border-color: rgba(255, 236, 166, 0.9);
+  background: rgba(255, 216, 92, 0.08);
+}
+
+.regionmap-button {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background: rgba(24, 32, 56, 0.86);
+  border: 1px solid rgba(180, 208, 255, 0.45);
+  color: #dfe9ff;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.regionmap-button:hover,
+.regionmap-button:focus-visible,
+.regionmap-button:active {
+  transform: translate(-50%, -50%) !important;
+  background: rgba(36, 46, 78, 0.92);
+  animation: none !important;
+}
+
+.regionmap-not-found {
+  padding: 18px;
+  background: rgba(14, 21, 39, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.regionmap-not-found h2 {
+  margin: 0 0 8px;
+}
+
+.regionmap-not-found p {
+  margin: 0 0 12px;
+  color: #aebede;
+}

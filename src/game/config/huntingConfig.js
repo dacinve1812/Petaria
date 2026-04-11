@@ -2,7 +2,8 @@
 // Change these values to switch between 16px and 32px assets
 
 export const TILE_SIZE = 16; // 16 or 32 depending on your Tiled map
-export const HERO_FRAME_SIZE = 64; // Source frame size of hero spritesheet
+// export const HERO_FRAME_SIZE = 768;
+export const HERO_FRAME_SIZE = 320; // Source frame size of hero spritesheet - Sprite sheet is 1280x1280
 
 // Display scale so a 64x64 frame can render as 16x16 in-game
 export const HERO_DISPLAY_SIZE = 32; // desired on-screen size per axis
@@ -19,7 +20,7 @@ export const CAMERA_ZOOM_MIN = 0.35;
 export const CAMERA_ZOOM_MAX = 3.5;
 
 /** Hệ số tốc độ bước (1 = đồng bộ anim mặc định). */
-export const MOVE_SPEED_MIN = 0.35;
+export const MOVE_SPEED_MIN = 0.5;
 export const MOVE_SPEED_MAX = 3.5;
 
 // Vertical offset so hero feet align with tile grid (was hard-coded as -8 in scenes)

@@ -30,7 +30,7 @@ export default class PreloadScene extends Phaser.Scene {
       this.load.image('hunting-map-fg', map.assets.foreground);
     }
 
-    this.load.spritesheet('hero', '/hunting/sprites/hero6.png', {
+    this.load.spritesheet('hero', '/hunting/sprites/hero10.png', {
       frameWidth: HERO_FRAME_SIZE,
       frameHeight: HERO_FRAME_SIZE,
     });

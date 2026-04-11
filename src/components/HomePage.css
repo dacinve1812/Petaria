@@ -113,6 +113,40 @@ header img {
   min-width: 100%;
 }
 
+.castle-map-buttons {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.castle-map-button {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(20, 24, 39, 0.78);
+  color: #f3f7ff;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.castle-map-button:hover {
+  background: rgba(36, 46, 78, 0.92);
+  transform: translate(-50%, -50%) !important;
+  box-shadow: none;
+}
+
+.castle-map-button:focus-visible,
+.castle-map-button:active {
+  transform: translate(-50%, -50%) !important;
+  animation: none !important;
+  box-shadow: none;
+}
+
 /* Test different map sizes - HTML Map Tag will work with ALL sizes! */
 .map-img {
   height: 640px; /* Default size */
@@ -140,6 +174,10 @@ header img {
 @media (max-width: 768px) {
   .map-img {
     height: 480px;
+  }
+  .castle-map-button {
+    font-size: 11px;
+    padding: 5px 8px;
   }
 }
 

@@ -4,33 +4,34 @@ import PetNotice from './PetNotice';
 import './HomePage.css';
 import GlobalBanner from './GlobalBanner';
 import { resolveAssetPath } from '../utils/pathUtils';
+import castleMapPreset from '../config/homepage-castle-map.json';
 
 function HomePage({ isLoggedIn, onLogoutSuccess }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const navigate = useNavigate();
   const mapRef = useRef(null);
+  const mapScrollRef = useRef(null);
   const [userId, setUserId] = useState(null);
   const [mapScale, setMapScale] = useState(1);
-  const [originalHeight] = useState(640); // Height gốc để tính tọa độ
+  const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 });
+  const originalHeight = Number(castleMapPreset.originalHeight) || 640;
+  const mapName = castleMapPreset.mapName || 'petaria-map';
+  const mapImageSrc = castleMapPreset.imageSrc || '/castle.jpg';
 
-  // Tọa độ gốc (ở height 640px)
-  const originalCoordinates = [
-    { id: 1, coords: [53, 83, 143, 134], path: '/shop', name: 'shop' },
-    { id: 2, coords: [168, 42, 253, 75], path: '/auction', name: 'auction' },
-    { id: 3, coords: [378, 29, 456, 69], path: '/river', name: 'river' },
-    { id: 4, coords: [578, 58, 652, 92], path: '/guild', name: 'guild' },
-    { id: 5, coords: [763, 27, 852, 58], path: '/', name: 'post-office' },
-    { id: 6, coords: [421, 125, 550, 233], path: '/orphanage', name: 'orphanage' },
-    { id: 7, coords: [1, 254, 91, 288], path: '/news', name: 'Latest-News' },
-    { id: 8, coords: [225, 109, 336, 217], path: '/bank', name: 'bank' },
-    { id: 9, coords: [800, 262, 868, 295], path: '/', name: 'Notice' },
-    { id: 10, coords: [656, 539, 738, 576], path: '/logout', name: 'Logout' },
-    { id: 11, coords: [297, 317, 476, 426], path: '/myhome', name: 'MyHome' },
-    { id: 12, coords: [11, 309, 168, 432], path: '/game', name: 'Game' },
-    { id: 13, coords: [212, 448, 326, 523], path: '/inventory', name: 'Inventory' },
-    { id: 14, coords: [349, 508, 478, 579], path: '/', name: 'chưa biết' },
-    { id: 15, coords: [2, 546, 84, 581], path: '/quest', name: 'chưa biết' }
-];
+  const originalCoordinates = Array.isArray(castleMapPreset.originalCoordinates)
+    ? castleMapPreset.originalCoordinates
+    : [];
+
+  // Ưu tiên mapButtons từ JSON preset; nếu thiếu thì tự tính từ tọa độ.
+  const mapButtons = Array.isArray(castleMapPreset.mapButtons) && castleMapPreset.mapButtons.length
+    ? castleMapPreset.mapButtons
+    : originalCoordinates.map((area) => ({
+        id: area.id,
+        x: Math.round((area.coords[0] + area.coords[2]) / 2),
+        y: Math.round((area.coords[1] + area.coords[3]) / 2),
+        path: area.path,
+        label: area.name,
+      }));
 
   // Tính toán tọa độ scale
   const getScaledCoordinates = (originalCoords) => {
@@ -44,6 +45,20 @@ function HomePage({ isLoggedIn, onLogoutSuccess }) {
       const currentHeight = img.offsetHeight;
       const newScale = currentHeight / originalHeight;
       setMapScale(newScale);
+      setMapOffset({
+        x: img.offsetLeft || 0,
+        y: img.offsetTop || 0,
+      });
+    }
+    if (mapScrollRef.current) {
+      const scroller = mapScrollRef.current;
+      const canScrollX = scroller.scrollWidth > scroller.clientWidth + 1;
+      if (canScrollX) {
+        scroller.scrollLeft = Math.max(
+          0,
+          Math.round((scroller.scrollWidth - scroller.clientWidth) / 2)
+        );
+      }
     }
   };
 
@@ -109,19 +124,19 @@ function HomePage({ isLoggedIn, onLogoutSuccess }) {
       {/* Navigation Menu */}
       <PetNotice />
         {/* Map with HTML map tag */}
-        <div className="map-scroll-container">
+        <div ref={mapScrollRef} className="map-scroll-container">
           <div className="map-wrapper">
             <img 
               ref={mapRef}
-              src="castle.jpg" 
+              src={mapImageSrc}
               alt="Bản đồ Petaria" 
               className="map-img"
-              useMap="#petaria-map"
+              useMap={`#${mapName}`}
               onLoad={updateMapScale}
             />
             
             {/* HTML Map with clickable areas */}
-            <map name="petaria-map" id="petaria-map">
+            <map name={mapName} id={mapName}>
               {originalCoordinates.map((area) => {
                 const scaledCoords = getScaledCoordinates(area.coords);
                 return (
@@ -137,6 +152,27 @@ function HomePage({ isLoggedIn, onLogoutSuccess }) {
                 );
               })}
             </map>
+
+            {/* Overlay buttons: click nhanh giống button trong map */}
+            <div className="castle-map-buttons" aria-hidden="false">
+              {mapButtons.map((btn) => (
+                <button
+                  key={btn.id}
+                  type="button"
+                  className="castle-map-button"
+                  style={{
+                    left: `${mapOffset.x + btn.x * mapScale}px`,
+                    top: `${mapOffset.y + btn.y * mapScale}px`,
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAreaClick(btn.path);
+                  }}
+                >
+                  {btn.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

@@ -1,6 +1,5 @@
 .hunting-world-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .hunting-world-container header img {
@@ -16,7 +15,6 @@
 .hunting-world-header {
   text-align: center;
   margin-bottom: 30px;
-  color: white;
 }
 
 .hunting-world-header h2 {
@@ -128,22 +126,65 @@
 .hunting-card {
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
+  background: #ece0cd23;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+  border-radius: var(--border-radius);
   color: inherit;
   text-decoration: none;
   overflow: hidden;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
   box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+  cursor: pointer;
 }
 
 .hunting-card:hover { transform: translateY(-2px); box-shadow: 0 16px 32px rgba(0,0,0,0.15); }
 
-.hunting-card .card-thumb { width: 100%; aspect-ratio: 16/9; background: #e9eef7; }
+.hunting-card .card-thumb {
+  width: 100%;
+  height: 160px;
+  min-height: 160px;
+  max-height: 160px;
+  background: #e9eef7;
+}
 .hunting-card .card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.hunting-card .card-body { padding: 12px 14px; }
-.hunting-card .card-title { font-weight: 700; color: #222; }
-.hunting-card .card-desc { font-size: 0.9rem; color: #555; margin-top: 4px; }
+.hunting-card .card-body {
+  padding: 10px 8px 15px 8px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.hunting-card .card-title {
+  font-weight: 700;
+  color: #222;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.hunting-card .card-desc {
+  font-size: 0.9rem;
+  color: #555;
+  margin-top: 6px;
+  line-height: 1.3;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hunting-card .card-desc-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hunting-card:active {
+  transform: translateY(-1px);
+}
 
 /* Responsive */
 @media (max-width: 768px) {

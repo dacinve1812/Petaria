@@ -27,6 +27,9 @@ import SiteManagement from './components/admin/SiteManagement';
 import AdminHuntingMapManagement from './components/admin/AdminHuntingMapManagement';
 import HomePageVer2 from './components/HomePageVer2';
 import HuntingMap from './components/HuntingMap';
+import WorldMapPage from './components/WorldMapPage';
+import RegionMapPage from './components/RegionMapPage';
+import HuntConfirmPage from './components/HuntConfirmPage';
 import PokedexPage from './components/PokedexPage';
 import CultivatePage from './components/CultivatePage';
 import TasksPage from './components/TasksPage';
@@ -84,6 +87,9 @@ const router = createBrowserRouter([
       { path: 'team', element: <TeamPage /> },
       { path: 'hunting-world', element: <HuntingWorldPage /> },
       { path: 'hunting-world/map/:id', element: <HuntingMap /> },
+      { path: 'world-map', element: <WorldMapPage /> },
+      { path: 'region/:regionId', element: <RegionMapPage /> },
+      { path: 'hunting-world/confirm', element: <HuntConfirmPage /> },
       { path: 'admin/mail-test', element: <AdminMailTest /> },
       { path: 'admin/bank-management', element: <AdminBankManagement /> },
       { path: 'admin/user-management', element: <AdminUserManagement /> },

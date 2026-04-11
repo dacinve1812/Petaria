@@ -46,7 +46,7 @@ export const DEFAULT_CONTENT_BLOCKS = {
   notes: { items: NOTES_ITEMS },
   worldmap: {
     html: `<div style="text-align:center">
-  <font color="darkgreen" size="+1"><b><a href="#"><img src="/map.png" alt="PETARIA WORLD MAP" height="290" style="max-width:100%;height:auto"><br>&lt;&lt;&lt; PETARIA WORLD MAP &gt;&gt;&gt;</a></b></font>
+  <font color="darkgreen" size="+1"><b><a href="/world-map"><img src="/map.png" alt="PETARIA WORLD MAP" height="290" style="max-width:100%;height:auto"><br>&lt;&lt;&lt; PETARIA WORLD MAP &gt;&gt;&gt;</a></b></font>
 </div>`,
     css: `.homepage-block-worldmap {
   position: relative;

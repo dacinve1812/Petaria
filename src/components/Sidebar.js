@@ -51,7 +51,7 @@ function Sidebar({ userId, handleLogout, isAdmin: isAdminProp, className = 'side
               <li><a href="/admin"><img src="/images/buttons/admin.png" alt="Admin"/></a></li>
             )}
             <li><a href="/"><img src="/images/buttons/mainpage.png" alt="mainpage"/></a></li>
-            <li><a href="/"><img src="/images/buttons/world.png" alt="world"/></a></li>
+            <li><a href="/world-map"><img src="/images/buttons/world.png" alt="world"/></a></li>
             <li><a href="/home-ver2"><img src="/images/buttons/homepage.png" alt="homepage"/></a></li>
             <li><a href="/management"><img src="/images/buttons/management.png" alt="management"/></a></li>
             <li><a href="/"><img src="/images/buttons/analyze.png" alt="analysis"/></a></li>

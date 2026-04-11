@@ -1,0 +1,236 @@
+{
+  "version": 1,
+  "regions": [
+    {
+      "id": "1-1",
+      "name": "Quỷ Môn Quan",
+      "description": "Quỷ Môn Quan",
+      "imageSrc": "/worldmap/1-1.png",
+      "mapName": "region-1-1",
+      "previewHeight": 1399,
+      "originalHeight": 1024,
+      "naturalSize": {
+        "width": 2100,
+        "height": 1399
+      },
+      "originalCoordinates": [],
+      "mapButtons": []
+    },
+    {
+      "id": "1-2",
+      "name": "Sa Mạc Lãng Quên",
+      "description": "Sa mạc rộng lớn nơi cát vàng nuốt chửng mọi ký ức, chỉ còn những truyền thuyết xoay quanh Thần Thú Crunoz.",
+      "imageSrc": "/hunting/maps/zone-1.png",
+      "mapName": "region-1-2",
+      "previewHeight": 1399,
+      "originalHeight": 1024,
+      "naturalSize": {
+        "width": 1536,
+        "height": 1024
+      },
+      "originalCoordinates": [
+      {"id": 1, "coords": [178, 369, 231, 390], "path": "/", "name": "Thành Hoàng Kim", "huntingMapId": "thanh_hoang_kim" },
+      { "id": 2, "coords": [303, 782, 344, 797], "path": "/", "name": "Ốc Đảo", "huntingMapId": "oc_dao" },
+      { "id": 3, "coords": [967, 955, 1034, 971], "path": "/", "name": "Làng Xúc Xắc", "huntingMapId": "lang_xuc_xac" },
+      { "id": 4, "coords": [1316, 697, 1385, 723], "path": "/", "name": "Bãi Săn Sự Kiện", "huntingMapId": "bai_san_su_kien" }
+    ],
+      "mapButtons": [
+        { "id": 1, "x": 206, "y": 380, "path": "/", "label": "Thành Hoàng Kim", "huntingMapId": "thanh_hoang_kim" },
+        { "id": 2, "x": 326, "y": 789, "path": "/", "label": "Ốc Đảo", "huntingMapId": "oc_dao" },
+        { "id": 3, "x": 999, "y": 963, "path": "/", "label": "Làng Xúc Xắc", "huntingMapId": "lang_xuc_xac" },
+        { "id": 4, "x": 1351, "y": 705, "path": "/", "label": "Bãi Săn Sự Kiện", "huntingMapId": "bai_san_su_kien" }
+      ]
+    },
+    {
+      "id": "1-3",
+      "name": "Hỏa Diệm Sơn",
+      "description": "Vùng đất của lửa và nham thạch, nơi Omni ngự trị giữa biển dung nham cuộn trào.",
+      "imageSrc": "/hunting/maps/zone-3.png",
+      "mapName": "region-1-3",
+      "previewHeight": 1399,
+      "originalHeight": 1024,
+      "naturalSize": {
+        "width": 1536,
+        "height": 1024
+      },
+      "originalCoordinates": [
+        { "id": 1, "coords": [234, 530, 293, 548], "path": "/", "name": "Động Nham Thạch", "huntingMapId": "dong_nham_thach" },
+        { "id": 2, "coords": [319, 796, 367, 812], "path": "/", "name": "Làng Đỏ Đen", "huntingMapId": "lang_do_den" },
+        { "id": 3, "coords": [932, 496, 984, 522], "path": "/", "name": "Thành Hỏa Thạch", "huntingMapId": "thanh_hoa_thach" },
+        { "id": 4, "coords": [1119, 757, 1178, 781], "path": "/", "name": "Lò Rèn", "huntingMapId": "lo_ren" }
+],
+      "mapButtons": [
+        { "id": 1, "x": 264, "y": 539, "path": "/", "label": "Động Nham Thạch", "huntingMapId": "dong_nham_thach" },
+        { "id": 2, "x": 343, "y": 804, "path": "/", "label": "Làng Đỏ Đen", "huntingMapId": "lang_do_den" },
+        { "id": 3, "x": 958, "y": 509, "path": "/", "label": "Thành Hỏa Thạch", "huntingMapId": "thanh_hoa_thach" },
+        { "id": 4, "x": 1149, "y": 769, "path": "/", "label": "Lò Rèn", "huntingMapId": "lo_ren" }
+
+      ]
+    },
+    {
+      "id": "1-4",
+      "name": "Thien cung",
+      "description": "Khu vuc 1-4. Ban co the them mo ta, NPC va cac diem tuong tac cho khu vuc nay.",
+      "imageSrc": "/hunting/maps/1-4.png",
+      "mapName": "region-1-4",
+      "previewHeight": 1399,
+      "originalHeight": 1024,
+      "naturalSize": {
+        "width": 1536,
+        "height": 1024
+      },
+      "originalCoordinates": [],
+      "mapButtons": []
+    },
+    {
+      "id": "2-1",
+      "name": "Xứ Sở Tuyết",
+      "description": "Băng tuyết vĩnh cửu bao phủ vùng đất lạnh giá của Kioka.",
+      "imageSrc": "/hunting/maps/zone-6.png",
+      "mapName": "region-2-1",
+      "previewHeight": 1399,
+      "originalHeight": 1024,
+      "naturalSize": {
+        "width": 1536,
+        "height": 1024
+      },
+      "originalCoordinates": [
+      {"id": 1, "coords": [834, 392, 892, 414], "path": "/", "name": "Thành Vô Cực", "huntingMapId": "thanh_vo_cuc" },
+      { "id": 2, "coords": [293, 438, 340, 454], "path": "/", "name": "Núi Băng", "huntingMapId": "nui_bang" },
+      { "id": 3, "coords": [341, 829, 434, 854], "path": "/", "name": "Làng Trẻ Thơ", "huntingMapId": "lang_tre_tho" },
+      { "id": 4, "coords": [1062, 822, 1129, 853], "path": "/", "name": "Động Tinh Linh", "huntingMapId": "dong_tinh_linh" }
+    ],
+      "mapButtons": [
+        { "id": 1, "x": 863, "y": 403, "path": "/", "label": "Thành Vô Cực", "huntingMapId": "thanh_vo_cuc" },
+        { "id": 2, "x": 316, "y": 446, "path": "/", "label": "Núi Băng", "huntingMapId": "nui_bang" },
+        { "id": 3, "x": 387, "y": 841, "path": "/", "label": "Làng Trẻ Thơ", "huntingMapId": "lang_tre_tho" },
+        { "id": 4, "x": 1095, "y": 837, "path": "/", "label": "Động Tinh Linh", "huntingMapId": "dong_tinh_linh" }
+      ]
+    },
+    {
+      "id": "2-2",
+      "name": "Thung Lũng Hạnh Phúc",
+      "description": "Một thung lũng xanh tươi, tràn ngập ánh sáng và hy vọng dưới sự che chở của Lios.",
+      "imageSrc": "/hunting/maps/zone-2.png",
+      "mapName": "region-2-2",
+      "previewHeight": 1399,
+      "originalHeight": 1024,
+      "naturalSize": {
+        "width": 1536,
+        "height": 1024
+      },
+      "originalCoordinates": [
+      {"id": 1, "coords": [1182, 945, 1241, 968], "path": "/", "name": "Đấu Trường", "huntingMapId": "dau_truong" },
+      { "id": 2, "coords": [1265, 621, 1350, 646], "path": "/", "name": "Làng Hảo Vọng", "huntingMapId": "lang_hao_vong" },
+      { "id": 3, "coords": [1110, 277, 1175, 296], "path": "/", "name": "Pháo Đài Cổ", "huntingMapId": "phao_dai_co" },
+      { "id": 4, "coords": [292, 405, 372, 430], "path": "/", "name": "Thành Vinh Quang", "huntingMapId": "thanh_vinh_quang" }
+    ],
+      "mapButtons": [
+        { "id": 1, "x": 1213, "y": 957, "path": "/", "label": "Đấu Trường", "huntingMapId": "dau_truong" },
+        { "id": 2, "x": 1308, "y": 634, "path": "/", "label": "Làng Hảo Vọng", "huntingMapId": "lang_hao_vong" },
+        { "id": 3, "x": 1143, "y": 287, "path": "/", "label": "Pháo Đài Cổ", "huntingMapId": "phao_dai_co" },
+        { "id": 4, "x": 317, "y": 418, "path": "/", "label": "Thành Vinh Quang", "huntingMapId": "thanh_vinh_quang" }
+      ]
+    },
+    {
+      "id": "2-4",
+      "name": "Đồng Bằng Lộng Gió",
+      "description": "Những cơn gió bất tận thổi qua thảo nguyên xanh mướt, quê hương của Legend.",
+      "imageSrc": "/hunting/maps/zone-4.png",
+      "mapName": "region-2-4",
+      "previewHeight": 1399,
+      "originalHeight": 1024,
+      "naturalSize": {
+        "width": 1536,
+        "height": 1024
+      },
+      "originalCoordinates": [
+      {"id": 1, "coords": [298, 264, 335, 281], "path": "/", "name": "Thành Cát Tường", "huntingMapId": "thanh_cat_tuong" },
+      { "id": 2, "coords": [930, 849, 994, 873], "path": "/", "name": "Bãi Đất Hoang", "huntingMapId": "bai_dat_hoang" },
+      { "id": 3, "coords": [420, 712, 477, 734], "path": "/", "name": "Thảo Nguyên Xanh", "huntingMapId": "thao_nguyen_xanh" },
+      { "id": 4, "coords": [998, 534, 1102, 561], "path": "/", "name": "Làng Thương Gia", "huntingMapId": "lang_thuong_gia" }
+    ],
+      "mapButtons": [
+        { "id": 1, "x": 322, "y": 277, "path": "/", "label": "Thành Cát Tường", "huntingMapId": "thanh_cat_tuong" },
+        { "id": 2, "x": 962, "y": 862, "path": "/", "label": "Bãi Đất Hoang", "huntingMapId": "bai_dat_hoang" },
+        { "id": 3, "x": 449, "y": 723, "path": "/", "label": "Thảo Nguyên Xanh", "huntingMapId": "thao_nguyen_xanh" },
+        { "id": 4, "x": 1031, "y": 548, "path": "/", "label": "Làng Thương Gia", "huntingMapId": "lang_thuong_gia" }
+      ]
+    },
+    {
+      "id": "2-5",
+      "name": "Khu Rừng Bí Ẩn",
+      "description": "Rừng rậm u tối, sương mù bao phủ nơi Mirabilis ẩn mình.",
+      "imageSrc": "/hunting/maps/zone-8.png",
+      "mapName": "region-2-5",
+      "previewHeight": 1399,
+      "originalHeight": 1024,
+      "naturalSize": {
+        "width": 1536,
+        "height": 1024
+      },
+      "originalCoordinates": [
+      {"id": 1, "coords": [1247, 299, 1321, 321], "path": "/", "name": "Kỳ Trân Các", "huntingMapId": "ky_tran_cac" },
+      { "id": 2, "coords": [1079, 704, 1188, 728], "path": "/", "name": "Làng Xúc Xắc", "huntingMapId": "lang_xuc_xac" },
+      { "id": 3, "coords": [394, 715, 460, 731], "path": "/", "name": "Đầm Lầy Ma Quái", "huntingMapId": "dam_lay_ma_quai" },
+      { "id": 4, "coords": [346, 321, 396, 336], "path": "/", "name": "Thành Hắc Phong", "huntingMapId": "thanh_hac_phong" }
+    ],
+      "mapButtons": [
+        { "id": 1, "x": 1274, "y": 313, "path": "/", "label": "Kỳ Trân Các", "huntingMapId": "ky_tran_cac" },
+        { "id": 2, "x": 1133, "y": 716, "path": "/", "label": "Làng Xúc Xắc", "huntingMapId": "lang_xuc_xac" },
+        { "id": 3, "x": 427, "y": 723, "path": "/", "label": "Đầm Lầy Ma Quái", "huntingMapId": "dam_lay_ma_quai" },
+        { "id": 4, "x": 371, "y": 333, "path": "/", "label": "Thành Hắc Phong", "huntingMapId": "thanh_hac_phong" }
+      ]
+    },
+    {
+      "id": "3-1",
+      "name": "Cánh Đồng Vạn Hoa",
+      "description": "Một vùng đất rực rỡ sắc màu, nơi thiên nhiên sinh sôi dưới ánh sáng của Emitai.",
+      "imageSrc": "/hunting/maps/zone-7.png",
+      "mapName": "region-3-1",
+      "previewHeight": 1399,
+      "originalHeight": 1024,
+      "naturalSize": {
+        "width": 1536,
+        "height": 1024
+      },
+      "originalCoordinates": [
+      {"id": 1, "coords": [255, 385, 319, 409], "path": "/", "name": "Thành Thái Dương", "huntingMapId": "thanh_thai_duong" },
+      { "id": 2, "coords": [322, 827, 399, 846], "path": "/", "name": "Làng Nhân Ái", "huntingMapId": "lang_nhan_ai" },
+      { "id": 3, "coords": [1148, 723, 1230, 747], "path": "/", "name": "Hội Anh Hùng", "huntingMapId": "hoi_anh_hung" },
+      { "id": 4, "coords": [1201, 285, 1311, 315], "path": "/", "name": "Vườn Bách Thảo", "huntingMapId": "vuon_bach_thao" }
+    ],
+      "mapButtons": [
+        { "id": 1, "x": 280, "y": 401, "path": "/", "label": "Thành Thái Dương", "huntingMapId": "thanh_thai_duong" },
+        { "id": 2, "x": 355, "y": 836, "path": "/", "label": "Làng Nhân Ái", "huntingMapId": "lang_nhan_ai" },
+        { "id": 3, "x": 1189, "y": 734, "path": "/", "label": "Hội Anh Hùng", "huntingMapId": "hoi_anh_hung" },
+        { "id": 4, "x": 1256, "y": 300, "path": "/", "label": "Vườn Bách Thảo", "huntingMapId": "vuon_bach_thao" }
+      ]
+    },
+    {
+      "id": "3-2",
+      "name": "Biển Địa Đàng",
+      "description": "Vùng biển trong xanh như mơ, được Sirleon bảo hộ từ đáy sâu.",
+      "imageSrc": "/hunting/maps/zone-5.png",
+      "mapName": "region-3-2",
+      "previewHeight": 1399,
+      "originalHeight": 1024,
+      "naturalSize": {
+        "width": 1536,
+        "height": 1024
+      },
+      "originalCoordinates": [
+      {"id": 1, "coords": [975, 737, 1076, 769], "path": "/", "name": "Làng Phú Gia", "huntingMapId": "lang_phu_gia" },
+      { "id": 2, "coords": [687, 384, 782, 413], "path": "/", "name": "Thành Thủy Sinh", "huntingMapId": "thanh_thuy_sinh" },
+      { "id": 3, "coords": [376, 697, 442, 720], "path": "/", "name": "Vịnh San Hô", "huntingMapId": "vinh_san_ho" },
+      { "id": 4, "coords": [199, 171, 288, 197], "path": "/", "name": "Bãi Săn VIP", "huntingMapId": "bai_san_vip" }
+    ],
+      "mapButtons": [
+        { "id": 1, "x": 1023, "y": 753, "path": "/", "label": "Làng Phú Gia", "huntingMapId": "lang_phu_gia" },
+        { "id": 2, "x": 717, "y": 401, "path": "/", "label": "Thành Thủy Sinh", "huntingMapId": "thanh_thuy_sinh" },
+        { "id": 3, "x": 410, "y": 710, "path": "/", "label": "Vịnh San Hô", "huntingMapId": "vinh_san_ho" },
+        { "id": 4, "x": 239, "y": 185, "path": "/", "label": "Bãi Săn VIP", "huntingMapId": "bai_san_vip" }
+      ]
+    }
+  ]
+}

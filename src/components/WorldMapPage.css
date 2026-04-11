@@ -1,0 +1,90 @@
+.worldmap-page {
+  width: 100%;
+  color: #d9e4ff;
+  height: var(--worldmap-view-height, 60dvh);
+}
+
+.worldmap-header {
+  margin-bottom: 10px;
+}
+
+.worldmap-header h2 {
+  margin: 0 0 6px;
+  font-size: 1.25rem;
+}
+
+.worldmap-header p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #aebede;
+}
+
+.worldmap-canvas-wrap {
+  position: relative;
+  width: var(--worldmap-render-width, 100%);
+  min-width: var(--worldmap-render-width, 100%);
+  height: var(--worldmap-view-height, 60dvh);
+  margin: 0 auto;
+  /* border-radius: 12px; */
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #0e1527;
+}
+
+.worldmap-scroll-x {
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.worldmap-scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+.worldmap-base-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+}
+
+.worldmap-overlay-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.worldmap-hit-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-x pan-y;
+}
+
+.worldmap-area {
+  cursor: pointer;
+  fill: rgba(255, 255, 255, 0.001);
+  stroke: rgba(255, 246, 219, 0.22);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: fill 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease, filter 0.2s ease;
+  touch-action: pan-x pan-y;
+}
+
+.worldmap-area:hover,
+.worldmap-area--active {
+  /* fill: rgba(255, 204, 64, 0.16); */
+  stroke: #ffd45c;
+  stroke-width: 4.5;
+  filter: url(#worldmap-gold-glow);
+}
