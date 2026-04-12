@@ -1,0 +1,7 @@
+{
+  "notes": "Local overrides only. Do not commit secrets.",
+  "apiBaseOverride": "",
+  "preferredReviewDepth": "medium",
+  "enableExtraVerboseLogs": false
+}
+

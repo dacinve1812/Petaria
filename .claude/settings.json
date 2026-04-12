@@ -1,0 +1,32 @@
+{
+  "projectName": "petaria",
+  "defaultLanguage": "vi",
+  "docsRoot": "docs",
+  "primaryBackendEntry": "backend/server.js",
+  "primaryFrontendEntry": "src/App.js",
+  "alwaysLoad": [
+    ".claude/CLAUDE.md",
+    ".claude/rules/project-structure.md",
+    ".claude/rules/code-style.md",
+    ".claude/rules/api-conventions.md",
+    ".claude/rules/testing.md",
+    ".claude/rules/security.md"
+  ],
+  "reviewDefaults": {
+    "prioritize": [
+      "behavioral regression",
+      "security risk",
+      "missing validation",
+      "testing gaps"
+    ],
+    "requirePathReferences": true
+  },
+  "namingPolicy": {
+    "userDisplayPriority": [
+      "display_name",
+      "displayName",
+      "username"
+    ]
+  }
+}
+
