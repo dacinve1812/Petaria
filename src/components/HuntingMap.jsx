@@ -7,7 +7,11 @@ import { CAMERA_ZOOM } from '../game/config/huntingConfig';
 import { fetchPublicHuntingMap } from '../api/huntingMapsApi';
 import { getCustomMap } from '../utils/huntingMapsStorage';
 import GameDialogModal from './ui/GameDialogModal';
-import { clearHuntingSession } from '../utils/huntingSessionStorage';
+import {
+  clearActiveHuntingMap,
+  clearHuntingSession,
+  setActiveHuntingMap,
+} from '../utils/huntingSessionStorage';
 import './HuntingMap.css';
 
 function isHuntingMapPath(pathname) {
@@ -81,10 +85,12 @@ function HuntingMap() {
   const [stepsLabel, setStepsLabel] = useState('…');
   const [exhaustedModalOpen, setExhaustedModalOpen] = useState(false);
   const [leaveHuntModalOpen, setLeaveHuntModalOpen] = useState(false);
+  const allowLeaveRef = useRef(false);
   /** undefined = đang tải; null = không có payload server/local (dùng getHuntingMap trong scene); object = mapOverride */
   const [mapPayload, setMapPayload] = useState(undefined);
 
   const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+    if (allowLeaveRef.current) return false;
     if (!isHuntingMapPath(currentLocation.pathname)) return false;
     if (isHuntingMapPath(nextLocation.pathname)) return false;
     return true;
@@ -104,6 +110,7 @@ function HuntingMap() {
 
   useEffect(() => {
     const lid = String(id || 'forest').toLowerCase();
+    setActiveHuntingMap(lid);
     if (lid === 'forest') {
       setMapPayload(null);
       return;
@@ -135,21 +142,27 @@ function HuntingMap() {
   }, [id]);
 
   const handleExhaustedConfirm = useCallback(() => {
+    clearActiveHuntingMap();
     clearHuntingSession();
     setExhaustedModalOpen(false);
     navigate('/hunting-world');
   }, [navigate]);
 
   const handleLeaveConfirm = useCallback(() => {
+    clearActiveHuntingMap();
     clearHuntingSession();
     setLeaveHuntModalOpen(false);
+    allowLeaveRef.current = true;
     if (blocker.state === 'blocked') {
       blocker.proceed();
+      return;
     }
-  }, [blocker]);
+    navigate('/hunting-world');
+  }, [blocker, navigate]);
 
   const handleLeaveCancel = useCallback(() => {
     setLeaveHuntModalOpen(false);
+    allowLeaveRef.current = false;
     if (blocker.state === 'blocked') {
       blocker.reset();
     }
@@ -280,37 +293,14 @@ function HuntingMap() {
           <span className="hunting-map-steps-value" title="Mỗi ô đi mới trừ 1. Map không giới hạn hiển thị ∞">
             {stepsLabel}
           </span>
-        </div>
-        <div className="hunting-map-toolbar-row hunting-map-toolbar-row--controls">
-          <div className="hunting-map-toolbar-group">
-            <span className="hunting-map-toolbar-label">Zoom</span>
-            <button type="button" className="hunting-map-tool-btn" onClick={() => emitCamera('zoomOut')} title="Thu nhỏ">
-              −
-            </button>
-            <button type="button" className="hunting-map-tool-btn" onClick={() => emitCamera('zoomIn')} title="Phóng to">
-              +
-            </button>
-            <button type="button" className="hunting-map-tool-btn hunting-map-tool-wide" onClick={() => emitCamera('zoomReset')} title="Zoom mặc định">
-              Gốc
-            </button>
-            <button type="button" className="hunting-map-tool-btn hunting-map-tool-wide" onClick={() => emitCamera('zoomFit')} title="Vừa toàn bộ map">
-              Vừa màn
-            </button>
-            <span className="hunting-map-toolbar-value">{zoomLabel}×</span>
-          </div>
-          <div className="hunting-map-toolbar-group">
-            <span className="hunting-map-toolbar-label">Tốc độ</span>
-            <button type="button" className="hunting-map-tool-btn hunting-map-tool-wide" onClick={() => emitSpeed('slower')} title="Chậm hơn">
-              Chậm
-            </button>
-            <button type="button" className="hunting-map-tool-btn hunting-map-tool-wide" onClick={() => emitSpeed('faster')} title="Nhanh hơn">
-              Nhanh
-            </button>
-            <button type="button" className="hunting-map-tool-btn hunting-map-tool-wide" onClick={() => emitSpeed('speedReset')} title="Mặc định">
-              Reset
-            </button>
-            <span className="hunting-map-toolbar-value">{speedLabel}</span>
-          </div>
+          <button
+            type="button"
+            className="hunting-map-tool-btn hunting-map-tool-wide hunting-map-end-btn"
+            onClick={() => setLeaveHuntModalOpen(true)}
+            title="Kết thúc đi săn"
+          >
+            Kết thúc đi săn
+          </button>
         </div>
       </div>
 
@@ -320,6 +310,72 @@ function HuntingMap() {
             Đang tải map…
           </div>
         )}
+        <div className="hunting-floating-controls" aria-label="Điều khiển zoom và tốc độ">
+          <div className="hunting-floating-group">
+            <span className="hunting-floating-label">Zoom</span>
+            <button
+              type="button"
+              className="hunting-map-tool-btn hunting-map-icon-btn"
+              onClick={() => emitCamera('zoomOut')}
+              title="Thu nhỏ"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              className="hunting-map-tool-btn hunting-map-icon-btn"
+              onClick={() => emitCamera('zoomIn')}
+              title="Phóng to"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className="hunting-map-tool-btn hunting-map-icon-btn"
+              onClick={() => emitCamera('zoomReset')}
+              title="Zoom mặc định"
+            >
+              ◎
+            </button>
+            <button
+              type="button"
+              className="hunting-map-tool-btn hunting-map-icon-btn"
+              onClick={() => emitCamera('zoomFit')}
+              title="Lấp đầy map"
+            >
+              ⤢
+            </button>
+            <span className="hunting-map-toolbar-value">{zoomLabel}×</span>
+          </div>
+          <div className="hunting-floating-group">
+            <span className="hunting-floating-label">Tốc độ</span>
+            <button
+              type="button"
+              className="hunting-map-tool-btn hunting-map-icon-btn"
+              onClick={() => emitSpeed('slower')}
+              title="Chậm hơn"
+            >
+              ◀
+            </button>
+            <button
+              type="button"
+              className="hunting-map-tool-btn hunting-map-icon-btn"
+              onClick={() => emitSpeed('faster')}
+              title="Nhanh hơn"
+            >
+              ▶
+            </button>
+            <button
+              type="button"
+              className="hunting-map-tool-btn hunting-map-icon-btn"
+              onClick={() => emitSpeed('speedReset')}
+              title="Mặc định"
+            >
+              ↺
+            </button>
+            <span className="hunting-map-toolbar-value">{speedLabel}</span>
+          </div>
+        </div>
         <div ref={containerRef} className="hunting-map-root" />
         <div className="hunting-dpad" aria-label="Giữ nút để đi tiếp theo từng ô">
           <div className="hunting-dpad-row">

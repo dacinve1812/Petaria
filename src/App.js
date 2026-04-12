@@ -10,6 +10,7 @@ import MyHome from './components/MyHome';
 import Admin from './components/admin/Admin';
 import AdminMailTest from './components/admin/AdminMailTest';
 import UserProfile from './components/UserProfile';
+import EditProfile from './components/EditProfile';
 import PetProfile from './components/PetProfile';
 import Inventory from './components/items/Inventory';
 import EditPetTypes from './components/admin/EditPetTypes';
@@ -48,6 +49,7 @@ import CreateAuction from './components/auction/CreateAuction';
 import MailPage from './components/MailPage';
 import HealiaRiverPage from './components/HealiaRiverPage';
 import Restaurant from './components/Restaurant';
+import BuddiesPage from './components/BuddiesPage';
 import ExampleTemplatePage from './components/template/ExampleTemplatePage';
 
 const router = createBrowserRouter([
@@ -63,6 +65,7 @@ const router = createBrowserRouter([
       { path: 'admin', element: <Admin /> },
       { path: 'profile/:userId', element: <UserProfile /> },
       { path: 'profile', element: <UserProfile /> },
+      { path: 'profile/edit', element: <EditProfile /> },
       { path: 'pet/:uuid', element: <PetProfile /> },
       { path: 'inventory', element: <Inventory /> },
       { path: 'admin/edit-pet-types', element: <EditPetTypes /> },
@@ -99,6 +102,7 @@ const router = createBrowserRouter([
       { path: 'mail', element: <MailPage /> },
       { path: 'healia-river', element: <HealiaRiverPage /> },
       { path: 'restaurant', element: <Restaurant /> },
+      { path: 'buddies', element: <BuddiesPage /> },
       { path: 'auction', element: <AuctionList /> },
       { path: 'auction/:id', element: <AuctionDetail /> },
       { path: 'auction/create', element: <CreateAuction /> },

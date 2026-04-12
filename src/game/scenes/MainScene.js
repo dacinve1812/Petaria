@@ -196,9 +196,11 @@ export default class MainScene extends Phaser.Scene {
     }
 
     this.cameras.main.startFollow(this.player, true, 0.15, 0.15);
-    this.defaultCameraZoom = CAMERA_ZOOM;
-    this.cameraZoom = CAMERA_ZOOM;
+    // Auto-fit ngay lần đầu vào map để giảm khoảng trống nền ở map tỉ lệ lạ.
+    this.defaultCameraZoom = this.getFitZoom();
+    this.cameraZoom = this.defaultCameraZoom;
     this.cameras.main.setZoom(this.cameraZoom);
+    this.updateCameraBoundsForZoom();
 
     if (map.assets.foreground && this.textures.exists('hunting-map-fg')) {
       const foreground = this.add.image(0, 0, 'hunting-map-fg').setOrigin(0, 0);
@@ -300,18 +302,12 @@ export default class MainScene extends Phaser.Scene {
       } else if (action === 'zoomReset') {
         this.cameraZoom = this.defaultCameraZoom;
       } else if (action === 'zoomFit') {
-        const gw = this.scale?.width || cam.width;
-        const gh = this.scale?.height || cam.height;
-        if (this.worldWidth > 0 && this.worldHeight > 0 && gw > 0 && gh > 0) {
-          const pad = 0.92;
-          const zx = (gw * pad) / this.worldWidth;
-          const zy = (gh * pad) / this.worldHeight;
-          this.cameraZoom = Phaser.Math.Clamp(Math.min(zx, zy), CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX);
-        }
+        this.cameraZoom = this.getFitZoom();
       } else {
         return;
       }
       cam.setZoom(this.cameraZoom);
+      this.updateCameraBoundsForZoom();
       window.dispatchEvent(
         new CustomEvent('petaria-hunting-camera-state', {
           detail: { zoom: this.cameraZoom },
@@ -510,6 +506,11 @@ export default class MainScene extends Phaser.Scene {
     this.checkForEncounter();
 
     if (this.mapMaxSteps != null && this.stepsRemaining != null) {
+      // Đồng bộ với giá trị mới nhất giữa các tab trước khi trừ bước.
+      const latest = loadHuntingSession(this.selectedMapId, this.mapMaxSteps);
+      if (latest && Number.isFinite(Number(latest.stepsRemaining))) {
+        this.stepsRemaining = Math.min(this.stepsRemaining, Number(latest.stepsRemaining));
+      }
       this.stepsRemaining = Math.max(0, this.stepsRemaining - 1);
       this.emitStepsState();
       this.persistHuntingSession();
@@ -529,6 +530,48 @@ export default class MainScene extends Phaser.Scene {
   checkForEncounter() {
     if (!this.encounterManager) return;
     this.encounterManager.checkForEncounter(this.gridX, this.gridY);
+  }
+
+  updateCameraBoundsForZoom() {
+    const cam = this.cameras?.main;
+    if (!cam || this.worldWidth <= 0 || this.worldHeight <= 0) return;
+    const viewW = cam.width / cam.zoom;
+    const viewH = cam.height / cam.zoom;
+    const extraX = Math.max(0, viewW - this.worldWidth);
+    const extraY = Math.max(0, viewH - this.worldHeight);
+    cam.setBounds(
+      -extraX / 2,
+      -extraY / 2,
+      this.worldWidth + extraX,
+      this.worldHeight + extraY
+    );
+  }
+
+  getFitZoom() {
+    const cam = this.cameras?.main;
+    if (!cam) return CAMERA_ZOOM;
+    const gw = this.scale?.width || cam.width;
+    const gh = this.scale?.height || cam.height;
+    if (this.worldWidth <= 0 || this.worldHeight <= 0 || gw <= 0 || gh <= 0) {
+      return CAMERA_ZOOM;
+    }
+    const pad = 1;
+    const zx = (gw * pad) / this.worldWidth;
+    const zy = (gh * pad) / this.worldHeight;
+    // Cover: map lấp đầy canvas theo cả 2 chiều (có thể crop nhẹ 1 chiều nếu khác tỉ lệ).
+    let target = Math.max(zx, zy);
+    if (typeof window !== 'undefined') {
+      const vw = window.innerWidth || gw;
+      const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+      // Mobile màn rộng một chút: boost nhẹ để sprite đỡ nhỏ.
+      if (isCoarsePointer && vw > 430 && vw <= 600) {
+        target = Math.max(target * 1.15, 1.15);
+      }
+      if (isCoarsePointer && vw <= 430) {
+        target = Math.max(target * 1.25, 1.25);
+      }
+    }
+    return Phaser.Math.Clamp(target, CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX);
   }
 
   addDebugControls() {

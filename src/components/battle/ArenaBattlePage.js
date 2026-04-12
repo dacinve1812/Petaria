@@ -6,6 +6,7 @@ import { UserContext } from '../../UserContext';
 import TemplatePage from '../template/TemplatePage';
 import GameModalButton from '../ui/GameModalButton';
 import { BattleBannerOverlay, BattleResultDimOverlay } from './BattleOverlays';
+import { getDisplayName } from '../../utils/userDisplay';
 import '../css/BattlePage.css';
 import '../css/ArenaBattlePage.css';
 import expTable from '../../data/exp_table_petaria.json';
@@ -84,7 +85,7 @@ function ArenaBattlePage() {
     const battleUiLocked = actionLocked || battleEnded || startBannerVisible;
 
     const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-    const userName = user?.username || user?.name || 'Người chơi';
+    const userName = getDisplayName(user, user?.name || 'Người chơi');
 
     const getItemImageSrc = (imageUrl) => {
       if (!imageUrl) return '/images/equipments/placeholder.png';

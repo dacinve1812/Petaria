@@ -5,6 +5,7 @@ import regionMapsData from '../config/region-maps.json';
 import { fetchPublicHuntingMapList } from '../api/huntingMapsApi';
 import { loadAllCustomMaps } from '../utils/huntingMapsStorage';
 import { mergeRemoteAndLocalHuntingCatalog } from '../game/map/huntingMapCatalog';
+import { getActiveHuntingMap } from '../utils/huntingSessionStorage';
 import './HuntConfirmPage.css';
 
 function normalizeText(value) {
@@ -54,6 +55,7 @@ function HuntConfirmPage() {
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [balance, setBalance] = useState({ peta: 0, petagold: 0 });
   const [balanceLoading, setBalanceLoading] = useState(true);
+  const [activeMapId, setActiveMapId] = useState('');
 
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const regionId = searchParams.get('regionId') || '';
@@ -82,6 +84,11 @@ function HuntConfirmPage() {
     const byId = spots.find((item) => String(item.id ?? '') === String(spotId));
     return byId || null;
   }, [region, spotId, spotName]);
+
+  useEffect(() => {
+    const active = getActiveHuntingMap();
+    setActiveMapId(active?.mapId || '');
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,13 +168,23 @@ function HuntConfirmPage() {
   const displayMaxSteps = resolvedMap?.maxSteps ?? spot?.maxSteps ?? null;
   const balanceValue = displayCurrency === 'petagold' ? balance.petagold : balance.peta;
   const canAfford = balanceValue >= displayEntryFee;
-  const canEnter = Boolean(resolvedMap?.id) && canAfford;
+  const activeMap = useMemo(
+    () => catalog.find((m) => String(m.id) === String(activeMapId)) || null,
+    [catalog, activeMapId]
+  );
+  const hasOtherActiveMap =
+    Boolean(activeMapId) && Boolean(resolvedMap?.id) && String(activeMapId) !== String(resolvedMap.id);
+  const canEnter = Boolean(resolvedMap?.id) && canAfford && !hasOtherActiveMap;
   const previewImage =
     resolvedMap?.thumb || spot?.thumb || region?.imageSrc || '/images/icons/background.png';
 
   const handleConfirm = () => {
     if (!resolvedMap?.id) return;
     navigate(`/hunting-world/map/${encodeURIComponent(resolvedMap.id)}`);
+  };
+  const handleContinueActiveMap = () => {
+    if (!activeMapId) return;
+    navigate(`/hunting-world/map/${encodeURIComponent(activeMapId)}`);
   };
 
   return (
@@ -197,6 +214,11 @@ function HuntConfirmPage() {
         {!catalogLoading && !resolvedMap && (
           <p className="hunt-confirm-warning">Chưa cấu hình map săn cho địa điểm này.</p>
         )}
+        {hasOtherActiveMap && (
+          <p className="hunt-confirm-warning">
+            Bạn đang trong bản đồ <strong>{activeMap?.name || activeMapId}</strong>. Hãy tiếp tục map này trước khi vào map mới.
+          </p>
+        )}
         {!balanceLoading && resolvedMap && !canAfford && (
           <p className="hunt-confirm-error">Bạn không đủ tiền để vào săn.</p>
         )}
@@ -210,6 +232,15 @@ function HuntConfirmPage() {
           >
             Xác nhận vào săn
           </button>
+          {hasOtherActiveMap && (
+            <button
+              type="button"
+              className="hunt-confirm-btn hunt-confirm-btn--primary"
+              onClick={handleContinueActiveMap}
+            >
+              Tiếp tục map đang dở
+            </button>
+          )}
           <button
             type="button"
             className="hunt-confirm-btn"

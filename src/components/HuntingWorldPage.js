@@ -4,6 +4,7 @@ import TemplatePage from './template/TemplatePage';
 import { BUILTIN_FOREST_ENTRY, mergeRemoteAndLocalHuntingCatalog, getHuntingMapCatalog } from '../game/map/huntingMapCatalog';
 import { fetchPublicHuntingMapList } from '../api/huntingMapsApi';
 import { loadAllCustomMaps } from '../utils/huntingMapsStorage';
+import { getActiveHuntingMap } from '../utils/huntingSessionStorage';
 import GameDialogModal from './ui/GameDialogModal';
 import './HuntingWorldPage.css';
 
@@ -12,6 +13,8 @@ function HuntingWorldPage() {
   const [maps, setMaps] = useState([BUILTIN_FOREST_ENTRY]);
   const [loadError, setLoadError] = useState(false);
   const [pendingMap, setPendingMap] = useState(null);
+  const [continueMapModalOpen, setContinueMapModalOpen] = useState(false);
+  const [activeMapId, setActiveMapId] = useState('');
 
   const reloadCatalog = useCallback(async () => {
     try {
@@ -35,6 +38,11 @@ function HuntingWorldPage() {
     return () => window.removeEventListener('petaria-hunting-maps-changed', onChange);
   }, [reloadCatalog]);
 
+  useEffect(() => {
+    const active = getActiveHuntingMap();
+    setActiveMapId(active?.mapId || '');
+  }, [maps]);
+
   const visibleMaps = useMemo(
     () => maps.filter((m) => !m.builtIn && m.id !== 'forest'),
     [maps]
@@ -48,12 +56,24 @@ function HuntingWorldPage() {
     return { feeLine, stepLine: `Tối đa ${m.maxSteps} bước` };
   };
 
-  const openConfirm = (mapItem) => setPendingMap(mapItem);
+  const openConfirm = (mapItem) => {
+    if (activeMapId && String(activeMapId) !== String(mapItem.id)) {
+      setContinueMapModalOpen(true);
+      return;
+    }
+    setPendingMap(mapItem);
+  };
   const closeConfirm = () => setPendingMap(null);
   const confirmEnter = () => {
     if (!pendingMap) return;
     navigate(`/hunting-world/map/${encodeURIComponent(pendingMap.id)}`);
     setPendingMap(null);
+  };
+  const activeMap = visibleMaps.find((m) => String(m.id) === String(activeMapId)) || null;
+  const handleContinueActiveMap = () => {
+    if (!activeMapId) return;
+    navigate(`/hunting-world/map/${encodeURIComponent(activeMapId)}`);
+    setContinueMapModalOpen(false);
   };
 
   return (
@@ -117,6 +137,23 @@ function HuntingWorldPage() {
           <p>
             Dùng <strong>{`${pendingMap.entryFee} ${pendingMap.currency}`}</strong> để mua vé vào{' '}
             <strong>{pendingMap.name}</strong>
+          </p>
+        )}
+      </GameDialogModal>
+
+      <GameDialogModal
+        isOpen={continueMapModalOpen}
+        onClose={() => setContinueMapModalOpen(false)}
+        title="Tiếp tục đi săn"
+        mode="confirm"
+        cancelLabel="Cancel"
+        confirmLabel="Confirm"
+        onCancel={() => setContinueMapModalOpen(false)}
+        onConfirm={handleContinueActiveMap}
+      >
+        {activeMapId && (
+          <p>
+            Bạn đang trong bản đồ <strong>{activeMap?.name || activeMapId}</strong>. Bạn có muốn tiếp tục?
           </p>
         )}
       </GameDialogModal>

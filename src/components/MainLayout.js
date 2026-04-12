@@ -6,6 +6,7 @@ import MailModal from './MailModal';
 import Footer from './Footer';
 import TopNavigation from './navbar/TopNavigation';
 import NavigationMenu from './navbar/NavigationMenu';
+import GlobalChatBox from './GlobalChatBox';
 import { Outlet } from 'react-router-dom';
 import '../styles/global.css';
 import { resolveAssetPath } from '../utils/pathUtils';
@@ -94,6 +95,7 @@ function MainLayout() {
             '/guild': 'BANG HỘI',
             '/quest': 'NHIỆM VỤ',
             '/management': 'QUẢN LÝ',
+            '/buddies': 'BẠN BÈ',
             '/admin': 'ADMIN PANEL',
             '/dev-dashboard': 'DEV DASHBOARD',
             '/example': 'BẢNG XẾP HẠNG'
@@ -141,6 +143,7 @@ function MainLayout() {
             userId={userId}
             onCurrencyUpdate={handleCurrencyUpdate}
         />
+        <GlobalChatBox />
         <Footer />
         </>
     );

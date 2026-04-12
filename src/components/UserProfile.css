@@ -1,82 +1,237 @@
+.profile-page-container {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 12px;
+}
+
+.header-free {
+  border-radius: 12px;
+  background: linear-gradient(90deg, #a6ebff 0%, #8adbf3 100%);
+  border: 1px solid #79c5db;
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.header-free p {
+  margin: 0;
+  padding: 14px 12px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #17485f;
+}
+
 .user-profile {
-    display: flex;
-    justify-content: center;
-    margin: auto;
-    padding: 20px;
+  display: grid;
+  grid-template-columns: minmax(400px, 450px) 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.profile-header,
+.profile-details,
+.profile-pets-card,
+.profile-share-card {
+  background: #ffffff;
+  border: 1px solid #d7deea;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(9, 23, 57, 0.08);
+}
+
+.profile-header {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-picture {
+  width: 100%;
+  max-width: 270px;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.profile-header h2 {
+  margin: 0;
+}
+
+.profile-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.profile-status-badge.online {
+  background: #e5f8ea;
+  color: #1e7b34;
+  border-color: #bcebc8;
+}
+
+.profile-status-badge.offline {
+  background: #f1f3f7;
+  color: #64748b;
+  border-color: #d8dee8;
+}
+
+.profile-details {
+  padding: 14px;
+}
+
+.profile-details p {
+  margin: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid #edf1f7;
+  color: #23344f;
+}
+
+.profile-details p:last-of-type {
+  border-bottom: none;
+}
+
+.profile-edit-btn {
+  margin-top: 12px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: 1px solid #7ca0ff;
+  background: #e9f0ff;
+  color: #22439b;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-pets-card,
+.profile-share-card {
+  padding: 14px;
+}
+
+.profile-pets-card h3,
+.profile-share-card h3 {
+  margin: 0 0 10px;
+}
+
+.profile-pets-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.profile-pets-table th,
+.profile-pets-table td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid #eef2f8;
+}
+
+.profile-pets-table th {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #60718f;
+}
+
+.profile-pets-empty {
+  text-align: center !important;
+  color: #7c8ca5;
+}
+
+.profile-pet-link {
+  color: #2b55bb;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.profile-pet-link:hover {
+  text-decoration: underline;
+}
+
+.profile-share-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.profile-share-row input {
+  min-height: 40px;
+  border: 1px solid #d5deeb;
+  border-radius: 9px;
+  padding: 0 12px;
+}
+
+.profile-share-row button,
+.profile-share-meta button {
+  min-height: 40px;
+  border: 1px solid #d5deeb;
+  border-radius: 9px;
+  padding: 0 14px;
+  background: #f4f7fc;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.profile-share-meta {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1024px) {
+  .user-profile {
+    grid-template-columns: 300px 1fr;
   }
-  .header-free{
-    height: 150px;
-    background-color: rgb(55, 225, 255);
-    text-align: center;
+
+  .header-free p {
+    font-size: 1.35rem;
   }
-  .header-free p{
-    padding-top: 30px;
-    font-size: 40px;
+}
+
+@media (max-width: 820px) {
+  .user-profile {
+    grid-template-columns: 1fr;
   }
-  .profile-header,
-  .profile-details {
-    width: 40%; /* Điều chỉnh độ rộng theo ý muốn */
-    max-width: 400px; /* Giới hạn độ rộng tối đa */
-    padding: 40px;
-    border: 2px solid #aeaeae;
-    border-radius: 5px;
-    background-color: #ffffff;
-    box-shadow: 20px 20px 30px rgba(0, 0, 0, 0.1);
-    height: 400px;
-  }
-  
+
   .profile-header {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-right:0;
+    max-width: 420px;
+    margin: 0 auto;
   }
-  
-  .profile-picture {
-    width: 350px;
-    height: 350px;
-    /* border-radius: 50%; */
-    object-fit: cover;
-    /* margin-bottom: 10px;
-    border: 2px solid #007bff; */
-     /* Thêm border cho ảnh đại diện */
-  }
-  
-  .profile-details {
-  
-  }
-  
-  .profile-details p {
-    margin: 8px 0;
-    border-bottom: 1px solid #eee; /* Thêm đường kẻ dưới mỗi dòng */
-    padding-bottom: 8px;
-    color: rgba(22, 13, 90, 0.905);
-  }
-  .profile-details p strong{
-    color: rgba(25, 0, 218, 0.905)
-  }
-  
-  /* Loại bỏ đường kẻ dưới ở dòng cuối cùng */
-  .profile-details p:last-child {
-    border-bottom: none;
+}
+
+@media (max-width: 520px) {
+  .profile-page-container {
+    padding: 8px;
   }
 
+  .header-free p {
+    font-size: 1.1rem;
+    padding: 10px;
+  }
 
-  /* FOR NAVBAR */
-  .navbar nav ul {
-    list-style: none; /* Loại bỏ dấu chấm */
-    padding: 0;
-    display: flex; /* Sử dụng flexbox để dễ dàng sắp xếp theo hàng */
-    flex-wrap: wrap;
-    justify-content: center;
+  .profile-header,
+  .profile-details,
+  .profile-pets-card,
+  .profile-share-card {
+    border-radius: 10px;
+    padding: 10px;
   }
-  
-  .navbar nav ul li {
-    display: flex;
-    flex-direction: row;
+
+  .profile-pets-table th,
+  .profile-pets-table td {
+    padding: 8px 6px;
+    font-size: 0.9rem;
   }
-  
-  .navbar nav ul li:not(:last-child)::after {
-    content: "|"; /* Thêm dấu gạch đứng */
-    margin: 0 10px; /* Thêm khoảng cách giữa dấu gạch đứng và mục tiếp theo */
+
+  .profile-share-row {
+    grid-template-columns: 1fr;
   }
+  /* .profile-picture {
+    max-width: 260px;
+  } */
+}

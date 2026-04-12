@@ -106,13 +106,22 @@ router.get('/', async (req, res) => {
         i.image_url as item_image,
         i.rarity as item_rarity,
         i.type as item_type,
-        u.username as seller_name,
+        COALESCE(NULLIF(TRIM(up.display_name), ''), u.username) as seller_name,
         (SELECT COUNT(*) FROM auction_bids ab WHERE ab.auction_id = a.id) as bid_count,
         (SELECT ab.bidder_id FROM auction_bids ab WHERE ab.auction_id = a.id ORDER BY ab.bid_amount DESC LIMIT 1) as highest_bidder_id,
-        (SELECT u2.username FROM auction_bids ab JOIN users u2 ON ab.bidder_id = u2.id WHERE ab.auction_id = a.id ORDER BY ab.bid_amount DESC LIMIT 1) as highest_bidder_name
+        (
+          SELECT COALESCE(NULLIF(TRIM(up2.display_name), ''), u2.username)
+          FROM auction_bids ab
+          JOIN users u2 ON ab.bidder_id = u2.id
+          LEFT JOIN user_profiles up2 ON up2.user_id = u2.id
+          WHERE ab.auction_id = a.id
+          ORDER BY ab.bid_amount DESC
+          LIMIT 1
+        ) as highest_bidder_name
       FROM auctions a
       JOIN items i ON a.item_id = i.id
       JOIN users u ON a.seller_id = u.id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
       WHERE a.status = 'active' AND a.end_time > NOW()
     `;
     
@@ -183,11 +192,12 @@ router.get('/:id', async (req, res) => {
         i.image_url as item_image,
         i.rarity as item_rarity,
         i.type as item_type,
-        u.username as seller_name,
+        COALESCE(NULLIF(TRIM(up.display_name), ''), u.username) as seller_name,
         (SELECT COUNT(*) FROM auction_bids ab WHERE ab.auction_id = a.id) as bid_count
       FROM auctions a
       JOIN items i ON a.item_id = i.id
       JOIN users u ON a.seller_id = u.id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
       WHERE a.id = ?
     `, [auctionId]);
     
@@ -200,9 +210,10 @@ router.get('/:id', async (req, res) => {
       SELECT 
         ab.bid_amount,
         ab.bid_time,
-        u.username as bidder_name
+        COALESCE(NULLIF(TRIM(up.display_name), ''), u.username) as bidder_name
       FROM auction_bids ab
       JOIN users u ON ab.bidder_id = u.id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
       WHERE ab.auction_id = ?
       ORDER BY ab.bid_amount DESC, ab.bid_time DESC
     `, [auctionId]);

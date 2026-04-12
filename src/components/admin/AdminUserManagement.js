@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './AdminUserManagement.css';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
+import { getDisplayName } from '../../utils/userDisplay';
 
 const AdminUserManagement = () => {
   const navigate = useNavigate();
@@ -126,7 +127,10 @@ const AdminUserManagement = () => {
   };
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase());
+    const displayName = getDisplayName(user, '').toLowerCase();
+    const username = String(user.username || '').toLowerCase();
+    const keyword = searchTerm.toLowerCase();
+    const matchesSearch = username.includes(keyword) || displayName.includes(keyword);
     const matchesRole = filterRole === 'all' || user.role === filterRole;
     const matchesVip = filterVip === 'all' || 
                       (filterVip === 'vip' && user.is_vip) ||
@@ -237,7 +241,7 @@ const AdminUserManagement = () => {
               {filteredUsers.map(user => (
                 <tr key={user.id}>
                   <td>{user.id}</td>
-                  <td>{user.username}</td>
+                  <td>{getDisplayName(user, user.username || 'Unknown')}</td>
                   <td>
                     <select
                       value={user.role}

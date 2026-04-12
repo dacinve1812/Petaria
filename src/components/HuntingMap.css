@@ -16,6 +16,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  height: calc(100dvh - 88px);
   min-height: calc(100dvh - 88px);
   padding: 8px 10px 12px;
   background: var(--hunting-bg);
@@ -23,6 +24,7 @@
 
 @media (max-width: 600px) {
   .hunting-map-wrapper {
+    height: calc(100dvh - 72px);
     min-height: calc(100dvh - 72px);
     padding: 4px 6px 8px;
   }
@@ -48,12 +50,12 @@
 }
 
 .hunting-map-toolbar-row--steps {
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
-.hunting-map-toolbar-row--controls {
-  justify-content: space-between;
+.hunting-map-end-btn {
+  margin-left: auto;
 }
 
 .hunting-map-steps-value {
@@ -69,6 +71,33 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+}
+
+.hunting-floating-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(14, 20, 40, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
+}
+
+.hunting-floating-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hunting-floating-label {
+  color: #a9b4d4;
+  font-size: 0.72rem;
+  min-width: 44px;
 }
 
 .hunting-map-toolbar-label {
@@ -109,12 +138,22 @@
   font-size: 0.8rem;
 }
 
+.hunting-map-icon-btn {
+  min-width: 32px;
+  min-height: 32px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 0.95rem;
+}
+
 .hunting-map-game-area {
   position: relative;
   flex: 1 1 auto;
   width: 100%;
-  min-height: clamp(260px, 52dvh, 720px);
-  border-radius: 10px;
+  min-height: 0;
+  height: 100%;
+  /* border-radius: 10px; */
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -142,6 +181,8 @@
 
 .hunting-map-root canvas {
   display: block;
+  width: 100% !important;
+  height: 100% !important;
   /* auto: trình duyệt scale canvas (sau resolution/DPR) mượt hơn; pixelated dễ làm ảnh HD nhìn “thô”. Sprite vẫn NEAREST trong WebGL. */
   image-rendering: auto;
 }
@@ -207,6 +248,10 @@
     padding-bottom: 4px;
   }
 
+  .hunting-map-end-btn {
+    margin-left: 0;
+  }
+
   .hunting-map-steps-value {
     font-size: 0.9rem;
   }
@@ -220,29 +265,35 @@
     min-width: 2.5rem;
   }
 
-  .hunting-map-tool-btn {
-    min-width: 32px;
-    min-height: 32px;
-    padding: 0 6px;
-    font-size: 0.85rem;
+  .hunting-floating-controls {
+    top: 8px;
+    right: 8px;
+    padding: 6px;
+    gap: 4px;
+    border-radius: 8px;
+  }
+
+  .hunting-floating-group {
+    gap: 4px;
+  }
+
+  .hunting-floating-label {
+    min-width: 40px;
+    font-size: 0.65rem;
+  }
+
+  .hunting-map-icon-btn {
+    min-width: 28px;
+    min-height: 28px;
+    width: 28px;
+    height: 28px;
+    font-size: 0.8rem;
     border-radius: 6px;
   }
 
-  .hunting-map-tool-wide {
-    padding: 0 8px;
-    font-size: 0.65rem;
-    min-height: 30px;
-  }
-
-  .hunting-map-toolbar-row--controls {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-  }
-
-  .hunting-map-toolbar-group {
-    gap: 4px;
-    justify-content: flex-start;
+  .hunting-map-toolbar-value {
+    min-width: 2.3rem;
+    font-size: 0.64rem;
   }
 
   .hunting-dpad {
@@ -264,15 +315,17 @@
 }
 
 @media (max-width: 380px) {
-  .hunting-map-tool-btn {
-    min-width: 30px;
-    min-height: 30px;
-    font-size: 0.8rem;
+  .hunting-floating-controls {
+    top: 6px;
+    right: 6px;
   }
 
-  .hunting-map-tool-wide {
-    font-size: 0.6rem;
-    padding: 0 6px;
+  .hunting-map-icon-btn {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    min-height: 26px;
+    font-size: 0.72rem;
   }
 
   .hunting-dpad-btn {

@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext';
+import { getDisplayName } from '../utils/userDisplay';
 import './Sidebar.css';
 
 function Sidebar({ userId, handleLogout, isAdmin: isAdminProp, className = 'sidebar', onCurrencyUpdate }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const navigate = useNavigate();
   const { user, isLoading } = useUser();
-  const [username, setUsername] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [onlineStatus, setOnlineStatus] = useState(false);
   const [gold, setGold] = useState(0);
   const [petagold, setPetagold] = useState(0);
@@ -24,7 +25,7 @@ function Sidebar({ userId, handleLogout, isAdmin: isAdminProp, className = 'side
       })
       .then((data) => {
         if (!data) return;
-        setUsername(data.username || '');
+        setDisplayName(getDisplayName(data, ''));
         setOnlineStatus(data.online_status);
         // Backend (server.js) GET /users/:userId trả về peta, petagold (không có gold)
         setGold(Number(data.peta ?? 0));
@@ -40,6 +41,12 @@ function Sidebar({ userId, handleLogout, isAdmin: isAdminProp, className = 'side
   useEffect(() => {
     if (onCurrencyUpdate != null) fetchUserData();
   }, [onCurrencyUpdate]);
+
+  useEffect(() => {
+    if (!displayName) {
+      setDisplayName(getDisplayName(user, ''));
+    }
+  }, [displayName, user]);
 
   return (
     <div className={className}>
@@ -58,7 +65,7 @@ function Sidebar({ userId, handleLogout, isAdmin: isAdminProp, className = 'side
           </ul>
         </nav>
         <div className="user-info">
-          <p>{username}</p>
+          <p>{displayName}</p>
           
           <div className="user-info-currency">
             <div className="user-info-currency-item">

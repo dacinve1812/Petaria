@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
+import { getDisplayName } from '../../utils/userDisplay';
 
 const TopNavigation = ({ className = '', onOpenSidebar }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const { user, isLoading, logout } = useUser();
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
+  const effectiveName = getDisplayName(user, 'Người chơi');
 
   const handleLogout = () => {
     logout();
@@ -61,7 +63,7 @@ const TopNavigation = ({ className = '', onOpenSidebar }) => {
                      onClick={() => setShowUserDropdown(!showUserDropdown)}
                    >
                      <span className="gnb-user-hello">Hello,</span>
-                     <span className="gnb-user-name">{user.username}</span>
+                    <span className="gnb-user-name">{effectiveName}</span>
                      <span className="sgw-dropdown-arrow"></span>
                    </span>
                    

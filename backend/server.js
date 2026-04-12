@@ -39,15 +39,26 @@ function calculateFinalStats(base, iv, level) {
 require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
 
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
+const { Server: SocketIOServer } = require('socket.io');
+const fs = require('fs');
+const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { createClient } = require('redis');
 
 const app = express();
+const httpServer = http.createServer(app);
+const io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST'],
+  },
+});
 const port = 5000; // Chọn cổng cho backend
 
 
@@ -64,6 +75,148 @@ const pool = mysql.createPool({ // Hoặc const pool = new Pool({
 });
 
 const db = pool.promise();
+
+async function ensureUserProfilesTable() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_profiles (
+        user_id INT PRIMARY KEY,
+        display_name VARCHAR(100) NULL,
+        gender VARCHAR(20) NULL,
+        avatar_url TEXT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_user_profiles_user
+          FOREIGN KEY (user_id) REFERENCES users(id)
+          ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+  } catch (error) {
+    console.error('Error ensuring user_profiles table:', error);
+  }
+}
+
+ensureUserProfilesTable();
+
+async function ensureBuddiesTables() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_friendships (
+        user_id INT NOT NULL,
+        friend_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, friend_id),
+        CONSTRAINT fk_user_friendships_user
+          FOREIGN KEY (user_id) REFERENCES users(id)
+          ON DELETE CASCADE,
+        CONSTRAINT fk_user_friendships_friend
+          FOREIGN KEY (friend_id) REFERENCES users(id)
+          ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_friend_requests (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        sender_id INT NOT NULL,
+        receiver_id INT NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_user_friend_requests_sender
+          FOREIGN KEY (sender_id) REFERENCES users(id)
+          ON DELETE CASCADE,
+        CONSTRAINT fk_user_friend_requests_receiver
+          FOREIGN KEY (receiver_id) REFERENCES users(id)
+          ON DELETE CASCADE,
+        INDEX idx_user_friend_requests_receiver_status (receiver_id, status),
+        INDEX idx_user_friend_requests_sender_status (sender_id, status)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_presence (
+        user_id INT PRIMARY KEY,
+        last_seen_at DATETIME NULL,
+        CONSTRAINT fk_user_presence_user
+          FOREIGN KEY (user_id) REFERENCES users(id)
+          ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+  } catch (error) {
+    console.error('Error ensuring buddies tables:', error);
+  }
+}
+
+async function ensureChatTables() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS global_chat_messages (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        message_text VARCHAR(500) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_global_chat_messages_user
+          FOREIGN KEY (user_id) REFERENCES users(id)
+          ON DELETE CASCADE,
+        INDEX idx_global_chat_messages_created (created_at),
+        INDEX idx_global_chat_messages_user (user_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+  } catch (error) {
+    console.error('Error ensuring chat tables:', error);
+  }
+}
+
+async function touchUserPresenceByUserId(userId) {
+  if (!userId) return;
+  await db.query(
+    `
+      INSERT INTO user_presence (user_id, last_seen_at)
+      VALUES (?, NOW())
+      ON DUPLICATE KEY UPDATE last_seen_at = NOW()
+    `,
+    [userId]
+  );
+}
+
+function getStatusLabel(onlineStatus, lastSeenAt) {
+  if (Number(onlineStatus) === 1) return 'online';
+  if (!lastSeenAt) return 'away';
+  const diff = Date.now() - new Date(lastSeenAt).getTime();
+  if (Number.isNaN(diff)) return 'away';
+  return diff <= 30 * 60 * 1000 ? 'away' : 'offline';
+}
+
+function formatLastSeen(lastSeenAt) {
+  if (!lastSeenAt) return null;
+  const diffMs = Date.now() - new Date(lastSeenAt).getTime();
+  if (Number.isNaN(diffMs) || diffMs < 0) return null;
+  const minutes = Math.floor(diffMs / (1000 * 60));
+  if (minutes < 1) return 'vừa xong';
+  if (minutes < 60) return `${minutes} phút trước`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  const days = Math.floor(hours / 24);
+  return `${days} ngày trước`;
+}
+
+ensureBuddiesTables();
+ensureChatTables();
+
+const CHAT_COOLDOWN_SECONDS = Math.max(1, Number(process.env.CHAT_COOLDOWN_SECONDS || 30));
+const CHAT_MESSAGE_MAX_LENGTH = 500;
+const PRESENCE_TOUCH_THROTTLE_MS = 20 * 1000;
+const onlineSocketCountByUserId = new Map();
+const userLastPresenceTouchById = new Map();
+const userLastChatAtById = new Map();
+
+async function touchUserPresenceByUserIdThrottled(userId, force = false) {
+  const now = Date.now();
+  const lastTouch = userLastPresenceTouchById.get(userId) || 0;
+  if (!force && now - lastTouch < PRESENCE_TOUCH_THROTTLE_MS) return;
+  userLastPresenceTouchById.set(userId, now);
+  await touchUserPresenceByUserId(userId);
+}
 
 // Redis client cho Arena Match State (optional)
 // Quản lý RAM: mỗi SET match phải có TTL; khi kết thúc trận (finalize) hoặc terminate phải DEL key ngay.
@@ -99,6 +252,187 @@ pool.getConnection((err, connection) => {
 
 app.use(cors());
 app.use(bodyParser.json());
+
+async function getUserBasicProfile(userId) {
+  const [rows] = await db.query(
+    `
+      SELECT
+        u.id AS user_id,
+        u.username,
+        u.guild,
+        u.online_status,
+        up.display_name,
+        up.avatar_url,
+        p.last_seen_at
+      FROM users u
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      LEFT JOIN user_presence p ON p.user_id = u.id
+      WHERE u.id = ?
+      LIMIT 1
+    `,
+    [userId]
+  );
+  return rows[0] || null;
+}
+
+function buildPresencePayload(profileRow) {
+  if (!profileRow) return null;
+  const status = getStatusLabel(profileRow.online_status, profileRow.last_seen_at);
+  return {
+    userId: profileRow.user_id,
+    username: profileRow.username,
+    display_name: profileRow.display_name || null,
+    avatar_url: profileRow.avatar_url || null,
+    guild: profileRow.guild || null,
+    status,
+    last_seen_at: profileRow.last_seen_at || null,
+    last_seen_text: status === 'offline' ? formatLastSeen(profileRow.last_seen_at) : null,
+  };
+}
+
+function toChatMessagePayload(row) {
+  return {
+    id: row.id,
+    message: row.message_text,
+    created_at: row.created_at,
+    user: {
+      user_id: row.user_id,
+      username: row.username,
+      display_name: row.display_name || null,
+      avatar_url: row.avatar_url || null,
+      guild: row.guild || null,
+    },
+  };
+}
+
+io.use((socket, next) => {
+  try {
+    const token =
+      socket.handshake.auth?.token ||
+      (typeof socket.handshake.headers?.authorization === 'string'
+        ? socket.handshake.headers.authorization.replace(/^Bearer\s+/i, '')
+        : null);
+    if (!token) return next(new Error('NO_TOKEN'));
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    socket.data.userId = decoded.userId;
+    next();
+  } catch (error) {
+    next(new Error('INVALID_TOKEN'));
+  }
+});
+
+io.on('connection', async (socket) => {
+  const userId = Number(socket.data.userId);
+  if (!userId) {
+    socket.disconnect(true);
+    return;
+  }
+
+  socket.join('global');
+  socket.join(`user:${userId}`);
+
+  const currentCount = onlineSocketCountByUserId.get(userId) || 0;
+  onlineSocketCountByUserId.set(userId, currentCount + 1);
+
+  try {
+    await db.query('UPDATE users SET online_status = 1 WHERE id = ?', [userId]);
+    await touchUserPresenceByUserIdThrottled(userId, true);
+    const profile = await getUserBasicProfile(userId);
+    const presencePayload = buildPresencePayload(profile);
+    if (presencePayload) io.emit('presence:update', presencePayload);
+  } catch (error) {
+    console.error('Socket connection presence update error:', error);
+  }
+
+  socket.emit('chat:config', { cooldownSeconds: CHAT_COOLDOWN_SECONDS });
+
+  socket.on('presence:heartbeat', async () => {
+    try {
+      await touchUserPresenceByUserIdThrottled(userId, false);
+    } catch (error) {
+      console.error('Presence heartbeat error:', error);
+    }
+  });
+
+  socket.on('chat:send', async (payload = {}) => {
+    try {
+      const rawMessage = String(payload?.message || '').trim();
+      if (!rawMessage) return;
+      const message = rawMessage.slice(0, CHAT_MESSAGE_MAX_LENGTH);
+
+      const lastChatAt = userLastChatAtById.get(userId) || 0;
+      const now = Date.now();
+      const remainingMs = CHAT_COOLDOWN_SECONDS * 1000 - (now - lastChatAt);
+      if (remainingMs > 0) {
+        socket.emit('chat:error', {
+          code: 'CHAT_COOLDOWN',
+          cooldownSeconds: CHAT_COOLDOWN_SECONDS,
+          retryAfterSeconds: Math.ceil(remainingMs / 1000),
+        });
+        return;
+      }
+
+      userLastChatAtById.set(userId, now);
+      await touchUserPresenceByUserIdThrottled(userId, true);
+
+      const [insertResult] = await db.query(
+        `
+          INSERT INTO global_chat_messages (user_id, message_text)
+          VALUES (?, ?)
+        `,
+        [userId, message]
+      );
+
+      const [rows] = await db.query(
+        `
+          SELECT
+            m.id,
+            m.user_id,
+            m.message_text,
+            m.created_at,
+            u.username,
+            u.guild,
+            up.display_name,
+            up.avatar_url
+          FROM global_chat_messages m
+          JOIN users u ON u.id = m.user_id
+          LEFT JOIN user_profiles up ON up.user_id = u.id
+          WHERE m.id = ?
+          LIMIT 1
+        `,
+        [insertResult.insertId]
+      );
+
+      if (rows.length) {
+        io.to('global').emit('chat:message', toChatMessagePayload(rows[0]));
+      }
+    } catch (error) {
+      console.error('Socket chat send error:', error);
+      socket.emit('chat:error', {
+        code: 'CHAT_SEND_FAILED',
+        message: 'Không thể gửi tin nhắn lúc này',
+      });
+    }
+  });
+
+  socket.on('disconnect', async () => {
+    try {
+      const count = onlineSocketCountByUserId.get(userId) || 0;
+      if (count <= 1) {
+        onlineSocketCountByUserId.delete(userId);
+        await db.query('UPDATE users SET online_status = 0 WHERE id = ?', [userId]);
+        await touchUserPresenceByUserIdThrottled(userId, true);
+        const profile = await getUserBasicProfile(userId);
+        const presencePayload = buildPresencePayload(profile);
+        if (presencePayload) io.emit('presence:update', presencePayload);
+      } else {
+        onlineSocketCountByUserId.set(userId, count - 1);
+      }
+    } catch (error) {
+      console.error('Socket disconnect presence update error:', error);
+    }
+  });
+});
 
 // Import auction routes
 const auctionRoutes = require('./routes/auctions');
@@ -768,10 +1102,15 @@ app.post('/login', async (req, res) => {
             pool.query(
               'UPDATE users SET online_status = 1 WHERE username = ?',
               [username],
-              (updateErr, updateResults) => {
+              async (updateErr, updateResults) => {
                 if (updateErr) {
                   console.error('Error updating online_status:', updateErr);
                   // Xử lý lỗi cập nhật online_status (tùy chọn)
+                }
+                try {
+                  await touchUserPresenceByUserId(user.id);
+                } catch (presenceErr) {
+                  console.error('Error updating user presence on login:', presenceErr);
                 }
 
                 const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'your-secret-key', {
@@ -845,8 +1184,26 @@ app.get('/api/user/profile', async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    await touchUserPresenceByUserId(decoded.userId);
     
-    const [users] = await db.query('SELECT id, username, role, hasPet, peta, petagold FROM users WHERE id = ?', [decoded.userId]);
+    const [users] = await db.query(`
+      SELECT
+        u.id,
+        u.username,
+        u.role,
+        u.hasPet,
+        u.peta,
+        u.petagold,
+        u.real_name,
+        u.birthday,
+        up.display_name,
+        up.gender,
+        up.avatar_url
+      FROM users u
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      WHERE u.id = ?
+      LIMIT 1
+    `, [decoded.userId]);
     
     if (users.length === 0) {
       return res.status(401).json({ message: 'User not found' });
@@ -857,16 +1214,648 @@ app.get('/api/user/profile', async (req, res) => {
     res.json({
       userId: user.id,
       username: user.username,
+      displayName: user.display_name || null,
+      effectiveName: user.display_name || user.username,
       role: user.role,
       isAdmin: user.role === 'admin',
       hasPet: user.hasPet || false,
       peta: user.peta || 0,
-      petagold: user.petagold || 0
+      petagold: user.petagold || 0,
+      realName: user.real_name || '',
+      birthday: user.birthday || null,
+      gender: user.gender || '',
+      avatarUrl: user.avatar_url || ''
     });
     
   } catch (err) {
     console.error('Error getting user profile:', err);
     res.status(401).json({ message: 'Invalid token' });
+  }
+});
+
+app.get('/api/assets/character-images', (req, res) => {
+  try {
+    const candidateDirs = [
+      path.resolve(__dirname, '..', 'public', 'images', 'character'),
+      path.resolve(__dirname, 'public', 'images', 'character'),
+    ];
+
+    const characterDir = candidateDirs.find((dir) => fs.existsSync(dir) && fs.statSync(dir).isDirectory());
+    if (!characterDir) {
+      return res.json({ images: [] });
+    }
+
+    const files = fs.readdirSync(characterDir)
+      .filter((file) => /\.(png|jpe?g|webp|gif)$/i.test(file))
+      .sort((a, b) => a.localeCompare(b, 'vi', { sensitivity: 'base' }));
+
+    const images = files.map((file) => `/images/character/${file}`);
+    res.json({ images });
+  } catch (error) {
+    console.error('Error listing character images:', error);
+    res.status(500).json({ message: 'Không thể tải danh sách ảnh nhân vật' });
+  }
+});
+
+app.put('/api/user/profile', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+    await touchUserPresenceByUserId(userId);
+
+    const {
+      realName,
+      birthday,
+      displayName,
+      gender,
+      avatarUrl
+    } = req.body || {};
+
+    await db.query(
+      'UPDATE users SET real_name = ?, birthday = ? WHERE id = ?',
+      [
+        typeof realName === 'string' ? realName.trim() || null : null,
+        birthday || null,
+        userId
+      ]
+    );
+
+    await db.query(
+      `
+        INSERT INTO user_profiles (user_id, display_name, gender, avatar_url)
+        VALUES (?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          display_name = VALUES(display_name),
+          gender = VALUES(gender),
+          avatar_url = VALUES(avatar_url)
+      `,
+      [
+        userId,
+        typeof displayName === 'string' ? displayName.trim() || null : null,
+        typeof gender === 'string' ? gender.trim() || null : null,
+        typeof avatarUrl === 'string' ? avatarUrl.trim() || null : null
+      ]
+    );
+
+    res.json({ success: true, message: 'Cập nhật hồ sơ thành công' });
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    res.status(500).json({ message: 'Không thể cập nhật hồ sơ' });
+  }
+});
+
+app.put('/api/user/password', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+    await touchUserPresenceByUserId(userId);
+    const { currentPassword, newPassword } = req.body || {};
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Thiếu mật khẩu hiện tại hoặc mật khẩu mới' });
+    }
+
+    if (String(newPassword).length < 8) {
+      return res.status(400).json({ message: 'Mật khẩu mới phải từ 8 ký tự' });
+    }
+
+    const [rows] = await db.query('SELECT password FROM users WHERE id = ? LIMIT 1', [userId]);
+    if (!rows.length) {
+      return res.status(404).json({ message: 'Không tìm thấy tài khoản' });
+    }
+
+    const isMatch = await bcrypt.compare(String(currentPassword), rows[0].password || '');
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Mật khẩu hiện tại không đúng' });
+    }
+
+    const hashedPassword = await bcrypt.hash(String(newPassword), 10);
+    await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
+
+    res.json({ success: true, message: 'Đổi mật khẩu thành công' });
+  } catch (error) {
+    console.error('Error updating password:', error);
+    res.status(500).json({ message: 'Không thể đổi mật khẩu' });
+  }
+});
+
+app.get('/api/chat/global', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+    await touchUserPresenceByUserIdThrottled(userId, false);
+
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit || 50)));
+    const beforeId = Number(req.query.beforeId || 0);
+
+    const params = [];
+    let whereClause = '';
+    if (beforeId > 0) {
+      whereClause = 'WHERE m.id < ?';
+      params.push(beforeId);
+    }
+
+    const [rows] = await db.query(
+      `
+        SELECT
+          m.id,
+          m.user_id,
+          m.message_text,
+          m.created_at,
+          u.username,
+          u.guild,
+          up.display_name,
+          up.avatar_url
+        FROM global_chat_messages m
+        JOIN users u ON u.id = m.user_id
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        ${whereClause}
+        ORDER BY m.id DESC
+        LIMIT ?
+      `,
+      [...params, limit]
+    );
+
+    res.json({
+      cooldownSeconds: CHAT_COOLDOWN_SECONDS,
+      messages: rows.reverse().map(toChatMessagePayload),
+    });
+  } catch (error) {
+    console.error('Error fetching global chat messages:', error);
+    res.status(500).json({ message: 'Không thể tải lịch sử chat' });
+  }
+});
+
+app.post('/api/realtime/legend-caught', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+    await touchUserPresenceByUserIdThrottled(userId, true);
+
+    const profile = await getUserBasicProfile(userId);
+    if (!profile) {
+      return res.status(404).json({ message: 'Không tìm thấy user' });
+    }
+
+    const petName = String(req.body?.petName || 'Legend Pet').trim() || 'Legend Pet';
+    const rarity = String(req.body?.rarity || 'Legend').trim() || 'Legend';
+
+    io.to('global').emit('legend:caught', {
+      type: 'legend:caught',
+      user: {
+        user_id: profile.user_id,
+        username: profile.username,
+        display_name: profile.display_name || null,
+        avatar_url: profile.avatar_url || null,
+      },
+      petName,
+      rarity,
+      created_at: new Date().toISOString(),
+    });
+
+    res.json({ success: true, message: 'Đã broadcast sự kiện bắt pet hiếm' });
+  } catch (error) {
+    console.error('Error broadcasting legend event:', error);
+    res.status(500).json({ message: 'Không thể broadcast sự kiện' });
+  }
+});
+
+app.get('/api/buddies', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+    await touchUserPresenceByUserId(userId);
+
+    const [friends] = await db.query(
+      `
+        SELECT
+          u.id AS user_id,
+          u.username,
+          u.guild,
+          u.online_status,
+          up.display_name,
+          up.avatar_url,
+          p.last_seen_at,
+          f.created_at AS friendship_created_at
+        FROM user_friendships f
+        JOIN users u ON u.id = f.friend_id
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        LEFT JOIN user_presence p ON p.user_id = u.id
+        WHERE f.user_id = ?
+        ORDER BY f.created_at DESC
+        LIMIT 50
+      `,
+      [userId]
+    );
+
+    const [receivedRequests] = await db.query(
+      `
+        SELECT
+          r.id AS request_id,
+          r.created_at,
+          u.id AS user_id,
+          u.username,
+          u.guild,
+          up.display_name,
+          up.avatar_url
+        FROM user_friend_requests r
+        JOIN users u ON u.id = r.sender_id
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        WHERE r.receiver_id = ? AND r.status = 'pending'
+        ORDER BY r.created_at DESC
+      `,
+      [userId]
+    );
+
+    const [sentRequests] = await db.query(
+      `
+        SELECT
+          r.id AS request_id,
+          r.created_at,
+          u.id AS user_id,
+          u.username,
+          u.guild,
+          up.display_name,
+          up.avatar_url
+        FROM user_friend_requests r
+        JOIN users u ON u.id = r.receiver_id
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        WHERE r.sender_id = ? AND r.status = 'pending'
+        ORDER BY r.created_at DESC
+      `,
+      [userId]
+    );
+
+    const [recommended] = await db.query(
+      `
+        SELECT
+          u.id AS user_id,
+          u.username,
+          u.guild,
+          u.online_status,
+          up.display_name,
+          up.avatar_url,
+          p.last_seen_at
+        FROM users u
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        LEFT JOIN user_presence p ON p.user_id = u.id
+        WHERE
+          u.id <> ?
+          AND NOT EXISTS (
+            SELECT 1
+            FROM user_friendships f
+            WHERE f.user_id = ? AND f.friend_id = u.id
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM user_friend_requests r
+            WHERE r.status = 'pending'
+              AND (
+                (r.sender_id = ? AND r.receiver_id = u.id)
+                OR (r.sender_id = u.id AND r.receiver_id = ?)
+              )
+          )
+        ORDER BY RAND()
+        LIMIT 5
+      `,
+      [userId, userId, userId, userId]
+    );
+
+    const normalizeStatus = (row) => {
+      const status = getStatusLabel(row.online_status, row.last_seen_at);
+      return {
+        ...row,
+        status,
+        last_seen_text: status === 'offline' ? formatLastSeen(row.last_seen_at) : null,
+      };
+    };
+
+    res.json({
+      friends: friends.map(normalizeStatus),
+      receivedRequests,
+      sentRequests,
+      recommended: recommended.map(normalizeStatus),
+      counts: {
+        friends: friends.length,
+        receivedRequests: receivedRequests.length,
+        sentRequests: sentRequests.length,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching buddies overview:', error);
+    res.status(500).json({ message: 'Không thể tải dữ liệu bạn bè' });
+  }
+});
+
+app.get('/api/buddies/search', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+    await touchUserPresenceByUserId(userId);
+
+    const keyword = String(req.query.q || '').trim();
+    if (!keyword) return res.json({ users: [] });
+
+    const likeQuery = `%${keyword}%`;
+    const [rows] = await db.query(
+      `
+        SELECT
+          u.id AS user_id,
+          u.username,
+          u.guild,
+          u.online_status,
+          up.display_name,
+          up.avatar_url,
+          p.last_seen_at,
+          CASE WHEN f.user_id IS NULL THEN 0 ELSE 1 END AS is_friend,
+          CASE WHEN outgoing.id IS NULL THEN 0 ELSE 1 END AS has_outgoing_request,
+          CASE WHEN incoming.id IS NULL THEN 0 ELSE 1 END AS has_incoming_request
+        FROM users u
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        LEFT JOIN user_presence p ON p.user_id = u.id
+        LEFT JOIN user_friendships f
+          ON f.user_id = ? AND f.friend_id = u.id
+        LEFT JOIN user_friend_requests outgoing
+          ON outgoing.sender_id = ? AND outgoing.receiver_id = u.id AND outgoing.status = 'pending'
+        LEFT JOIN user_friend_requests incoming
+          ON incoming.sender_id = u.id AND incoming.receiver_id = ? AND incoming.status = 'pending'
+        WHERE
+          u.id <> ?
+          AND (
+            u.username LIKE ?
+            OR up.display_name LIKE ?
+            OR CAST(u.id AS CHAR) = ?
+          )
+        ORDER BY
+          (CASE WHEN CAST(u.id AS CHAR) = ? THEN 0 ELSE 1 END),
+          u.username ASC
+        LIMIT 50
+      `,
+      [userId, userId, userId, userId, likeQuery, likeQuery, keyword, keyword]
+    );
+
+    const users = rows.map((row) => {
+      const status = getStatusLabel(row.online_status, row.last_seen_at);
+      return {
+        ...row,
+        status,
+        last_seen_text: status === 'offline' ? formatLastSeen(row.last_seen_at) : null,
+      };
+    });
+
+    res.json({ users });
+  } catch (error) {
+    console.error('Error searching buddies:', error);
+    res.status(500).json({ message: 'Không thể tìm kiếm người chơi' });
+  }
+});
+
+app.post('/api/buddies/requests', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+    await touchUserPresenceByUserId(userId);
+
+    const receiverId = Number(req.body?.receiverId);
+    if (!receiverId) return res.status(400).json({ message: 'Thiếu receiverId' });
+    if (receiverId === userId) return res.status(400).json({ message: 'Không thể tự kết bạn với chính mình' });
+
+    const [userExists] = await db.query('SELECT id FROM users WHERE id = ? LIMIT 1', [receiverId]);
+    if (!userExists.length) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+
+    const [friendExists] = await db.query(
+      'SELECT 1 FROM user_friendships WHERE user_id = ? AND friend_id = ? LIMIT 1',
+      [userId, receiverId]
+    );
+    if (friendExists.length) return res.status(409).json({ message: 'Hai bạn đã là bạn bè' });
+
+    const [pendingExists] = await db.query(
+      `
+        SELECT 1
+        FROM user_friend_requests
+        WHERE status = 'pending'
+          AND (
+            (sender_id = ? AND receiver_id = ?)
+            OR (sender_id = ? AND receiver_id = ?)
+          )
+        LIMIT 1
+      `,
+      [userId, receiverId, receiverId, userId]
+    );
+    if (pendingExists.length) return res.status(409).json({ message: 'Đã có lời mời kết bạn đang chờ xử lý' });
+
+    await db.query(
+      'INSERT INTO user_friend_requests (sender_id, receiver_id, status) VALUES (?, ?, ?)',
+      [userId, receiverId, 'pending']
+    );
+
+    res.json({ success: true, message: 'Đã gửi lời mời kết bạn' });
+  } catch (error) {
+    console.error('Error sending buddy request:', error);
+    res.status(500).json({ message: 'Không thể gửi lời mời kết bạn' });
+  }
+});
+
+app.post('/api/buddies/requests/:requestId/accept', async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+    await touchUserPresenceByUserId(userId);
+
+    const requestId = Number(req.params.requestId);
+    if (!requestId) return res.status(400).json({ message: 'requestId không hợp lệ' });
+
+    await conn.beginTransaction();
+    const [rows] = await conn.query(
+      `
+        SELECT id, sender_id, receiver_id, status
+        FROM user_friend_requests
+        WHERE id = ?
+        FOR UPDATE
+      `,
+      [requestId]
+    );
+
+    if (!rows.length) {
+      await conn.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy lời mời' });
+    }
+
+    const request = rows[0];
+    if (request.receiver_id !== userId) {
+      await conn.rollback();
+      return res.status(403).json({ message: 'Bạn không có quyền chấp nhận lời mời này' });
+    }
+    if (request.status !== 'pending') {
+      await conn.rollback();
+      return res.status(400).json({ message: 'Lời mời đã được xử lý trước đó' });
+    }
+
+    await conn.query(
+      'UPDATE user_friend_requests SET status = ? WHERE id = ?',
+      ['accepted', requestId]
+    );
+
+    await conn.query(
+      `
+        INSERT INTO user_friendships (user_id, friend_id)
+        VALUES (?, ?), (?, ?)
+        ON DUPLICATE KEY UPDATE created_at = created_at
+      `,
+      [request.sender_id, request.receiver_id, request.receiver_id, request.sender_id]
+    );
+
+    await conn.query(
+      `
+        UPDATE user_friend_requests
+        SET status = 'cancelled'
+        WHERE status = 'pending'
+          AND sender_id = ?
+          AND receiver_id = ?
+      `,
+      [request.receiver_id, request.sender_id]
+    );
+
+    await conn.commit();
+    res.json({ success: true, message: 'Đã chấp nhận lời mời kết bạn' });
+  } catch (error) {
+    try { await conn.rollback(); } catch (_) {}
+    console.error('Error accepting buddy request:', error);
+    res.status(500).json({ message: 'Không thể chấp nhận lời mời' });
+  } finally {
+    conn.release();
+  }
+});
+
+app.post('/api/buddies/requests/:requestId/reject', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+    await touchUserPresenceByUserId(userId);
+
+    const requestId = Number(req.params.requestId);
+    if (!requestId) return res.status(400).json({ message: 'requestId không hợp lệ' });
+
+    const [result] = await db.query(
+      `
+        UPDATE user_friend_requests
+        SET status = 'rejected'
+        WHERE id = ? AND receiver_id = ? AND status = 'pending'
+      `,
+      [requestId, userId]
+    );
+
+    if (!result.affectedRows) {
+      return res.status(404).json({ message: 'Không tìm thấy lời mời chờ xử lý' });
+    }
+
+    res.json({ success: true, message: 'Đã từ chối lời mời kết bạn' });
+  } catch (error) {
+    console.error('Error rejecting buddy request:', error);
+    res.status(500).json({ message: 'Không thể từ chối lời mời' });
+  }
+});
+
+app.post('/api/buddies/requests/:requestId/cancel', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+    await touchUserPresenceByUserId(userId);
+
+    const requestId = Number(req.params.requestId);
+    if (!requestId) return res.status(400).json({ message: 'requestId không hợp lệ' });
+
+    const [result] = await db.query(
+      `
+        UPDATE user_friend_requests
+        SET status = 'cancelled'
+        WHERE id = ? AND sender_id = ? AND status = 'pending'
+      `,
+      [requestId, userId]
+    );
+
+    if (!result.affectedRows) {
+      return res.status(404).json({ message: 'Không tìm thấy lời mời chờ xử lý' });
+    }
+
+    res.json({ success: true, message: 'Đã hủy lời mời kết bạn' });
+  } catch (error) {
+    console.error('Error canceling buddy request:', error);
+    res.status(500).json({ message: 'Không thể hủy lời mời' });
+  }
+});
+
+app.delete('/api/buddies/:friendId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+    await touchUserPresenceByUserId(userId);
+
+    const friendId = Number(req.params.friendId);
+    if (!friendId) return res.status(400).json({ message: 'friendId không hợp lệ' });
+
+    const [result] = await db.query(
+      `
+        DELETE FROM user_friendships
+        WHERE (user_id = ? AND friend_id = ?)
+           OR (user_id = ? AND friend_id = ?)
+      `,
+      [userId, friendId, friendId, userId]
+    );
+
+    if (!result.affectedRows) {
+      return res.status(404).json({ message: 'Không tìm thấy bạn bè cần xóa' });
+    }
+
+    await db.query(
+      `
+        UPDATE user_friend_requests
+        SET status = 'cancelled'
+        WHERE status = 'pending'
+          AND (
+            (sender_id = ? AND receiver_id = ?)
+            OR (sender_id = ? AND receiver_id = ?)
+          )
+      `,
+      [userId, friendId, friendId, userId]
+    );
+
+    res.json({ success: true, message: 'Đã xóa bạn bè' });
+  } catch (error) {
+    console.error('Error removing buddy:', error);
+    res.status(500).json({ message: 'Không thể xóa bạn bè' });
   }
 });
 
@@ -1381,7 +2370,27 @@ app.get('/users/:userId', (req, res) => {
     return;
   }
 
-  pool.query('SELECT username, peta, petagold, real_name, guild, title, ranking, online_status, birthday, role FROM users WHERE id = ?', [userId], (err, results) => {
+  pool.query(`
+    SELECT
+      u.id,
+      u.username,
+      u.peta,
+      u.petagold,
+      u.real_name,
+      u.guild,
+      u.title,
+      u.ranking,
+      u.online_status,
+      u.birthday,
+      u.role,
+      up.display_name,
+      up.gender,
+      up.avatar_url
+    FROM users u
+    LEFT JOIN user_profiles up ON up.user_id = u.id
+    WHERE u.id = ?
+    LIMIT 1
+  `, [userId], (err, results) => {
     if (err) {
       console.error('Error fetching user info: ', err);
       res.status(500).json({ message: 'Error fetching user info' });
@@ -5817,8 +6826,15 @@ app.get('/api/admin/users', checkAdminRole, async (req, res) => {
 
     // Get users with pagination
     const [rows] = await db.query(`
-      SELECT id, username, role, is_vip, registration_date as created_at
-      FROM users
+      SELECT
+        u.id,
+        u.username,
+        u.role,
+        u.is_vip,
+        u.registration_date as created_at,
+        up.display_name
+      FROM users u
+      LEFT JOIN user_profiles up ON up.user_id = u.id
       ORDER BY registration_date DESC
       LIMIT ? OFFSET ?
     `, [limit, offset]);
@@ -6568,7 +7584,7 @@ app.post('/api/restaurant/feed', async (req, res) => {
 
 (async () => {
   await initRedis();
-  app.listen(port, () => {
+  httpServer.listen(port, () => {
     console.log(`Server is running on port ${port}`);
   });
 })();

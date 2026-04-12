@@ -1,4 +1,9 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import { getDisplayName } from './utils/userDisplay';
+import {
+  initializeRealtimeSocket,
+  disconnectRealtimeSocket,
+} from './realtime/socketClient';
 
 const UserContext = createContext(null);
 
@@ -100,6 +105,8 @@ export function UserProvider({ children }) {
           const userData = {
             userId: userProfile.userId,
             username: userProfile.username,
+            displayName: userProfile.displayName || userProfile.display_name || '',
+            effectiveName: getDisplayName(userProfile, userProfile.username || 'Người chơi'),
             isAdmin: userProfile.isAdmin,
             token,
             role: userProfile.role,
@@ -136,6 +143,7 @@ export function UserProvider({ children }) {
   const logout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('hasPet');
+    disconnectRealtimeSocket();
     dispatch({ type: USER_ACTIONS.CLEAR_USER });
   }, []);
 
@@ -203,6 +211,8 @@ export function UserProvider({ children }) {
           const userData = {
             userId: userProfile.userId,
             username: userProfile.username,
+            displayName: userProfile.displayName || userProfile.display_name || '',
+            effectiveName: getDisplayName(userProfile, userProfile.username || 'Người chơi'),
             isAdmin: userProfile.isAdmin,
             token,
             role: userProfile.role,
@@ -247,6 +257,38 @@ export function UserProvider({ children }) {
       return () => clearTimeout(timer);
     }
   }, [state.user, state.isAuthenticated, refreshToken]);
+
+  useEffect(() => {
+    if (!state.user?.token || !state.isAuthenticated) {
+      disconnectRealtimeSocket();
+      return undefined;
+    }
+
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
+    const socket = initializeRealtimeSocket(apiBaseUrl, state.user.token);
+    if (!socket) return undefined;
+
+    const emitHeartbeat = () => {
+      if (socket.connected) {
+        socket.emit('presence:heartbeat');
+      }
+    };
+
+    const intervalId = window.setInterval(emitHeartbeat, 25000);
+    emitHeartbeat();
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        emitHeartbeat();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [state.user?.token, state.isAuthenticated]);
 
   // Update user data function
   const updateUserData = (newData) => {
