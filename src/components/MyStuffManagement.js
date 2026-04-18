@@ -24,9 +24,9 @@ function MyStuffManagement() {
     },
     {
       id: 'club',
-      title: 'My Club',
+      title: 'My Guild',
       backgroundImage: '/images/background/myclub.jpg',
-      path: '/club',
+      path: '/guild',
       description: 'Quản lý câu lạc bộ và nhóm'
     },
     {

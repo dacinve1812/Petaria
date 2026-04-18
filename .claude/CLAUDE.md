@@ -84,6 +84,7 @@ This file is the first entrypoint when a new session starts.
 ## 7) Required docs to check by feature
 
 - Realtime/presence/chat: `docs/REALTIME_WEBSOCKET_IMPLEMENTATION.md`
+- Guild system workflow: `docs/GUILD_SYSTEM_WORKFLOW.md`
 - Game modal/UI patterns: `docs/GLOBAL_GAME_UI.md`, `docs/GLOBAL_ITEM_MODAL_CSS.md`
 - Auth: `docs/AUTHENTICATION_SYSTEM_DOCS.md`
 - Hunting map admin workflow: `docs/HUNTING_MAP_ADMIN_WORKFLOW.md`

@@ -48,6 +48,9 @@
     --color-modal-remove-text: #7d1212;
     --color-modal-remove-bg: #ffe1e1;
 
+    --game-btn-bg: #fdfcfa;
+    --game-btn-border: #312d1d84;
+    --game-btn-background: #f4f2ef;
 
     /* Pet Profile */
     --pet-detail: #48ceff;

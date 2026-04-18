@@ -21,6 +21,15 @@
 - Use responsive rules for desktop/tablet/mobile (avoid desktop-only layout).
 - Keep consistent game UI style for modal/button interactions.
 
+## Page composition (MainLayout)
+
+- `MainLayout` already provides: `container` -> `peta-sectiontitle` -> `container_fixed`.
+- When creating a new page/component rendered via `<Outlet />`, keep content flow as:
+  - `div.page-content` wrapper, then page-specific content; or
+  - direct page content if wrapper is unnecessary.
+- Avoid introducing legacy wrapper names (`guid-page` typo variants) for new pages.
+- Keep page root class names consistent and descriptive (`page-content`, `guild-page`, `buddies-page`, etc.).
+
 ## Comments
 
 - Add comments only for non-obvious logic.

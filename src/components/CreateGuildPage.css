@@ -1,0 +1,133 @@
+.create-guild-page {
+  display: grid;
+  gap: 12px;
+}
+
+.create-guild-page h2 {
+  margin: 0;
+}
+
+.create-guild-subtitle {
+  margin: 0;
+  color: #596c82;
+}
+
+.create-guild-form {
+  border: 1px solid #d2deec;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.create-guild-preview {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.create-guild-banner {
+  height: 140px;
+  border-radius: 12px;
+  border: 1px solid #d2deec;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  background-color: #eef2f8;
+}
+
+.create-guild-preview-text {
+  display: grid;
+  gap: 4px;
+  color: #43566e;
+}
+
+.create-guild-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.create-guild-preset {
+  min-height: 64px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  font-weight: 700;
+  cursor: pointer;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 6px;
+}
+
+.create-guild-preset.active {
+  border-color: #101827;
+}
+
+.create-guild-label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+  color: #2e435b;
+}
+
+.create-guild-label input,
+.create-guild-label textarea,
+.create-guild-label select {
+  border: 1px solid #cdd9e7;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.create-guild-label textarea {
+  resize: vertical;
+}
+
+.create-guild-error {
+  margin: 0;
+  color: #b3261e;
+  font-weight: 700;
+}
+
+.create-guild-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.create-guild-actions button {
+  min-height: 38px;
+  border-radius: 8px;
+  border: 1px solid #c8d5e6;
+  background: #f4f8ff;
+  padding: 0 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .create-guild-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .create-guild-banner {
+    height: 170px;
+  }
+
+  .create-guild-actions {
+    justify-content: stretch;
+  }
+
+  .create-guild-actions button {
+    flex: 1;
+  }
+}
+

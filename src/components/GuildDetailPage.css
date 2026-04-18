@@ -1,0 +1,257 @@
+.guild-detail-page {
+  display: grid;
+  gap: 14px;
+  background-color: #ffffff;
+  min-height: 40dvh;
+  padding: 10px;
+}
+
+.guild-detail-back {
+  justify-self: end;
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid #cdd8e6;
+  background: #f4f8ff;
+  padding: 0 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.guild-detail-feedback {
+  margin: 0;
+  color: #475569;
+}
+
+.guild-detail-feedback--error {
+  color: #b3261e;
+}
+
+.guild-detail-feedback--success {
+  color: #267a36;
+}
+
+.guild-detail-card {
+  border: 1px solid #d7d3cb;
+  border-radius: 14px;
+  background: #f2efe9;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.guild-detail-main {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.guild-detail-left {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.guild-detail-level,
+.guild-detail-name {
+  min-height: 34px;
+  border-radius: 999px;
+  background: #2f343e;
+  color: #f4f7fb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.guild-detail-banner {
+  width: min(100%, 220px);
+  aspect-ratio: 2 / 3;
+  justify-self: center;
+  border-radius: 12px;
+  border: 2px solid #d9ccba;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 50% auto, 100% 100%;
+  background-color: #e8dfd2;
+}
+
+.guild-detail-leader {
+  border: 1px solid #d2cbc0;
+  border-radius: 10px;
+  background: #f8f5ef;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 8px;
+  align-items: center;
+  width: 85%;
+  margin: auto;
+}
+
+.guild-detail-leader img {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid #cbc3b5;
+}
+
+.guild-detail-leader-role {
+  margin: 0;
+  color: #756652;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.guild-detail-leader-name {
+  margin: 0;
+  color: #41362f;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.guild-detail-right {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.guild-detail-right h3 {
+  margin: 0;
+}
+
+.guild-detail-description {
+  border: 1px solid #d2cbc0;
+  border-radius: 10px;
+  background: #f7f4ee;
+  margin: 0;
+  padding: 10px;
+  color: #524841;
+  white-space: pre-wrap;
+}
+
+.guild-detail-stats {
+  display: grid;
+  gap: 6px;
+}
+
+.guild-detail-stat-row {
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid #d4ccc0;
+  background: #f1ede6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 12px;
+  color: #584d45;
+  font-weight: 700;
+}
+
+.guild-detail-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.guild-detail-actions button {
+  min-height: 38px;
+  border-radius: 8px;
+  border: 1px solid #baad97;
+  background: #e7d8bf;
+  padding: 0 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.guild-detail-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .guild-detail-main {
+    grid-template-columns: minmax(120px, 0.4fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .guild-detail-banner {
+    width: min(100%, 200px);
+  }
+}
+
+@media (max-width: 330px) {
+  .guild-detail-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+  }
+}
+
+@media (max-width: 540px) {
+  .guild-detail-page {
+    gap: 10px;
+    padding: 8px;
+  }
+
+  .guild-detail-card {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .guild-detail-back {
+    justify-self: stretch;
+    min-height: 32px;
+    font-size: 0.82rem;
+  }
+
+  .guild-detail-level,
+  .guild-detail-name {
+    min-height: 30px;
+    font-size: 0.88rem;
+  }
+
+  .guild-detail-banner {
+    width: min(100%, 170px);
+  }
+
+  .guild-detail-leader {
+    width: 100%;
+    grid-template-columns: 44px 1fr;
+    padding: 8px;
+  }
+
+  .guild-detail-leader img {
+    width: 44px;
+    height: 44px;
+  }
+
+  .guild-detail-leader-name {
+    font-size: 0.98rem;
+  }
+
+  .guild-detail-right {
+    gap: 8px;
+  }
+
+  .guild-detail-right h3 {
+    font-size: 0.96rem;
+  }
+
+  .guild-detail-description {
+    padding: 8px;
+    font-size: 0.9rem;
+  }
+
+  .guild-detail-stat-row {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 0.82rem;
+  }
+
+  .guild-detail-actions button {
+    width: 100%;
+    min-height: 34px;
+    font-size: 0.84rem;
+  }
+}
+

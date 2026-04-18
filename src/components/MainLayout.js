@@ -73,6 +73,9 @@ function MainLayout() {
         if (pathname.startsWith('/hunting-world/confirm')) {
             return 'PETARIA';
         }
+        if (pathname.startsWith('/guild')) {
+            return 'BANG HỘI';
+        }
 
         const titleMap = {
             '/': 'PETARIA',
@@ -92,7 +95,6 @@ function MainLayout() {
             '/battle/arena/arenabattle': 'ĐẤU TRƯỜNG',
             '/hunting-world': 'ĐI SĂN',
             '/world-map': 'PETARIA',
-            '/guild': 'BANG HỘI',
             '/quest': 'NHIỆM VỤ',
             '/management': 'QUẢN LÝ',
             '/buddies': 'BẠN BÈ',

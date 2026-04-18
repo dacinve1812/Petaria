@@ -147,6 +147,63 @@ async function ensureBuddiesTables() {
   }
 }
 
+async function ensureGuildTables() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS guilds (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(60) NOT NULL,
+        description VARCHAR(600) NULL,
+        banner_url TEXT NULL,
+        admission_type VARCHAR(20) NOT NULL DEFAULT 'free',
+        level TINYINT NOT NULL DEFAULT 1,
+        owner_user_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_guilds_name (name),
+        CONSTRAINT fk_guilds_owner
+          FOREIGN KEY (owner_user_id) REFERENCES users(id)
+          ON DELETE CASCADE,
+        INDEX idx_guilds_level_created (level, created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS guild_members (
+        guild_name VARCHAR(60) NOT NULL,
+        user_id INT NOT NULL,
+        role VARCHAR(20) NOT NULL DEFAULT 'member',
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (guild_name, user_id),
+        CONSTRAINT fk_guild_members_user
+          FOREIGN KEY (user_id) REFERENCES users(id)
+          ON DELETE CASCADE,
+        INDEX idx_guild_members_user (user_id),
+        INDEX idx_guild_members_role (guild_name, role)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS guild_join_requests (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        guild_name VARCHAR(60) NOT NULL,
+        user_id INT NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_guild_join_requests_user
+          FOREIGN KEY (user_id) REFERENCES users(id)
+          ON DELETE CASCADE,
+        UNIQUE KEY uq_guild_join_requests_pending (guild_name, user_id, status),
+        INDEX idx_guild_join_requests_guild_status (guild_name, status)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+  } catch (error) {
+    console.error('Error ensuring guild tables:', error);
+  }
+}
+
 async function ensureChatTables() {
   try {
     await db.query(`
@@ -160,6 +217,34 @@ async function ensureChatTables() {
           ON DELETE CASCADE,
         INDEX idx_global_chat_messages_created (created_at),
         INDEX idx_global_chat_messages_user (user_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS guild_chat_messages (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        guild_name VARCHAR(120) NOT NULL,
+        user_id INT NOT NULL,
+        message_text VARCHAR(500) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_guild_chat_messages_user
+          FOREIGN KEY (user_id) REFERENCES users(id)
+          ON DELETE CASCADE,
+        INDEX idx_guild_chat_messages_guild_id (guild_name, id),
+        INDEX idx_guild_chat_messages_user (user_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS system_chat_events (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        event_type VARCHAR(80) NOT NULL,
+        actor_user_id INT NULL,
+        message_text VARCHAR(500) NOT NULL,
+        payload_json JSON NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_system_chat_events_user
+          FOREIGN KEY (actor_user_id) REFERENCES users(id)
+          ON DELETE SET NULL,
+        INDEX idx_system_chat_events_created (id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
   } catch (error) {
@@ -180,11 +265,11 @@ async function touchUserPresenceByUserId(userId) {
 }
 
 function getStatusLabel(onlineStatus, lastSeenAt) {
-  if (Number(onlineStatus) === 1) return 'online';
-  if (!lastSeenAt) return 'away';
+  if (!lastSeenAt) return Number(onlineStatus) === 1 ? 'away' : 'offline';
   const diff = Date.now() - new Date(lastSeenAt).getTime();
   if (Number.isNaN(diff)) return 'away';
-  return diff <= 30 * 60 * 1000 ? 'away' : 'offline';
+  if (Number(onlineStatus) === 1 && diff <= PRESENCE_ONLINE_STALE_MS) return 'online';
+  return diff <= PRESENCE_AWAY_WINDOW_MS ? 'away' : 'offline';
 }
 
 function formatLastSeen(lastSeenAt) {
@@ -200,12 +285,81 @@ function formatLastSeen(lastSeenAt) {
   return `${days} ngày trước`;
 }
 
+function clampGuildLevel(level) {
+  const parsed = Number(level) || 1;
+  return Math.max(1, Math.min(10, parsed));
+}
+
+function getGuildMemberLimitByLevel(level) {
+  const normalizedLevel = clampGuildLevel(level);
+  const computed = 10 + Math.round(((normalizedLevel - 1) * 20) / 9);
+  return Math.max(10, Math.min(30, computed));
+}
+
+function normalizeGuildAdmissionType(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'approval' ? 'approval' : 'free';
+}
+
+function normalizeGuildBannerUrl(value) {
+  const normalized = String(value || '').trim();
+  const isAllowedBanner = /^\/images\/guild\/banner\d+\.png$/i;
+  const isAllowedFraction = /^\/images\/guild\/fraction\d+\.png$/i;
+
+  if (normalized.includes('::')) {
+    const [bannerPartRaw, fractionPartRaw] = normalized.split('::');
+    const bannerPart = String(bannerPartRaw || '').trim();
+    const fractionPart = String(fractionPartRaw || '').trim();
+    if (isAllowedBanner.test(bannerPart) && isAllowedFraction.test(fractionPart)) {
+      return `${bannerPart}::${fractionPart}`;
+    }
+  }
+
+  if (isAllowedBanner.test(normalized)) return normalized;
+  return '/images/guild/banner01.png';
+}
+
+function normalizeGuildRole(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'leader') return 'leader';
+  if (normalized === 'officer') return 'officer';
+  if (normalized === 'elite') return 'elite';
+  return 'member';
+}
+
+function getGuildRolePriority(role) {
+  const normalized = normalizeGuildRole(role);
+  if (normalized === 'leader') return 1;
+  if (normalized === 'officer') return 2;
+  if (normalized === 'elite') return 3;
+  return 4;
+}
+
+function normalizeGuildName(guildName) {
+  return String(guildName || '').trim();
+}
+
+function getGuildRoomName(guildName) {
+  const normalizedGuild = normalizeGuildName(guildName);
+  return normalizedGuild ? `guild:${normalizedGuild}` : null;
+}
+
 ensureBuddiesTables();
+ensureGuildTables();
 ensureChatTables();
 
 const CHAT_COOLDOWN_SECONDS = Math.max(1, Number(process.env.CHAT_COOLDOWN_SECONDS || 30));
-const CHAT_MESSAGE_MAX_LENGTH = 500;
+const CHAT_MESSAGE_MAX_LENGTH = Math.min(
+  150,
+  Math.max(100, Number(process.env.CHAT_MESSAGE_MAX_LENGTH || 150))
+);
+const GUILD_RENAME_COST_PETA = 1000000;
+const WORLD_CHAT_HISTORY_LIMIT = 50;
+const GUILD_CHAT_HISTORY_LIMIT = 100;
+const SYSTEM_CHAT_HISTORY_LIMIT = 100;
 const PRESENCE_TOUCH_THROTTLE_MS = 20 * 1000;
+const PRESENCE_ONLINE_STALE_MS = 70 * 1000;
+const PRESENCE_AWAY_WINDOW_MS = 30 * 60 * 1000;
 const onlineSocketCountByUserId = new Map();
 const userLastPresenceTouchById = new Map();
 const userLastChatAtById = new Map();
@@ -216,6 +370,14 @@ async function touchUserPresenceByUserIdThrottled(userId, force = false) {
   if (!force && now - lastTouch < PRESENCE_TOUCH_THROTTLE_MS) return;
   userLastPresenceTouchById.set(userId, now);
   await touchUserPresenceByUserId(userId);
+}
+
+async function resetOnlineStatusOnStartup() {
+  try {
+    await db.query('UPDATE users SET online_status = 0 WHERE online_status <> 0');
+  } catch (error) {
+    console.error('Error resetting online status on startup:', error);
+  }
 }
 
 // Redis client cho Arena Match State (optional)
@@ -293,6 +455,7 @@ function buildPresencePayload(profileRow) {
 function toChatMessagePayload(row) {
   return {
     id: row.id,
+    channel: row.channel || 'world',
     message: row.message_text,
     created_at: row.created_at,
     user: {
@@ -302,6 +465,25 @@ function toChatMessagePayload(row) {
       avatar_url: row.avatar_url || null,
       guild: row.guild || null,
     },
+  };
+}
+
+function toSystemMessagePayload(row) {
+  let payload = row.payload_json || null;
+  if (typeof payload === 'string') {
+    try {
+      payload = JSON.parse(payload);
+    } catch (_) {
+      payload = null;
+    }
+  }
+  return {
+    id: row.id,
+    channel: 'system',
+    type: row.event_type || 'system',
+    message: row.message_text,
+    created_at: row.created_at,
+    payload,
   };
 }
 
@@ -338,13 +520,20 @@ io.on('connection', async (socket) => {
     await db.query('UPDATE users SET online_status = 1 WHERE id = ?', [userId]);
     await touchUserPresenceByUserIdThrottled(userId, true);
     const profile = await getUserBasicProfile(userId);
+    const guildRoom = getGuildRoomName(profile?.guild);
+    socket.data.guildRoom = guildRoom;
+    if (guildRoom) socket.join(guildRoom);
     const presencePayload = buildPresencePayload(profile);
     if (presencePayload) io.emit('presence:update', presencePayload);
   } catch (error) {
     console.error('Socket connection presence update error:', error);
   }
 
-  socket.emit('chat:config', { cooldownSeconds: CHAT_COOLDOWN_SECONDS });
+  socket.emit('chat:config', {
+    cooldownSeconds: CHAT_COOLDOWN_SECONDS,
+    maxMessageLength: CHAT_MESSAGE_MAX_LENGTH,
+    channels: ['world', 'guild', 'system'],
+  });
 
   socket.on('presence:heartbeat', async () => {
     try {
@@ -356,6 +545,14 @@ io.on('connection', async (socket) => {
 
   socket.on('chat:send', async (payload = {}) => {
     try {
+      const channel = String(payload?.channel || 'world').trim().toLowerCase();
+      if (!['world', 'guild'].includes(channel)) {
+        socket.emit('chat:error', {
+          code: 'CHAT_CHANNEL_INVALID',
+          message: 'Kênh chat không hợp lệ',
+        });
+        return;
+      }
       const rawMessage = String(payload?.message || '').trim();
       if (!rawMessage) return;
       const message = rawMessage.slice(0, CHAT_MESSAGE_MAX_LENGTH);
@@ -375,12 +572,94 @@ io.on('connection', async (socket) => {
       userLastChatAtById.set(userId, now);
       await touchUserPresenceByUserIdThrottled(userId, true);
 
+      if (channel === 'world') {
+        const [insertResult] = await db.query(
+          `
+            INSERT INTO global_chat_messages (user_id, message_text)
+            VALUES (?, ?)
+          `,
+          [userId, message]
+        );
+
+        await db.query(
+          `
+            DELETE FROM global_chat_messages
+            WHERE id NOT IN (
+              SELECT id
+              FROM (
+                SELECT id
+                FROM global_chat_messages
+                ORDER BY id DESC
+                LIMIT ?
+              ) AS keep_rows
+            )
+          `,
+          [WORLD_CHAT_HISTORY_LIMIT]
+        );
+
+        const [rows] = await db.query(
+          `
+            SELECT
+              m.id,
+              m.user_id,
+              m.message_text,
+              m.created_at,
+              u.username,
+              u.guild,
+              up.display_name,
+              up.avatar_url
+            FROM global_chat_messages m
+            JOIN users u ON u.id = m.user_id
+            LEFT JOIN user_profiles up ON up.user_id = u.id
+            WHERE m.id = ?
+            LIMIT 1
+          `,
+          [insertResult.insertId]
+        );
+
+        if (rows.length) {
+          io.to('global').emit('chat:message', toChatMessagePayload({
+            ...rows[0],
+            channel: 'world',
+          }));
+        }
+        return;
+      }
+
+      const profile = await getUserBasicProfile(userId);
+      const guildName = normalizeGuildName(profile?.guild);
+      if (!guildName) {
+        socket.emit('chat:error', {
+          code: 'GUILD_REQUIRED',
+          message: 'Bạn chưa có bang hội nên không thể chat Guild',
+        });
+        return;
+      }
+
       const [insertResult] = await db.query(
         `
-          INSERT INTO global_chat_messages (user_id, message_text)
-          VALUES (?, ?)
+          INSERT INTO guild_chat_messages (guild_name, user_id, message_text)
+          VALUES (?, ?, ?)
         `,
-        [userId, message]
+        [guildName, userId, message]
+      );
+
+      await db.query(
+        `
+          DELETE FROM guild_chat_messages
+          WHERE guild_name = ?
+            AND id NOT IN (
+              SELECT id
+              FROM (
+                SELECT id
+                FROM guild_chat_messages
+                WHERE guild_name = ?
+                ORDER BY id DESC
+                LIMIT ?
+              ) AS keep_rows
+            )
+        `,
+        [guildName, guildName, GUILD_CHAT_HISTORY_LIMIT]
       );
 
       const [rows] = await db.query(
@@ -394,7 +673,7 @@ io.on('connection', async (socket) => {
             u.guild,
             up.display_name,
             up.avatar_url
-          FROM global_chat_messages m
+          FROM guild_chat_messages m
           JOIN users u ON u.id = m.user_id
           LEFT JOIN user_profiles up ON up.user_id = u.id
           WHERE m.id = ?
@@ -404,7 +683,13 @@ io.on('connection', async (socket) => {
       );
 
       if (rows.length) {
-        io.to('global').emit('chat:message', toChatMessagePayload(rows[0]));
+        const guildRoom = getGuildRoomName(guildName);
+        if (guildRoom) {
+          io.to(guildRoom).emit('chat:message', toChatMessagePayload({
+            ...rows[0],
+            channel: 'guild',
+          }));
+        }
       }
     } catch (error) {
       console.error('Socket chat send error:', error);
@@ -1351,24 +1636,1361 @@ app.put('/api/user/password', async (req, res) => {
   }
 });
 
-app.get('/api/chat/global', async (req, res) => {
+async function getAuthUserIdFromRequest(req, res) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    res.status(401).json({ message: 'No token provided' });
+    return null;
+  }
+  const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+  return decoded.userId;
+}
+
+app.get('/api/guilds', async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ message: 'No token provided' });
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    const userId = decoded.userId;
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
     await touchUserPresenceByUserIdThrottled(userId, false);
 
-    const limit = Math.min(100, Math.max(1, Number(req.query.limit || 50)));
-    const beforeId = Number(req.query.beforeId || 0);
+    const [userRows] = await db.query('SELECT guild FROM users WHERE id = ? LIMIT 1', [userId]);
+    const myGuildName = normalizeGuildName(userRows[0]?.guild);
 
-    const params = [];
-    let whereClause = '';
-    if (beforeId > 0) {
-      whereClause = 'WHERE m.id < ?';
-      params.push(beforeId);
+    const [rows] = await db.query(
+      `
+        SELECT
+          g.id,
+          g.name,
+          g.description,
+          g.banner_url,
+          g.admission_type,
+          g.level,
+          g.owner_user_id,
+          g.created_at,
+          u.username AS owner_username,
+          up.display_name AS owner_display_name,
+          COALESCE(m.member_count, 0) AS member_count
+        FROM guilds g
+        JOIN users u ON u.id = g.owner_user_id
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        LEFT JOIN (
+          SELECT guild, COUNT(*) AS member_count
+          FROM users
+          WHERE guild IS NOT NULL AND TRIM(guild) <> ''
+          GROUP BY guild
+        ) m ON m.guild = g.name
+        ORDER BY g.level DESC, member_count DESC, g.created_at ASC
+        LIMIT 200
+      `
+    );
+
+    const guilds = rows.map((row) => {
+      const memberLimit = getGuildMemberLimitByLevel(row.level);
+      return {
+        ...row,
+        level: clampGuildLevel(row.level),
+        member_limit: memberLimit,
+        member_count: Number(row.member_count) || 0,
+        is_full: Number(row.member_count) >= memberLimit,
+      };
+    });
+
+    const myGuild = myGuildName
+      ? guilds.find((g) => String(g.name).toLowerCase() === myGuildName.toLowerCase()) || null
+      : null;
+
+    res.json({
+      myGuildName: myGuildName || null,
+      myGuild,
+      canCreateGuild: !myGuildName,
+      guilds,
+    });
+  } catch (error) {
+    console.error('Error fetching guilds:', error);
+    res.status(500).json({ message: 'Không thể tải danh sách bang hội' });
+  }
+});
+
+app.post('/api/guilds', async (req, res) => {
+  let connection = null;
+  try {
+    connection = await db.getConnection();
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, true);
+
+    const name = String(req.body?.name || '').trim();
+    const description = String(req.body?.description || '').trim();
+    const bannerUrl = normalizeGuildBannerUrl(req.body?.bannerUrl);
+    const admissionType = normalizeGuildAdmissionType(req.body?.admissionType);
+
+    if (name.length < 3 || name.length > 60) {
+      return res.status(400).json({ message: 'Tên bang hội phải từ 3-60 ký tự' });
+    }
+    if (description.length > 600) {
+      return res.status(400).json({ message: 'Mô tả bang hội tối đa 600 ký tự' });
     }
 
+    await connection.beginTransaction();
+
+    const [userRows] = await connection.query(
+      'SELECT id, guild, peta FROM users WHERE id = ? LIMIT 1 FOR UPDATE',
+      [userId]
+    );
+    if (!userRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+    const currentGuild = normalizeGuildName(userRows[0].guild);
+    if (currentGuild) {
+      await connection.rollback();
+      return res.status(409).json({ message: 'Bạn đã ở trong một bang hội' });
+    }
+
+    const [existsRows] = await connection.query(
+      'SELECT id FROM guilds WHERE name = ? LIMIT 1',
+      [name]
+    );
+    if (existsRows.length) {
+      await connection.rollback();
+      return res.status(409).json({ message: 'Tên bang hội đã tồn tại' });
+    }
+
+    const initialLevel = 1;
+    await connection.query(
+      `
+        INSERT INTO guilds (name, description, banner_url, admission_type, level, owner_user_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `,
+      [name, description || null, bannerUrl || null, admissionType, initialLevel, userId]
+    );
+    await connection.query('UPDATE users SET guild = ? WHERE id = ?', [name, userId]);
+    await connection.query(
+      'INSERT INTO guild_members (guild_name, user_id, role) VALUES (?, ?, ?)',
+      [name, userId, 'leader']
+    );
+
+    await connection.commit();
+    res.status(201).json({
+      success: true,
+      message: 'Tạo bang hội thành công',
+      guild: {
+        name,
+        description: description || null,
+        banner_url: bannerUrl || null,
+        admission_type: admissionType,
+        level: initialLevel,
+        member_limit: getGuildMemberLimitByLevel(initialLevel),
+        member_count: 1,
+      },
+    });
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (_) {
+        // ignore rollback error
+      }
+    }
+    console.error('Error creating guild:', error);
+    res.status(500).json({ message: 'Không thể tạo bang hội lúc này' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+app.put('/api/guilds/my', async (req, res) => {
+  let connection = null;
+  try {
+    connection = await db.getConnection();
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, true);
+
+    const incomingName = String(req.body?.name || '').trim();
+    const description = String(req.body?.description || '').trim();
+    const bannerUrl = normalizeGuildBannerUrl(req.body?.bannerUrl);
+    const admissionType = normalizeGuildAdmissionType(req.body?.admissionType);
+
+    if (incomingName.length < 3 || incomingName.length > 60) {
+      return res.status(400).json({ message: 'Tên bang hội phải từ 3-60 ký tự' });
+    }
+    if (description.length > 600) {
+      return res.status(400).json({ message: 'Mô tả bang hội tối đa 600 ký tự' });
+    }
+
+    await connection.beginTransaction();
+
+    const [userRows] = await connection.query(
+      'SELECT id, guild FROM users WHERE id = ? LIMIT 1 FOR UPDATE',
+      [userId]
+    );
+    if (!userRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+
+    const currentGuildName = normalizeGuildName(userRows[0].guild);
+    if (!currentGuildName) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Bạn chưa ở trong bang hội nào' });
+    }
+
+    const [guildRows] = await connection.query(
+      'SELECT * FROM guilds WHERE name = ? LIMIT 1 FOR UPDATE',
+      [currentGuildName]
+    );
+    if (!guildRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy bang hội hiện tại' });
+    }
+
+    const guildRow = guildRows[0];
+    if (Number(guildRow.owner_user_id) !== Number(userId)) {
+      await connection.rollback();
+      return res.status(403).json({ message: 'Chỉ chủ bang mới có thể chỉnh sửa' });
+    }
+
+    const renameRequested = incomingName.toLowerCase() !== currentGuildName.toLowerCase();
+    if (renameRequested) {
+      const [existsRows] = await connection.query(
+        'SELECT id FROM guilds WHERE LOWER(name) = LOWER(?) AND id <> ? LIMIT 1',
+        [incomingName, guildRow.id]
+      );
+      if (existsRows.length) {
+        await connection.rollback();
+        return res.status(409).json({ message: 'Tên bang hội đã tồn tại' });
+      }
+
+      const petaBalance = Number(userRows[0].peta) || 0;
+      if (petaBalance < GUILD_RENAME_COST_PETA) {
+        await connection.rollback();
+        return res.status(400).json({
+          message: `Đổi tên guild cần ${GUILD_RENAME_COST_PETA.toLocaleString('vi-VN')} Peta`,
+        });
+      }
+    }
+
+    await connection.query(
+      `
+        UPDATE guilds
+        SET name = ?, description = ?, banner_url = ?, admission_type = ?
+        WHERE id = ?
+      `,
+      [incomingName, description || null, bannerUrl || null, admissionType, guildRow.id]
+    );
+
+    if (renameRequested) {
+      await connection.query('UPDATE users SET peta = peta - ? WHERE id = ?', [
+        GUILD_RENAME_COST_PETA,
+        userId,
+      ]);
+      await connection.query('UPDATE users SET guild = ? WHERE guild = ?', [incomingName, currentGuildName]);
+      await connection.query('UPDATE guild_chat_messages SET guild_name = ? WHERE guild_name = ?', [
+        incomingName,
+        currentGuildName,
+      ]);
+      await connection.query('UPDATE guild_members SET guild_name = ? WHERE guild_name = ?', [
+        incomingName,
+        currentGuildName,
+      ]);
+      await connection.query('UPDATE guild_join_requests SET guild_name = ? WHERE guild_name = ?', [
+        incomingName,
+        currentGuildName,
+      ]);
+    }
+
+    await connection.commit();
+    res.json({
+      success: true,
+      message: 'Cập nhật bang hội thành công',
+      renameCostPaid: renameRequested ? GUILD_RENAME_COST_PETA : 0,
+    });
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (_) {
+        // ignore rollback error
+      }
+    }
+    console.error('Error updating guild:', error);
+    res.status(500).json({ message: 'Không thể cập nhật bang hội lúc này' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+app.get('/api/guilds/my/members', async (req, res) => {
+  try {
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, false);
+
+    const [userRows] = await db.query('SELECT guild FROM users WHERE id = ? LIMIT 1', [userId]);
+    if (!userRows.length) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+    const guildName = normalizeGuildName(userRows[0].guild);
+    if (!guildName) {
+      return res.status(400).json({ message: 'Bạn chưa ở trong bang hội nào' });
+    }
+
+    const [guildRows] = await db.query(
+      'SELECT id, owner_user_id FROM guilds WHERE name = ? LIMIT 1',
+      [guildName]
+    );
+    if (!guildRows.length) {
+      return res.status(404).json({ message: 'Không tìm thấy bang hội' });
+    }
+    const guild = guildRows[0];
+
+    await db.query(
+      `
+        INSERT IGNORE INTO guild_members (guild_name, user_id, role)
+        SELECT
+          ? AS guild_name,
+          u.id AS user_id,
+          CASE
+            WHEN u.id = ? THEN 'leader'
+            ELSE 'member'
+          END AS role
+        FROM users u
+        WHERE u.guild = ?
+      `,
+      [guildName, guild.owner_user_id, guildName]
+    );
+
+    const [membersRows] = await db.query(
+      `
+        SELECT
+          u.id AS user_id,
+          u.username,
+          u.online_status,
+          up.display_name,
+          up.avatar_url,
+          p.last_seen_at,
+          gm.role,
+          gm.joined_at
+        FROM guild_members gm
+        JOIN users u ON u.id = gm.user_id
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        LEFT JOIN user_presence p ON p.user_id = u.id
+        WHERE gm.guild_name = ?
+        ORDER BY
+          CASE gm.role
+            WHEN 'leader' THEN 1
+            WHEN 'officer' THEN 2
+            WHEN 'elite' THEN 3
+            ELSE 4
+          END ASC,
+          gm.joined_at ASC
+      `,
+      [guildName]
+    );
+
+    const [roleRows] = await db.query(
+      'SELECT role FROM guild_members WHERE guild_name = ? AND user_id = ? LIMIT 1',
+      [guildName, userId]
+    );
+    const requesterRole = roleRows.length
+      ? normalizeGuildRole(roleRows[0].role)
+      : Number(userId) === Number(guild.owner_user_id)
+      ? 'leader'
+      : 'member';
+    const canApprove = requesterRole === 'leader' || requesterRole === 'officer';
+
+    const [pendingRows] = await db.query(
+      `
+        SELECT COUNT(*) AS pending_count
+        FROM guild_join_requests
+        WHERE guild_name = ? AND status = 'pending'
+      `,
+      [guildName]
+    );
+    const pendingCount = Number(pendingRows?.[0]?.pending_count) || 0;
+
+    const members = membersRows.map((row) => {
+      const status = getStatusLabel(row.online_status, row.last_seen_at);
+      return {
+        ...row,
+        role: normalizeGuildRole(row.role),
+        role_priority: getGuildRolePriority(row.role),
+        status,
+        last_seen_text: status === 'offline' ? formatLastSeen(row.last_seen_at) : null,
+      };
+    });
+
+    res.json({
+      guildName,
+      requesterRole,
+      canApprove,
+      pendingCount,
+      members,
+    });
+  } catch (error) {
+    console.error('Error fetching guild members:', error);
+    res.status(500).json({ message: 'Không thể tải danh sách thành viên bang hội' });
+  }
+});
+
+app.get('/api/guilds/:guildName', async (req, res) => {
+  try {
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, false);
+
+    const guildNameParam = normalizeGuildName(decodeURIComponent(req.params.guildName || ''));
+    if (!guildNameParam) {
+      return res.status(400).json({ message: 'Thiếu tên bang hội' });
+    }
+
+    const [guildRows] = await db.query(
+      `
+        SELECT
+          g.id,
+          g.name,
+          g.description,
+          g.banner_url,
+          g.admission_type,
+          g.level,
+          g.owner_user_id,
+          g.created_at,
+          u.username AS owner_username,
+          up.display_name AS owner_display_name,
+          up.avatar_url AS owner_avatar_url,
+          COALESCE(m.member_count, 0) AS member_count
+        FROM guilds g
+        JOIN users u ON u.id = g.owner_user_id
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        LEFT JOIN (
+          SELECT guild, COUNT(*) AS member_count
+          FROM users
+          WHERE guild IS NOT NULL AND TRIM(guild) <> ''
+          GROUP BY guild
+        ) m ON m.guild = g.name
+        WHERE LOWER(g.name) = LOWER(?)
+        LIMIT 1
+      `,
+      [guildNameParam]
+    );
+
+    if (!guildRows.length) {
+      return res.status(404).json({ message: 'Không tìm thấy bang hội' });
+    }
+
+    const guild = guildRows[0];
+    const memberLimit = getGuildMemberLimitByLevel(guild.level);
+
+    const [userRows] = await db.query('SELECT guild FROM users WHERE id = ? LIMIT 1', [userId]);
+    const myGuildName = normalizeGuildName(userRows[0]?.guild);
+
+    const [roleRows] = await db.query(
+      'SELECT role FROM guild_members WHERE guild_name = ? AND user_id = ? LIMIT 1',
+      [guild.name, userId]
+    );
+    const myRole = roleRows.length ? normalizeGuildRole(roleRows[0].role) : null;
+
+    const [pendingRows] = await db.query(
+      `
+        SELECT id
+        FROM guild_join_requests
+        WHERE guild_name = ? AND user_id = ? AND status = 'pending'
+        LIMIT 1
+      `,
+      [guild.name, userId]
+    );
+
+    res.json({
+      guild: {
+        ...guild,
+        level: clampGuildLevel(guild.level),
+        member_count: Number(guild.member_count) || 0,
+        member_limit: memberLimit,
+        is_full: Number(guild.member_count) >= memberLimit,
+      },
+      myGuildName: myGuildName || null,
+      myRole,
+      canEdit: Number(guild.owner_user_id) === Number(userId),
+      canApply: !myGuildName && Number(guild.member_count) < memberLimit,
+      hasPendingRequest: pendingRows.length > 0,
+    });
+  } catch (error) {
+    console.error('Error fetching guild detail:', error);
+    res.status(500).json({ message: 'Không thể tải thông tin bang hội' });
+  }
+});
+
+app.post('/api/guilds/:guildName/apply', async (req, res) => {
+  let connection = null;
+  try {
+    connection = await db.getConnection();
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, true);
+
+    const guildNameParam = normalizeGuildName(decodeURIComponent(req.params.guildName || ''));
+    if (!guildNameParam) {
+      return res.status(400).json({ message: 'Thiếu tên bang hội' });
+    }
+
+    await connection.beginTransaction();
+
+    const [userRows] = await connection.query(
+      'SELECT id, guild FROM users WHERE id = ? LIMIT 1 FOR UPDATE',
+      [userId]
+    );
+    if (!userRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+    const myGuildName = normalizeGuildName(userRows[0].guild);
+    if (myGuildName) {
+      await connection.rollback();
+      return res.status(409).json({ message: 'Bạn đã ở trong một bang hội' });
+    }
+
+    const [guildRows] = await connection.query(
+      `
+        SELECT id, name, admission_type, level
+        FROM guilds
+        WHERE LOWER(name) = LOWER(?)
+        LIMIT 1
+        FOR UPDATE
+      `,
+      [guildNameParam]
+    );
+    if (!guildRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy bang hội' });
+    }
+
+    const guild = guildRows[0];
+    const [memberRows] = await connection.query(
+      `
+        SELECT COUNT(*) AS member_count
+        FROM users
+        WHERE guild = ?
+      `,
+      [guild.name]
+    );
+    const memberCount = Number(memberRows?.[0]?.member_count) || 0;
+    const memberLimit = getGuildMemberLimitByLevel(guild.level);
+    if (memberCount >= memberLimit) {
+      await connection.rollback();
+      return res.status(409).json({ message: 'Bang hội đã đủ thành viên' });
+    }
+
+    if (normalizeGuildAdmissionType(guild.admission_type) === 'free') {
+      await connection.query('UPDATE users SET guild = ? WHERE id = ?', [guild.name, userId]);
+      await connection.query(
+        `
+          INSERT INTO guild_members (guild_name, user_id, role)
+          VALUES (?, ?, 'member')
+          ON DUPLICATE KEY UPDATE role = VALUES(role), updated_at = CURRENT_TIMESTAMP
+        `,
+        [guild.name, userId]
+      );
+      await connection.query(
+        `
+          UPDATE guild_join_requests
+          SET status = 'accepted'
+          WHERE guild_name = ? AND user_id = ? AND status = 'pending'
+        `,
+        [guild.name, userId]
+      );
+      await connection.query(
+        `
+          UPDATE guild_join_requests
+          SET status = 'cancelled'
+          WHERE user_id = ? AND guild_name <> ? AND status = 'pending'
+        `,
+        [userId, guild.name]
+      );
+      await connection.commit();
+      return res.json({ success: true, joined: true, message: 'Gia nhập bang hội thành công' });
+    }
+
+    const [pendingRows] = await connection.query(
+      `
+        SELECT id
+        FROM guild_join_requests
+        WHERE guild_name = ? AND user_id = ? AND status = 'pending'
+        LIMIT 1
+      `,
+      [guild.name, userId]
+    );
+    if (pendingRows.length) {
+      await connection.rollback();
+      return res.status(409).json({ message: 'Bạn đã gửi yêu cầu gia nhập bang hội này' });
+    }
+
+    await connection.query(
+      `
+        INSERT INTO guild_join_requests (guild_name, user_id, status)
+        VALUES (?, ?, 'pending')
+      `,
+      [guild.name, userId]
+    );
+    await connection.commit();
+    res.json({ success: true, joined: false, message: 'Đã gửi yêu cầu xin gia nhập bang hội' });
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (_) {
+        // ignore rollback error
+      }
+    }
+    console.error('Error applying to guild:', error);
+    res.status(500).json({ message: 'Không thể xin gia nhập bang hội lúc này' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+app.get('/api/guilds/my/applications', async (req, res) => {
+  try {
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, false);
+
+    const [rows] = await db.query(
+      `
+        SELECT
+          r.id AS request_id,
+          r.guild_name,
+          r.created_at,
+          g.admission_type,
+          g.level,
+          COALESCE(m.member_count, 0) AS member_count
+        FROM guild_join_requests r
+        JOIN guilds g ON g.name = r.guild_name
+        LEFT JOIN (
+          SELECT guild, COUNT(*) AS member_count
+          FROM users
+          WHERE guild IS NOT NULL AND TRIM(guild) <> ''
+          GROUP BY guild
+        ) m ON m.guild = g.name
+        WHERE r.user_id = ? AND r.status = 'pending'
+        ORDER BY r.created_at DESC
+      `,
+      [userId]
+    );
+
+    const applications = rows.map((row) => ({
+      ...row,
+      member_limit: getGuildMemberLimitByLevel(row.level),
+    }));
+
+    res.json({ applications });
+  } catch (error) {
+    console.error('Error fetching guild applications:', error);
+    res.status(500).json({ message: 'Không thể tải danh sách bang hội đã nộp đơn' });
+  }
+});
+
+app.delete('/api/guilds/my/applications/:requestId', async (req, res) => {
+  try {
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, true);
+
+    const requestId = Number(req.params.requestId);
+    if (!requestId) {
+      return res.status(400).json({ message: 'requestId không hợp lệ' });
+    }
+
+    const [result] = await db.query(
+      `
+        UPDATE guild_join_requests
+        SET status = 'cancelled'
+        WHERE id = ? AND user_id = ? AND status = 'pending'
+      `,
+      [requestId, userId]
+    );
+    if (!result.affectedRows) {
+      return res.status(404).json({ message: 'Không tìm thấy đơn đang chờ để hủy' });
+    }
+
+    res.json({ success: true, message: 'Đã hủy đơn xin gia nhập' });
+  } catch (error) {
+    console.error('Error cancelling guild application:', error);
+    res.status(500).json({ message: 'Không thể hủy đơn lúc này' });
+  }
+});
+
+app.get('/api/guilds/my/join-requests', async (req, res) => {
+  try {
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, false);
+
+    const [userRows] = await db.query('SELECT guild FROM users WHERE id = ? LIMIT 1', [userId]);
+    const guildName = normalizeGuildName(userRows[0]?.guild);
+    if (!guildName) {
+      return res.status(400).json({ message: 'Bạn chưa ở trong bang hội nào' });
+    }
+
+    const [guildRows] = await db.query(
+      'SELECT owner_user_id FROM guilds WHERE name = ? LIMIT 1',
+      [guildName]
+    );
+    if (!guildRows.length) {
+      return res.status(404).json({ message: 'Không tìm thấy bang hội' });
+    }
+    const ownerUserId = Number(guildRows[0].owner_user_id);
+
+    const [roleRows] = await db.query(
+      'SELECT role FROM guild_members WHERE guild_name = ? AND user_id = ? LIMIT 1',
+      [guildName, userId]
+    );
+    const requesterRole = roleRows.length
+      ? normalizeGuildRole(roleRows[0].role)
+      : Number(userId) === ownerUserId
+      ? 'leader'
+      : 'member';
+    const canApprove = requesterRole === 'leader' || requesterRole === 'officer';
+    if (!canApprove) {
+      return res.status(403).json({ message: 'Bạn không có quyền duyệt đơn' });
+    }
+
+    const [rows] = await db.query(
+      `
+        SELECT
+          r.id AS request_id,
+          r.user_id,
+          r.created_at,
+          u.username,
+          u.online_status,
+          up.display_name,
+          up.avatar_url,
+          p.last_seen_at
+        FROM guild_join_requests r
+        JOIN users u ON u.id = r.user_id
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        LEFT JOIN user_presence p ON p.user_id = u.id
+        WHERE r.guild_name = ? AND r.status = 'pending'
+        ORDER BY r.created_at ASC
+      `,
+      [guildName]
+    );
+
+    const requests = rows.map((row) => {
+      const status = getStatusLabel(row.online_status, row.last_seen_at);
+      return {
+        ...row,
+        status,
+        last_seen_text: status === 'offline' ? formatLastSeen(row.last_seen_at) : null,
+      };
+    });
+
+    res.json({ guildName, requesterRole, requests });
+  } catch (error) {
+    console.error('Error fetching guild join requests:', error);
+    res.status(500).json({ message: 'Không thể tải danh sách đơn xin gia nhập' });
+  }
+});
+
+app.post('/api/guilds/my/members/:memberUserId/kick', async (req, res) => {
+  let connection = null;
+  try {
+    connection = await db.getConnection();
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, true);
+
+    const memberUserId = Number(req.params.memberUserId);
+    if (!memberUserId) {
+      return res.status(400).json({ message: 'memberUserId không hợp lệ' });
+    }
+
+    await connection.beginTransaction();
+
+    const [actorRows] = await connection.query(
+      'SELECT guild FROM users WHERE id = ? LIMIT 1 FOR UPDATE',
+      [userId]
+    );
+    const guildName = normalizeGuildName(actorRows[0]?.guild);
+    if (!guildName) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Bạn chưa ở trong bang hội nào' });
+    }
+
+    const [actorRoleRows] = await connection.query(
+      'SELECT role FROM guild_members WHERE guild_name = ? AND user_id = ? LIMIT 1',
+      [guildName, userId]
+    );
+    const actorRole = actorRoleRows.length
+      ? normalizeGuildRole(actorRoleRows[0].role)
+      : 'member';
+    if (!['leader', 'officer'].includes(actorRole)) {
+      await connection.rollback();
+      return res.status(403).json({ message: 'Bạn không có quyền kick thành viên' });
+    }
+    if (Number(memberUserId) === Number(userId)) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Bạn không thể tự kick chính mình' });
+    }
+
+    const [targetRoleRows] = await connection.query(
+      `
+        SELECT gm.role, u.guild
+        FROM guild_members gm
+        JOIN users u ON u.id = gm.user_id
+        WHERE gm.guild_name = ? AND gm.user_id = ?
+        LIMIT 1
+        FOR UPDATE
+      `,
+      [guildName, memberUserId]
+    );
+    if (!targetRoleRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy thành viên trong guild' });
+    }
+
+    const targetRole = normalizeGuildRole(targetRoleRows[0].role);
+    const actorPriority = getGuildRolePriority(actorRole);
+    const targetPriority = getGuildRolePriority(targetRole);
+    if (!(actorPriority < targetPriority)) {
+      await connection.rollback();
+      return res.status(403).json({ message: 'Bạn không thể kick role này' });
+    }
+
+    await connection.query('UPDATE users SET guild = NULL WHERE id = ?', [memberUserId]);
+    await connection.query('DELETE FROM guild_members WHERE guild_name = ? AND user_id = ?', [
+      guildName,
+      memberUserId,
+    ]);
+    await connection.query(
+      `
+        UPDATE guild_join_requests
+        SET status = 'cancelled'
+        WHERE user_id = ? AND status = 'pending'
+      `,
+      [memberUserId]
+    );
+
+    await connection.commit();
+    res.json({ success: true, message: 'Đã kick thành viên khỏi bang hội' });
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (_) {
+        // ignore rollback error
+      }
+    }
+    console.error('Error kicking guild member:', error);
+    res.status(500).json({ message: 'Không thể kick thành viên lúc này' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+app.put('/api/guilds/my/members/:memberUserId/role', async (req, res) => {
+  let connection = null;
+  try {
+    connection = await db.getConnection();
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, true);
+
+    const memberUserId = Number(req.params.memberUserId);
+    const nextRole = normalizeGuildRole(req.body?.role);
+    if (!memberUserId) {
+      return res.status(400).json({ message: 'memberUserId không hợp lệ' });
+    }
+
+    await connection.beginTransaction();
+
+    const [actorRows] = await connection.query(
+      'SELECT guild FROM users WHERE id = ? LIMIT 1 FOR UPDATE',
+      [userId]
+    );
+    const guildName = normalizeGuildName(actorRows[0]?.guild);
+    if (!guildName) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Bạn chưa ở trong bang hội nào' });
+    }
+
+    const [guildRows] = await connection.query(
+      'SELECT id, owner_user_id FROM guilds WHERE name = ? LIMIT 1 FOR UPDATE',
+      [guildName]
+    );
+    if (!guildRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy bang hội' });
+    }
+    const guild = guildRows[0];
+    if (Number(userId) !== Number(guild.owner_user_id)) {
+      await connection.rollback();
+      return res.status(403).json({ message: 'Chỉ Leader mới có thể đổi role' });
+    }
+    if (Number(memberUserId) === Number(userId)) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Leader không thể tự đổi role tại đây' });
+    }
+
+    const [targetRows] = await connection.query(
+      `
+        SELECT gm.role
+        FROM guild_members gm
+        WHERE gm.guild_name = ? AND gm.user_id = ?
+        LIMIT 1
+        FOR UPDATE
+      `,
+      [guildName, memberUserId]
+    );
+    if (!targetRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy thành viên trong guild' });
+    }
+
+    if (nextRole === 'leader') {
+      await connection.query(
+        'UPDATE guild_members SET role = ? WHERE guild_name = ? AND user_id = ?',
+        ['officer', guildName, userId]
+      );
+      await connection.query(
+        'UPDATE guild_members SET role = ? WHERE guild_name = ? AND user_id = ?',
+        ['leader', guildName, memberUserId]
+      );
+      await connection.query('UPDATE guilds SET owner_user_id = ? WHERE id = ?', [
+        memberUserId,
+        guild.id,
+      ]);
+      await connection.commit();
+      return res.json({ success: true, message: 'Đã chuyển quyền Leader thành công' });
+    }
+
+    await connection.query(
+      'UPDATE guild_members SET role = ? WHERE guild_name = ? AND user_id = ?',
+      [nextRole, guildName, memberUserId]
+    );
+    await connection.commit();
+    res.json({ success: true, message: 'Đã cập nhật role thành viên' });
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (_) {
+        // ignore rollback error
+      }
+    }
+    console.error('Error updating guild member role:', error);
+    res.status(500).json({ message: 'Không thể đổi role lúc này' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+app.delete('/api/guilds/my/disband', async (req, res) => {
+  let connection = null;
+  try {
+    connection = await db.getConnection();
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, true);
+
+    const confirmName = normalizeGuildName(req.body?.confirmName);
+    if (!confirmName) {
+      return res.status(400).json({ message: 'Thiếu tên bang hội xác nhận' });
+    }
+
+    await connection.beginTransaction();
+
+    const [userRows] = await connection.query(
+      'SELECT guild FROM users WHERE id = ? LIMIT 1 FOR UPDATE',
+      [userId]
+    );
+    const guildName = normalizeGuildName(userRows[0]?.guild);
+    if (!guildName) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Bạn chưa ở trong bang hội nào' });
+    }
+    if (guildName !== confirmName) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Tên bang hội xác nhận không khớp' });
+    }
+
+    const [guildRows] = await connection.query(
+      'SELECT id, owner_user_id FROM guilds WHERE name = ? LIMIT 1 FOR UPDATE',
+      [guildName]
+    );
+    if (!guildRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy bang hội' });
+    }
+    const guild = guildRows[0];
+    if (Number(guild.owner_user_id) !== Number(userId)) {
+      await connection.rollback();
+      return res.status(403).json({ message: 'Chỉ Leader mới có thể disband guild' });
+    }
+
+    const [memberCountRows] = await connection.query(
+      'SELECT COUNT(*) AS member_count FROM users WHERE guild = ?',
+      [guildName]
+    );
+    const memberCount = Number(memberCountRows?.[0]?.member_count) || 0;
+    if (memberCount !== 1) {
+      await connection.rollback();
+      return res.status(409).json({ message: 'Chỉ có thể disband khi guild còn đúng 1 thành viên' });
+    }
+
+    const [roleRows] = await connection.query(
+      'SELECT role FROM guild_members WHERE guild_name = ? AND user_id = ? LIMIT 1',
+      [guildName, userId]
+    );
+    const role = roleRows.length ? normalizeGuildRole(roleRows[0].role) : 'member';
+    if (role !== 'leader') {
+      await connection.rollback();
+      return res.status(403).json({ message: 'Chỉ Leader mới có thể disband guild' });
+    }
+
+    await connection.query('UPDATE users SET guild = NULL WHERE guild = ?', [guildName]);
+    await connection.query('DELETE FROM guild_members WHERE guild_name = ?', [guildName]);
+    await connection.query(
+      'UPDATE guild_join_requests SET status = \'cancelled\' WHERE guild_name = ? AND status = \'pending\'',
+      [guildName]
+    );
+    await connection.query('DELETE FROM guilds WHERE id = ?', [guild.id]);
+
+    await connection.commit();
+    res.json({ success: true, message: 'Đã giải tán bang hội thành công' });
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (_) {
+        // ignore rollback error
+      }
+    }
+    console.error('Error disbanding guild:', error);
+    res.status(500).json({ message: 'Không thể giải tán bang hội lúc này' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+app.post('/api/guilds/my/join-requests/:requestId/approve', async (req, res) => {
+  let connection = null;
+  try {
+    connection = await db.getConnection();
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, true);
+
+    const requestId = Number(req.params.requestId);
+    if (!requestId) {
+      return res.status(400).json({ message: 'requestId không hợp lệ' });
+    }
+
+    await connection.beginTransaction();
+
+    const [userRows] = await connection.query(
+      'SELECT guild FROM users WHERE id = ? LIMIT 1 FOR UPDATE',
+      [userId]
+    );
+    const guildName = normalizeGuildName(userRows[0]?.guild);
+    if (!guildName) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Bạn chưa ở trong bang hội nào' });
+    }
+
+    const [guildRows] = await connection.query(
+      'SELECT id, owner_user_id, level FROM guilds WHERE name = ? LIMIT 1 FOR UPDATE',
+      [guildName]
+    );
+    if (!guildRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy bang hội' });
+    }
+    const guild = guildRows[0];
+
+    const [roleRows] = await connection.query(
+      'SELECT role FROM guild_members WHERE guild_name = ? AND user_id = ? LIMIT 1',
+      [guildName, userId]
+    );
+    const requesterRole = roleRows.length
+      ? normalizeGuildRole(roleRows[0].role)
+      : Number(userId) === Number(guild.owner_user_id)
+      ? 'leader'
+      : 'member';
+    if (!['leader', 'officer'].includes(requesterRole)) {
+      await connection.rollback();
+      return res.status(403).json({ message: 'Bạn không có quyền duyệt đơn' });
+    }
+
+    const [requestRows] = await connection.query(
+      `
+        SELECT id, user_id, status
+        FROM guild_join_requests
+        WHERE id = ? AND guild_name = ? AND status = 'pending'
+        LIMIT 1
+        FOR UPDATE
+      `,
+      [requestId, guildName]
+    );
+    if (!requestRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy đơn chờ duyệt' });
+    }
+    const targetUserId = Number(requestRows[0].user_id);
+
+    const [targetUserRows] = await connection.query(
+      'SELECT guild FROM users WHERE id = ? LIMIT 1 FOR UPDATE',
+      [targetUserId]
+    );
+    if (!targetUserRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy người nộp đơn' });
+    }
+    if (normalizeGuildName(targetUserRows[0].guild)) {
+      await connection.query(
+        'UPDATE guild_join_requests SET status = \'cancelled\' WHERE user_id = ? AND status = \'pending\'',
+        [targetUserId]
+      );
+      await connection.commit();
+      return res.status(409).json({ message: 'Người chơi này đã gia nhập bang hội khác' });
+    }
+
+    const [memberRows] = await connection.query(
+      'SELECT COUNT(*) AS member_count FROM users WHERE guild = ?',
+      [guildName]
+    );
+    const memberCount = Number(memberRows?.[0]?.member_count) || 0;
+    const memberLimit = getGuildMemberLimitByLevel(guild.level);
+    if (memberCount >= memberLimit) {
+      await connection.rollback();
+      return res.status(409).json({ message: 'Bang hội đã đủ thành viên' });
+    }
+
+    await connection.query('UPDATE users SET guild = ? WHERE id = ?', [guildName, targetUserId]);
+    await connection.query(
+      `
+        INSERT INTO guild_members (guild_name, user_id, role)
+        VALUES (?, ?, 'member')
+        ON DUPLICATE KEY UPDATE role = 'member', updated_at = CURRENT_TIMESTAMP
+      `,
+      [guildName, targetUserId]
+    );
+    await connection.query(
+      `
+        UPDATE guild_join_requests
+        SET status = 'accepted'
+        WHERE id = ?
+      `,
+      [requestId]
+    );
+    await connection.query(
+      `
+        UPDATE guild_join_requests
+        SET status = 'cancelled'
+        WHERE user_id = ? AND status = 'pending'
+      `,
+      [targetUserId]
+    );
+
+    await connection.commit();
+    res.json({ success: true, message: 'Đã duyệt đơn và thêm thành viên vào bang hội' });
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (_) {
+        // ignore rollback error
+      }
+    }
+    console.error('Error approving guild join request:', error);
+    res.status(500).json({ message: 'Không thể duyệt đơn lúc này' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+app.post('/api/guilds/my/join-requests/:requestId/reject', async (req, res) => {
+  let connection = null;
+  try {
+    connection = await db.getConnection();
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, true);
+
+    const requestId = Number(req.params.requestId);
+    if (!requestId) {
+      return res.status(400).json({ message: 'requestId không hợp lệ' });
+    }
+
+    await connection.beginTransaction();
+
+    const [userRows] = await connection.query(
+      'SELECT guild FROM users WHERE id = ? LIMIT 1 FOR UPDATE',
+      [userId]
+    );
+    const guildName = normalizeGuildName(userRows[0]?.guild);
+    if (!guildName) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Bạn chưa ở trong bang hội nào' });
+    }
+
+    const [guildRows] = await connection.query(
+      'SELECT owner_user_id FROM guilds WHERE name = ? LIMIT 1 FOR UPDATE',
+      [guildName]
+    );
+    if (!guildRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy bang hội' });
+    }
+    const ownerUserId = Number(guildRows[0].owner_user_id);
+
+    const [roleRows] = await connection.query(
+      'SELECT role FROM guild_members WHERE guild_name = ? AND user_id = ? LIMIT 1',
+      [guildName, userId]
+    );
+    const requesterRole = roleRows.length
+      ? normalizeGuildRole(roleRows[0].role)
+      : Number(userId) === ownerUserId
+      ? 'leader'
+      : 'member';
+    if (!['leader', 'officer'].includes(requesterRole)) {
+      await connection.rollback();
+      return res.status(403).json({ message: 'Bạn không có quyền từ chối đơn' });
+    }
+
+    const [requestRows] = await connection.query(
+      `
+        SELECT id, user_id
+        FROM guild_join_requests
+        WHERE id = ? AND guild_name = ? AND status = 'pending'
+        LIMIT 1
+        FOR UPDATE
+      `,
+      [requestId, guildName]
+    );
+    if (!requestRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy đơn chờ duyệt' });
+    }
+    const targetUserId = Number(requestRows[0].user_id);
+
+    await connection.query('UPDATE guild_join_requests SET status = \'rejected\' WHERE id = ?', [requestId]);
+    await connection.query(
+      'UPDATE guild_join_requests SET status = \'cancelled\' WHERE user_id = ? AND status = \'pending\'',
+      [targetUserId]
+    );
+
+    await connection.commit();
+    res.json({ success: true, message: 'Đã từ chối đơn xin gia nhập' });
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (_) {
+        // ignore rollback error
+      }
+    }
+    console.error('Error rejecting guild join request:', error);
+    res.status(500).json({ message: 'Không thể từ chối đơn lúc này' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+async function fetchWorldChatHistory(limit, beforeId) {
+  const params = [];
+  let whereClause = '';
+  if (beforeId > 0) {
+    whereClause = 'WHERE m.id < ?';
+    params.push(beforeId);
+  }
+  const [rows] = await db.query(
+    `
+      SELECT
+        m.id,
+        m.user_id,
+        m.message_text,
+        m.created_at,
+        u.username,
+        u.guild,
+        up.display_name,
+        up.avatar_url
+      FROM global_chat_messages m
+      JOIN users u ON u.id = m.user_id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      ${whereClause}
+      ORDER BY m.id DESC
+      LIMIT ?
+    `,
+    [...params, limit]
+  );
+  return rows.reverse().map((row) => toChatMessagePayload({ ...row, channel: 'world' }));
+}
+
+app.get('/api/chat/world', async (req, res) => {
+  try {
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, false);
+
+    const limit = Math.min(
+      WORLD_CHAT_HISTORY_LIMIT,
+      Math.max(1, Number(req.query.limit || WORLD_CHAT_HISTORY_LIMIT))
+    );
+    const beforeId = Number(req.query.beforeId || 0);
+    const messages = await fetchWorldChatHistory(limit, beforeId);
+
+    res.json({
+      cooldownSeconds: CHAT_COOLDOWN_SECONDS,
+      maxMessageLength: CHAT_MESSAGE_MAX_LENGTH,
+      messages,
+    });
+  } catch (error) {
+    console.error('Error fetching world chat messages:', error);
+    res.status(500).json({ message: 'Không thể tải lịch sử chat World' });
+  }
+});
+
+app.get('/api/chat/global', async (req, res) => {
+  try {
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, false);
+
+    const limit = Math.min(
+      WORLD_CHAT_HISTORY_LIMIT,
+      Math.max(1, Number(req.query.limit || WORLD_CHAT_HISTORY_LIMIT))
+    );
+    const beforeId = Number(req.query.beforeId || 0);
+    const messages = await fetchWorldChatHistory(limit, beforeId);
+
+    res.json({
+      cooldownSeconds: CHAT_COOLDOWN_SECONDS,
+      maxMessageLength: CHAT_MESSAGE_MAX_LENGTH,
+      messages,
+    });
+  } catch (error) {
+    console.error('Error fetching global chat messages:', error);
+    res.status(500).json({ message: 'Không thể tải lịch sử chat' });
+  }
+});
+
+app.get('/api/chat/guild', async (req, res) => {
+  try {
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, false);
+
+    const [profileRows] = await db.query('SELECT guild FROM users WHERE id = ? LIMIT 1', [userId]);
+    const guildName = normalizeGuildName(profileRows[0]?.guild);
+    if (!guildName) {
+      return res.status(403).json({
+        requiresGuild: true,
+        message: 'Bạn chưa có bang hội nên không thể chat Guild',
+        messages: [],
+      });
+    }
+
+    const limit = Math.min(GUILD_CHAT_HISTORY_LIMIT, Math.max(1, Number(req.query.limit || GUILD_CHAT_HISTORY_LIMIT)));
     const [rows] = await db.query(
       `
         SELECT
@@ -1380,23 +3002,51 @@ app.get('/api/chat/global', async (req, res) => {
           u.guild,
           up.display_name,
           up.avatar_url
-        FROM global_chat_messages m
+        FROM guild_chat_messages m
         JOIN users u ON u.id = m.user_id
         LEFT JOIN user_profiles up ON up.user_id = u.id
-        ${whereClause}
+        WHERE m.guild_name = ?
         ORDER BY m.id DESC
         LIMIT ?
       `,
-      [...params, limit]
+      [guildName, limit]
     );
 
     res.json({
       cooldownSeconds: CHAT_COOLDOWN_SECONDS,
-      messages: rows.reverse().map(toChatMessagePayload),
+      maxMessageLength: CHAT_MESSAGE_MAX_LENGTH,
+      guild: guildName,
+      messages: rows.reverse().map((row) => toChatMessagePayload({ ...row, channel: 'guild' })),
     });
   } catch (error) {
-    console.error('Error fetching global chat messages:', error);
-    res.status(500).json({ message: 'Không thể tải lịch sử chat' });
+    console.error('Error fetching guild chat messages:', error);
+    res.status(500).json({ message: 'Không thể tải lịch sử chat Guild' });
+  }
+});
+
+app.get('/api/chat/system', async (req, res) => {
+  try {
+    const userId = await getAuthUserIdFromRequest(req, res);
+    if (!userId) return;
+    await touchUserPresenceByUserIdThrottled(userId, false);
+
+    const limit = Math.min(SYSTEM_CHAT_HISTORY_LIMIT, Math.max(1, Number(req.query.limit || SYSTEM_CHAT_HISTORY_LIMIT)));
+    const [rows] = await db.query(
+      `
+        SELECT id, event_type, actor_user_id, message_text, payload_json, created_at
+        FROM system_chat_events
+        ORDER BY id DESC
+        LIMIT ?
+      `,
+      [limit]
+    );
+
+    res.json({
+      messages: rows.reverse().map(toSystemMessagePayload),
+    });
+  } catch (error) {
+    console.error('Error fetching system chat events:', error);
+    res.status(500).json({ message: 'Không thể tải lịch sử hệ thống' });
   }
 });
 
@@ -1415,8 +3065,10 @@ app.post('/api/realtime/legend-caught', async (req, res) => {
 
     const petName = String(req.body?.petName || 'Legend Pet').trim() || 'Legend Pet';
     const rarity = String(req.body?.rarity || 'Legend').trim() || 'Legend';
-
-    io.to('global').emit('legend:caught', {
+    const createdAt = new Date().toISOString();
+    const actorName = profile.display_name || profile.username || 'Người chơi';
+    const systemMessageText = `Người chơi ${actorName} vừa bắt được ${petName} (${rarity})`;
+    const systemPayload = {
       type: 'legend:caught',
       user: {
         user_id: profile.user_id,
@@ -1426,7 +3078,41 @@ app.post('/api/realtime/legend-caught', async (req, res) => {
       },
       petName,
       rarity,
-      created_at: new Date().toISOString(),
+      created_at: createdAt,
+    };
+
+    const [eventInsert] = await db.query(
+      `
+        INSERT INTO system_chat_events (event_type, actor_user_id, message_text, payload_json)
+        VALUES (?, ?, ?, ?)
+      `,
+      ['legend:caught', userId, systemMessageText, JSON.stringify(systemPayload)]
+    );
+
+    await db.query(
+      `
+        DELETE FROM system_chat_events
+        WHERE id NOT IN (
+          SELECT id
+          FROM (
+            SELECT id
+            FROM system_chat_events
+            ORDER BY id DESC
+            LIMIT ?
+          ) AS keep_rows
+        )
+      `,
+      [SYSTEM_CHAT_HISTORY_LIMIT]
+    );
+
+    io.to('global').emit('legend:caught', systemPayload);
+    io.to('global').emit('system:event', {
+      id: eventInsert.insertId,
+      channel: 'system',
+      type: 'legend:caught',
+      message: systemMessageText,
+      created_at: createdAt,
+      payload: systemPayload,
     });
 
     res.json({ success: true, message: 'Đã broadcast sự kiện bắt pet hiếm' });
@@ -7583,6 +9269,7 @@ app.post('/api/restaurant/feed', async (req, res) => {
 });
 
 (async () => {
+  await resetOnlineStatusOnStartup();
   await initRedis();
   httpServer.listen(port, () => {
     console.log(`Server is running on port ${port}`);

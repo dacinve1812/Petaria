@@ -1,0 +1,35 @@
+.edit-guild-page {
+  display: grid;
+  gap: 12px;
+}
+
+.edit-guild-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.edit-guild-top h2 {
+  margin: 0;
+}
+
+.edit-guild-top button {
+  min-height: 36px;
+  border-radius: 8px;
+  border: 1px solid #c5beaf;
+  background: #ece4d8;
+  padding: 0 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.edit-guild-card {
+  border: 1px solid #cbc6be;
+  border-radius: 12px;
+  background: #f6f4ef;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}

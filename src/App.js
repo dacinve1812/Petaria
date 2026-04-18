@@ -50,6 +50,10 @@ import MailPage from './components/MailPage';
 import HealiaRiverPage from './components/HealiaRiverPage';
 import Restaurant from './components/Restaurant';
 import BuddiesPage from './components/BuddiesPage';
+import GuildPage from './components/GuildPage';
+import CreateGuildPage from './components/CreateGuildPage';
+import GuildDetailPage from './components/GuildDetailPage';
+import EditGuildPage from './components/EditGuildPage';
 import ExampleTemplatePage from './components/template/ExampleTemplatePage';
 
 const router = createBrowserRouter([
@@ -103,6 +107,10 @@ const router = createBrowserRouter([
       { path: 'healia-river', element: <HealiaRiverPage /> },
       { path: 'restaurant', element: <Restaurant /> },
       { path: 'buddies', element: <BuddiesPage /> },
+      { path: 'guild', element: <GuildPage /> },
+      { path: 'guild/create', element: <CreateGuildPage /> },
+      { path: 'guild/edit', element: <EditGuildPage /> },
+      { path: 'guild/:name', element: <GuildDetailPage /> },
       { path: 'auction', element: <AuctionList /> },
       { path: 'auction/:id', element: <AuctionDetail /> },
       { path: 'auction/create', element: <CreateAuction /> },
