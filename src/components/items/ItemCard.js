@@ -4,16 +4,21 @@ import './ItemCard.css';
 
 function ItemCard({ item, onClick, note, icon, style }) {
   const rarityColors = {
-    common: '#ccc', // xám
-    uncommon: '#6cc27c', // xanh lá cây
-    rare: '#3b82f6', // blue
-    epic: '#a855f7', // tím
-    legendary: '#facc15', // vàng
+    common: '#ccc',
+    rare: '#3b82f6',
+    epic: '#a855f7',
+    legendary: '#facc15',
   };
 
-  const getRarityColor = (rarity) => {
-    return rarityColors[rarity] || '#ccc';
+  const normalizeItemRarity = (value) => {
+    const k = String(value ?? '').trim().toLowerCase();
+    if (['common', 'rare', 'epic', 'legendary'].includes(k)) return k;
+    if (['legend', 'mythic', 'unique', 'artifact'].includes(k)) return 'legendary';
+    if (k === 'uncommon') return 'rare';
+    return 'common';
   };
+
+  const getRarityColor = (rarity) => rarityColors[normalizeItemRarity(rarity)] || '#ccc';
 
   return (
     <div

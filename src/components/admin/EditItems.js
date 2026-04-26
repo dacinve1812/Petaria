@@ -2,12 +2,27 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useUser } from '../../UserContext';
 import './AdminNpcBossManagement.css';
+import './EditItems.css';
 
 const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
 const authHeaders = (token) => ({
   Authorization: `Bearer ${token}`,
 });
+
+/** Đồng bộ với backend `normalizeItemRarity`: chỉ common | rare | epic | legendary */
+function normalizeRarityForItem(value) {
+  const k = String(value ?? '').trim().toLowerCase();
+  if (['common', 'rare', 'epic', 'legendary'].includes(k)) return k;
+  if (['legend', 'mythic', 'unique', 'artifact'].includes(k)) return 'legendary';
+  if (k === 'uncommon') return 'rare';
+  return 'common';
+}
+
+function rarityTableLabel(value) {
+  const v = normalizeRarityForItem(value);
+  return v === 'legendary' ? 'Legend' : v;
+}
 
 function EditItems() {
   const navigate = useNavigate();
@@ -18,7 +33,7 @@ function EditItems() {
   const [uploadResult, setUploadResult] = useState(null);
   const [modal, setModal] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'item_code', direction: 'asc' });
 
   useEffect(() => {
     if (!isLoading && (!user || !user.isAdmin)) navigate('/login');
@@ -136,13 +151,22 @@ function EditItems() {
       ? items.filter((item) => {
           const haystack = [
             item.id,
+            item.item_code,
             item.name,
             item.description,
             item.type,
+            item.category,
+            item.subtype,
             item.rarity,
             item.image_url,
             item.buy_price,
             item.sell_price,
+            item.price_currency,
+            item.magic_value,
+            item.stackable,
+            item.max_stack,
+            item.consume_policy,
+            item.pet_scope,
           ]
             .map((v) => String(v ?? '').toLowerCase())
             .join(' ');
@@ -169,12 +193,14 @@ function EditItems() {
   if (isLoading) return <div className="admin-npc-boss"><div className="loading">Đang tải...</div></div>;
   if (!user || !user.isAdmin) return <div className="admin-npc-boss"><div className="access-denied"><h2>Access Denied</h2></div></div>;
 
+  const tableColCount = 16;
+
   return (
     <div className="admin-npc-boss">
       <div className="admin-header">
         <div className="header-text">
           <h1>Quản lý Items</h1>
-          <p>Chỉnh sửa bảng items, tải/upload CSV và liên kết nhanh tới Equipment Stats / Item Effects.</p>
+          <p>Chỉnh sửa bảng items, tải/upload CSV (đủ cột) và liên kết tới Equipment Stats / Item Effects.</p>
         </div>
         <button className="back-admin-btn" onClick={() => navigate('/admin')}>← Quay lại Admin</button>
       </div>
@@ -193,32 +219,40 @@ function EditItems() {
           </label>
           <input
             type="text"
-            placeholder="Search item..."
+            placeholder="Search (id, item_code, name, subtype...)"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #ced4da', minWidth: 220 }}
           />
         </div>
-        <div className="table-wrap">
-          <table className="data-table">
+        <div className="table-wrap edit-items-scroll">
+          <table className="data-table edit-items-table">
             <thead>
               <tr>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('id')}>id{sortIndicator('id')}</th>
-                <th>Ảnh</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('name')}>name{sortIndicator('name')}</th>
+                <th className="edit-items-sticky edit-items-sticky-1" style={{ cursor: 'pointer' }} onClick={() => handleSort('id')}>id{sortIndicator('id')}</th>
+                <th className="edit-items-sticky edit-items-sticky-2" style={{ cursor: 'pointer' }} onClick={() => handleSort('item_code')}>item_code{sortIndicator('item_code')}</th>
+                <th className="edit-items-sticky edit-items-sticky-3">Ảnh</th>
+                <th className="edit-items-sticky edit-items-sticky-4" style={{ cursor: 'pointer' }} onClick={() => handleSort('name')}>name{sortIndicator('name')}</th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('description')}>description{sortIndicator('description')}</th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('type')}>type{sortIndicator('type')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('category')}>category{sortIndicator('category')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('subtype')}>subtype{sortIndicator('subtype')}</th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('rarity')}>rarity{sortIndicator('rarity')}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('buy_price')}>buy_price{sortIndicator('buy_price')}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('sell_price')}>sell_price{sortIndicator('sell_price')}</th>
-                <th>Liên kết</th><th>Thao tác</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('magic_value')}>magic{sortIndicator('magic_value')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('max_stack')}>max_st{sortIndicator('max_stack')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('buy_price')}>buy{sortIndicator('buy_price')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('sell_price')}>sell{sortIndicator('sell_price')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('price_currency')}>currency{sortIndicator('price_currency')}</th>
+                <th>Liên kết</th>
+                <th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {displayItems.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.id}</td>
-                  <td>
+                  <td className="edit-items-sticky edit-items-sticky-1">{item.id}</td>
+                  <td className="edit-items-sticky edit-items-sticky-2">{item.item_code ?? ''}</td>
+                  <td className="edit-items-sticky edit-items-sticky-3">
                     <img
                       src={item.image_url?.startsWith('/') || item.image_url?.startsWith('http') ? item.image_url : `/images/equipments/${item.image_url}`}
                       alt=""
@@ -226,16 +260,24 @@ function EditItems() {
                       onError={(e) => { e.target.src = '/images/equipments/placeholder.png'; e.target.onerror = null; }}
                     />
                   </td>
-                  <td>{item.name}</td>
-                  <td title={item.description}>{String(item.description || '').slice(0, 50)}{String(item.description || '').length > 50 ? '…' : ''}</td>
+                  <td className="edit-items-sticky edit-items-sticky-4">{item.name}</td>
+                  <td title={item.description}>{String(item.description || '').slice(0, 40)}{String(item.description || '').length > 40 ? '…' : ''}</td>
                   <td>{item.type}</td>
-                  <td>{item.rarity}</td>
+                  <td>{item.category ?? ''}</td>
+                  <td>{item.subtype ?? ''}</td>
+                  <td title={String(item.rarity)}>{rarityTableLabel(item.rarity)}</td>
+                  <td>{item.magic_value ?? ''}</td>
+                  <td>{item.max_stack ?? ''}</td>
                   <td>{item.buy_price ?? 0}</td>
                   <td>{item.sell_price ?? 0}</td>
+                  <td>{item.price_currency ?? 'peta'}</td>
                   <td>
                     <div className="cell-actions">
-                      {item.type === 'equipment' && <Link className="btn-edit" to={`/admin/edit-equipment-stats?item_id=${item.id}`}>Equipment</Link>}
-                      {(item.type === 'booster' || item.type === 'consumable') && <Link className="btn-edit" to={`/admin/edit-item-effects?item_id=${item.id}`}>Effects</Link>}
+                      {item.type === 'equipment' ? (
+                        <Link className="btn-edit" to={`/admin/edit-equipment-stats?item_id=${item.id}`}>Equipment</Link>
+                      ) : item.type === 'evolve' ? null : (
+                        <Link className="btn-edit" to={`/admin/edit-item-effects?item_id=${item.id}`}>Effects</Link>
+                      )}
                     </div>
                   </td>
                   <td>
@@ -248,7 +290,7 @@ function EditItems() {
               ))}
               {displayItems.length === 0 && (
                 <tr>
-                  <td colSpan={10} style={{ textAlign: 'center', color: '#6c757d' }}>Không có item phù hợp.</td>
+                  <td colSpan={tableColCount} style={{ textAlign: 'center', color: '#6c757d' }}>Không có item phù hợp.</td>
                 </tr>
               )}
             </tbody>
@@ -263,13 +305,22 @@ function EditItems() {
 
 function ItemModal({ mode, row, onClose, onSave }) {
   const [form, setForm] = useState({
+    item_code: row.item_code ?? '',
     name: row.name ?? '',
     description: row.description ?? '',
     type: row.type ?? 'misc',
-    rarity: row.rarity ?? 'common',
+    category: row.category ?? 'misc',
+    subtype: row.subtype ?? '',
+    rarity: normalizeRarityForItem(row.rarity ?? 'common'),
     image_url: row.image_url ?? '',
     buy_price: row.buy_price ?? 0,
     sell_price: row.sell_price ?? 0,
+    price_currency: row.price_currency ?? 'peta',
+    magic_value: row.magic_value ?? '',
+    stackable: row.stackable === 0 || row.stackable === false ? false : true,
+    max_stack: row.max_stack ?? 999,
+    consume_policy: row.consume_policy ?? 'single_use',
+    pet_scope: row.pet_scope ?? 'all',
   });
 
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }));
@@ -277,32 +328,99 @@ function ItemModal({ mode, row, onClose, onSave }) {
   const submit = (e) => {
     e.preventDefault();
     onSave({
-      ...form,
+      item_code: (() => {
+        const v = String(form.item_code ?? '').trim();
+        if (!v) return null;
+        const n = parseInt(v, 10);
+        return Number.isFinite(n) ? n : null;
+      })(),
+      name: form.name,
+      description: form.description,
+      type: form.type,
+      category: form.category,
+      subtype: form.subtype || null,
+      rarity: form.rarity,
+      image_url: form.image_url,
       buy_price: Number(form.buy_price) || 0,
       sell_price: Number(form.sell_price) || 0,
+      price_currency: form.price_currency,
+      magic_value: form.magic_value === '' ? null : Number(form.magic_value),
+      stackable: form.stackable ? 1 : 0,
+      max_stack: Number(form.max_stack) || 999,
+      consume_policy: form.consume_policy,
+      pet_scope: form.pet_scope,
     });
   };
 
   return (
     <div className="modal-overlay">
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
         <h4>{mode === 'edit' ? 'Sửa' : 'Thêm'} item</h4>
         <form onSubmit={submit}>
+          <div className="form-row"><label>item_code</label><input type="number" value={form.item_code} onChange={(e) => update('item_code', e.target.value)} placeholder="Mã nghiệp vụ (tuỳ chọn)" /></div>
           <div className="form-row"><label>name *</label><input value={form.name} onChange={(e) => update('name', e.target.value)} required /></div>
           <div className="form-row"><label>description</label><textarea rows={3} value={form.description} onChange={(e) => update('description', e.target.value)} /></div>
           <div className="form-row"><label>type *</label>
             <select value={form.type} onChange={(e) => update('type', e.target.value)}>
-              <option value="food">food</option><option value="equipment">equipment</option><option value="consumable">consumable</option><option value="booster">booster</option><option value="evolve">evolve</option><option value="misc">misc</option>
+              <option value="consumable">consumable</option>
+              <option value="booster">booster</option>
+              <option value="equipment">equipment</option>
+              <option value="evolve">evolve</option>
+              <option value="quest">quest</option>
+              <option value="repair_kit">repair_kit</option>
+              <option value="misc">misc</option>
             </select>
           </div>
+          <div className="form-row"><label>category *</label>
+            <select value={form.category} onChange={(e) => update('category', e.target.value)}>
+              <option value="stat_boost">stat_boost</option>
+              <option value="medicine">medicine</option>
+              <option value="food">food</option>
+              <option value="toy">toy</option>
+              <option value="equipment">equipment</option>
+              <option value="transform">transform</option>
+              <option value="quest">quest</option>
+              <option value="misc">misc</option>
+            </select>
+          </div>
+          <div className="form-row"><label>subtype</label><input value={form.subtype} onChange={(e) => update('subtype', e.target.value)} /></div>
           <div className="form-row"><label>rarity *</label>
             <select value={form.rarity} onChange={(e) => update('rarity', e.target.value)}>
-              <option value="common">common</option><option value="rare">rare</option><option value="epic">epic</option><option value="legendary">legendary</option>
+              <option value="common">common</option>
+              <option value="rare">rare</option>
+              <option value="epic">epic</option>
+              <option value="legendary">Legend (legendary)</option>
+            </select>
+          </div>
+          <div className="form-row"><label>magic_value</label><input type="number" value={form.magic_value} onChange={(e) => update('magic_value', e.target.value)} placeholder="Để trống = null" /></div>
+          <div className="form-row">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" checked={form.stackable} onChange={(e) => update('stackable', e.target.checked)} />
+              stackable
+            </label>
+          </div>
+          <div className="form-row"><label>max_stack</label><input type="number" min="1" value={form.max_stack} onChange={(e) => update('max_stack', e.target.value)} /></div>
+          <div className="form-row"><label>consume_policy</label>
+            <select value={form.consume_policy} onChange={(e) => update('consume_policy', e.target.value)}>
+              <option value="single_use">single_use</option>
+              <option value="on_battle_only">on_battle_only</option>
+            </select>
+          </div>
+          <div className="form-row"><label>pet_scope</label>
+            <select value={form.pet_scope} onChange={(e) => update('pet_scope', e.target.value)}>
+              <option value="all">all</option>
+              <option value="domestic_only">domestic_only</option>
             </select>
           </div>
           <div className="form-row"><label>image_url *</label><input value={form.image_url} onChange={(e) => update('image_url', e.target.value)} required /></div>
           <div className="form-row"><label>buy_price</label><input type="number" min="0" value={form.buy_price} onChange={(e) => update('buy_price', e.target.value)} /></div>
           <div className="form-row"><label>sell_price</label><input type="number" min="0" value={form.sell_price} onChange={(e) => update('sell_price', e.target.value)} /></div>
+          <div className="form-row"><label>price_currency</label>
+            <select value={form.price_currency} onChange={(e) => update('price_currency', e.target.value)}>
+              <option value="peta">peta</option>
+              <option value="petagold">petagold</option>
+            </select>
+          </div>
           <div className="form-actions">
             <button type="submit" className="btn-save">Lưu</button>
             <button type="button" className="btn-cancel" onClick={onClose}>Hủy</button>

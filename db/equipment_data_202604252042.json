@@ -1,0 +1,55 @@
+{
+"equipment_data": [
+	{
+		"id" : 1,
+		"item_id" : 81,
+		"equipment_type" : "weapon",
+		"power_min" : 60,
+		"power_max" : 69,
+		"durability_max" : 100,
+		"magic_value" : 6,
+		"crit_rate" : null,
+		"block_rate" : null,
+		"element" : null,
+		"effect_id" : null
+	},
+	{
+		"id" : 2,
+		"item_id" : 76,
+		"equipment_type" : "weapon",
+		"power_min" : 50,
+		"power_max" : 59,
+		"durability_max" : 100,
+		"magic_value" : 5,
+		"crit_rate" : null,
+		"block_rate" : null,
+		"element" : null,
+		"effect_id" : null
+	},
+	{
+		"id" : 3,
+		"item_id" : 77,
+		"equipment_type" : "weapon",
+		"power_min" : 80,
+		"power_max" : 89,
+		"durability_max" : 50,
+		"magic_value" : 8,
+		"crit_rate" : null,
+		"block_rate" : null,
+		"element" : null,
+		"effect_id" : null
+	},
+	{
+		"id" : 4,
+		"item_id" : 78,
+		"equipment_type" : "weapon",
+		"power_min" : 70,
+		"power_max" : 79,
+		"durability_max" : 50,
+		"magic_value" : 7,
+		"crit_rate" : null,
+		"block_rate" : null,
+		"element" : null,
+		"effect_id" : null
+	}
+]}

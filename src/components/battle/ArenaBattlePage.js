@@ -99,6 +99,23 @@ function ArenaBattlePage() {
       return pct > 70 ? 'high' : pct > 25 ? 'mid' : 'low';
     };
 
+    const isPermanentDurability = (item) =>
+      String(item?.durability_mode || '').toLowerCase() === 'unbreakable'
+      || Number(item?.max_durability || 0) >= 999999;
+    const isRandomDurability = (item) => {
+      const modeKey = String(item?.durability_mode || '').toLowerCase();
+      return modeKey === 'unknown' || modeKey === 'random';
+    };
+    const isItemUsableByDurability = (item) => {
+      if (isPermanentDurability(item) || isRandomDurability(item)) return true;
+      return Number(item?.durability_left ?? 0) > 0;
+    };
+    const getBattleDurabilityText = (item) => {
+      if (isPermanentDurability(item)) return 'Vĩnh viễn';
+      if (isRandomDurability(item)) return 'Ngẫu Nhiên';
+      return `${item?.durability_left ?? 0}/${item?.max_durability ?? 0}`;
+    };
+
 
     /** Công thức giống dùng item: Dmg_out / Def_dmg với R = random(power_min, power_max). Tấn công thường & Phòng thủ vật lý dùng cố định 7, 10. */
     const NORMAL_POWER_MIN = 7;
@@ -182,7 +199,7 @@ function ArenaBattlePage() {
   
       const handleAttackWithItem = async (item) => {
       if (battleUiLocked) return;
-      if (item.durability_left <= 0) return;
+      if (!isItemUsableByDurability(item)) return;
       setActionLocked(true);
       const powerMin = item.power_min != null ? item.power_min : 0;
       const powerMax = item.power_max != null ? item.power_max : 0;
@@ -240,8 +257,12 @@ function ArenaBattlePage() {
           }
         } catch (err) {
           console.error('Error updating durability:', err);
-          // Fallback: cập nhật UI local
-          setEquippedItems((prev) => prev.map(i => i.id === item.id ? { ...i, durability_left: Math.max(i.durability_left - 1, 0) } : i));
+          // Fallback: chỉ trừ durability khi là mode fixed
+          setEquippedItems((prev) => prev.map((i) => {
+            if (i.id !== item.id) return i;
+            if (!isItemUsableByDurability(i) || isRandomDurability(i) || isPermanentDurability(i)) return i;
+            return { ...i, durability_left: Math.max((i.durability_left ?? 1) - 1, 0) };
+          }));
         }
         
         setTurn((prev) => prev + 1);
@@ -262,7 +283,7 @@ function ArenaBattlePage() {
   
     const handleDefend = async (shieldItem) => {
       if (battleUiLocked) return;
-      if (!shieldItem || shieldItem.equipment_type !== 'shield' || shieldItem.durability_left <= 0) return;
+      if (!shieldItem || shieldItem.equipment_type !== 'shield' || !isItemUsableByDurability(shieldItem)) return;
       setActionLocked(true);
       const powerMin = shieldItem.power_min != null ? shieldItem.power_min : 0;
       const powerMax = shieldItem.power_max != null ? shieldItem.power_max : 0;
@@ -300,7 +321,11 @@ function ArenaBattlePage() {
           if (durData.item_destroyed) setEquippedItems((prev) => prev.filter(i => i.id !== shieldItem.id));
           else setEquippedItems((prev) => prev.map(i => i.id === shieldItem.id ? { ...i, durability_left: durData.durability_left } : i));
         } catch (_) {
-          setEquippedItems((prev) => prev.map(i => i.id === shieldItem.id ? { ...i, durability_left: Math.max((i.durability_left || 1) - 1, 0) } : i));
+          setEquippedItems((prev) => prev.map((i) => {
+            if (i.id !== shieldItem.id) return i;
+            if (!isItemUsableByDurability(i) || isRandomDurability(i) || isPermanentDurability(i)) return i;
+            return { ...i, durability_left: Math.max((i.durability_left || 1) - 1, 0) };
+          }));
         }
         if (!checkBattleEnded(enemy.current_hp, player.current_hp)) setTimeout(() => handleEnemyTurn(), 1500);
         else setActionLocked(false);
@@ -891,7 +916,7 @@ function ArenaBattlePage() {
               {equippedItems.map((item) => {
                 const isShield = item.equipment_type === 'shield';
                 const magicVal = item.magic_value ?? item.power ?? 0;
-                const disabled = (item.durability_left ?? 0) <= 0;
+                const disabled = !isItemUsableByDurability(item);
                 const handleClick = () => {
                   if (battleUiLocked || disabled) return;
                   if (isShield) handleDefend(item);
@@ -974,7 +999,7 @@ function ArenaBattlePage() {
                   aria-label="Item info"
                 >
                   <div className="arena-item-info-title">{item.item_name}</div>
-                  <div className="arena-item-info-row">Độ bền: <b>{item.durability_left ?? 0}</b> / {item.max_durability ?? 0}</div>
+                  <div className="arena-item-info-row">Độ bền: <b>{getBattleDurabilityText(item)}</b></div>
                   <div className="arena-item-info-row">Chỉ số Ma thuật: <b>{magicVal}</b></div>
                 </div>
               </div>,

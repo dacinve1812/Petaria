@@ -133,7 +133,7 @@ function EditItemEffects() {
       ? rows.filter((r) => {
           const item = items.find((i) => Number(i.id) === Number(r.item_id));
           const hay = [
-            r.id, r.item_id, item?.name, r.effect_target, r.effect_type, r.value_min, r.value_max, r.is_permanent, r.duration_turns,
+            r.id, r.item_id, item?.name, r.effect_target, r.effect_type, r.value_min, r.value_max, r.is_permanent, r.duration_turns, r.magic_value,
           ].map((v) => String(v ?? '').toLowerCase()).join(' ');
           return hay.includes(q);
         })
@@ -202,6 +202,7 @@ function EditItemEffects() {
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('value_max')}>value_max{sortIndicator('value_max')}</th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('is_permanent')}>is_permanent{sortIndicator('is_permanent')}</th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('duration_turns')}>duration_turns{sortIndicator('duration_turns')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('magic_value')}>magic_value{sortIndicator('magic_value')}</th>
                 <th>Thao tác</th>
               </tr>
             </thead>
@@ -226,6 +227,7 @@ function EditItemEffects() {
                     <td>{r.value_max}</td>
                     <td>{r.is_permanent ? '1' : '0'}</td>
                     <td>{r.duration_turns ?? 0}</td>
+                    <td>{r.magic_value ?? ''}</td>
                     <td>
                       <div className="cell-actions">
                         <button className="btn-edit" onClick={() => setModal({ mode: 'edit', row: r })}>Sửa</button>
@@ -237,7 +239,7 @@ function EditItemEffects() {
               })}
               {displayRows.length === 0 && (
                 <tr>
-                  <td colSpan={10} style={{ textAlign: 'center', color: '#6c757d' }}>Không có dữ liệu phù hợp.</td>
+                  <td colSpan={11} style={{ textAlign: 'center', color: '#6c757d' }}>Không có dữ liệu phù hợp.</td>
                 </tr>
               )}
             </tbody>
@@ -261,6 +263,7 @@ function ItemEffectModal({ items, modal, onClose, onSave }) {
     value_max: row.value_max ?? 0,
     is_permanent: !!row.is_permanent,
     duration_turns: row.duration_turns ?? 0,
+    magic_value: row.magic_value ?? '',
   });
 
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }));
@@ -269,7 +272,7 @@ function ItemEffectModal({ items, modal, onClose, onSave }) {
     <div className="modal-overlay">
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <h4>{mode === 'edit' ? 'Sửa' : 'Thêm'} item effect</h4>
-        <form onSubmit={(e) => { e.preventDefault(); onSave({ ...form, item_id: Number(form.item_id), value_min: Number(form.value_min) || 0, value_max: Number(form.value_max) || 0, duration_turns: Number(form.duration_turns) || 0 }); }}>
+        <form onSubmit={(e) => { e.preventDefault(); onSave({ ...form, item_id: Number(form.item_id), value_min: Number(form.value_min) || 0, value_max: Number(form.value_max) || 0, duration_turns: Number(form.duration_turns) || 0, magic_value: form.magic_value === '' ? null : Number(form.magic_value) }); }}>
           {mode === 'edit' ? (
             <div className="form-row">
               <label>item_id *</label>
@@ -285,7 +288,16 @@ function ItemEffectModal({ items, modal, onClose, onSave }) {
           )}
           <div className="form-row"><label>effect_target</label>
             <select value={form.effect_target} onChange={(e) => update('effect_target', e.target.value)}>
-              <option value="hp">hp</option><option value="mp">mp</option><option value="atk">atk</option><option value="def">def</option><option value="spd">spd</option><option value="int">int</option><option value="exp">exp</option><option value="status">status</option>
+              <option value="hp">hp</option>
+              <option value="mp">mp</option>
+              <option value="str">str</option>
+              <option value="def">def</option>
+              <option value="spd">spd</option>
+              <option value="intelligence">intelligence</option>
+              <option value="exp">exp</option>
+              <option value="hunger">hunger</option>
+              <option value="happiness">happiness</option>
+              <option value="status">status</option>
             </select>
           </div>
           <div className="form-row"><label>effect_type</label>
@@ -303,6 +315,7 @@ function ItemEffectModal({ items, modal, onClose, onSave }) {
             </label>
           </div>
           <div className="form-row"><label>duration_turns</label><input type="number" value={form.duration_turns} onChange={(e) => update('duration_turns', e.target.value)} /></div>
+          <div className="form-row"><label>magic_value</label><input type="number" value={form.magic_value} onChange={(e) => update('magic_value', e.target.value)} /></div>
           <div className="form-actions">
             <button type="submit" className="btn-save">Lưu</button>
             <button type="button" className="btn-cancel" onClick={onClose}>Hủy</button>

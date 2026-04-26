@@ -7,77 +7,98 @@ function MyStuffManagement() {
   const navigate = useNavigate();
 
   const managementItems = [
-    
     {
-      id: 'myshop',
-      title: 'My Shop',
-      backgroundImage: '/images/background/myshop.jpg',
-      path: '/myshop',
-      description: 'Quản lý cửa hàng'
-    },
-    {
-      id: 'buddies',
-      title: 'My Buddies',
-      backgroundImage: '/images/background/mybuddies.jpg',
-      path: '/buddies',
-      description: 'Quản lý bạn bè và liên lạc'
-    },
-    {
-      id: 'club',
-      title: 'My Guild',
-      backgroundImage: '/images/background/myclub.jpg',
-      path: '/guild',
-      description: 'Quản lý câu lạc bộ và nhóm'
-    },
-    {
-      id: 'inventory',
-      title: 'My Inventory',
-      backgroundImage: '/images/background/inventory3.jpg',
-      path: '/inventory',
-      description: 'Quản lý kho đồ và vật phẩm'
+      id: 'profile',
+      name: 'My Profile',
+      backgroundImage: '/images/buttons/my_profile.png',
+      path: '/profile',
     },
     {
       id: 'pets',
-      title: 'My Pets',
-      backgroundImage: '/images/background/mypet2.jpg',
+      name: 'My Pets',
+      backgroundImage: '/images/buttons/my_pet.png',
       path: '/myhome',
-      description: 'Quản lý thú cưng của bạn'
     },
     {
-      id: 'profile',
-      title: 'My Profile',
-      backgroundImage: '/images/background/myprofile.jpg',
-      path: '/profile',
-      description: 'Thông tin cá nhân và cài đặt'
+      id: 'spirits',
+      name: 'My Spirits',
+      backgroundImage: '/images/buttons/my_spirit.png',
+      path: '/myhome/spirits',
     },
+    {
+      id: 'inventory',
+      name: 'My Inventory',
+      backgroundImage: '/images/buttons/my_item.png',
+      path: '/inventory',
+    },
+    {
+      id: 'exhibition',
+      name: 'Exhibition',
+      backgroundImage: '/images/buttons/my_exhibition.png',
+      path: '/exhibition',
+    },
+    {
+      id: 'storage-box',
+      name: 'Storage Box',
+      backgroundImage: '/images/buttons/my_storage_box.png',
+      path: '/exhibition',
+    },
+    {
+      id: 'my-shop',
+      name: 'My Shop',
+      backgroundImage: '/images/buttons/my_shop.png',
+      path: '/myshop',
+    },
+    {
+      id: 'buddies',
+      name: 'My Buddies',
+      backgroundImage: '/images/buttons/my_friend.png',
+      path: '/buddies',
+    },
+
+    {
+      id: 'club',
+      name: 'My Guild',
+      backgroundImage: '/images/buttons/my_club.png',
+      path: '/guild',
+    },
+    
+    
     {
       id: 'scheduled-jobs',
-      title: 'My Scheduled Jobs',
-      backgroundImage: '/images/background/myschedule.jpg',
+      name: 'Scheduled Jobs',
+      backgroundImage: '/images/buttons/my_scheduledjobs.png',
       path: '/scheduled-jobs',
-      description: 'Quản lý công việc đã lên lịch'
     },
+    // {
+    //   id: 'arena',
+    //   title: 'Arena',
+    //   backgroundImage: '/images/background/myarena.jpg',
+    //   path: '/battle',
+    //   description: 'Đấu trường và PvP'
+    // },
+    // {
+    //   id: 'hunting',
+    //   title: 'Hunting',
+    //   backgroundImage: '/images/background/myhunting.jpg',
+    //   path: '/hunting-world',
+    //   description: 'Săn bắt và khám phá'
+    // },
+    // {
+    //   id: 'shop',
+    //   title: 'vShop',
+    //   backgroundImage: '/images/background/myshop2.jpg',
+    //   path: '/shop',
+    //   description: 'Cửa hàng mua bán'
+    // },
     {
-      id: 'arena',
-      title: 'Arena',
-      backgroundImage: '/images/background/myarena.jpg',
-      path: '/battle',
-      description: 'Đấu trường và PvP'
-    },
-    {
-      id: 'hunting',
-      title: 'Hunting',
-      backgroundImage: '/images/background/myhunting.jpg',
-      path: '/hunting-world',
-      description: 'Săn bắt và khám phá'
-    },
-    {
-      id: 'shop',
-      title: 'vShop',
-      backgroundImage: '/images/background/myshop2.jpg',
-      path: '/shop',
-      description: 'Cửa hàng mua bán'
+      id: 'title',
+      name: 'Title',
+      backgroundImage: '/images/buttons/my_title.png',
+      path: '/title',
     }
+    
+
   ];
 
   const handleItemClick = (item) => {
@@ -90,23 +111,18 @@ function MyStuffManagement() {
         {/* Main content */}
         <div className="management-main">
         <div className="management-grid">
-          {managementItems.map(item => (
+          {managementItems.map((item, index) => (
             <div 
-              key={item.id}
+              key={item.id || `${item.path}-${index}`}
               className="management-item"
               onClick={() => handleItemClick(item)}
-              style={{
-                backgroundImage: `url(${item.backgroundImage})`
-              }}
             >
-              <div className="item-overlay">
-                <div className="item-title">
-                  {item.title}
-                </div>
-                <div className="item-description">
-                  {item.description}
-                </div>
-              </div>
+              <img
+                className="management-item-image"
+                src={item.backgroundImage}
+                alt={item.name || 'Management box'}
+              />
+              {/* {item.name ? <div className="management-item-name">{item.name}</div> : null} */}
             </div>
           ))}
         </div>

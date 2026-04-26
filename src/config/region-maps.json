@@ -98,13 +98,13 @@
       {"id": 1, "coords": [834, 392, 892, 414], "path": "/", "name": "Thành Vô Cực", "huntingMapId": "thanh_vo_cuc" },
       { "id": 2, "coords": [293, 438, 340, 454], "path": "/", "name": "Núi Băng", "huntingMapId": "nui_bang" },
       { "id": 3, "coords": [341, 829, 434, 854], "path": "/", "name": "Làng Trẻ Thơ", "huntingMapId": "lang_tre_tho" },
-      { "id": 4, "coords": [1062, 822, 1129, 853], "path": "/", "name": "Động Tinh Linh", "huntingMapId": "dong_tinh_linh" }
+      { "id": 4, "coords": [1062, 822, 1129, 853], "path": "/tasks/spirit-fusion", "name": "Động Tinh Linh", "huntingMapId": "dong_tinh_linh" }
     ],
       "mapButtons": [
         { "id": 1, "x": 863, "y": 403, "path": "/", "label": "Thành Vô Cực", "huntingMapId": "thanh_vo_cuc" },
         { "id": 2, "x": 316, "y": 446, "path": "/", "label": "Núi Băng", "huntingMapId": "nui_bang" },
         { "id": 3, "x": 387, "y": 841, "path": "/", "label": "Làng Trẻ Thơ", "huntingMapId": "lang_tre_tho" },
-        { "id": 4, "x": 1095, "y": 837, "path": "/", "label": "Động Tinh Linh", "huntingMapId": "dong_tinh_linh" }
+        { "id": 4, "x": 1095, "y": 837, "path": "/tasks/spirit-fusion", "label": "Động Tinh Linh", "huntingMapId": "dong_tinh_linh" }
       ]
     },
     {
@@ -170,13 +170,13 @@
         "height": 1024
       },
       "originalCoordinates": [
-      {"id": 1, "coords": [1247, 299, 1321, 321], "path": "/", "name": "Kỳ Trân Các", "huntingMapId": "ky_tran_cac" },
+      {"id": 1, "coords": [1247, 299, 1321, 321], "path": "/tasks/item-hunt", "name": "Kỳ Trân Các", "huntingMapId": "ky_tran_cac" },
       { "id": 2, "coords": [1079, 704, 1188, 728], "path": "/", "name": "Làng Xúc Xắc", "huntingMapId": "lang_xuc_xac" },
       { "id": 3, "coords": [394, 715, 460, 731], "path": "/", "name": "Đầm Lầy Ma Quái", "huntingMapId": "dam_lay_ma_quai" },
       { "id": 4, "coords": [346, 321, 396, 336], "path": "/", "name": "Thành Hắc Phong", "huntingMapId": "thanh_hac_phong" }
     ],
       "mapButtons": [
-        { "id": 1, "x": 1274, "y": 313, "path": "/", "label": "Kỳ Trân Các", "huntingMapId": "ky_tran_cac" },
+        { "id": 1, "x": 1274, "y": 313, "path": "/tasks/item-hunt", "label": "Kỳ Trân Các", "huntingMapId": "ky_tran_cac" },
         { "id": 2, "x": 1133, "y": 716, "path": "/", "label": "Làng Xúc Xắc", "huntingMapId": "lang_xuc_xac" },
         { "id": 3, "x": 427, "y": 723, "path": "/", "label": "Đầm Lầy Ma Quái", "huntingMapId": "dam_lay_ma_quai" },
         { "id": 4, "x": 371, "y": 333, "path": "/", "label": "Thành Hắc Phong", "huntingMapId": "thanh_hac_phong" }
@@ -197,13 +197,13 @@
       "originalCoordinates": [
       {"id": 1, "coords": [255, 385, 319, 409], "path": "/", "name": "Thành Thái Dương", "huntingMapId": "thanh_thai_duong" },
       { "id": 2, "coords": [322, 827, 399, 846], "path": "/", "name": "Làng Nhân Ái", "huntingMapId": "lang_nhan_ai" },
-      { "id": 3, "coords": [1148, 723, 1230, 747], "path": "/", "name": "Hội Anh Hùng", "huntingMapId": "hoi_anh_hung" },
+      { "id": 3, "coords": [1148, 723, 1230, 747], "path": "/tasks/monster-hunt", "name": "Hội Anh Hùng", "huntingMapId": "hoi_anh_hung" },
       { "id": 4, "coords": [1201, 285, 1311, 315], "path": "/", "name": "Vườn Bách Thảo", "huntingMapId": "vuon_bach_thao" }
     ],
       "mapButtons": [
         { "id": 1, "x": 280, "y": 401, "path": "/", "label": "Thành Thái Dương", "huntingMapId": "thanh_thai_duong" },
         { "id": 2, "x": 355, "y": 836, "path": "/", "label": "Làng Nhân Ái", "huntingMapId": "lang_nhan_ai" },
-        { "id": 3, "x": 1189, "y": 734, "path": "/", "label": "Hội Anh Hùng", "huntingMapId": "hoi_anh_hung" },
+        { "id": 3, "x": 1189, "y": 734, "path": "/tasks/monster-hunt", "label": "Hội Anh Hùng", "huntingMapId": "hoi_anh_hung" },
         { "id": 4, "x": 1256, "y": 300, "path": "/", "label": "Vườn Bách Thảo", "huntingMapId": "vuon_bach_thao" }
       ]
     },

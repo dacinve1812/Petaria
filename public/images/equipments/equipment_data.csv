@@ -1,5 +1,0 @@
-﻿id,item_id,equipment_type,power_min,power_max,durability_max,magic_value,crit_rate,block_rate,element,effect_id
-1,81,weapon,60,69,100,6,,,,
-2,76,weapon,50,59,100,5,,,,
-3,77,weapon,80,89,50,8,,,,
-4,78,weapon,70,79,50,7,,,,

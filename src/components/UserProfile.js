@@ -6,13 +6,15 @@ import { getDisplayName } from '../utils/userDisplay';
 import './UserProfile.css';
 
 function UserProfile() {
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
   const { userId: urlUserId } = useParams();
   const { user: currentUser, isLoading } = React.useContext(UserContext);
   const [profileUser, setProfileUser] = useState(null);
   const [pets, setPets] = useState([]);
   const [isCopyingLink, setIsCopyingLink] = useState(false);
   const [isCopyingId, setIsCopyingId] = useState(false);
+  const [friendshipStatus, setFriendshipStatus] = useState('idle');
+  const [friendActionLoading, setFriendActionLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -55,6 +57,46 @@ function UserProfile() {
     [pets]
   );
 
+  useEffect(() => {
+    if (isLoading || !currentUser || !profileId || isOwner) return;
+
+    const fetchBuddyStatus = async () => {
+      setFriendshipStatus('loading');
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/buddies`, {
+          headers: { Authorization: `Bearer ${currentUser.token}` },
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.message || 'Không thể tải trạng thái bạn bè');
+        }
+
+        const targetId = Number(profileId);
+        const friends = Array.isArray(data?.friends) ? data.friends : [];
+        const sentRequests = Array.isArray(data?.sentRequests) ? data.sentRequests : [];
+        const receivedRequests = Array.isArray(data?.receivedRequests) ? data.receivedRequests : [];
+
+        if (friends.some((row) => Number(row.user_id) === targetId)) {
+          setFriendshipStatus('friend');
+          return;
+        }
+        if (sentRequests.some((row) => Number(row.user_id) === targetId)) {
+          setFriendshipStatus('outgoing');
+          return;
+        }
+        if (receivedRequests.some((row) => Number(row.user_id) === targetId)) {
+          setFriendshipStatus('incoming');
+          return;
+        }
+        setFriendshipStatus('can_add');
+      } catch (_) {
+        setFriendshipStatus('can_add');
+      }
+    };
+
+    fetchBuddyStatus();
+  }, [API_BASE_URL, currentUser, isLoading, isOwner, profileId]);
+
   const copyText = async (text, type) => {
     try {
       if (type === 'link') setIsCopyingLink(true);
@@ -65,6 +107,30 @@ function UserProfile() {
         if (type === 'link') setIsCopyingLink(false);
         if (type === 'id') setIsCopyingId(false);
       }, 900);
+    }
+  };
+
+  const sendFriendRequest = async () => {
+    if (!currentUser?.token || !profileId || isOwner) return;
+    setFriendActionLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/buddies/requests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${currentUser.token}`,
+        },
+        body: JSON.stringify({ receiverId: Number(profileId) }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || 'Không thể gửi lời mời kết bạn');
+      }
+      setFriendshipStatus('outgoing');
+    } catch (error) {
+      alert(error.message || 'Không thể gửi lời mời kết bạn');
+    } finally {
+      setFriendActionLoading(false);
     }
   };
 
@@ -146,6 +212,47 @@ function UserProfile() {
           </div>
         </div>
 
+        <div className="profile-action-row">
+          <button
+            type="button"
+            className="profile-action-btn"
+            onClick={() => navigate(`/exhibition/${profileId}`)}
+          >
+            Xem phòng triển lãm
+          </button>
+          {!isOwner ? (
+            <button
+              type="button"
+              className="profile-action-btn profile-action-btn--friend"
+              onClick={() => {
+                if (friendshipStatus === 'incoming') {
+                  navigate('/buddies');
+                  return;
+                }
+                if (friendshipStatus === 'can_add') {
+                  sendFriendRequest();
+                }
+              }}
+              disabled={
+                friendActionLoading ||
+                friendshipStatus === 'loading' ||
+                friendshipStatus === 'friend' ||
+                friendshipStatus === 'outgoing'
+              }
+            >
+              {friendActionLoading || friendshipStatus === 'loading'
+                ? 'Đang xử lý...'
+                : friendshipStatus === 'friend'
+                  ? 'Đã là bạn bè'
+                  : friendshipStatus === 'outgoing'
+                    ? 'Đã gửi lời mời'
+                    : friendshipStatus === 'incoming'
+                      ? 'Có lời mời đang chờ'
+                      : 'Kết bạn'}
+            </button>
+          ) : null}
+        </div>
+
         <div className="profile-pets-card">
           <h3>Top 6 thú cưng đẳng cấp cao nhất</h3>
           <table className="profile-pets-table">
@@ -182,21 +289,23 @@ function UserProfile() {
           </table>
         </div>
 
-        <div className="profile-share-card">
-          <h3>Link chia sẻ</h3>
-          <div className="profile-share-row">
-            <input type="text" readOnly value={shareUrl} />
-            <button type="button" onClick={() => copyText(shareUrl, 'link')}>
-              {isCopyingLink ? 'Đã copy' : 'Copy'}
-            </button>
+        {isOwner ? (
+          <div className="profile-share-card">
+            <h3>Link chia sẻ</h3>
+            <div className="profile-share-row">
+              <input type="text" readOnly value={shareUrl} />
+              <button type="button" onClick={() => copyText(shareUrl, 'link')}>
+                {isCopyingLink ? 'Đã copy' : 'Copy'}
+              </button>
+            </div>
+            <div className="profile-share-meta">
+              <span>Public ID: {profileId}</span>
+              <button type="button" onClick={() => copyText(profileId, 'id')}>
+                {isCopyingId ? 'Đã copy' : 'Copy ID'}
+              </button>
+            </div>
           </div>
-          <div className="profile-share-meta">
-            <span>Public ID: {profileId}</span>
-            <button type="button" onClick={() => copyText(profileId, 'id')}>
-              {isCopyingId ? 'Đã copy' : 'Copy ID'}
-            </button>
-          </div>
-        </div>
+        ) : null}
       </div>
     </TemplatePage>
   );

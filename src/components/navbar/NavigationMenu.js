@@ -53,7 +53,7 @@ const NavigationMenu = ({ className = '' }) => {
         { title: 'Đấu trường', path: '/battle' },
         { title: 'Đi săn', path: '/hunting-world' },
         { title: 'Bang hội', path: '/guild' },
-        { title: 'Nhiệm vụ', path: '/quest' },
+        { title: 'Nhiệm vụ', path: '/tasks' },
       ]
     },
     {

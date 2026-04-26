@@ -23,6 +23,7 @@ function EditEquipmentStats() {
   const [modal, setModal] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'asc' });
+  const [equipmentFilter, setEquipmentFilter] = useState('all');
 
   useEffect(() => {
     if (!isLoading && (!user || !user.isAdmin)) navigate('/login');
@@ -127,18 +128,29 @@ function EditEquipmentStats() {
     setSortConfig((prev) => (prev.key === key ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' } : { key, direction: 'asc' }));
   };
   const sortIndicator = (key) => (sortConfig.key === key ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : '');
+  const formatDurabilityMode = (mode) => {
+    const key = String(mode || '').toLowerCase();
+    if (key === 'unbreakable') return 'Vĩnh viễn';
+    if (key === 'unknown' || key === 'random') return 'Ngẫu Nhiên';
+    return 'Có độ bền';
+  };
   const displayRows = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
+    const byEquipmentFilter = rows.filter((r) => {
+      if (equipmentFilter === 'booster') return r.equipment_type === 'booster';
+      if (equipmentFilter === 'non-booster') return r.equipment_type !== 'booster';
+      return true;
+    });
     const filtered = q
-      ? rows.filter((r) => {
+      ? byEquipmentFilter.filter((r) => {
           const item = items.find((i) => Number(i.id) === Number(r.item_id));
           const hay = [
             r.id, r.item_id, item?.name, r.equipment_type, r.power_min, r.power_max,
-            r.durability_max, r.magic_value, r.crit_rate, r.block_rate, r.element, r.effect_id,
+            r.slot_type, r.durability_mode, r.durability_max, r.magic_value, r.crit_rate, r.block_rate, r.element, r.effect_id,
           ].map((v) => String(v ?? '').toLowerCase()).join(' ');
           return hay.includes(q);
         })
-      : [...rows];
+      : [...byEquipmentFilter];
 
     const sorted = [...filtered].sort((a, b) => {
       const itemA = items.find((i) => Number(i.id) === Number(a.item_id));
@@ -153,7 +165,7 @@ function EditEquipmentStats() {
       return sortConfig.direction === 'asc' ? cmp : -cmp;
     });
     return sorted;
-  }, [rows, items, searchTerm, sortConfig]);
+  }, [rows, items, searchTerm, sortConfig, equipmentFilter]);
 
   if (isLoading) return <div className="admin-npc-boss"><div className="loading">Đang tải...</div></div>;
   if (!user || !user.isAdmin) return <div className="admin-npc-boss"><div className="access-denied"><h2>Access Denied</h2></div></div>;
@@ -178,6 +190,9 @@ function EditEquipmentStats() {
         <div className="section-actions">
           <button className="btn btn-primary" onClick={() => setModal({ mode: 'add', row: { item_id: selectedItemId || '' } })}>Thêm</button>
           <button className="btn btn-secondary" onClick={downloadCSV}>Tải CSV</button>
+          <button className={`btn ${equipmentFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setEquipmentFilter('all')}>All</button>
+          <button className={`btn ${equipmentFilter === 'non-booster' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setEquipmentFilter('non-booster')}>non-booster</button>
+          <button className={`btn ${equipmentFilter === 'booster' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setEquipmentFilter('booster')}>booster</button>
           <label className="btn btn-secondary" style={{ margin: 0 }}>
             Upload CSV
             <input type="file" accept=".csv" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCSV(f); e.target.value = ''; }} />
@@ -198,9 +213,11 @@ function EditEquipmentStats() {
                 <th>img</th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('item_name')}>item{sortIndicator('item_name')}</th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('equipment_type')}>type{sortIndicator('equipment_type')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('slot_type')}>slot_type{sortIndicator('slot_type')}</th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('power_min')}>power_min{sortIndicator('power_min')}</th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('power_max')}>power_max{sortIndicator('power_max')}</th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('durability_max')}>durability_max{sortIndicator('durability_max')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('durability_mode')}>durability_mode{sortIndicator('durability_mode')}</th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('magic_value')}>magic_value{sortIndicator('magic_value')}</th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('crit_rate')}>crit_rate{sortIndicator('crit_rate')}</th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('block_rate')}>block_rate{sortIndicator('block_rate')}</th>
@@ -225,9 +242,11 @@ function EditEquipmentStats() {
                     </td>
                     <td>{item ? `${item.name} (#${item.id})` : r.item_id}</td>
                     <td>{r.equipment_type}</td>
+                    <td>{r.slot_type ?? ''}</td>
                     <td>{r.power_min ?? ''}</td>
                     <td>{r.power_max ?? ''}</td>
                     <td>{r.durability_max ?? ''}</td>
+                    <td>{formatDurabilityMode(r.durability_mode)}</td>
                     <td>{r.magic_value ?? ''}</td>
                     <td>{r.crit_rate ?? ''}</td>
                     <td>{r.block_rate ?? ''}</td>
@@ -244,7 +263,7 @@ function EditEquipmentStats() {
               })}
               {displayRows.length === 0 && (
                 <tr>
-                  <td colSpan={13} style={{ textAlign: 'center', color: '#6c757d' }}>Không có dữ liệu phù hợp.</td>
+                  <td colSpan={15} style={{ textAlign: 'center', color: '#6c757d' }}>Không có dữ liệu phù hợp.</td>
                 </tr>
               )}
             </tbody>
@@ -263,9 +282,12 @@ function EquipmentModal({ items, modal, onClose, onSave }) {
   const [form, setForm] = useState({
     item_id: row.item_id ?? '',
     equipment_type: row.equipment_type ?? 'weapon',
+    slot_type: row.slot_type ?? 'weapon',
     power_min: row.power_min ?? '',
     power_max: row.power_max ?? '',
     durability_max: row.durability_max ?? '',
+    durability_mode: row.durability_mode ?? 'fixed',
+    random_break_chance: row.random_break_chance ?? '',
     magic_value: row.magic_value ?? '',
     crit_rate: row.crit_rate ?? '',
     block_rate: row.block_rate ?? '',
@@ -280,7 +302,7 @@ function EquipmentModal({ items, modal, onClose, onSave }) {
     <div className="modal-overlay">
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <h4>{mode === 'edit' ? 'Sửa' : 'Thêm'} equipment stat</h4>
-        <form onSubmit={(e) => { e.preventDefault(); onSave({ ...form, item_id: Number(form.item_id), power_min: toNumOrNull(form.power_min), power_max: toNumOrNull(form.power_max), durability_max: toNumOrNull(form.durability_max), magic_value: toNumOrNull(form.magic_value), crit_rate: toNumOrNull(form.crit_rate), block_rate: toNumOrNull(form.block_rate), effect_id: toNumOrNull(form.effect_id), element: form.element || null }); }}>
+        <form onSubmit={(e) => { e.preventDefault(); onSave({ ...form, item_id: Number(form.item_id), power_min: toNumOrNull(form.power_min), power_max: toNumOrNull(form.power_max), durability_max: form.durability_mode === 'unknown' ? null : toNumOrNull(form.durability_max), random_break_chance: form.durability_mode === 'unknown' ? toNumOrNull(form.random_break_chance) : null, magic_value: toNumOrNull(form.magic_value), crit_rate: toNumOrNull(form.crit_rate), block_rate: toNumOrNull(form.block_rate), effect_id: toNumOrNull(form.effect_id), element: form.element || null }); }}>
           {mode === 'edit' ? (
             <div className="form-row">
               <label>item_id *</label>
@@ -294,10 +316,40 @@ function EquipmentModal({ items, modal, onClose, onSave }) {
               </select>
             </div>
           )}
-          <div className="form-row"><label>equipment_type</label><input value={form.equipment_type} onChange={(e) => update('equipment_type', e.target.value)} /></div>
+          <div className="form-row"><label>equipment_type</label>
+            <select value={form.equipment_type} onChange={(e) => {
+              const nextType = e.target.value;
+              update('equipment_type', nextType);
+              if (nextType === 'shield') update('slot_type', 'shield');
+              else if (nextType === 'booster') update('slot_type', 'stat_boost');
+              else update('slot_type', 'weapon');
+            }}>
+              <option value="weapon">weapon</option>
+              <option value="shield">shield</option>
+              <option value="crit_weapon">crit_weapon</option>
+              <option value="booster">booster</option>
+            </select>
+          </div>
+          <div className="form-row"><label>slot_type</label>
+            <select value={form.slot_type} onChange={(e) => update('slot_type', e.target.value)}>
+              <option value="weapon">weapon</option>
+              <option value="shield">shield</option>
+              <option value="stat_boost">stat_boost</option>
+            </select>
+          </div>
           <div className="form-row"><label>power_min</label><input type="number" value={form.power_min} onChange={(e) => update('power_min', e.target.value)} /></div>
           <div className="form-row"><label>power_max</label><input type="number" value={form.power_max} onChange={(e) => update('power_max', e.target.value)} /></div>
-          <div className="form-row"><label>durability_max</label><input type="number" value={form.durability_max} onChange={(e) => update('durability_max', e.target.value)} /></div>
+          <div className="form-row"><label>durability_mode</label>
+            <select value={form.durability_mode} onChange={(e) => update('durability_mode', e.target.value)}>
+              <option value="fixed">fixed (Có độ bền)</option>
+              <option value="unknown">unknown (Ngẫu Nhiên)</option>
+              <option value="unbreakable">unbreakable (Vĩnh viễn)</option>
+            </select>
+          </div>
+          <div className="form-row"><label>durability_max</label><input type="number" value={form.durability_max} onChange={(e) => update('durability_max', e.target.value)} disabled={form.durability_mode === 'unknown'} placeholder={form.durability_mode === 'unknown' ? 'Không dùng ở mode Ngẫu Nhiên' : ''} /></div>
+          {form.durability_mode === 'unknown' && (
+            <div className="form-row"><label>random_break_chance (%)</label><input type="number" value={form.random_break_chance} onChange={(e) => update('random_break_chance', e.target.value)} /></div>
+          )}
           <div className="form-row"><label>magic_value</label><input type="number" value={form.magic_value} onChange={(e) => update('magic_value', e.target.value)} /></div>
           <div className="form-row"><label>crit_rate</label><input type="number" value={form.crit_rate} onChange={(e) => update('crit_rate', e.target.value)} /></div>
           <div className="form-row"><label>block_rate</label><input type="number" value={form.block_rate} onChange={(e) => update('block_rate', e.target.value)} /></div>

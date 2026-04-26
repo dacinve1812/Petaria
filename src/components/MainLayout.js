@@ -76,6 +76,12 @@ function MainLayout() {
         if (pathname.startsWith('/guild')) {
             return 'BANG HỘI';
         }
+        if (pathname.startsWith('/exhibition')) {
+            return 'PHÒNG TRIỂN LÃM';
+        }
+        if (pathname.startsWith('/tasks')) {
+            return 'NHIỆM VỤ';
+        }
 
         const titleMap = {
             '/': 'PETARIA',
@@ -96,7 +102,9 @@ function MainLayout() {
             '/hunting-world': 'ĐI SĂN',
             '/world-map': 'PETARIA',
             '/quest': 'NHIỆM VỤ',
+            '/tasks': 'NHIỆM VỤ',
             '/management': 'QUẢN LÝ',
+            '/exhibition': 'PHÒNG TRIỂN LÃM',
             '/buddies': 'BẠN BÈ',
             '/admin': 'ADMIN PANEL',
             '/dev-dashboard': 'DEV DASHBOARD',

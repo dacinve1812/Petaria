@@ -1,0 +1,16 @@
+﻿id,item_code,effect_target,effect_type,value_min,value_max,is_permanent,duration_turns,magic_value
+83,10001,exp,flat,1500,1500,0,0,3
+84,10001,status,status_cure,1,1,0,0,3
+85,10101,def,flat,1,1,1,0,1
+86,10102,str,flat,1,1,1,0,1
+87,10103,spd,flat,1,1,1,0,1
+88,10104,intelligence,flat,1,1,1,0,1
+89,10105,hp,flat,5,5,1,0,5
+90,10106,mp,flat,10,10,1,0,10
+91,10107,exp,flat,100,100,1,0,1
+92,11001,hp,flat,6,6,0,0,2
+93,11002,mp,flat,5,5,0,0,3
+96,12001,happiness,flat,1,1,0,0,1
+97,12002,hunger,flat,1,1,0,0,1
+94,13004,status,flat,2,2,0,3,2
+95,13005,status,flat,-2,-2,0,3,2

@@ -1,0 +1,172 @@
+.exhibition-room-page {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 12px;
+}
+
+.exhibition-room-header {
+  border-radius: 12px;
+  background: linear-gradient(90deg, #a6ebff 0%, #8adbf3 100%);
+  border: 1px solid #79c5db;
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.exhibition-room-header p {
+  margin: 0;
+  padding: 14px 12px;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #17485f;
+}
+
+.exhibition-room-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  color: #35455f;
+  font-weight: 600;
+}
+
+.exhibition-room-loading,
+.exhibition-room-empty,
+.exhibition-room-error {
+  border: 1px solid #d7deea;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.exhibition-room-error {
+  border-color: #ffc8c8;
+  background: #fff1f1;
+  color: #b3261e;
+  margin-bottom: 12px;
+}
+
+.exhibition-stage {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.exhibition-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 130px;
+}
+
+.exhibition-slot-platform {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 72px;
+}
+
+.exhibition-slot-image {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.exhibition-slot-name {
+  text-align: center;
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: #223149;
+  min-height: 36px;
+}
+
+.exhibition-slot--placeholder {
+  opacity: 0.65;
+}
+
+.exhibition-slot-placeholder-mark {
+  font-size: 0.82rem;
+  color: #7a879b;
+}
+
+.exhibition-slot-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.exhibition-slot-actions button,
+.exhibition-share-row button {
+  min-height: 36px;
+  min-width: 40px;
+  border: 1px solid #d5deeb;
+  border-radius: 9px;
+  padding: 0 12px;
+  background: #f4f7fc;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.exhibition-slot-actions button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.exhibition-share-card {
+  background: #ffffff;
+  border: 1px solid #d7deea;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(9, 23, 57, 0.08);
+  padding: 14px;
+  margin-top: 22px;
+}
+
+.exhibition-share-card h3 {
+  margin: 0 0 10px;
+}
+
+.exhibition-share-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.exhibition-share-row input {
+  min-height: 40px;
+  border: 1px solid #d5deeb;
+  border-radius: 9px;
+  padding: 0 12px;
+}
+
+@media (max-width: 1024px) {
+  .exhibition-stage {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .exhibition-stage {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .exhibition-room-page {
+    padding: 8px;
+  }
+
+  .exhibition-room-header p {
+    font-size: 1.1rem;
+    padding: 10px;
+  }
+
+  .exhibition-stage {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .exhibition-share-row {
+    grid-template-columns: 1fr;
+  }
+}

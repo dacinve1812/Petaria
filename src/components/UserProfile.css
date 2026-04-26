@@ -112,6 +112,35 @@
   padding: 14px;
 }
 
+.profile-action-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+}
+
+.profile-action-btn {
+  min-height: 40px;
+  border: 1px solid #d5deeb;
+  border-radius: 9px;
+  padding: 0 14px;
+  background: #f4f7fc;
+  cursor: pointer;
+  font-weight: 600;
+  color: #1f2f4a;
+}
+
+.profile-action-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.profile-action-btn--friend {
+  border-color: #7ca0ff;
+  background: #e9f0ff;
+  color: #22439b;
+}
+
 .profile-pets-card h3,
 .profile-share-card h3 {
   margin: 0 0 10px;
@@ -230,6 +259,10 @@
 
   .profile-share-row {
     grid-template-columns: 1fr;
+  }
+
+  .profile-action-row {
+    flex-direction: column;
   }
   /* .profile-picture {
     max-width: 260px;

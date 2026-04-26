@@ -21,6 +21,7 @@ function mapEquippedRowToModalItem(row) {
     is_equipped: 1,
     durability_left: row.durability_left,
     max_durability: row.max_durability,
+    durability_mode: row.durability_mode,
     power: row.power,
     rarity: row.rarity,
     description: row.description,
@@ -402,13 +403,27 @@ function PetProfile() {
               {equippedItems.length === 0 && <p className="equipped-items-empty">(Không có item nào)</p>}
               {equippedItems.map((item, index) => (
                 <div key={item.id} className="equipped-item">
+                  {(() => {
+                    const isPermanentDurability =
+                      String(item.durability_mode || '').toLowerCase() === 'unbreakable' ||
+                      Number(item.max_durability || 0) >= 999999;
+                    const modeKey = String(item.durability_mode || '').toLowerCase();
+                    const isRandomDurability = modeKey === 'unknown' || modeKey === 'random';
+                    const durabilityLabel = isPermanentDurability
+                      ? 'Vĩnh viễn'
+                      : isRandomDurability
+                        ? 'Ngẫu Nhiên'
+                      : `${item.durability_left ?? 0}/${item.max_durability ?? 0}`;
+                    return (
                   <img
                     src={`/images/equipments/${item.image_url}`}
                     alt={item.item_name}
-                    title={`${item.item_name} (Durability: ${item.durability})`}
+                    title={`${item.item_name} (Độ bền: ${durabilityLabel})`}
                     className="equipped-item-image"
                     onClick={() => openItemDetail(item)}
                   />
+                    );
+                  })()}
                 </div>
               ))}
             </div>

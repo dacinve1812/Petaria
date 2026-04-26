@@ -1,0 +1,33 @@
+{
+"food_recovery_items": [
+	{
+		"id" : 1,
+		"item_id" : 96,
+		"recovery_amount" : 1
+	},
+	{
+		"id" : 2,
+		"item_id" : 97,
+		"recovery_amount" : 1
+	},
+	{
+		"id" : 3,
+		"item_id" : 98,
+		"recovery_amount" : 2
+	},
+	{
+		"id" : 4,
+		"item_id" : 99,
+		"recovery_amount" : 2
+	},
+	{
+		"id" : 5,
+		"item_id" : 100,
+		"recovery_amount" : 3
+	},
+	{
+		"id" : 6,
+		"item_id" : 101,
+		"recovery_amount" : 3
+	}
+]}

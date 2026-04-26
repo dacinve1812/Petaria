@@ -191,7 +191,9 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
     } else if (actionValue === 'sell') {
       setSellQuantity(1);
       setGameDialog({ mode: 'sell' });
-    } else if (['sell_auction', 'exhibition', 'gift'].includes(actionValue)) {
+    } else if (actionValue === 'exhibition') {
+      handleBringToExhibition();
+    } else if (['sell_auction', 'gift'].includes(actionValue)) {
       setGameDialog({
         mode: 'placeholder',
         actionValue,
@@ -468,6 +470,49 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
     }
   };
 
+  const handleBringToExhibition = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Bạn cần đăng nhập lại để thực hiện thao tác này.');
+        return;
+      }
+      const response = await fetch(`${API_BASE_URL}/api/inventory/${item.id}/exhibition`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        alert(result?.message || 'Không thể đưa item vào phòng triển lãm.');
+        return;
+      }
+
+      if (typeof onUpdateItem === 'function') {
+        const remain = Number(result?.remaining_quantity);
+        if (result?.removed || remain <= 0) {
+          onUpdateItem(null);
+        } else {
+          onUpdateItem({
+            ...item,
+            quantity: remain,
+          });
+        }
+      }
+
+      alert(result?.message || 'Đã mang item vào phòng triển lãm.');
+      onClose();
+    } catch (err) {
+      console.error('Lỗi khi đưa item vào phòng triển lãm:', err);
+      alert('Lỗi khi đưa item vào phòng triển lãm.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handlePetSelectionConfirm = async (petId, quantity = 1) => {
     setLoading(true);
     try {
@@ -559,30 +604,36 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   // Use itemDetails if available, otherwise fallback to item
   const displayItem = itemDetails || item;
 
-  // Helper function to get rarity color
+  const normalizeItemRarityUi = (rarity) => {
+    const k = String(rarity || '').trim().toLowerCase();
+    if (['common', 'rare', 'epic', 'legendary'].includes(k)) return k;
+    if (['legend', 'mythic', 'unique', 'artifact'].includes(k)) return 'legendary';
+    if (k === 'uncommon') return 'rare';
+    return 'common';
+  };
+
+  // Helper function to get rarity color (4 mức: common / rare / epic / legendary)
   const getRarityColor = (rarity) => {
+    const r = normalizeItemRarityUi(rarity);
     const colors = {
-      'common': '#95a5a6',
-      'uncommon': '#27ae60',
-      'rare': '#3498db',
-      'epic': '#9b59b6',
-      'legendary': '#f39c12',
-      'mythic': '#e74c3c'
+      common: '#95a5a6',
+      rare: '#3498db',
+      epic: '#9b59b6',
+      legendary: '#f39c12',
     };
-    return colors[rarity?.toLowerCase()] || '#95a5a6';
+    return colors[r] || '#95a5a6';
   };
 
   // Helper function to get rarity text
   const getRarityText = (rarity) => {
+    const r = normalizeItemRarityUi(rarity);
     const texts = {
-      'common': 'Thường',
-      'uncommon': 'Hiếm',
-      'rare': 'Hiếm',
-      'epic': 'Cực hiếm',
-      'legendary': 'Huyền thoại',
-      'mythic': 'Thần thoại'
+      common: 'Thường',
+      rare: 'Hiếm',
+      epic: 'Cực hiếm',
+      legendary: 'Legend',
     };
-    return texts[rarity?.toLowerCase()] || 'Thường';
+    return texts[r] || 'Thường';
   };
 
   // Get equipment data from API response (now includes power and durability)
@@ -594,6 +645,36 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
       };
     }
     return null;
+  };
+
+  const isPermanentDurability = () => {
+    const durabilityMode = String(
+      fetchedEquipmentData?.durability_mode ??
+      item?.durability_mode ??
+      displayItem?.durability_mode ??
+      ''
+    ).toLowerCase();
+    const maxDurability = Number(
+      fetchedEquipmentData?.durability_max ??
+      item?.max_durability ??
+      displayItem?.max_durability ??
+      0
+    );
+    return durabilityMode === 'unbreakable' || maxDurability >= 999999;
+  };
+
+  const getDurabilityDisplay = () => {
+    if (isPermanentDurability()) return 'Vĩnh viễn';
+    const durabilityMode = String(
+      fetchedEquipmentData?.durability_mode ??
+      item?.durability_mode ??
+      displayItem?.durability_mode ??
+      ''
+    ).toLowerCase();
+    if (durabilityMode === 'unknown' || durabilityMode === 'random') return 'Ngẫu Nhiên';
+    const current = item?.durability_left ?? fetchedEquipmentData?.durability_max ?? 0;
+    const max = item?.max_durability ?? fetchedEquipmentData?.durability_max ?? 0;
+    return `${current}/${max}`;
   };
 
   const equipmentData = getEquipmentData();
@@ -642,9 +723,9 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
             <div className="inventory-item-modal-quantity-value">
               Chỉ số ma thuật: {fetchedEquipmentData?.magic_value ?? displayItem.power ?? item.power ?? 0}
             </div>
-            {item.type === 'equipment' && mode !== 'shop' && (
+            {item.type === 'equipment' && (
               <div className="inventory-item-modal-quantity-value">
-                Độ bền: {item.durability_left}/{item.max_durability}
+                Độ bền: {getDurabilityDisplay()}
               </div>
             )}
             {item.type !== 'equipment' && (
@@ -667,6 +748,7 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
                     <div className="inventory-item-modal-effect-content">
                       <div className="inventory-item-modal-effect-description">
                         {effect.description || `${effect.effect_target.toUpperCase()}: ${effect.value_min}${effect.effect_type === 'percent' ? '%' : ''}`}
+                        {` (Ma thuật: ${effect.magic_value ?? fetchedEquipmentData?.magic_value ?? displayItem.magic_value ?? 0})`}
                       </div>
                     </div>
                   </div>

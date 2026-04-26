@@ -33,10 +33,14 @@ import RegionMapPage from './components/RegionMapPage';
 import HuntConfirmPage from './components/HuntConfirmPage';
 import PokedexPage from './components/PokedexPage';
 import CultivatePage from './components/CultivatePage';
-import TasksPage from './components/TasksPage';
+import TasksHubPage from './components/tasks/TasksHubPage';
+import TaskItemHuntPage from './components/tasks/TaskItemHuntPage';
+import TaskSpiritFusionPage from './components/tasks/TaskSpiritFusionPage';
+import TaskMonsterHuntPage from './components/tasks/TaskMonsterHuntPage';
 import TeamPage from './components/TeamPage';
 import HuntingWorldPage from './components/HuntingWorldPage';
 import MyStuffManagement from './components/MyStuffManagement';
+import ExhibitionRoom from './components/ExhibitionRoom';
 import DevDashboard from './components/DevDashboard';
 import MapCoordinateTool from './components/MapCoordinateTool';
 import Bank from './components/Bank';
@@ -86,11 +90,16 @@ const router = createBrowserRouter([
       { path: 'admin/site-management', element: <SiteManagement /> },
       { path: 'admin/hunting-maps', element: <AdminHuntingMapManagement /> },
       { path: 'management', element: <MyStuffManagement /> },
+      { path: 'exhibition', element: <ExhibitionRoom /> },
+      { path: 'exhibition/:userId', element: <ExhibitionRoom /> },
       { path: 'battle/arena/arenabattle', element: <ArenaBattlePage /> },
       { path: 'home-ver2', element: <HomePage /> },
       { path: 'pokedex', element: <PokedexPage /> },
       { path: 'cultivate', element: <CultivatePage /> },
-      { path: 'tasks', element: <TasksPage /> },
+      { path: 'tasks', element: <TasksHubPage /> },
+      { path: 'tasks/item-hunt', element: <TaskItemHuntPage /> },
+      { path: 'tasks/spirit-fusion', element: <TaskSpiritFusionPage /> },
+      { path: 'tasks/monster-hunt', element: <TaskMonsterHuntPage /> },
       { path: 'team', element: <TeamPage /> },
       { path: 'hunting-world', element: <HuntingWorldPage /> },
       { path: 'hunting-world/map/:id', element: <HuntingMap /> },

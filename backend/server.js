@@ -252,6 +252,31 @@ async function ensureChatTables() {
   }
 }
 
+async function ensureExhibitionTables() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_exhibition_items (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        item_id INT NOT NULL,
+        display_order INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_user_exhibition_items_user
+          FOREIGN KEY (user_id) REFERENCES users(id)
+          ON DELETE CASCADE,
+        CONSTRAINT fk_user_exhibition_items_item
+          FOREIGN KEY (item_id) REFERENCES items(id)
+          ON DELETE CASCADE,
+        UNIQUE KEY uq_user_exhibition_item (user_id, item_id),
+        INDEX idx_user_exhibition_order (user_id, display_order, id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+  } catch (error) {
+    console.error('Error ensuring exhibition tables:', error);
+  }
+}
+
 async function touchUserPresenceByUserId(userId) {
   if (!userId) return;
   await db.query(
@@ -347,6 +372,7 @@ function getGuildRoomName(guildName) {
 ensureBuddiesTables();
 ensureGuildTables();
 ensureChatTables();
+ensureExhibitionTables();
 
 const CHAT_COOLDOWN_SECONDS = Math.max(1, Number(process.env.CHAT_COOLDOWN_SECONDS || 30));
 const CHAT_MESSAGE_MAX_LENGTH = Math.min(
@@ -4267,17 +4293,251 @@ app.delete('/api/admin/pets/:uuid', async (req, res) => {
 
 /************************************* ITEMS ********************************************** */
 
+const ITEM_EFFECT_TARGET_ALIASES = {
+  atk: 'str',
+  attack: 'str',
+  int: 'intelligence',
+  intelligence: 'intelligence',
+  hp: 'hp',
+  mp: 'mp',
+  str: 'str',
+  def: 'def',
+  spd: 'spd',
+  exp: 'exp',
+  status: 'status',
+  hunger: 'hunger',
+  happiness: 'happiness',
+  energy: 'mp',
+};
+
+const ITEM_EFFECT_TYPE_ALIASES = {
+  flat: 'flat',
+  percent: 'percent',
+  status_cure: 'status_cure',
+};
+
+function normalizeEffectTarget(rawValue) {
+  const key = String(rawValue || '').trim().toLowerCase();
+  return ITEM_EFFECT_TARGET_ALIASES[key] || key || 'hp';
+}
+
+function normalizeEffectType(rawValue) {
+  const key = String(rawValue || '').trim().toLowerCase();
+  return ITEM_EFFECT_TYPE_ALIASES[key] || 'flat';
+}
+
+function normalizeEffectRow(row) {
+  if (!row || typeof row !== 'object') return row;
+  return {
+    ...row,
+    effect_target: normalizeEffectTarget(row.effect_target),
+    effect_type: normalizeEffectType(row.effect_type),
+  };
+}
+
+function resolveEffectMagicValue(effect, itemRow) {
+  const fromEffect = Number(effect?.magic_value);
+  if (Number.isFinite(fromEffect) && fromEffect > 0) return fromEffect;
+  const fromItem = Number(itemRow?.magic_value);
+  if (Number.isFinite(fromItem) && fromItem > 0) return fromItem;
+  return 1;
+}
+
+function resolveEffectAmount(effect, quantity, itemRow, options = {}) {
+  const base = (Number(effect?.value_min) || 0) * Math.max(1, Number(quantity) || 1);
+  if (!options.scaleByMagic) return base;
+  return base * resolveEffectMagicValue(effect, itemRow);
+}
+
+function normalizeEquipmentType(rawValue) {
+  const key = String(rawValue || '').trim().toLowerCase();
+  if (key === 'crit_wepaon') return 'crit_weapon';
+  if (['weapon', 'shield', 'crit_weapon', 'booster'].includes(key)) return key;
+  return 'booster';
+}
+
+function normalizeSlotType(rawValue, equipmentType) {
+  const key = String(rawValue || '').trim().toLowerCase();
+  if (['weapon', 'shield', 'stat_boost'].includes(key)) return key;
+  if (equipmentType === 'shield') return 'shield';
+  if (equipmentType === 'booster') return 'stat_boost';
+  return 'weapon';
+}
+
+function normalizeDurabilityMode(rawValue) {
+  const key = String(rawValue || '').trim().toLowerCase();
+  if (['fixed', 'unknown', 'unbreakable'].includes(key)) return key;
+  if (key === 'random') return 'unknown';
+  return 'fixed';
+}
+
+/** Chuẩn hóa rarity: chỉ common | rare | epic | legendary (lưu trong DB là legendary; CSV/UI có thể gõ legend). */
+const ITEM_RARITY_CANONICAL = new Set(['common', 'rare', 'epic', 'legendary']);
+function normalizeItemRarity(rawValue) {
+  const k = String(rawValue || '').trim().toLowerCase();
+  if (ITEM_RARITY_CANONICAL.has(k)) return k;
+  if (k === 'normal') return 'common';
+  if (k === 'legend' || k === 'unique' || k === 'artifact' || k === 'mythic') return 'legendary';
+  if (k === 'uncommon') return 'rare';
+  return 'common';
+}
+
+async function consumeEquipmentDurability(inventoryId, amount = 1) {
+  const [metaRows] = await pool.promise().query(
+    `SELECT i.id, i.item_id, i.durability_left, it.name AS item_name,
+            ed.durability_max, ed.durability_mode, ed.random_break_chance
+     FROM inventory i
+     LEFT JOIN items it ON i.item_id = it.id
+     LEFT JOIN equipment_data ed ON i.item_id = ed.item_id
+     WHERE i.id = ?`,
+    [inventoryId]
+  );
+  if (!metaRows.length) return { not_found: true };
+
+  const meta = metaRows[0];
+  const durabilityMode = String(meta.durability_mode || '').toLowerCase();
+  const maxDurability = Number(meta.durability_max || 0);
+  const isPermanentDurability = durabilityMode === 'unbreakable' || maxDurability >= 999999;
+  const isRandomDurability = durabilityMode === 'unknown' || durabilityMode === 'random';
+
+  if (isPermanentDurability) {
+    return {
+      not_found: false,
+      item_destroyed: false,
+      durability_left: Number(meta.durability_left ?? 999999),
+      is_permanent_durability: true,
+      is_random_durability: false,
+      item_name: meta.item_name || 'Equipment',
+      break_reason: null,
+    };
+  }
+
+  if (isRandomDurability) {
+    const breakChance = Number(meta.random_break_chance ?? 3);
+    const roll = Math.random() * 100;
+    const broken = roll < breakChance;
+    if (broken) {
+      await pool.promise().query('DELETE FROM inventory WHERE id = ?', [inventoryId]);
+      return {
+        not_found: false,
+        item_destroyed: true,
+        durability_left: 0,
+        is_permanent_durability: false,
+        is_random_durability: true,
+        item_name: meta.item_name || 'Equipment',
+        break_reason: 'random',
+      };
+    }
+
+    return {
+      not_found: false,
+      item_destroyed: false,
+      durability_left: Number(meta.durability_left ?? 1),
+      is_permanent_durability: false,
+      is_random_durability: true,
+      item_name: meta.item_name || 'Equipment',
+      break_reason: null,
+    };
+  }
+
+  await pool.promise().query(
+    'UPDATE inventory SET durability_left = GREATEST(durability_left - ?, 0) WHERE id = ?',
+    [amount, inventoryId]
+  );
+  const [itemRows] = await pool.promise().query('SELECT durability_left FROM inventory WHERE id = ?', [inventoryId]);
+  const durabilityLeft = itemRows[0]?.durability_left ?? 0;
+  if (Number(durabilityLeft) <= 0) {
+    await pool.promise().query('DELETE FROM inventory WHERE id = ?', [inventoryId]);
+    return {
+      not_found: false,
+      item_destroyed: true,
+      durability_left: 0,
+      is_permanent_durability: false,
+      is_random_durability: false,
+      item_name: meta.item_name || 'Equipment',
+      break_reason: 'fixed',
+    };
+  }
+
+  return {
+    not_found: false,
+    item_destroyed: false,
+    durability_left: Number(durabilityLeft),
+    is_permanent_durability: false,
+    is_random_durability: false,
+    item_name: meta.item_name || 'Equipment',
+    break_reason: null,
+  };
+}
+
+const checkAdminRoleItems = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Token required' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const [rows] = await db.query('SELECT role FROM users WHERE id = ?', [decoded.userId]);
+    if (!rows.length || rows[0].role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+    req.user = { userId: decoded.userId };
+    next();
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
 // Admin - Tạo vật phẩm mới
-app.post('/api/admin/items', (req, res) => {
-  const { name, description, type, rarity, image_url, buy_price, sell_price } = req.body;
+app.post('/api/admin/items', checkAdminRoleItems, (req, res) => {
+  const {
+    item_code,
+    name,
+    description,
+    type,
+    category,
+    subtype,
+    rarity,
+    image_url,
+    buy_price,
+    sell_price,
+    price_currency,
+    magic_value,
+    stackable,
+    max_stack,
+    consume_policy,
+    pet_scope,
+  } = req.body;
+  const priceCurrency = String(price_currency || 'peta').toLowerCase() === 'petagold' ? 'petagold' : 'peta';
+  const itemCode = item_code != null && item_code !== '' ? parseInt(item_code, 10) : null;
+  const rarityNorm = normalizeItemRarity(rarity);
+  const magicVal = magic_value != null && magic_value !== '' ? parseInt(magic_value, 10) : null;
+  const stackVal = stackable === 0 || stackable === false || stackable === '0' ? 0 : 1;
+  const maxStackVal = max_stack != null && max_stack !== '' ? parseInt(max_stack, 10) : 999;
+  const consumePol = String(consume_policy || 'single_use').slice(0, 30) || 'single_use';
+  const petSc = String(pet_scope || 'all').slice(0, 30) || 'all';
 
   pool.query(
-    'INSERT INTO items (name, description, type, rarity, image_url, buy_price, sell_price) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [name, description, type, rarity, image_url, buy_price, sell_price],
+    `INSERT INTO items (item_code, name, description, type, category, subtype, rarity, image_url, buy_price, sell_price, price_currency, magic_value, stackable, max_stack, consume_policy, pet_scope)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      Number.isFinite(itemCode) ? itemCode : null,
+      name,
+      description,
+      type,
+      category ?? null,
+      subtype ?? null,
+      rarityNorm,
+      image_url,
+      buy_price,
+      sell_price,
+      priceCurrency,
+      Number.isFinite(magicVal) ? magicVal : null,
+      stackVal,
+      Number.isFinite(maxStackVal) && maxStackVal > 0 ? maxStackVal : 999,
+      consumePol,
+      petSc,
+    ],
     (err, results) => {
       if (err) {
         console.error('Error creating item:', err);
-        return res.status(500).json({ message: 'Error creating item' });
+        return res.status(500).json({ message: err.sqlMessage || 'Error creating item' });
       }
       res.json({ message: 'Item created successfully', id: results.insertId });
     }
@@ -4285,7 +4545,7 @@ app.post('/api/admin/items', (req, res) => {
 });
 
 // Admin - Xem toàn bộ vật phẩm
-app.get('/api/admin/items', (req, res) => {
+app.get('/api/admin/items', checkAdminRoleItems, (req, res) => {
   pool.query('SELECT * FROM items', (err, results) => {
     if (err) {
       console.error('Error fetching items:', err);
@@ -4297,20 +4557,64 @@ app.get('/api/admin/items', (req, res) => {
 
 
 //Admin - Edit vật phẩm
-app.put('/api/admin/items/:id', (req, res) => {
+app.put('/api/admin/items/:id', checkAdminRoleItems, (req, res) => {
   const { id } = req.params;
-  const { name, description, type, rarity, image_url, buy_price, sell_price } = req.body;
+  const {
+    item_code,
+    name,
+    description,
+    type,
+    category,
+    subtype,
+    rarity,
+    image_url,
+    buy_price,
+    sell_price,
+    price_currency,
+    magic_value,
+    stackable,
+    max_stack,
+    consume_policy,
+    pet_scope,
+  } = req.body;
+  const priceCurrency = String(price_currency || 'peta').toLowerCase() === 'petagold' ? 'petagold' : 'peta';
+  const itemCode = item_code != null && item_code !== '' ? parseInt(item_code, 10) : null;
+  const rarityNorm = normalizeItemRarity(rarity);
+  const magicVal = magic_value != null && magic_value !== '' ? parseInt(magic_value, 10) : null;
+  const stackVal = stackable === 0 || stackable === false || stackable === '0' ? 0 : 1;
+  const maxStackVal = max_stack != null && max_stack !== '' ? parseInt(max_stack, 10) : 999;
+  const consumePol = String(consume_policy || 'single_use').slice(0, 30) || 'single_use';
+  const petSc = String(pet_scope || 'all').slice(0, 30) || 'all';
 
   const sql = `
     UPDATE items
-    SET name = ?, description = ?, type = ?, rarity = ?, image_url = ?, buy_price = ?, sell_price = ?
+    SET item_code = ?, name = ?, description = ?, type = ?, category = ?, subtype = ?, rarity = ?, image_url = ?, buy_price = ?, sell_price = ?, price_currency = ?,
+        magic_value = ?, stackable = ?, max_stack = ?, consume_policy = ?, pet_scope = ?
     WHERE id = ?
   `;
 
-  pool.query(sql, [name, description, type, rarity, image_url, buy_price, sell_price, id], (err, results) => {
+  pool.query(sql, [
+    Number.isFinite(itemCode) ? itemCode : null,
+    name,
+    description,
+    type,
+    category ?? null,
+    subtype ?? null,
+    rarityNorm,
+    image_url,
+    buy_price,
+    sell_price,
+    priceCurrency,
+    Number.isFinite(magicVal) ? magicVal : null,
+    stackVal,
+    Number.isFinite(maxStackVal) && maxStackVal > 0 ? maxStackVal : 999,
+    consumePol,
+    petSc,
+    id,
+  ], (err, results) => {
     if (err) {
       console.error('Error updating item:', err);
-      return res.status(500).json({ message: 'Error updating item' });
+      return res.status(500).json({ message: err.sqlMessage || 'Error updating item' });
     }
 
     res.json({ message: 'Item updated successfully' });
@@ -4318,7 +4622,7 @@ app.put('/api/admin/items/:id', (req, res) => {
 });
 
 //Admin - Delete vật phẩm
-app.delete('/api/admin/items/:id', (req, res) => {
+app.delete('/api/admin/items/:id', checkAdminRoleItems, (req, res) => {
   const { id } = req.params;
 
   pool.query('DELETE FROM items WHERE id = ?', [id], (err, results) => {
@@ -4332,7 +4636,7 @@ app.delete('/api/admin/items/:id', (req, res) => {
 });
 
 // Lấy toàn bộ equipment_data (schema mới: equipment_type, power_min, power_max, durability_max, magic_value, crit_rate, block_rate, element, effect_id)
-app.get('/api/admin/equipment-stats', (req, res) => {
+app.get('/api/admin/equipment-stats', checkAdminRoleItems, (req, res) => {
   const sql = `SELECT * FROM equipment_data`;
   pool.query(sql, (err, results) => {
     if (err) {
@@ -4343,26 +4647,37 @@ app.get('/api/admin/equipment-stats', (req, res) => {
   });
 });
 
-app.post('/api/admin/equipment-stats', (req, res) => {
+app.post('/api/admin/equipment-stats', checkAdminRoleItems, (req, res) => {
   const {
     item_id,
     equipment_type = 'weapon',
+    slot_type,
     power_min,
     power_max,
     durability_max,
+    durability_mode,
+    random_break_chance,
     magic_value,
     crit_rate,
     block_rate,
     element,
     effect_id,
   } = req.body;
-  const sql = `INSERT INTO equipment_data (item_id, equipment_type, power_min, power_max, durability_max, magic_value, crit_rate, block_rate, element, effect_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  const normalizedEquipmentType = normalizeEquipmentType(equipment_type);
+  const normalizedSlotType = normalizeSlotType(slot_type, normalizedEquipmentType);
+  const normalizedDurabilityMode = normalizeDurabilityMode(durability_mode);
+  const normalizedDurabilityMax = normalizedDurabilityMode === 'unknown' ? null : (durability_max ?? null);
+  const normalizedRandomBreakChance = normalizedDurabilityMode === 'unknown' ? (random_break_chance ?? 3) : (random_break_chance ?? null);
+  const sql = `INSERT INTO equipment_data (item_id, equipment_type, slot_type, power_min, power_max, durability_max, durability_mode, random_break_chance, magic_value, crit_rate, block_rate, element, effect_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON DUPLICATE KEY UPDATE
                  equipment_type = VALUES(equipment_type),
+                 slot_type = VALUES(slot_type),
                  power_min = VALUES(power_min),
                  power_max = VALUES(power_max),
                  durability_max = VALUES(durability_max),
+                 durability_mode = VALUES(durability_mode),
+                 random_break_chance = VALUES(random_break_chance),
                  magic_value = VALUES(magic_value),
                  crit_rate = VALUES(crit_rate),
                  block_rate = VALUES(block_rate),
@@ -4373,10 +4688,13 @@ app.post('/api/admin/equipment-stats', (req, res) => {
     sql,
     [
       item_id,
-      equipment_type,
+      normalizedEquipmentType,
+      normalizedSlotType,
       power_min ?? null,
       power_max ?? null,
-      durability_max ?? null,
+      normalizedDurabilityMax,
+      normalizedDurabilityMode,
+      normalizedRandomBreakChance,
       magic_value ?? null,
       crit_rate ?? null,
       block_rate ?? null,
@@ -4393,33 +4711,44 @@ app.post('/api/admin/equipment-stats', (req, res) => {
   );
 });
 
-app.put('/api/admin/equipment-stats/:id', (req, res) => {
+app.put('/api/admin/equipment-stats/:id', checkAdminRoleItems, (req, res) => {
   const { id } = req.params;
   const {
     item_id,
     equipment_type,
+    slot_type,
     power_min,
     power_max,
     durability_max,
+    durability_mode,
+    random_break_chance,
     magic_value,
     crit_rate,
     block_rate,
     element,
     effect_id,
   } = req.body;
+  const normalizedEquipmentType = normalizeEquipmentType(equipment_type ?? 'weapon');
+  const normalizedSlotType = normalizeSlotType(slot_type, normalizedEquipmentType);
+  const normalizedDurabilityMode = normalizeDurabilityMode(durability_mode);
+  const normalizedDurabilityMax = normalizedDurabilityMode === 'unknown' ? null : (durability_max ?? null);
+  const normalizedRandomBreakChance = normalizedDurabilityMode === 'unknown' ? (random_break_chance ?? 3) : (random_break_chance ?? null);
 
   const sql = `UPDATE equipment_data
-               SET item_id = ?, equipment_type = ?, power_min = ?, power_max = ?, durability_max = ?, magic_value = ?, crit_rate = ?, block_rate = ?, element = ?, effect_id = ?
+               SET item_id = ?, equipment_type = ?, slot_type = ?, power_min = ?, power_max = ?, durability_max = ?, durability_mode = ?, random_break_chance = ?, magic_value = ?, crit_rate = ?, block_rate = ?, element = ?, effect_id = ?
                WHERE id = ?`;
 
   pool.query(
     sql,
     [
       item_id,
-      equipment_type ?? 'weapon',
+      normalizedEquipmentType,
+      normalizedSlotType,
       power_min ?? null,
       power_max ?? null,
-      durability_max ?? null,
+      normalizedDurabilityMax,
+      normalizedDurabilityMode,
+      normalizedRandomBreakChance,
       magic_value ?? null,
       crit_rate ?? null,
       block_rate ?? null,
@@ -4438,14 +4767,14 @@ app.put('/api/admin/equipment-stats/:id', (req, res) => {
 });
 
 // get items 
-app.get('/api/admin/item-effects', (req, res) => {
+app.get('/api/admin/item-effects', checkAdminRoleItems, (req, res) => {
   const sql = `SELECT * FROM item_effects`;
   pool.query(sql, (err, results) => {
     if (err) {
       console.error('Error fetching item effects:', err);
       return res.status(500).json({ message: 'Error fetching item effects' });
     }
-    res.json(results);
+    res.json((results || []).map((row) => normalizeEffectRow(row)));
   });
 });
 
@@ -4458,7 +4787,7 @@ app.get('/api/item-effects/:itemId', (req, res) => {
       console.error('Error fetching item effects:', err);
       return res.status(500).json({ message: 'Error fetching item effects' });
     }
-    res.json(results);
+    res.json((results || []).map((row) => normalizeEffectRow(row)));
   });
 });
 
@@ -4479,19 +4808,21 @@ app.get('/api/equipment-data/:itemId', (req, res) => {
   });
 });
 
-app.post('/api/admin/item-effects', (req, res) => {
+app.post('/api/admin/item-effects', checkAdminRoleItems, (req, res) => {
   const {
     item_id, effect_target, effect_type,
-    value_min, value_max, is_permanent, duration_turns
+    value_min, value_max, is_permanent, duration_turns, magic_value
   } = req.body;
+  const normalizedTarget = normalizeEffectTarget(effect_target);
+  const normalizedType = normalizeEffectType(effect_type);
 
   const sql = `INSERT INTO item_effects 
-    (item_id, effect_target, effect_type, value_min, value_max, is_permanent, duration_turns)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    (item_id, effect_target, effect_type, value_min, value_max, is_permanent, duration_turns, magic_value)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
   pool.query(sql, [
-    item_id, effect_target, effect_type,
-    value_min, value_max, is_permanent, duration_turns
+    item_id, normalizedTarget, normalizedType,
+    value_min, value_max, is_permanent, duration_turns, magic_value ?? null
   ], (err, results) => {
     if (err) {
       console.error('Error creating item effect:', err);
@@ -4501,21 +4832,23 @@ app.post('/api/admin/item-effects', (req, res) => {
   });
 });
 
-app.put('/api/admin/item-effects/:id', (req, res) => {
+app.put('/api/admin/item-effects/:id', checkAdminRoleItems, (req, res) => {
   const { id } = req.params;
   const {
     item_id, effect_target, effect_type,
-    value_min, value_max, is_permanent, duration_turns
+    value_min, value_max, is_permanent, duration_turns, magic_value
   } = req.body;
+  const normalizedTarget = normalizeEffectTarget(effect_target);
+  const normalizedType = normalizeEffectType(effect_type);
 
   const sql = `UPDATE item_effects SET 
     item_id = ?, effect_target = ?, effect_type = ?, 
-    value_min = ?, value_max = ?, is_permanent = ?, duration_turns = ?
+    value_min = ?, value_max = ?, is_permanent = ?, duration_turns = ?, magic_value = ?
     WHERE id = ?`;
 
   pool.query(sql, [
-    item_id, effect_target, effect_type,
-    value_min, value_max, is_permanent, duration_turns, id
+    item_id, normalizedTarget, normalizedType,
+    value_min, value_max, is_permanent, duration_turns, magic_value ?? null, id
   ], (err, results) => {
     if (err) {
       console.error('Error updating item effect:', err);
@@ -4572,13 +4905,19 @@ app.get('/api/shop/:shop_code', async (req, res) => {
         i.name,
         i.description,
         i.type,
+        i.category,
         i.rarity,
         i.image_url,
+        i.magic_value,
         i.sell_price,
+        i.price_currency,
         i.id AS id,
+        ed.durability_max,
+        ed.durability_mode,
         COALESCE(si.custom_price, i.buy_price) AS price
       FROM shop_items si
       JOIN items i ON si.item_id = i.id
+      LEFT JOIN equipment_data ed ON i.id = ed.item_id
       WHERE si.shop_id = ?
       ORDER BY si.id DESC
     `, [shop.id]);
@@ -4654,7 +4993,7 @@ app.post('/api/shop/buy', async (req, res) => {
     }
 
     const price = itemRow.custom_price ?? itemRow.buy_price;
-    const currency = itemRow.currency_type;
+    const currency = itemRow.currency_type || itemRow.price_currency || 'peta';
     
     if (!currency || !['peta', 'petagold'].includes(currency)) {
       return res.status(400).json({ error: 'Loại tiền không hợp lệ' });
@@ -4794,9 +5133,9 @@ app.get('/api/users/:userId/inventory', async (req, res) => {
   try {
     const [rows] = await db.query(`
         SELECT i.*, it.name, it.description, it.image_url, it.type, it.rarity, 
-               it.sell_price, it.buy_price,
+               it.sell_price, it.buy_price, it.price_currency,
                p.name AS pet_name, p.level AS pet_level,
-               ed.equipment_type, ed.magic_value AS power, ed.durability_max AS max_durability
+               ed.equipment_type, ed.magic_value AS power, ed.durability_max AS max_durability, ed.durability_mode
         FROM inventory i
         JOIN items it ON i.item_id = it.id
         LEFT JOIN pets p ON i.equipped_pet_id = p.id
@@ -4811,7 +5150,274 @@ app.get('/api/users/:userId/inventory', async (req, res) => {
   }
 });
 
-// User - Bán ve chai item trong inventory (nhận peta theo items.sell_price)
+app.get('/api/users/:userId/exhibition', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const { userId } = req.params;
+  const targetUserId = Number(userId);
+  if (!token) return res.status(401).json({ message: 'Unauthorized' });
+  if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+    return res.status(400).json({ message: 'User ID không hợp lệ' });
+  }
+
+  try {
+    jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const [rows] = await db.query(
+      `SELECT
+          ei.id AS exhibition_id,
+          ei.user_id,
+          ei.item_id,
+          ei.display_order,
+          ei.created_at,
+          it.name,
+          it.image_url,
+          it.type,
+          it.rarity,
+          it.description
+       FROM user_exhibition_items ei
+       JOIN items it ON ei.item_id = it.id
+       WHERE ei.user_id = ?
+       ORDER BY ei.display_order ASC, ei.id ASC`,
+      [targetUserId]
+    );
+    return res.json({
+      items: rows,
+      maxItems: 10,
+    });
+  } catch (err) {
+    console.error('Lỗi khi lấy phòng triển lãm:', err);
+    return res.status(500).json({ message: 'Không thể tải phòng triển lãm' });
+  }
+});
+
+app.post('/api/inventory/:id/exhibition', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const { id } = req.params;
+  const inventoryId = Number(id);
+
+  if (!token) return res.status(401).json({ message: 'Unauthorized' });
+  if (!Number.isInteger(inventoryId) || inventoryId <= 0) {
+    return res.status(400).json({ message: 'Inventory ID không hợp lệ' });
+  }
+
+  let conn;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const [inventoryRows] = await conn.query(
+      `SELECT i.id, i.item_id, i.quantity, i.is_equipped, it.name
+       FROM inventory i
+       JOIN items it ON i.item_id = it.id
+       WHERE i.id = ? AND i.player_id = ?
+       LIMIT 1`,
+      [inventoryId, userId]
+    );
+
+    if (!inventoryRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy vật phẩm trong kho' });
+    }
+
+    const inventoryItem = inventoryRows[0];
+    if (Number(inventoryItem.is_equipped) === 1) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'Không thể đem vật phẩm đang trang bị vào triển lãm' });
+    }
+
+    const [existingRows] = await conn.query(
+      'SELECT id FROM user_exhibition_items WHERE user_id = ? AND item_id = ? LIMIT 1',
+      [userId, inventoryItem.item_id]
+    );
+    if (existingRows.length > 0) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'Đã trưng bày item này.' });
+    }
+
+    const [countRows] = await conn.query(
+      'SELECT COUNT(*) AS total FROM user_exhibition_items WHERE user_id = ?',
+      [userId]
+    );
+    const currentTotal = Number(countRows[0]?.total || 0);
+    if (currentTotal >= 10) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'Phòng triển lãm đã đầy (tối đa 10 vật phẩm).' });
+    }
+
+    const [orderRows] = await conn.query(
+      'SELECT COALESCE(MAX(display_order), 0) AS max_order FROM user_exhibition_items WHERE user_id = ?',
+      [userId]
+    );
+    const nextOrder = Number(orderRows[0]?.max_order || 0) + 1;
+
+    await conn.query(
+      'INSERT INTO user_exhibition_items (user_id, item_id, display_order) VALUES (?, ?, ?)',
+      [userId, inventoryItem.item_id, nextOrder]
+    );
+
+    const quantity = Number(inventoryItem.quantity || 0);
+    const remainingQuantity = quantity - 1;
+    if (remainingQuantity <= 0) {
+      await conn.query('DELETE FROM inventory WHERE id = ?', [inventoryId]);
+    } else {
+      await conn.query('UPDATE inventory SET quantity = ? WHERE id = ?', [remainingQuantity, inventoryId]);
+    }
+
+    await conn.commit();
+    return res.json({
+      success: true,
+      message: `Đã mang ${inventoryItem.name || 'vật phẩm'} vào phòng triển lãm.`,
+      remaining_quantity: Math.max(0, remainingQuantity),
+      removed: remainingQuantity <= 0,
+    });
+  } catch (err) {
+    if (conn) await conn.rollback();
+    console.error('Lỗi khi thêm item vào phòng triển lãm:', err);
+    return res.status(500).json({ message: 'Không thể thêm item vào phòng triển lãm' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.post('/api/exhibition/reorder', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const exhibitionItemId = Number(req.body?.exhibitionItemId);
+  const direction = String(req.body?.direction || '').trim().toLowerCase();
+
+  if (!token) return res.status(401).json({ message: 'Unauthorized' });
+  if (!Number.isInteger(exhibitionItemId) || exhibitionItemId <= 0) {
+    return res.status(400).json({ message: 'Vật phẩm triển lãm không hợp lệ' });
+  }
+  if (!['left', 'right'].includes(direction)) {
+    return res.status(400).json({ message: 'Hướng sắp xếp không hợp lệ' });
+  }
+
+  let conn;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      `SELECT id, display_order
+       FROM user_exhibition_items
+       WHERE user_id = ?
+       ORDER BY display_order ASC, id ASC`,
+      [userId]
+    );
+
+    const currentIndex = rows.findIndex((row) => Number(row.id) === exhibitionItemId);
+    if (currentIndex === -1) {
+      await conn.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy vật phẩm trong phòng triển lãm' });
+    }
+
+    const targetIndex = direction === 'left' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= rows.length) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'Không thể di chuyển theo hướng đã chọn' });
+    }
+
+    const currentItem = rows[currentIndex];
+    const targetItem = rows[targetIndex];
+
+    await conn.query(
+      'UPDATE user_exhibition_items SET display_order = ? WHERE id = ? AND user_id = ?',
+      [targetItem.display_order, currentItem.id, userId]
+    );
+    await conn.query(
+      'UPDATE user_exhibition_items SET display_order = ? WHERE id = ? AND user_id = ?',
+      [currentItem.display_order, targetItem.id, userId]
+    );
+
+    await conn.commit();
+    return res.json({ success: true, message: 'Đã cập nhật vị trí vật phẩm trưng bày.' });
+  } catch (err) {
+    if (conn) await conn.rollback();
+    console.error('Lỗi khi sắp xếp phòng triển lãm:', err);
+    return res.status(500).json({ message: 'Không thể sắp xếp vật phẩm triển lãm' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+app.delete('/api/exhibition/:exhibitionItemId', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const exhibitionItemId = Number(req.params.exhibitionItemId);
+
+  if (!token) return res.status(401).json({ message: 'Unauthorized' });
+  if (!Number.isInteger(exhibitionItemId) || exhibitionItemId <= 0) {
+    return res.status(400).json({ message: 'Vật phẩm triển lãm không hợp lệ' });
+  }
+
+  let conn;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      `SELECT ei.id, ei.item_id, it.name
+       FROM user_exhibition_items ei
+       JOIN items it ON it.id = ei.item_id
+       WHERE ei.id = ? AND ei.user_id = ?
+       LIMIT 1`,
+      [exhibitionItemId, userId]
+    );
+
+    if (!rows.length) {
+      await conn.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy vật phẩm trong phòng triển lãm' });
+    }
+
+    const exhibitionItem = rows[0];
+
+    await conn.query(
+      'DELETE FROM user_exhibition_items WHERE id = ? AND user_id = ?',
+      [exhibitionItemId, userId]
+    );
+
+    const [inventoryRows] = await conn.query(
+      `SELECT id, quantity
+       FROM inventory
+       WHERE player_id = ? AND item_id = ? AND (is_equipped = 0 OR is_equipped IS NULL)
+       LIMIT 1`,
+      [userId, exhibitionItem.item_id]
+    );
+
+    if (inventoryRows.length > 0) {
+      await conn.query(
+        'UPDATE inventory SET quantity = quantity + 1 WHERE id = ?',
+        [inventoryRows[0].id]
+      );
+    } else {
+      await conn.query(
+        'INSERT INTO inventory (player_id, item_id, quantity, is_equipped) VALUES (?, ?, 1, 0)',
+        [userId, exhibitionItem.item_id]
+      );
+    }
+
+    await conn.commit();
+    return res.json({
+      success: true,
+      message: `Đã gỡ ${exhibitionItem.name || 'vật phẩm'} khỏi phòng triển lãm.`,
+    });
+  } catch (err) {
+    if (conn) await conn.rollback();
+    console.error('Lỗi khi gỡ item khỏi phòng triển lãm:', err);
+    return res.status(500).json({ message: 'Không thể gỡ item khỏi phòng triển lãm' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// User - Bán ve chai item trong inventory (nhận theo items.price_currency + sell_price)
 app.post('/api/inventory/:id/sell', async (req, res) => {
   const { id } = req.params;
   const quantityRaw = req.body?.quantity;
@@ -4832,7 +5438,7 @@ app.post('/api/inventory/:id/sell', async (req, res) => {
     await conn.beginTransaction();
 
     const [invRows] = await conn.query(
-      `SELECT i.id, i.player_id, i.quantity, i.is_equipped, it.sell_price, it.name
+      `SELECT i.id, i.player_id, i.quantity, i.is_equipped, it.sell_price, it.price_currency, it.name
        FROM inventory i
        JOIN items it ON i.item_id = it.id
        WHERE i.id = ? AND i.player_id = ?
@@ -4856,7 +5462,8 @@ app.post('/api/inventory/:id/sell', async (req, res) => {
     }
 
     const sellPrice = Number(inv.sell_price) || 0;
-    const petaGained = sellPrice * quantity;
+    const sellCurrency = String(inv.price_currency || 'peta').toLowerCase() === 'petagold' ? 'petagold' : 'peta';
+    const currencyGained = sellPrice * quantity;
     const remain = Number(inv.quantity) - quantity;
 
     if (remain <= 0) {
@@ -4865,8 +5472,8 @@ app.post('/api/inventory/:id/sell', async (req, res) => {
       await conn.query('UPDATE inventory SET quantity = ? WHERE id = ?', [remain, id]);
     }
 
-    if (petaGained > 0) {
-      await conn.query('UPDATE users SET peta = peta + ? WHERE id = ?', [petaGained, userId]);
+    if (currencyGained > 0) {
+      await conn.query(`UPDATE users SET ${sellCurrency} = ${sellCurrency} + ? WHERE id = ?`, [currencyGained, userId]);
     }
 
     await conn.commit();
@@ -4874,7 +5481,9 @@ app.post('/api/inventory/:id/sell', async (req, res) => {
     res.json({
       success: true,
       message: `Đã bán ${quantity} ${inv.name || 'vật phẩm'} thành công`,
-      peta_gained: petaGained,
+      currency_type: sellCurrency,
+      currency_gained: currencyGained,
+      peta_gained: sellCurrency === 'peta' ? currencyGained : 0,
       remaining_quantity: remain < 0 ? 0 : remain,
       removed: remain <= 0,
     });
@@ -4990,7 +5599,7 @@ app.get('/api/pets/:petId/equipment', async (req, res) => {
       `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, it.description, it.type, it.rarity,
               i.durability_left,
               ed.equipment_type, ed.magic_value AS power, ed.power_min, ed.power_max,
-              ed.durability_max AS max_durability, i.is_broken
+              ed.durability_max AS max_durability, ed.durability_mode, i.is_broken
        FROM inventory i
        JOIN items it ON i.item_id = it.id
        LEFT JOIN equipment_data ed ON it.id = ed.item_id
@@ -5044,32 +5653,29 @@ app.post('/api/inventory/:id/use-durability', async (req, res) => {
   const { amount = 1 } = req.body;
 
   try {
-    // Giảm durability. Nếu về 0 thì tháo khỏi pet + xóa khỏi inventory luôn.
-    const [result] = await pool.promise().query(
-      'UPDATE inventory SET durability_left = GREATEST(durability_left - ?, 0) WHERE id = ?',
-      [amount, id]
-    );
-
-    if (result.affectedRows === 0) {
+    const durabilityResult = await consumeEquipmentDurability(id, amount);
+    if (durabilityResult.not_found) {
       return res.status(404).json({ message: 'Item không tồn tại' });
     }
 
-    const [itemRows] = await pool.promise().query('SELECT durability_left FROM inventory WHERE id = ?', [id]);
-    const durability_left = itemRows[0]?.durability_left ?? 0;
-    if (Number(durability_left) <= 0) {
-      // đảm bảo không còn gắn trên pet
-      await pool.promise().query('DELETE FROM inventory WHERE id = ?', [id]);
+    if (durabilityResult.item_destroyed) {
       return res.json({
-        message: 'Equipment đã hỏng và bị tiêu hủy',
+        message: durabilityResult.break_reason === 'random' ? 'Equipment gãy ngẫu nhiên và bị tiêu hủy' : 'Equipment đã hỏng và bị tiêu hủy',
         durability_left: 0,
         item_destroyed: true,
+        is_permanent_durability: false,
+        is_random_durability: durabilityResult.is_random_durability,
       });
     }
 
     return res.json({
-      message: 'Durability đã được cập nhật',
-      durability_left: Number(durability_left),
+      message: durabilityResult.is_permanent_durability
+        ? 'Equipment có độ bền vĩnh viễn'
+        : (durabilityResult.is_random_durability ? 'Độ bền ngẫu nhiên: item chưa gãy' : 'Durability đã được cập nhật'),
+      durability_left: Number(durabilityResult.durability_left),
       item_destroyed: false,
+      is_permanent_durability: durabilityResult.is_permanent_durability,
+      is_random_durability: durabilityResult.is_random_durability,
     });
 
   } catch (err) {
@@ -5446,6 +6052,24 @@ function escapeCSV(val) {
   if (val == null) return '';
   const s = String(val);
   return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function parseCsvIntOrNull(rawValue) {
+  if (rawValue == null) return null;
+  const text = String(rawValue).trim();
+  if (!text) return null;
+  const n = parseInt(text, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+async function resolveItemIdFromCsvRow(csvRowObject) {
+  const itemCode = parseCsvIntOrNull(csvRowObject.item_code);
+  if (itemCode != null) {
+    const [rows] = await db.query('SELECT id FROM items WHERE item_code = ? LIMIT 1', [itemCode]);
+    if (rows && rows.length > 0) return rows[0].id;
+  }
+  const itemId = parseCsvIntOrNull(csvRowObject.item_id);
+  return itemId;
 }
 
 // Skills - list
@@ -5827,8 +6451,15 @@ app.post('/api/admin/boss-skills/csv', checkAdminRoleNpc, uploadMemory.single('f
 // ---------- Admin Item Management (items, equipment_data, item_effects) CSV ----------
 app.get('/api/admin/items/csv', checkAdminRoleNpc, async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT id, name, description, type, rarity, image_url, buy_price, sell_price FROM items ORDER BY id');
-    const headers = ['id', 'name', 'description', 'type', 'rarity', 'image_url', 'buy_price', 'sell_price'];
+    const [rows] = await db.query(
+      `SELECT item_code, name, description, type, category, subtype, rarity, image_url, buy_price, sell_price, price_currency,
+              magic_value, stackable, max_stack, consume_policy, pet_scope
+       FROM items ORDER BY item_code ASC, id ASC`
+    );
+    const headers = [
+      'item_code', 'name', 'description', 'type', 'category', 'subtype', 'rarity', 'image_url',
+      'buy_price', 'sell_price', 'price_currency', 'magic_value', 'stackable', 'max_stack', 'consume_policy', 'pet_scope',
+    ];
     const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => escapeCSV(r[h])).join(','))].join('\n');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=items.csv');
@@ -5852,25 +6483,79 @@ app.post('/api/admin/items/csv', checkAdminRoleNpc, uploadMemory.single('file'),
     for (const row of rows) {
       const o = {};
       headers.forEach((col, i) => { o[col.toLowerCase().trim()] = row[i]; });
-      const idRaw = o.id != null && String(o.id).trim() !== '' ? parseInt(o.id, 10) : null;
-      const id = idRaw != null && !isNaN(idRaw) ? idRaw : null;
+      const id = parseIntOrNull(o.id);
+      const itemCodeRaw = o.item_code != null && String(o.item_code).trim() !== '' ? parseInt(o.item_code, 10) : null;
+      const itemCode = itemCodeRaw != null && !isNaN(itemCodeRaw) ? itemCodeRaw : null;
       const buyPrice = o.buy_price != null && o.buy_price !== '' ? Number(o.buy_price) : 0;
       const sellPrice = o.sell_price != null && o.sell_price !== '' ? Number(o.sell_price) : 0;
+      const priceCurrency = String(o.price_currency || 'peta').toLowerCase() === 'petagold' ? 'petagold' : 'peta';
+      const rarityNorm = normalizeItemRarity(o.rarity);
+      const magicVal = o.magic_value != null && String(o.magic_value).trim() !== '' ? Number(o.magic_value) : null;
+      const stackRaw = String(o.stackable ?? '1').trim().toLowerCase();
+      const stackVal = ['0', 'false', 'no', 'off'].includes(stackRaw) ? 0 : 1;
+      const maxStackVal = o.max_stack != null && String(o.max_stack).trim() !== '' ? parseInt(o.max_stack, 10) : 999;
+      const consumePol = String(o.consume_policy || 'single_use').slice(0, 30) || 'single_use';
+      const petSc = String(o.pet_scope || 'all').slice(0, 30) || 'all';
       let doUpdate = false;
       if (id != null) {
         const [ex] = await db.query('SELECT 1 FROM items WHERE id = ? LIMIT 1', [id]);
         doUpdate = ex && ex.length > 0;
       }
+      if (!doUpdate && itemCode != null) {
+        const [exByCode] = await db.query('SELECT id FROM items WHERE item_code = ? LIMIT 1', [itemCode]);
+        if (exByCode && exByCode.length > 0) {
+          doUpdate = true;
+          o.__resolved_id = exByCode[0].id;
+        }
+      }
       if (doUpdate) {
+        const targetId = id != null ? id : o.__resolved_id;
         await db.query(
-          'UPDATE items SET name=?, description=?, type=?, rarity=?, image_url=?, buy_price=?, sell_price=? WHERE id=?',
-          [o.name ?? '', o.description ?? '', o.type ?? 'misc', o.rarity ?? 'common', o.image_url ?? '', buyPrice, sellPrice, id]
+          `UPDATE items SET item_code=?, name=?, description=?, type=?, category=?, subtype=?, rarity=?, image_url=?, buy_price=?, sell_price=?, price_currency=?,
+           magic_value=?, stackable=?, max_stack=?, consume_policy=?, pet_scope=? WHERE id=?`,
+          [
+            itemCode,
+            o.name ?? '',
+            o.description ?? '',
+            o.type ?? 'misc',
+            o.category ?? 'misc',
+            o.subtype ?? null,
+            rarityNorm,
+            o.image_url ?? '',
+            buyPrice,
+            sellPrice,
+            priceCurrency,
+            Number.isFinite(magicVal) ? magicVal : null,
+            stackVal,
+            Number.isFinite(maxStackVal) && maxStackVal > 0 ? maxStackVal : 999,
+            consumePol,
+            petSc,
+            targetId,
+          ]
         );
         updated++;
       } else {
         await db.query(
-          'INSERT INTO items (name, description, type, rarity, image_url, buy_price, sell_price) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [o.name ?? '', o.description ?? '', o.type ?? 'misc', o.rarity ?? 'common', o.image_url ?? '', buyPrice, sellPrice]
+          `INSERT INTO items (item_code, name, description, type, category, subtype, rarity, image_url, buy_price, sell_price, price_currency, magic_value, stackable, max_stack, consume_policy, pet_scope)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            itemCode,
+            o.name ?? '',
+            o.description ?? '',
+            o.type ?? 'misc',
+            o.category ?? 'misc',
+            o.subtype ?? null,
+            rarityNorm,
+            o.image_url ?? '',
+            buyPrice,
+            sellPrice,
+            priceCurrency,
+            Number.isFinite(magicVal) ? magicVal : null,
+            stackVal,
+            Number.isFinite(maxStackVal) && maxStackVal > 0 ? maxStackVal : 999,
+            consumePol,
+            petSc,
+          ]
         );
         inserted++;
       }
@@ -5884,8 +6569,13 @@ app.post('/api/admin/items/csv', checkAdminRoleNpc, uploadMemory.single('file'),
 
 app.get('/api/admin/equipment-stats/csv', checkAdminRoleNpc, async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT id, item_id, equipment_type, power_min, power_max, durability_max, magic_value, crit_rate, block_rate, element, effect_id FROM equipment_data ORDER BY id');
-    const headers = ['id', 'item_id', 'equipment_type', 'power_min', 'power_max', 'durability_max', 'magic_value', 'crit_rate', 'block_rate', 'element', 'effect_id'];
+    const [rows] = await db.query(
+      `SELECT ed.id, it.item_code, ed.equipment_type, ed.slot_type, ed.power_min, ed.power_max, ed.durability_max, ed.durability_mode, ed.random_break_chance, ed.magic_value, ed.crit_rate, ed.block_rate, ed.element, ed.effect_id
+       FROM equipment_data ed
+       LEFT JOIN items it ON ed.item_id = it.id
+       ORDER BY COALESCE(it.item_code, 999999999), ed.id`
+    );
+    const headers = ['id', 'item_code', 'equipment_type', 'slot_type', 'power_min', 'power_max', 'durability_max', 'durability_mode', 'random_break_chance', 'magic_value', 'crit_rate', 'block_rate', 'element', 'effect_id'];
     const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => escapeCSV(r[h])).join(','))].join('\n');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=equipment_data.csv');
@@ -5901,9 +6591,10 @@ app.post('/api/admin/equipment-stats/csv', checkAdminRoleNpc, uploadMemory.singl
     if (!req.file || !req.file.buffer) return res.status(400).json({ message: 'Thiếu file CSV' });
     const text = req.file.buffer.toString('utf8');
     const { headers, rows } = parseCSV(text);
-    const required = ['item_id'];
     const h = headers.map((x) => x.toLowerCase().trim());
-    if (!required.every((k) => h.includes(k))) return res.status(400).json({ message: 'CSV thiếu cột: ' + required.join(', ') });
+    const hasItemCode = h.includes('item_code');
+    const hasItemId = h.includes('item_id');
+    if (!hasItemCode && !hasItemId) return res.status(400).json({ message: 'CSV thiếu cột: item_code hoặc item_id' });
     let updated = 0;
     let inserted = 0;
     const toNum = (v) => (v != null && v !== '' && !isNaN(Number(v)) ? Number(v) : null);
@@ -5912,8 +6603,8 @@ app.post('/api/admin/equipment-stats/csv', checkAdminRoleNpc, uploadMemory.singl
       headers.forEach((col, i) => { o[col.toLowerCase().trim()] = row[i]; });
       const idRaw = o.id != null && String(o.id).trim() !== '' ? parseInt(o.id, 10) : null;
       const id = idRaw != null && !isNaN(idRaw) ? idRaw : null;
-      const itemId = parseInt(o.item_id, 10);
-      if (isNaN(itemId)) continue;
+      const itemId = await resolveItemIdFromCsvRow(o);
+      if (itemId == null || Number.isNaN(Number(itemId))) continue;
       let doUpdate = false;
       if (id != null) {
         const [ex] = await db.query('SELECT 1 FROM equipment_data WHERE id = ? LIMIT 1', [id]);
@@ -5921,25 +6612,32 @@ app.post('/api/admin/equipment-stats/csv', checkAdminRoleNpc, uploadMemory.singl
       }
       const values = [
         itemId,
-        o.equipment_type || 'weapon',
+        normalizeEquipmentType(o.equipment_type || 'weapon'),
+        normalizeSlotType(o.slot_type, normalizeEquipmentType(o.equipment_type || 'weapon')),
         toNum(o.power_min),
         toNum(o.power_max),
+        normalizeDurabilityMode(o.durability_mode),
         toNum(o.durability_max),
+        toNum(o.random_break_chance),
         toNum(o.magic_value),
         toNum(o.crit_rate),
         toNum(o.block_rate),
         o.element || null,
         toNum(o.effect_id),
       ];
+      if (values[5] === 'unknown') {
+        values[6] = null;
+        values[7] = values[7] == null ? 3 : values[7];
+      }
       if (doUpdate) {
         await db.query(
-          'UPDATE equipment_data SET item_id=?, equipment_type=?, power_min=?, power_max=?, durability_max=?, magic_value=?, crit_rate=?, block_rate=?, element=?, effect_id=? WHERE id=?',
+          'UPDATE equipment_data SET item_id=?, equipment_type=?, slot_type=?, power_min=?, power_max=?, durability_mode=?, durability_max=?, random_break_chance=?, magic_value=?, crit_rate=?, block_rate=?, element=?, effect_id=? WHERE id=?',
           [...values, id]
         );
         updated++;
       } else {
         await db.query(
-          'INSERT INTO equipment_data (item_id, equipment_type, power_min, power_max, durability_max, magic_value, crit_rate, block_rate, element, effect_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO equipment_data (item_id, equipment_type, slot_type, power_min, power_max, durability_mode, durability_max, random_break_chance, magic_value, crit_rate, block_rate, element, effect_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           values
         );
         inserted++;
@@ -5965,8 +6663,14 @@ app.delete('/api/admin/equipment-stats/:id', checkAdminRoleNpc, async (req, res)
 
 app.get('/api/admin/item-effects/csv', checkAdminRoleNpc, async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT id, item_id, effect_target, effect_type, value_min, value_max, is_permanent, duration_turns FROM item_effects ORDER BY id');
-    const headers = ['id', 'item_id', 'effect_target', 'effect_type', 'value_min', 'value_max', 'is_permanent', 'duration_turns'];
+    const [rowsRaw] = await db.query(
+      `SELECT ie.id, it.item_code, ie.effect_target, ie.effect_type, ie.value_min, ie.value_max, ie.is_permanent, ie.duration_turns, ie.magic_value
+       FROM item_effects ie
+       LEFT JOIN items it ON ie.item_id = it.id
+       ORDER BY COALESCE(it.item_code, 999999999), ie.id`
+    );
+    const rows = (rowsRaw || []).map((row) => normalizeEffectRow(row));
+    const headers = ['id', 'item_code', 'effect_target', 'effect_type', 'value_min', 'value_max', 'is_permanent', 'duration_turns', 'magic_value'];
     const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => escapeCSV(r[h])).join(','))].join('\n');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=item_effects.csv');
@@ -5982,9 +6686,12 @@ app.post('/api/admin/item-effects/csv', checkAdminRoleNpc, uploadMemory.single('
     if (!req.file || !req.file.buffer) return res.status(400).json({ message: 'Thiếu file CSV' });
     const text = req.file.buffer.toString('utf8');
     const { headers, rows } = parseCSV(text);
-    const required = ['item_id', 'effect_target', 'effect_type'];
+    const required = ['effect_target', 'effect_type'];
     const h = headers.map((x) => x.toLowerCase().trim());
     if (!required.every((k) => h.includes(k))) return res.status(400).json({ message: 'CSV thiếu cột: ' + required.join(', ') });
+    const hasItemCode = h.includes('item_code');
+    const hasItemId = h.includes('item_id');
+    if (!hasItemCode && !hasItemId) return res.status(400).json({ message: 'CSV thiếu cột: item_code hoặc item_id' });
     let updated = 0;
     let inserted = 0;
     for (const row of rows) {
@@ -5992,12 +6699,15 @@ app.post('/api/admin/item-effects/csv', checkAdminRoleNpc, uploadMemory.single('
       headers.forEach((col, i) => { o[col.toLowerCase().trim()] = row[i]; });
       const idRaw = o.id != null && String(o.id).trim() !== '' ? parseInt(o.id, 10) : null;
       const id = idRaw != null && !isNaN(idRaw) ? idRaw : null;
-      const itemId = parseInt(o.item_id, 10);
-      if (isNaN(itemId)) continue;
+      const itemId = await resolveItemIdFromCsvRow(o);
+      if (itemId == null || Number.isNaN(Number(itemId))) continue;
       const valueMin = o.value_min != null && o.value_min !== '' ? Number(o.value_min) : 0;
       const valueMax = o.value_max != null && o.value_max !== '' ? Number(o.value_max) : 0;
       const isPermanent = o.is_permanent === '1' || String(o.is_permanent).toLowerCase() === 'true';
       const durationTurns = o.duration_turns != null && o.duration_turns !== '' ? parseInt(o.duration_turns, 10) : 0;
+      const magicValue = o.magic_value != null && o.magic_value !== '' ? Number(o.magic_value) : null;
+      const normalizedTarget = normalizeEffectTarget(o.effect_target ?? 'hp');
+      const normalizedType = normalizeEffectType(o.effect_type ?? 'flat');
       let doUpdate = false;
       if (id != null) {
         const [ex] = await db.query('SELECT 1 FROM item_effects WHERE id = ? LIMIT 1', [id]);
@@ -6005,14 +6715,14 @@ app.post('/api/admin/item-effects/csv', checkAdminRoleNpc, uploadMemory.single('
       }
       if (doUpdate) {
         await db.query(
-          'UPDATE item_effects SET item_id=?, effect_target=?, effect_type=?, value_min=?, value_max=?, is_permanent=?, duration_turns=? WHERE id=?',
-          [itemId, o.effect_target ?? 'hp', o.effect_type ?? 'flat', valueMin, valueMax, isPermanent, durationTurns, id]
+          'UPDATE item_effects SET item_id=?, effect_target=?, effect_type=?, value_min=?, value_max=?, is_permanent=?, duration_turns=?, magic_value=? WHERE id=?',
+          [itemId, normalizedTarget, normalizedType, valueMin, valueMax, isPermanent, durationTurns, magicValue, id]
         );
         updated++;
       } else {
         await db.query(
-          'INSERT INTO item_effects (item_id, effect_target, effect_type, value_min, value_max, is_permanent, duration_turns) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [itemId, o.effect_target ?? 'hp', o.effect_type ?? 'flat', valueMin, valueMax, isPermanent, durationTurns]
+          'INSERT INTO item_effects (item_id, effect_target, effect_type, value_min, value_max, is_permanent, duration_turns, magic_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [itemId, normalizedTarget, normalizedType, valueMin, valueMax, isPermanent, durationTurns, magicValue]
         );
         inserted++;
       }
@@ -6320,7 +7030,7 @@ app.post('/api/arena/match/start', async (req, res) => {
     };
 
     const [equipRows] = await db.query(
-      `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, i.durability_left, ed.power_min, ed.power_max, ed.equipment_type, ed.magic_value, ed.durability_max
+      `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, i.durability_left, ed.power_min, ed.power_max, ed.equipment_type, ed.magic_value, ed.durability_max, ed.durability_mode
        FROM inventory i JOIN items it ON i.item_id = it.id LEFT JOIN equipment_data ed ON it.id = ed.item_id
        WHERE i.equipped_pet_id = ? AND i.is_equipped = 1`,
       [petId]
@@ -6336,6 +7046,8 @@ app.post('/api/arena/match/start', async (req, res) => {
       power_max: e.power_max != null ? parseInt(e.power_max, 10) : 0,
       equipment_type: e.equipment_type || 'weapon',
       magic_value: e.magic_value != null ? parseInt(e.magic_value, 10) : 0,
+      durability_mode: e.durability_mode || 'fixed',
+      is_permanent_durability: (e.durability_mode || '').toLowerCase() === 'unbreakable' || (e.durability_max != null && parseInt(e.durability_max, 10) >= 999999),
     }));
 
     const matchState = {
@@ -6450,13 +7162,18 @@ app.post('/api/arena/match/turn', async (req, res) => {
         player.current_def_dmg = result.defDmg ?? 0;
         if (action === 'defend_shield' && itemId) {
           const inv = state.equipment.find((e) => e.id === itemId);
-          if (inv && inv.durability_left > 0) {
-            inv.durability_left = Math.max(0, inv.durability_left - 1);
-            await db.query('UPDATE inventory SET durability_left = GREATEST(durability_left - 1, 0) WHERE id = ?', [itemId]);
-            if (inv.durability_left <= 0) {
-              await db.query('DELETE FROM inventory WHERE id = ?', [itemId]);
+          if (inv) {
+            const durabilityResult = await consumeEquipmentDurability(itemId, 1);
+            if (durabilityResult.item_destroyed) {
               state.equipment = (state.equipment || []).filter((e) => e.id !== itemId);
-              state.history.push({ text: `${inv.item_name || 'Equipment'} đã hỏng và bị tiêu hủy.`, type: 'default' });
+              state.history.push({
+                text: durabilityResult.break_reason === 'random'
+                  ? `${inv.item_name || 'Equipment'} đã gãy ngẫu nhiên và bị tiêu hủy.`
+                  : `${inv.item_name || 'Equipment'} đã hỏng và bị tiêu hủy.`,
+                type: 'default',
+              });
+            } else {
+              inv.durability_left = durabilityResult.durability_left;
             }
           }
         }
@@ -6492,12 +7209,17 @@ app.post('/api/arena/match/turn', async (req, res) => {
         if (isAttackItem && itemId) {
           const inv = state.equipment.find((e) => e.id === itemId);
           if (inv) {
-            inv.durability_left = Math.max(0, (inv.durability_left || 1) - 1);
-            await db.query('UPDATE inventory SET durability_left = GREATEST(durability_left - 1, 0) WHERE id = ?', [itemId]);
-            if (inv.durability_left <= 0) {
-              await db.query('DELETE FROM inventory WHERE id = ?', [itemId]);
+            const durabilityResult = await consumeEquipmentDurability(itemId, 1);
+            if (durabilityResult.item_destroyed) {
               state.equipment = (state.equipment || []).filter((e) => e.id !== itemId);
-              state.history.push({ text: `${inv.item_name || 'Equipment'} đã hỏng và bị tiêu hủy.`, type: 'default' });
+              state.history.push({
+                text: durabilityResult.break_reason === 'random'
+                  ? `${inv.item_name || 'Equipment'} đã gãy ngẫu nhiên và bị tiêu hủy.`
+                  : `${inv.item_name || 'Equipment'} đã hỏng và bị tiêu hủy.`,
+                type: 'default',
+              });
+            } else {
+              inv.durability_left = durabilityResult.durability_left;
             }
           }
         }
@@ -8033,7 +8755,7 @@ app.get('/api/pets/:petId/battle-stats', async (req, res) => {
     // Lấy equipment (chỉ để hiển thị, không tính vào stats)
     const [equipmentRows] = await db.query(`
       SELECT i.id, i.item_id, it.name AS item_name, it.image_url, i.durability_left,
-             ed.equipment_type, ed.magic_value AS power, ed.durability_max AS max_durability, i.is_broken
+             ed.equipment_type, ed.magic_value AS power, ed.durability_max AS max_durability, ed.durability_mode, i.is_broken
       FROM inventory i
       JOIN items it ON i.item_id = it.id
       LEFT JOIN equipment_data ed ON it.id = ed.item_id
@@ -8117,14 +8839,16 @@ app.post('/api/pets/:petId/use-item', async (req, res) => {
       return res.status(400).json({ message: 'Invalid item' });
     }
 
+    const normalizedEffect = normalizeEffectRow(effectRows[0]);
+
     // 4. Xử lý theo loại item
     let levelUpResult = null;
-    if (itemRows[0].type === 'consumable') {
-      levelUpResult = await handleConsumableItem(petId, item_id, effectRows[0], quantity, userId);
+    if (itemRows[0].type === 'consumable' || itemRows[0].type === 'medicine') {
+      levelUpResult = await handleConsumableItem(petId, item_id, itemRows[0], normalizedEffect, quantity, userId);
     } else if (itemRows[0].type === 'booster') {
-      await handleBoosterItem(petId, item_id, effectRows[0], quantity, userId);
-    } else if (itemRows[0].type === 'food') {
-      levelUpResult = await handleFoodItem(petId, item_id, effectRows[0], quantity, userId);
+      await handleBoosterItem(petId, item_id, itemRows[0], normalizedEffect, quantity, userId);
+    } else if (itemRows[0].type === 'food' || itemRows[0].type === 'toy') {
+      levelUpResult = await handleFoodItem(petId, item_id, itemRows[0], normalizedEffect, quantity, userId);
     }
 
     // 5. Trừ item khỏi inventory
@@ -8141,7 +8865,7 @@ app.post('/api/pets/:petId/use-item', async (req, res) => {
 
     res.json({ 
       message: 'Item used successfully',
-      exp_gained: effectRows[0].effect_target === 'exp' ? effectRows[0].value_min * quantity : 0,
+      exp_gained: normalizedEffect.effect_target === 'exp' ? normalizedEffect.value_min * quantity : 0,
       level_up: levelUpResult ? levelUpResult.level_up : false,
       old_level: levelUpResult ? levelUpResult.old_level : null,
       new_level: levelUpResult ? levelUpResult.new_level : null,
@@ -8155,19 +8879,32 @@ app.post('/api/pets/:petId/use-item', async (req, res) => {
 });
 
 // Helper functions
-async function handleConsumableItem(petId, itemId, effect, quantity, userId) {
-  if (effect.effect_target === 'exp') {
+async function handleConsumableItem(petId, itemId, itemRow, effect, quantity, userId) {
+  const normalizedTarget = normalizeEffectTarget(effect.effect_target);
+  if (normalizedTarget === 'exp') {
     // Sử dụng logic level up có sẵn
     return await handleExpGainWithLevelUp(petId, effect.value_min * quantity);
-  } else if (effect.effect_target === 'hp') {
-    // Hồi HP
-    await pool.promise().query('UPDATE pets SET hp = LEAST(max_hp, hp + ?) WHERE id = ?', 
-      [effect.value_min * quantity, petId]);
+  } else if (normalizedTarget === 'hp') {
+    // Hồi current_hp theo magic_value
+    const recoverHp = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    await pool.promise().query(
+      `UPDATE pets
+       SET current_hp = LEAST(max_hp, GREATEST(0, COALESCE(current_hp, hp, 0) + ?)),
+           hp = LEAST(max_hp, GREATEST(0, COALESCE(current_hp, hp, 0) + ?))
+       WHERE id = ?`,
+      [recoverHp, recoverHp, petId]
+    );
     return null;
-  } else if (effect.effect_target === 'str' || effect.effect_target === 'def' || 
-             effect.effect_target === 'spd' || effect.effect_target === 'intelligence') {
+  } else if (normalizedTarget === 'mp') {
+    const recoverMp = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    await pool.promise().query('UPDATE pets SET mp = LEAST(max_mp, GREATEST(0, mp + ?)) WHERE id = ?',
+      [recoverMp, petId]);
+    return null;
+  } else if (normalizedTarget === 'str' || normalizedTarget === 'def' || 
+             normalizedTarget === 'spd' || normalizedTarget === 'intelligence') {
+    if (!effect.is_permanent) return null;
     // Tăng stat tạm thời hoặc vĩnh viễn
-    const statField = effect.effect_target;
+    const statField = normalizedTarget;
     if (effect.effect_type === 'percent') {
       await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
         [effect.value_min, petId]);
@@ -8180,7 +8917,7 @@ async function handleConsumableItem(petId, itemId, effect, quantity, userId) {
   return null;
 }
 
-async function handleBoosterItem(petId, itemId, effect, quantity, userId) {
+async function handleBoosterItem(petId, itemId, itemRow, effect, quantity, userId) {
   // Kiểm tra usage limit
   const [usage] = await pool.promise().query('SELECT * FROM pet_item_usage WHERE pet_id = ? AND item_id = ?', [petId, itemId]);
   
@@ -8198,27 +8935,62 @@ async function handleBoosterItem(petId, itemId, effect, quantity, userId) {
   }
 
   // Tăng stat vĩnh viễn
-  const statField = effect.effect_target;
+  const statField = normalizeEffectTarget(effect.effect_target);
+  if (!effect.is_permanent) return;
+  if (statField === 'exp') {
+    await handleExpGainWithLevelUp(petId, resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true }));
+    return;
+  }
+  if (statField === 'hp') {
+    const boostHp = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    await pool.promise().query('UPDATE pets SET hp_added = hp_added + ? WHERE id = ?', [boostHp, petId]);
+    return;
+  }
+  if (statField === 'mp') {
+    const boostMp = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    await pool.promise().query('UPDATE pets SET mp_added = mp_added + ? WHERE id = ?', [boostMp, petId]);
+    return;
+  }
+  if (!['str', 'def', 'spd', 'intelligence'].includes(statField)) return;
   if (effect.effect_type === 'percent') {
     await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
       [effect.value_min, petId]);
   }
 }
 
-async function handleFoodItem(petId, itemId, effect, quantity, userId) {
+async function handleFoodItem(petId, itemId, itemRow, effect, quantity, userId) {
   // Xử lý food item - có thể tăng HP, EXP hoặc stats
-  if (effect.effect_target === 'exp') {
+  const normalizedTarget = normalizeEffectTarget(effect.effect_target);
+  if (normalizedTarget === 'exp') {
     // Sử dụng logic level up có sẵn
     return await handleExpGainWithLevelUp(petId, effect.value_min * quantity);
-  } else if (effect.effect_target === 'hp') {
-    // Hồi HP
-    await pool.promise().query('UPDATE pets SET hp = LEAST(max_hp, hp + ?) WHERE id = ?', 
-      [effect.value_min * quantity, petId]);
+  } else if (normalizedTarget === 'hp') {
+    const recoverHp = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    await pool.promise().query(
+      `UPDATE pets
+       SET current_hp = LEAST(max_hp, GREATEST(0, COALESCE(current_hp, hp, 0) + ?)),
+           hp = LEAST(max_hp, GREATEST(0, COALESCE(current_hp, hp, 0) + ?))
+       WHERE id = ?`,
+      [recoverHp, recoverHp, petId]
+    );
     return null;
-  } else if (effect.effect_target === 'str' || effect.effect_target === 'def' || 
-             effect.effect_target === 'spd' || effect.effect_target === 'intelligence') {
+  } else if (normalizedTarget === 'mp') {
+    const recoverMp = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    await pool.promise().query('UPDATE pets SET mp = LEAST(max_mp, GREATEST(0, mp + ?)) WHERE id = ?',
+      [recoverMp, petId]);
+    return null;
+  } else if (normalizedTarget === 'hunger') {
+    const recoverHunger = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    await pool.promise().query(
+      'UPDATE pets SET hunger_status = LEAST(10, GREATEST(0, COALESCE(hunger_status, 0) + ?)) WHERE id = ?',
+      [recoverHunger, petId]
+    );
+    return null;
+  } else if (normalizedTarget === 'str' || normalizedTarget === 'def' || 
+             normalizedTarget === 'spd' || normalizedTarget === 'intelligence') {
+    if (!effect.is_permanent) return null;
     // Tăng stat
-    const statField = effect.effect_target;
+    const statField = normalizedTarget;
     if (effect.effect_type === 'percent') {
       await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
         [effect.value_min, petId]);
@@ -8772,21 +9544,6 @@ app.get('/api/admin/shops/:shop_id/restock-interval', checkAdminRole, async (req
   } catch (error) {
     console.error('Error fetching shop restock interval:', error);
     res.status(500).json({ error: 'Failed to fetch shop restock interval' });
-  }
-});
-
-// GET /api/admin/items - Lấy danh sách tất cả items cho admin
-app.get('/api/admin/items', checkAdminRole, async (req, res) => {
-  try {
-    const [items] = await db.query(`
-      SELECT id, name, image_url, sell_price, type, description
-      FROM items 
-      ORDER BY type, name
-    `);
-    res.json(items);
-  } catch (error) {
-    console.error('Error fetching items:', error);
-    res.status(500).json({ error: 'Failed to fetch items' });
   }
 });
 

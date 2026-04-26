@@ -1,0 +1,35 @@
+﻿item_code,name,description,type,category,subtype,rarity,image_url,buy_price,sell_price,price_currency,magic_value,stackable,max_stack,consume_policy,pet_scope
+10001,Thần dược tiến hóa Alpha,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_alpha,legendary,item_30993.gif,150,0,petagold,3,1,999,single_use,domestic_only
+10002,Thần dược tiến hóa Beta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_beta,legendary,item_31223.gif,150,0,petagold,,1,999,single_use,all
+10003,Thần dược tiến hóa Gamma,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_gamma,legendary,,150,0,petagold,,1,999,single_use,all
+10004,Thần dược tiến hóa Delta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_delta,legendary,item_31225.gif,150,0,petagold,,1,999,single_use,all
+10005,Thần dược tiến hóa Epsilon,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_epsilon,legendary,item_31226.gif,150,0,petagold,,1,999,single_use,all
+10006,Thần dược tiến hóa Zeta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_zeta,legendary,item_31242.gif,150,0,petagold,,1,999,single_use,all
+10007,Thần dược tiến hóa Eta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_eta,legendary,item_31243.gif,150,0,petagold,,1,999,single_use,all
+10008,Thần dược tiến hóa Theta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_theta,legendary,item_31244.gif,150,0,petagold,,1,999,single_use,all
+10009,Thần dược tiến hóa Iota,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_iota,legendary,,150,0,petagold,,1,999,single_use,all
+10010,Thần dược tiến hóa Kappa,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_kappa,legendary,,150,0,petagold,,1,999,single_use,all
+10011,Thần dược tiến hóa Lambda,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_lambda,legendary,,150,0,petagold,,1,999,single_use,all
+10012,Thần dược tiến hóa Omega,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_omega,legendary,,150,0,petagold,,1,999,single_use,all
+10013,Thần dược tiến hóa Sigma,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_sigma,legendary,,150,0,petagold,,1,999,single_use,all
+10014,Thần dược tiến hóa Omicron,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_omicron,legendary,,150,0,petagold,,1,999,single_use,all
+10015,Thần dược phản tiến hóa,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_return,legendary,,150,0,petagold,,1,999,single_use,all
+10101,Dây chuyền đá,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,common,item_30965.gif,5000,800,peta,1,1,999,single_use,all
+10102,Dây chuyền hổ phách,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,common,item_30966.gif,7000,800,peta,2,1,999,single_use,all
+10103,Dây chuyền thạch anh,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,common,item_30967.gif,9000,800,peta,3,1,999,single_use,all
+10104,Dây chuyền mặt trời,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,rare,item_30968.gif,15000,800,peta,4,1,999,single_use,all
+10105,Dây chuyền băng tinh,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,rare,item_30969.gif,20000,800,peta,5,1,999,single_use,all
+10106,Dây chuyền hỏa tinh,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,rare,item_30970.gif,40000,800,peta,6,1,999,single_use,all
+10107,Dây chuyền tà thần,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,epic,item_30971.gif,0,800,peta,7,1,999,single_use,all
+10108,Dây chuyền thiên thạch,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,epic,item_30972.gif,0,800,peta,8,1,999,single_use,all
+10109,Dây chuyền huyền tinh,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,mythic,item_30973.gif,,800,peta,9,1,999,single_use,all
+10110,Dây chuyền long châu,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,mythic,item_30974.gif,,800,peta,10,1,999,single_use,all
+11001,Hồng dược,Dược phẩm phục hồi sức khoẻ theo chỉ số ma thuật.,consumable,medicine,hp_recovery,common,placeholder_red_potion.gif,400,120,peta,2,1,999,single_use,all
+11002,Lục năng dược,Dược phẩm phục hồi năng lượng theo chỉ số ma thuật.,consumable,medicine,mp_recovery,common,placeholder_green_potion.gif,500,150,peta,3,1,999,single_use,all
+12001,Sao vàng,Đồ chơi giúp tăng trạng thái hạnh phúc.,consumable,medicine,happiness_up,common,placeholder_star_toy.gif,200,60,peta,1,1,999,single_use,all
+12002,Bánh mì,Thức ăn cơ bản giúp thú cưng no hơn.,consumable,medicine,hunger_recovery,common,alf_bread.gif,100,30,peta,1,1,999,single_use,all
+13001,Bạch ngân kiếm,"Vũ khí vĩnh viễn, không bao giờ gãy.",equipment,equipment,weapon_permanent,epic,placeholder_silver_sword.gif,25000,7500,petagold,4,0,1,on_battle_only,all
+13002,Cung Mãng xà,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,rare,placeholder_serpent_bow.gif,15000,4500,petagold,3,0,1,on_battle_only,all
+13003,Khiên gỗ,Vũ khí phòng thủ cơ bản.,equipment,equipment,shield_basic,common,placeholder_wood_shield.gif,1200,360,peta,1,0,1,on_battle_only,all
+13004,Minh dược,"Dược phẩm hỗ trợ chiến đấu, tăng độ chính xác cho thú của bạn.",equipment,stat_boost,accuracy_up,rare,placeholder_accuracy_up.gif,3000,900,peta,2,0,1,on_battle_only,all
+13005,Ảo dược,"Dược phẩm hỗ trợ chiến đấu, giảm độ chính xác của đối thủ.",equipment,stat_boost,accuracy_down,rare,placeholder_accuracy_down.gif,3000,900,peta,2,0,1,on_battle_only,all
