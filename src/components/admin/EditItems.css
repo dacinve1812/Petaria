@@ -46,3 +46,34 @@
   max-width: 220px;
   box-shadow: 2px 0 4px rgba(0, 0, 0, 0.06);
 }
+
+.edit-items-toolbar {
+  justify-content: space-between;
+  width: 100%;
+}
+
+.edit-items-toolbar-left,
+.edit-items-toolbar-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.edit-items-toolbar-right {
+  margin-left: auto;
+}
+
+.edit-items-search-input {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #ced4da;
+  min-width: 200px;
+  max-width: 320px;
+  flex: 1 1 180px;
+}
+
+.edit-items-filter-btn.is-active {
+  background: #495057;
+  box-shadow: inset 0 0 0 1px #ffc107;
+}

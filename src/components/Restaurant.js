@@ -1,4 +1,4 @@
-// Restaurant.js - Nhà hàng: cho thú cưng ăn (hồi hunger_status), theo cấu trúc MainLayout + TemplatePage
+// Restaurant.js - Nhà hàng: hồi đói tối đa + tăng tâm trạng (API /api/restaurant/feed)
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../UserContext';
 import TemplatePage from './template/TemplatePage';

@@ -1768,7 +1768,8 @@ h1.peta-sectiontitle {
 .pet-detail-def { animation-delay: 0.2s; }
 .pet-detail-int { animation-delay: 0.22s; }
 .pet-detail-spd { animation-delay: 0.24s; }
-.pet-detail-status { animation-delay: 0.26s; }
+.pet-detail-tinh-trang { animation-delay: 0.26s; }
+.pet-detail-tam-trang { animation-delay: 0.27s; }
 .pet-detail-battles { animation-delay: 0.28s; }
 
 /* Bonus stats styling */

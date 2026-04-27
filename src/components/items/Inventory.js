@@ -79,7 +79,17 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const filterOptions = ['all', 'food', 'consumable', 'equipment', 'booster', 'misc'];
 
   const filteredItems = inventoryItems
-    .filter(item => filterType === 'all' || item.type === filterType)
+    .filter((item) => {
+      if (filterType === 'all') return true;
+      if (filterType === 'food') {
+        return (
+          item.type === 'food' ||
+          (item.type === 'consumable' &&
+            String(item.item_category || item.category || '').toLowerCase() === 'food')
+        );
+      }
+      return item.type === filterType;
+    })
     .filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
     .filter(item => showEquipped || !item.is_equipped);
 

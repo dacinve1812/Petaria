@@ -4,6 +4,52 @@ import PetSelectionModal from './PetSelectionModal';
 import GameDialogModal from '../ui/GameDialogModal';
 import GameModalButton from '../ui/GameModalButton';
 
+/**
+ * Các lựa chọn “dùng cho thú cưng” trong menu — khớp catalog (type / category / subtype).
+ * Food chỉ có “Cho ăn”; thuốc HP/MP, booster stat, đồ chơi… tách theo taxonomy.
+ */
+function getPetUseActionsForItem(item) {
+  if (!item) return [];
+  const type = String(item.type || '').toLowerCase().trim();
+  const cat = String(item.item_category ?? item.category ?? '')
+    .toLowerCase()
+    .trim();
+  const sub = String(item.item_subtype ?? item.subtype ?? '')
+    .toLowerCase()
+    .trim();
+
+  const rows = [];
+  const add = (value, label) => rows.push({ value, label });
+
+  if (type === 'food' || (type === 'consumable' && cat === 'food')) {
+    add('feed', 'Cho thú cưng ăn');
+    return rows;
+  }
+
+  if ((type === 'consumable' || type === 'medicine') && cat === 'medicine') {
+    if (sub === 'hp_recovery') add('heal', 'Chữa trị cho thú cưng');
+    if (sub === 'mp_recovery') add('restore_energy', 'Hồi phục năng lượng cho thú cưng');
+    return rows;
+  }
+
+  if (type === 'booster' && cat === 'stat_boost') {
+    add('boost_stats', 'Gia tăng chỉ số cho thú cưng');
+    return rows;
+  }
+
+  if ((type === 'consumable' && cat === 'toy') || type === 'toy') {
+    add('play', 'Chơi đùa với thú cưng');
+    return rows;
+  }
+
+  if (type === 'evolve') {
+    add('transform', 'Thay đổi hình dạng cho thú cưng');
+    return rows;
+  }
+
+  return rows;
+}
+
 function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
   const [userPets, setUserPets] = useState([]);
@@ -32,6 +78,7 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
       setGameDialog(null);
       setShowActionDropdown(false);
       setDropdownPointerGuard(false);
+      setAction('');
       if (dropdownGuardTimerRef.current) {
         clearTimeout(dropdownGuardTimerRef.current);
         dropdownGuardTimerRef.current = null;
@@ -161,18 +208,14 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
         { value: 'gift', label: 'Tặng cho bạn bè' }
       ];
     }
-    
+
+    const petRows = getPetUseActionsForItem(item);
     return [
       { value: 'sell', label: 'Bán ve chai' },
-      { value: 'feed', label: 'Cho thú cưng ăn' },
-      { value: 'heal', label: 'Chữa trị cho thú cưng' },
-      { value: 'restore_energy', label: 'Hồi phục năng lượng cho thú cưng' },
-      { value: 'boost_stats', label: 'Gia tăng chỉ số cho thú cưng' },
-      { value: 'play', label: 'Chơi đùa với thú cưng' },
-      { value: 'transform', label: 'Thay đổi hình dạng cho thú cưng' },
+      ...petRows,
       { value: 'sell_auction', label: 'Đặt vào cửa hàng' },
       { value: 'exhibition', label: 'Mang vào phòng triển lãm' },
-      { value: 'gift', label: 'Tặng cho bạn bè' }
+      { value: 'gift', label: 'Tặng cho bạn bè' },
     ];
   };
 
@@ -276,13 +319,16 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   }, [item]);
 
   useEffect(() => {
-    // Fetch user pets for both equipment and use actions
-    if (item?.type === 'equipment' || item?.type === 'food' || item?.type === 'consumable' || item?.type === 'booster') {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      const userId = JSON.parse(atob(token.split('.')[1])).userId;
+    const petUseRows = item ? getPetUseActionsForItem(item) : [];
+    const needsPetsForEquip = item?.type === 'equipment' && !item?.is_equipped;
+    const needsPetsForUse = petUseRows.length > 0;
+    if (!needsPetsForEquip && !needsPetsForUse) return undefined;
 
-      fetch(`${API_BASE_URL}/users/${userId}/pets`, {
+    const token = localStorage.getItem('token');
+    if (!token) return undefined;
+    const userId = JSON.parse(atob(token.split('.')[1])).userId;
+
+    fetch(`${API_BASE_URL}/users/${userId}/pets`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -298,11 +344,12 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
             setUserPets([]);
           }
         })
-        .catch(err => {
-          console.error('Error fetching pets:', err);
-          setUserPets([]);
-        });
-    }
+      .catch(err => {
+        console.error('Error fetching pets:', err);
+        setUserPets([]);
+      });
+
+    return undefined;
   }, [item]);
 
   const handleEquipItem = async () => {
@@ -364,14 +411,26 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
       const token = localStorage.getItem('token');
       const userId = JSON.parse(atob(token.split('.')[1])).userId;
 
+      const cid =
+        item?.item_id != null && item.item_id !== ''
+          ? Number(item.item_id)
+          : item?.id != null
+            ? Number(item.id)
+            : null;
+      if (!cid || Number.isNaN(cid)) {
+        alert('Không xác định được vật phẩm (thiếu item_id catalog).');
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch(`${API_BASE_URL}/api/pets/${selectedPetId}/use-item`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          item_id: item.item_id, 
-          quantity: 1, 
-          userId: userId 
-        })
+        body: JSON.stringify({
+          item_id: cid,
+          quantity: 1,
+          userId: userId,
+        }),
       });
       
       const result = await res.json();
@@ -518,7 +577,14 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
     try {
       if (item.type === 'equipment') {
         await handleEquipItemWithPet(petId);
-      } else if (item.type === 'food' || item.type === 'consumable' || item.type === 'booster') {
+      } else if (
+        item.type === 'food' ||
+        item.type === 'consumable' ||
+        item.type === 'medicine' ||
+        item.type === 'booster' ||
+        item.type === 'toy' ||
+        item.type === 'evolve'
+      ) {
         await handleUseItemWithPet(petId, quantity);
       }
     } catch (error) {
@@ -563,17 +629,28 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
       const token = localStorage.getItem('token');
       const userId = JSON.parse(atob(token.split('.')[1])).userId;
 
+      const cid =
+        item?.item_id != null && item.item_id !== ''
+          ? Number(item.item_id)
+          : item?.id != null
+            ? Number(item.id)
+            : null;
+      if (!cid || Number.isNaN(cid)) {
+        alert('Không xác định được vật phẩm (thiếu item_id catalog).');
+        return;
+      }
+
       const res = await fetch(`${API_BASE_URL}/api/pets/${petId}/use-item`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
-          item_id: item.id, // Use item.id from database
-          quantity: quantity,
-          userId: userId
-        })
+        body: JSON.stringify({
+          item_id: cid,
+          quantity,
+          userId,
+        }),
       });
       const result = await res.json();
       if (res.ok) {
@@ -682,6 +759,17 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   const sellPricePerItem = Number(displayItem.sell_price || item.sell_price || 0);
   const sellTotal = sellPricePerItem * Math.max(1, Math.min(sellQuantity, Math.max(1, ownedQty)));
 
+  /** Ma thuật catalog (items.magic_value); đồ trang bị ưu tiên equipment_data */
+  const effectiveMagicDisplay =
+    fetchedEquipmentData?.magic_value ??
+    displayItem.items_magic_value ??
+    displayItem.magic_value ??
+    item?.magic_value ??
+    itemEffects[0]?.magic_value ??
+    displayItem.power ??
+    item?.power ??
+    0;
+
   return (
     <div 
       className="inventory-item-modal-overlay"
@@ -721,7 +809,7 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
               </span>
             </div>
             <div className="inventory-item-modal-quantity-value">
-              Chỉ số ma thuật: {fetchedEquipmentData?.magic_value ?? displayItem.power ?? item.power ?? 0}
+              Chỉ số ma thuật: {effectiveMagicDisplay}
             </div>
             {item.type === 'equipment' && (
               <div className="inventory-item-modal-quantity-value">
@@ -748,7 +836,7 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
                     <div className="inventory-item-modal-effect-content">
                       <div className="inventory-item-modal-effect-description">
                         {effect.description || `${effect.effect_target.toUpperCase()}: ${effect.value_min}${effect.effect_type === 'percent' ? '%' : ''}`}
-                        {` (Ma thuật: ${effect.magic_value ?? fetchedEquipmentData?.magic_value ?? displayItem.magic_value ?? 0})`}
+                        {` (Ma thuật: ${effect.magic_value ?? effectiveMagicDisplay})`}
                       </div>
                     </div>
                   </div>
@@ -906,7 +994,7 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
         onConfirm={handlePetSelectionConfirm}
         userPets={userPets}
         item={item}
-        action={item.type === 'equipment' ? 'equip' : 'use'}
+        action={item?.type === 'equipment' ? 'equip' : action || 'use'}
       />
 
       {/* Bán: quantity + xác nhận trên nút Confirm của GameDialogModal */}

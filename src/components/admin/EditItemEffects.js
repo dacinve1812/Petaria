@@ -11,6 +11,32 @@ const getItemImageSrc = (imageUrl) => {
   return `/images/equipments/${imageUrl}`;
 };
 
+function formatItemNameWithCode(item) {
+  if (!item) return '';
+  const code = item.item_code != null && item.item_code !== '' ? item.item_code : '—';
+  return `${item.name} (${code})`;
+}
+
+/** Item được phép có item_effects (khớp script sync / gameplay). */
+function itemAllowsItemEffects(item) {
+  if (!item) return false;
+  const t = String(item.type || '').toLowerCase();
+  const c = String(item.category || '').toLowerCase();
+  if (t === 'equipment' && c === 'equipment') return false;
+  return (
+    ['consumable', 'booster', 'evolve', 'food', 'toy', 'medicine', 'quest', 'repair_kit'].includes(t)
+    || (t === 'equipment' && c === 'stat_boost')
+  );
+}
+
+/** Dòng effect không còn hợp lệ trên UI (DB chưa sync hoặc orphan). */
+function isNoiseEffectRow(row, itemsById) {
+  const item = itemsById.get(Number(row.item_id));
+  if (!item) return true;
+  if (item.type === 'equipment' && item.category === 'equipment') return true;
+  return !itemAllowsItemEffects(item);
+}
+
 function EditItemEffects() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -43,8 +69,8 @@ function EditItemEffects() {
   const loadAll = async () => {
     try {
       const [i, e] = await Promise.all([
-        fetch(`${API_BASE}/api/admin/items`, { headers: authHeaders(user.token) }).then((r) => r.json()),
-        fetch(`${API_BASE}/api/admin/item-effects`, { headers: authHeaders(user.token) }).then((r) => r.json()),
+        fetch(`${API_BASE}/api/admin/items`, { headers: authHeaders(user.token), cache: 'no-store' }).then((r) => r.json()),
+        fetch(`${API_BASE}/api/admin/item-effects`, { headers: authHeaders(user.token), cache: 'no-store' }).then((r) => r.json()),
       ]);
       setItems(Array.isArray(i) ? i : []);
       setRows(Array.isArray(e) ? e : []);
@@ -127,23 +153,32 @@ function EditItemEffects() {
     setSortConfig((prev) => (prev.key === key ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' } : { key, direction: 'asc' }));
   };
   const sortIndicator = (key) => (sortConfig.key === key ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : '');
+  const itemsById = useMemo(() => {
+    const m = new Map();
+    (items || []).forEach((it) => m.set(Number(it.id), it));
+    return m;
+  }, [items]);
+
+  const itemsForEffectDropdown = useMemo(() => (items || []).filter(itemAllowsItemEffects), [items]);
+
   const displayRows = useMemo(() => {
+    const base = rows.filter((r) => !isNoiseEffectRow(r, itemsById));
     const q = searchTerm.trim().toLowerCase();
     const filtered = q
-      ? rows.filter((r) => {
-          const item = items.find((i) => Number(i.id) === Number(r.item_id));
+      ? base.filter((r) => {
+          const item = itemsById.get(Number(r.item_id));
           const hay = [
-            r.id, r.item_id, item?.name, r.effect_target, r.effect_type, r.value_min, r.value_max, r.is_permanent, r.duration_turns, r.magic_value,
+            r.id, r.item_id, item?.name, item?.item_code, r.effect_target, r.effect_type, r.value_min, r.value_max, r.is_permanent, r.duration_turns, r.magic_value,
           ].map((v) => String(v ?? '').toLowerCase()).join(' ');
           return hay.includes(q);
         })
-      : [...rows];
+      : [...base];
 
     const sorted = [...filtered].sort((a, b) => {
-      const itemA = items.find((i) => Number(i.id) === Number(a.item_id));
-      const itemB = items.find((i) => Number(i.id) === Number(b.item_id));
-      const av = sortConfig.key === 'item_name' ? (itemA?.name ?? '') : a[sortConfig.key];
-      const bv = sortConfig.key === 'item_name' ? (itemB?.name ?? '') : b[sortConfig.key];
+      const itemA = itemsById.get(Number(a.item_id));
+      const itemB = itemsById.get(Number(b.item_id));
+      const av = sortConfig.key === 'item_name' ? formatItemNameWithCode(itemA) : a[sortConfig.key];
+      const bv = sortConfig.key === 'item_name' ? formatItemNameWithCode(itemB) : b[sortConfig.key];
       const aNum = Number(av);
       const bNum = Number(bv);
       let cmp = 0;
@@ -152,7 +187,7 @@ function EditItemEffects() {
       return sortConfig.direction === 'asc' ? cmp : -cmp;
     });
     return sorted;
-  }, [rows, items, searchTerm, sortConfig]);
+  }, [rows, itemsById, searchTerm, sortConfig]);
 
   if (isLoading) return <div className="admin-npc-boss"><div className="loading">Đang tải...</div></div>;
   if (!user || !user.isAdmin) return <div className="admin-npc-boss"><div className="access-denied"><h2>Access Denied</h2></div></div>;
@@ -162,7 +197,7 @@ function EditItemEffects() {
       <div className="admin-header">
         <div className="header-text">
           <h1>Quản lý Item Effects</h1>
-          <p>Chỉnh bảng `item_effects`: CRUD, download/upload CSV theo cùng chuẩn Boss/NPC.</p>
+          <p>Chỉnh bảng `item_effects`: CRUD, download/upload CSV. Danh sách bỏ qua dòng orphan / vũ khí-khiên không hợp lệ; dọn DB: <code>node scripts/sync_item_effects_equipment_magic_v2.js</code>.</p>
         </div>
         <div className="cell-actions">
           <button className="back-admin-btn" onClick={() => navigate('/admin/edit-items')}>← Quay lại Quản lý Items</button>
@@ -176,6 +211,7 @@ function EditItemEffects() {
         <h3>Bảng item_effects</h3>
         <div className="section-actions">
           <button className="btn btn-primary" onClick={() => setModal({ mode: 'add', row: { item_id: selectedItemId || '' } })}>Thêm</button>
+          <button className="btn btn-secondary" type="button" onClick={() => loadAll()}>Làm mới</button>
           <button className="btn btn-secondary" onClick={downloadCSV}>Tải CSV</button>
           <label className="btn btn-secondary" style={{ margin: 0 }}>
             Upload CSV
@@ -220,7 +256,9 @@ function EditItemEffects() {
                         onError={(e) => { e.target.src = '/images/equipments/placeholder.png'; e.target.onerror = null; }}
                       />
                     </td>
-                    <td>{item ? `${item.name} (#${item.id})` : r.item_id}</td>
+                    <td title={item ? `item_id=${item.id}` : `item_id=${r.item_id}`}>
+                      {item ? formatItemNameWithCode(item) : `⚠ orphan item_id=${r.item_id}`}
+                    </td>
                     <td>{r.effect_target}</td>
                     <td>{r.effect_type}</td>
                     <td>{r.value_min}</td>
@@ -247,14 +285,24 @@ function EditItemEffects() {
         </div>
       </div>
 
-      {modal && <ItemEffectModal items={items} modal={modal} onClose={() => setModal(null)} onSave={saveRow} />}
+      {modal && (
+        <ItemEffectModal
+          items={itemsForEffectDropdown}
+          modal={modal}
+          onClose={() => setModal(null)}
+          onSave={saveRow}
+          allItemsById={itemsById}
+        />
+      )}
     </div>
   );
 }
 
-function ItemEffectModal({ items, modal, onClose, onSave }) {
+function ItemEffectModal({ items, modal, onClose, onSave, allItemsById }) {
   const { mode, row } = modal;
-  const selectedItem = items.find((item) => Number(item.id) === Number(row.item_id));
+  const selectedItem =
+    items.find((item) => Number(item.id) === Number(row.item_id))
+    || (allItemsById && allItemsById.get(Number(row.item_id)));
   const [form, setForm] = useState({
     item_id: row.item_id ?? '',
     effect_target: row.effect_target ?? 'hp',
@@ -275,14 +323,22 @@ function ItemEffectModal({ items, modal, onClose, onSave }) {
         <form onSubmit={(e) => { e.preventDefault(); onSave({ ...form, item_id: Number(form.item_id), value_min: Number(form.value_min) || 0, value_max: Number(form.value_max) || 0, duration_turns: Number(form.duration_turns) || 0, magic_value: form.magic_value === '' ? null : Number(form.magic_value) }); }}>
           {mode === 'edit' ? (
             <div className="form-row">
-              <label>item_id *</label>
-              <input value={selectedItem ? `${selectedItem.name} (#${selectedItem.id})` : `#${row.item_id}`} readOnly />
+              <label>Item</label>
+              <input
+                value={selectedItem ? formatItemNameWithCode(selectedItem) : `item_id=${row.item_id} (không tìm thấy trong items)`}
+                readOnly
+                title={`item_id=${row.item_id}`}
+              />
             </div>
           ) : (
-            <div className="form-row"><label>item_id *</label>
+            <div className="form-row"><label>Item *</label>
               <select value={form.item_id} onChange={(e) => update('item_id', e.target.value)} required>
-                <option value="">-- chọn item --</option>
-                {items.map((item) => <option key={item.id} value={item.id}>{item.name} (#{item.id})</option>)}
+                <option value="">-- chọn item (consumable / booster / evolve / …) --</option>
+                {items.map((item) => (
+                  <option key={item.id} value={item.id} title={`item_id=${item.id}`}>
+                    {formatItemNameWithCode(item)}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -296,7 +352,8 @@ function ItemEffectModal({ items, modal, onClose, onSave }) {
               <option value="intelligence">intelligence</option>
               <option value="exp">exp</option>
               <option value="hunger">hunger</option>
-              <option value="happiness">happiness</option>
+              <option value="mood">mood (tâm trạng / đồ chơi)</option>
+              <option value="happiness">happiness (alias → mood)</option>
               <option value="status">status</option>
             </select>
           </div>

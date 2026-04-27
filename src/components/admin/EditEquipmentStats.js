@@ -11,6 +11,13 @@ const getItemImageSrc = (imageUrl) => {
   return `/images/equipments/${imageUrl}`;
 };
 
+/** Hiển thị admin: tên + mã nghiệp vụ (không dùng id trong label). */
+function formatItemNameWithCode(item) {
+  if (!item) return '';
+  const code = item.item_code != null && item.item_code !== '' ? item.item_code : '—';
+  return `${item.name} (${code})`;
+}
+
 function EditEquipmentStats() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -145,7 +152,7 @@ function EditEquipmentStats() {
       ? byEquipmentFilter.filter((r) => {
           const item = items.find((i) => Number(i.id) === Number(r.item_id));
           const hay = [
-            r.id, r.item_id, item?.name, r.equipment_type, r.power_min, r.power_max,
+            r.id, r.item_id, item?.name, item?.item_code, r.equipment_type, r.power_min, r.power_max,
             r.slot_type, r.durability_mode, r.durability_max, r.magic_value, r.crit_rate, r.block_rate, r.element, r.effect_id,
           ].map((v) => String(v ?? '').toLowerCase()).join(' ');
           return hay.includes(q);
@@ -155,8 +162,8 @@ function EditEquipmentStats() {
     const sorted = [...filtered].sort((a, b) => {
       const itemA = items.find((i) => Number(i.id) === Number(a.item_id));
       const itemB = items.find((i) => Number(i.id) === Number(b.item_id));
-      const av = sortConfig.key === 'item_name' ? (itemA?.name ?? '') : a[sortConfig.key];
-      const bv = sortConfig.key === 'item_name' ? (itemB?.name ?? '') : b[sortConfig.key];
+      const av = sortConfig.key === 'item_name' ? formatItemNameWithCode(itemA) : a[sortConfig.key];
+      const bv = sortConfig.key === 'item_name' ? formatItemNameWithCode(itemB) : b[sortConfig.key];
       const aNum = Number(av);
       const bNum = Number(bv);
       let cmp = 0;
@@ -240,7 +247,9 @@ function EditEquipmentStats() {
                         onError={(e) => { e.target.src = '/images/equipments/placeholder.png'; e.target.onerror = null; }}
                       />
                     </td>
-                    <td>{item ? `${item.name} (#${item.id})` : r.item_id}</td>
+                    <td title={item ? `item_id=${item.id}` : `item_id=${r.item_id}`}>
+                      {item ? formatItemNameWithCode(item) : `Thiếu item (item_id=${r.item_id})`}
+                    </td>
                     <td>{r.equipment_type}</td>
                     <td>{r.slot_type ?? ''}</td>
                     <td>{r.power_min ?? ''}</td>
@@ -305,14 +314,18 @@ function EquipmentModal({ items, modal, onClose, onSave }) {
         <form onSubmit={(e) => { e.preventDefault(); onSave({ ...form, item_id: Number(form.item_id), power_min: toNumOrNull(form.power_min), power_max: toNumOrNull(form.power_max), durability_max: form.durability_mode === 'unknown' ? null : toNumOrNull(form.durability_max), random_break_chance: form.durability_mode === 'unknown' ? toNumOrNull(form.random_break_chance) : null, magic_value: toNumOrNull(form.magic_value), crit_rate: toNumOrNull(form.crit_rate), block_rate: toNumOrNull(form.block_rate), effect_id: toNumOrNull(form.effect_id), element: form.element || null }); }}>
           {mode === 'edit' ? (
             <div className="form-row">
-              <label>item_id *</label>
-              <input value={selectedItem ? `${selectedItem.name} (#${selectedItem.id})` : `#${row.item_id}`} readOnly />
+              <label>Item</label>
+              <input value={selectedItem ? formatItemNameWithCode(selectedItem) : `item_id=${row.item_id}`} readOnly title={`item_id=${row.item_id}`} />
             </div>
           ) : (
-            <div className="form-row"><label>item_id *</label>
+            <div className="form-row"><label>Item *</label>
               <select value={form.item_id} onChange={(e) => update('item_id', e.target.value)} required>
                 <option value="">-- chọn item equipment --</option>
-                {items.map((item) => <option key={item.id} value={item.id}>{item.name} (#{item.id})</option>)}
+                {items.map((item) => (
+                  <option key={item.id} value={item.id} title={`item_id=${item.id}`}>
+                    {formatItemNameWithCode(item)}
+                  </option>
+                ))}
               </select>
             </div>
           )}

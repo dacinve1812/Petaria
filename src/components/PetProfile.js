@@ -28,40 +28,22 @@ function mapEquippedRowToModalItem(row) {
   };
 }
 
-// Component hiển thị hunger status
-const HungerStatusDisplay = ({ hungerStatus, canBattle }) => {
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 0: return '#c20000'; // Chết đói - đỏ
-      case 1: return '#c20000'; // Đói - cam
-      case 2: return '#870000'; // Hơi đói - vàng
-      case 3: return '#870000'; // Mập mạp - xanh
-      default: return '#000000';
-    }
-  };
-
-  const getStatusText = (status) => {
-    switch (status) {
-      case 0: return 'Chết đói';
-      case 1: return 'Đói';
-      case 2: return 'Hơi đói';
-      case 3: return 'Mập mạp';
-      default: return 'Không xác định';
-    }
-  };
-
+/** API GET /api/pets/:id/hunger-status — cùng kiểu dòng với pet-detail-hp, mp, … */
+const PetVitalsDisplay = ({ vitals }) => {
+  if (!vitals) return null;
+  const hColor = vitals.hunger_color || '#333';
+  const mColor = vitals.mood_color || '#333';
   return (
-    <span>
-      <span  style={{ color: getStatusColor(hungerStatus) }}>
-        <span >{getStatusText(hungerStatus)}</span>
-      </span>
-
-      {!canBattle && (
-        <div className="battle-warning">
-          ⚠️ Pet không thể đấu do đói hoặc hết máu
-        </div>
-      )}
-    </span>
+    <>
+      <p className="pet-detail-tinh-trang">
+        Tình trạng:{' '}
+        <span style={{ color: hColor, fontWeight: 600 }}>{vitals.hunger_status_text}</span>
+      </p>
+      <p className="pet-detail-tam-trang">
+        Tâm trạng:{' '}
+        <span style={{ color: mColor, fontWeight: 600 }}>{vitals.mood_text}</span>
+      </p>
+    </>
   );
 };
 
@@ -370,10 +352,14 @@ function PetProfile() {
                 </span>
               )}
             </p>
-            <p className="pet-detail-status">Tình Trạng: {hungerStatus ? <HungerStatusDisplay 
-                  hungerStatus={hungerStatus.hunger_status}
-                  canBattle={hungerStatus.can_battle}
-                /> : 'Ổn định'}</p>
+            {hungerStatus ? (
+              <PetVitalsDisplay vitals={hungerStatus} />
+            ) : (
+              <>
+                <p className="pet-detail-tinh-trang">Tình trạng: —</p>
+                <p className="pet-detail-tam-trang">Tâm trạng: —</p>
+              </>
+            )}
             
             <br />
             <p className="pet-detail-battles">Chiến đấu thắng: {pet.battles_won || 'N/A'}</p>

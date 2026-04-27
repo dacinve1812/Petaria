@@ -7,8 +7,8 @@
 | `id` | INT AUTO_INCREMENT PRIMARY KEY | |
 | `item_id` | INT NOT NULL, UNIQUE | FK tới `items.id` |
 | `equipment_type` | ENUM('weapon','shield','crit_weapon') | Loại trang bị, mặc định `weapon` |
-| `power_min` | INT NULL | Sát thương tối thiểu (tùy chọn) |
-| `power_max` | INT NULL | Sát thương tối đa (tùy chọn) |
+| `power_min` | INT NULL | Sát thương tối thiểu (theo bậc ma thuật item: `magic * 10`) |
+| `power_max` | INT NULL | Sát thương tối đa (`magic * 10 + 9`, ví dụ magic 4 → 40–49) |
 | `durability_max` | INT NULL | Độ bền tối đa; dùng khi mua item để set `inventory.durability_left` |
 | `magic_value` | INT NULL | Ma thuật 1–10; dùng trong công thức Dmg_out (Rand_Magic) |
 | `crit_rate` | DECIMAL(5,2) NULL | Tỷ lệ chí mạng (tùy chọn) |
@@ -20,6 +20,16 @@
 
 - `power` (cũ) → `magic_value` (clamp 1–10) và `power_min` / `power_max` (cùng giá trị khi migrate)
 - `durability` (cũ) → `durability_max`
+
+## Đồng bộ theo `items.magic_value`
+
+Sau khi cập nhật `items.magic_value` (CSV / admin), chạy:
+
+```bash
+node scripts/sync_item_effects_equipment_magic_v2.js
+```
+
+(hoặc `node scripts/migrate_item_system_v2.js` — script sync được gọi ở cuối.)
 
 ## Chạy migration
 

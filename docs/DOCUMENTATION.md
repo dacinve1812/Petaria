@@ -300,12 +300,17 @@ WHERE id = ?
 
 ### 5. Inventory & Equipment
 
-#### Item Types
-- **Weapons**: Combat equipment with damage values
-- **Food**: HP restoration items
-- **Potions**: Healing items
-- **Evolution Items**: For pet evolution (planned)
-- **Stat Boosters**: Permanent/temporary stat increases
+#### Item Types & taxonomy
+
+Chi tiết migrate CSV, `item_code`, và **mapping menu “dùng cho pet”** trong túi đồ: **`docs/ITEM_SYSTEM_V2_MIGRATION.md`** (mục 3.2).
+
+- **Menu “Chọn hành động”**: các dòng **dùng cho thú cưng** (Cho ăn, Chữa trị, Booster, …) **chỉ được thêm** khi `type` / `category` / `subtype` khớp đúng rule trong doc — không hiện full list cho mọi item; các hành động bán / đặt shop / triển lãm / tặng vẫn có như luôn.
+- **Equipment**: Vũ khí, khiên, đồ gắn slot; có `equipment_data`, durability.
+- **Food** (`type = food`, thường `category = food`): Chỉ hiện hành động **Cho thú cưng ăn** trong modal item; legacy có thể còn `consumable` + `category = food`.
+- **Medicine** (`consumable` + `medicine`): Theo `subtype` — `hp_recovery` (chữa trị / HP), `mp_recovery` (hồi năng lượng / MP).
+- **Toys**: Thường `consumable` + `category = toy` (hoặc `type = toy`); menu **Chơi đùa với thú cưng**.
+- **Boosters** (`booster` + `stat_boost`): Menu **Gia tăng chỉ số**; có cả EXP/level/HP vĩnh viễn tùy subtype.
+- **Evolve** (`type = evolve`): Menu **Thay đổi hình dạng** (thần dược tiến hóa).
 
 #### Equipment Management
 - **Equip/Unequip**: Toggle equipment on pets

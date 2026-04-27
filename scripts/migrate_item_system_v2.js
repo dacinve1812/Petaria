@@ -9,6 +9,9 @@
  * Cách chạy:
  *   node scripts/migrate_item_system_v2.js
  *   node scripts/migrate_item_system_v2.js --wipe-items
+ *
+ * Cuối migrate: đồng bộ item_effects + equipment_data theo items.magic_value
+ * (có thể chạy riêng: node scripts/sync_item_effects_equipment_magic_v2.js).
  */
 
 const path = require('path');
@@ -17,6 +20,7 @@ const { createRequire } = require('module');
 const requireBackend = createRequire(path.resolve(__dirname, '..', 'backend', 'package.json'));
 const mysql = requireBackend('mysql2/promise');
 const dotenv = requireBackend('dotenv');
+const { syncItemEffectsAndEquipmentFromItems } = require('./sync_item_effects_equipment_magic_v2');
 
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
@@ -307,6 +311,7 @@ async function main() {
     await migrateEquipmentDataTable(conn);
     await normalizeItemEffects(conn);
     await normalizeItemClassification(conn);
+    await syncItemEffectsAndEquipmentFromItems(conn);
 
     await conn.commit();
     console.log('Item System V2 migration completed successfully.');

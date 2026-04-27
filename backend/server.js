@@ -38,6 +38,8 @@ function calculateFinalStats(base, iv, level) {
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
 
+const petVitals = require('./petVitals');
+
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
@@ -75,6 +77,10 @@ const pool = mysql.createPool({ // Hoặc const pool = new Pool({
 });
 
 const db = pool.promise();
+
+petVitals.ensurePetVitalsSchema(db).catch((err) => {
+  console.error('ensurePetVitalsSchema:', err);
+});
 
 async function ensureUserProfilesTable() {
   try {
@@ -4306,7 +4312,10 @@ const ITEM_EFFECT_TARGET_ALIASES = {
   exp: 'exp',
   status: 'status',
   hunger: 'hunger',
-  happiness: 'happiness',
+  happiness: 'mood',
+  mood: 'mood',
+  tam_trang: 'mood',
+  wellbeing: 'mood',
   energy: 'mp',
 };
 
@@ -4347,6 +4356,48 @@ function resolveEffectAmount(effect, quantity, itemRow, options = {}) {
   const base = (Number(effect?.value_min) || 0) * Math.max(1, Number(quantity) || 1);
   if (!options.scaleByMagic) return base;
   return base * resolveEffectMagicValue(effect, itemRow);
+}
+
+/** effect_type=percent: value_min là % (0–100+). Hồi theo maxBase (VD max_hp, thang đói 10). */
+function resolveEffectPercentOfMax(effect, quantity, maxBase) {
+  const pct = Number(effect?.value_min) || 0;
+  const q = Math.max(1, Number(quantity) || 1);
+  const cap = Math.max(1, Number(maxBase) || 1);
+  return Math.round(cap * (pct / 100)) * q;
+}
+
+/**
+ * Hunger / Mood (thang 0–maxScale): effect_type = percent.
+ * value_min = "điểm phần trăm" (10 ⇒ 10%, 20 ⇒ 20%). Nhân với chỉ số ma thuật (effect/item, mặc định 1).
+ * Cứ mỗi 10 điểm phần trăm hiệu lực (sau nhân ma thuật) = +1 bậc trên thang.
+ * Ví dụ: value_min 10 + magic 1 → +1 bậc; value_min 10 + magic 2 → +2 bậc (tới cap).
+ */
+function resolveVitalsStepsFromPercent(effect, quantity, itemRow, maxScale) {
+  const pct = Number(effect?.value_min) || 0;
+  const q = Math.max(1, Number(quantity) || 1);
+  const magic = resolveEffectMagicValue(effect, itemRow);
+  const effectivePct = pct * magic;
+  const steps = Math.floor(effectivePct / 10);
+  const cap = Math.max(0, Number(maxScale) || 0);
+  return Math.min(cap * q, steps * q);
+}
+
+/** effect_type=percent: value_min = magic_tier*10 → cộng tier điểm (VD 20 → +2) cho stat_added / hp_added. */
+function resolveTierPointsFromPercentEffect(effect, quantity) {
+  const pct = Number(effect?.value_min) || 0;
+  const tier = Math.max(0, Math.round(pct / 10));
+  return tier * Math.max(1, Number(quantity) || 1);
+}
+
+/** Type riêng `food`, hoặc dữ liệu cũ consumable + category food */
+function itemActsAsFoodForPetUse(row) {
+  const cat = String(row?.category || '').toLowerCase();
+  return row?.type === 'food' || (row?.type === 'consumable' && cat === 'food');
+}
+
+/** Chỉ type toy (đồ chơi vẫn có thể là consumable — không gộp vào nhánh này) */
+function itemActsAsToyForPetUse(row) {
+  return row?.type === 'toy';
 }
 
 function normalizeEquipmentType(rawValue) {
@@ -5132,8 +5183,10 @@ app.get('/api/users/:userId/inventory', async (req, res) => {
 
   try {
     const [rows] = await db.query(`
-        SELECT i.*, it.name, it.description, it.image_url, it.type, it.rarity, 
+        SELECT i.*, it.name, it.description, it.image_url, it.type, it.category AS item_category,
+               it.subtype AS item_subtype, it.rarity, 
                it.sell_price, it.buy_price, it.price_currency,
+               it.magic_value AS items_magic_value,
                p.name AS pet_name, p.level AS pet_level,
                ed.equipment_type, ed.magic_value AS power, ed.durability_max AS max_durability, ed.durability_mode
         FROM inventory i
@@ -6958,7 +7011,17 @@ app.post('/api/arena/match/start', async (req, res) => {
       [petId, userId]
     );
     if (!petRows.length) return res.status(404).json({ message: 'Pet not found' });
-    const pet = petRows[0];
+    const petFresh = await petVitals.refreshPetVitalsById(db, petRows[0].id);
+    if (!petFresh) return res.status(404).json({ message: 'Pet not found' });
+    const pet = petFresh;
+    const hungerLevel = petVitals.clampHunger(pet.hunger_status);
+    if (!petVitals.canEnterArenaByHunger(hungerLevel)) {
+      const msg =
+        hungerLevel <= 0
+          ? 'Thú cưng ở mức Tử Vong (hunger 0), không thể vào đấu trường.'
+          : 'Thú cưng quá đói (Sắp chết đói / Kiệt sức — hunger 1–2), không thể vào đấu trường.';
+      return res.status(400).json({ message: msg });
+    }
     const currentHp = pet.current_hp != null ? parseInt(pet.current_hp, 10) : (pet.hp != null ? parseInt(pet.hp, 10) : 0);
     if (currentHp <= 0) {
       return res.status(400).json({ message: 'Thú cưng quá mệt mỏi, hãy cho ăn/nghỉ ngơi để hồi phục.' });
@@ -7487,37 +7550,38 @@ app.get('/api/users/:userId/broken-equipment', async (req, res) => {
   res.status(410).json({ message: 'Repair system removed. Equipment is destroyed at 0 durability.' });
 });
 
-// ==================== HUNGER STATUS SYSTEM ====================
+// ==================== ĐÓI & TÂM TRẠNG (hunger 0–9, mood 0–4, decay theo thời gian) ====================
 
-// API: Lấy thông tin hunger status của pet
+function petHpAlive(pet) {
+  const cur = Number(pet.current_hp ?? pet.hp ?? 0);
+  return cur > 0;
+}
+
+// API: Lấy thông tin hunger + mood của pet (áp dụng decay trước khi trả về)
 app.get('/api/pets/:petId/hunger-status', async (req, res) => {
   const { petId } = req.params;
 
   try {
-    const [rows] = await pool.promise().query(
-      `SELECT id, name, hunger_status, hunger_battles, hp, owner_id
-       FROM pets WHERE id = ?`,
-      [petId]
-    );
-
-    if (rows.length === 0) {
+    const pet = await petVitals.refreshPetVitalsById(db, petId);
+    if (!pet) {
       return res.status(404).json({ message: 'Pet không tồn tại' });
     }
 
-    const pet = rows[0];
-    
-    // Chuyển đổi status number thành text
-    const statusText = getHungerStatusText(pet.hunger_status);
-    const canBattle = pet.hunger_status >= 1 && pet.hp > 0;
+    const statusText = petVitals.getHungerStatusText(pet.hunger_status);
+    const canBattle = petVitals.canEnterArenaByHunger(pet.hunger_status) && petHpAlive(pet);
 
     res.json({
       pet_id: pet.id,
       pet_name: pet.name,
       hunger_status: pet.hunger_status,
       hunger_status_text: statusText,
+      hunger_color: petVitals.vitalsColorFromHungerLevel(pet.hunger_status),
       hunger_battles: pet.hunger_battles,
+      mood: pet.mood,
+      mood_text: petVitals.getMoodStatusText(pet.mood),
+      mood_color: petVitals.vitalsColorFromMoodLevel(pet.mood),
       can_battle: canBattle,
-      hp: pet.hp
+      hp: pet.hp,
     });
   } catch (err) {
     console.error('Error fetching pet hunger status:', err);
@@ -7530,32 +7594,30 @@ app.get('/api/pets/:petId/battle-ready', async (req, res) => {
   const { petId } = req.params;
 
   try {
-    const [rows] = await pool.promise().query(
-      `SELECT id, name, hunger_status, hunger_battles, hp
-       FROM pets WHERE id = ?`,
-      [petId]
-    );
-
-    if (rows.length === 0) {
+    const pet = await petVitals.refreshPetVitalsById(db, petId);
+    if (!pet) {
       return res.status(404).json({ message: 'Pet không tồn tại' });
     }
 
-    const pet = rows[0];
-    
-    // Kiểm tra điều kiện đấu
-    const canBattle = pet.hunger_status >= 1 && pet.hp > 0;
+    const canBattle = petVitals.canEnterArenaByHunger(pet.hunger_status) && petHpAlive(pet);
     const reasons = [];
-    
-    if (pet.hunger_status === 0) reasons.push('Pet đang chết đói (cần hồi máu)');
-    if (pet.hp <= 0) reasons.push('Pet đã hết máu');
+
+    if (pet.hunger_status === 0) {
+      reasons.push('Pet ở mức Tử Vong (hunger 0)');
+    } else if (!petVitals.canEnterArenaByHunger(pet.hunger_status)) {
+      reasons.push('Pet quá đói (Sắp chết đói / Kiệt sức — hunger 1–2), không thể đấu');
+    }
+    if (!petHpAlive(pet)) reasons.push('Pet đã hết máu');
 
     res.json({
       can_battle: canBattle,
-      reasons: reasons,
+      reasons,
       hunger_status: pet.hunger_status,
-      hunger_status_text: getHungerStatusText(pet.hunger_status),
+      hunger_status_text: petVitals.getHungerStatusText(pet.hunger_status),
       hunger_battles: pet.hunger_battles,
-      hp: pet.hp
+      mood: pet.mood,
+      mood_text: petVitals.getMoodStatusText(pet.mood),
+      hp: pet.hp,
     });
   } catch (err) {
     console.error('Error checking pet battle readiness:', err);
@@ -7569,7 +7631,6 @@ app.post('/api/pets/:petId/feed', async (req, res) => {
   const { itemId, userId } = req.body;
 
   try {
-    // Kiểm tra item có trong inventory không
     const [inventoryRows] = await pool.promise().query(
       'SELECT * FROM inventory WHERE item_id = ? AND player_id = ? AND quantity > 0',
       [itemId, userId]
@@ -7579,7 +7640,6 @@ app.post('/api/pets/:petId/feed', async (req, res) => {
       return res.status(400).json({ message: 'Food item không có trong inventory' });
     }
 
-    // Lấy thông tin food recovery
     const [foodRows] = await pool.promise().query(
       'SELECT * FROM food_recovery_items WHERE item_id = ?',
       [itemId]
@@ -7589,7 +7649,6 @@ app.post('/api/pets/:petId/feed', async (req, res) => {
       return res.status(400).json({ message: 'Item không phải food item' });
     }
 
-    // Lấy thông tin pet
     const [petRows] = await pool.promise().query(
       'SELECT * FROM pets WHERE id = ? AND owner_id = ?',
       [petId, userId]
@@ -7599,34 +7658,36 @@ app.post('/api/pets/:petId/feed', async (req, res) => {
       return res.status(404).json({ message: 'Pet không tồn tại hoặc không thuộc sở hữu' });
     }
 
-    const pet = petRows[0];
-    const food = foodRows[0];
-    
-    // Tính toán status mới
-    const oldStatus = pet.hunger_status;
-    const newStatus = Math.min(3, oldStatus + food.recovery_amount);
-    const oldBattles = pet.hunger_battles;
-    const newBattles = 0; // Reset battles sau khi ăn
+    await petVitals.refreshPetVitalsById(db, petId);
 
-    // Cập nhật pet
+    const [petFresh] = await pool.promise().query('SELECT * FROM pets WHERE id = ? AND owner_id = ?', [petId, userId]);
+    const pet = petFresh[0];
+    const food = foodRows[0];
+
+    const oldStatus = petVitals.clampHunger(pet.hunger_status);
+    const oldMood = petVitals.clampMood(pet.mood);
+    const gain = Number(food.recovery_amount) || 0;
+    const newStatus = Math.min(petVitals.HUNGER_MAX, oldStatus + gain);
+    const newMood = Math.min(petVitals.MOOD_MAX, oldMood + 1);
+    const oldBattles = pet.hunger_battles;
+    const newBattles = 0;
+
     await pool.promise().query(
-      'UPDATE pets SET hunger_status = ?, hunger_battles = ? WHERE id = ?',
-      [newStatus, newBattles, petId]
+      `UPDATE pets SET hunger_status = ?, hunger_battles = ?, mood = ?,
+         hunger_vitals_at = NOW(), mood_vitals_at = NOW() WHERE id = ?`,
+      [newStatus, newBattles, newMood, petId]
     );
 
-    // Lưu vào history
     await pool.promise().query(
       'INSERT INTO hunger_status_history (pet_id, old_status, new_status, old_battles, new_battles, change_reason, food_item_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [petId, oldStatus, newStatus, oldBattles, newBattles, 'feeding', itemId]
     );
 
-    // Giảm số lượng item
     await pool.promise().query(
       'UPDATE inventory SET quantity = quantity - 1 WHERE item_id = ? AND player_id = ?',
       [itemId, userId]
     );
 
-    // Xóa item nếu hết
     await pool.promise().query(
       'DELETE FROM inventory WHERE item_id = ? AND player_id = ? AND quantity <= 0',
       [itemId, userId]
@@ -7636,96 +7697,69 @@ app.post('/api/pets/:petId/feed', async (req, res) => {
       message: 'Cho pet ăn thành công',
       old_status: oldStatus,
       new_status: newStatus,
-      old_status_text: getHungerStatusText(oldStatus),
-      new_status_text: getHungerStatusText(newStatus),
+      old_status_text: petVitals.getHungerStatusText(oldStatus),
+      new_status_text: petVitals.getHungerStatusText(newStatus),
       recovery_amount: food.recovery_amount,
-      battles_reset: true
+      battles_reset: true,
     });
-
   } catch (err) {
     console.error('Error feeding pet:', err);
     res.status(500).json({ message: 'Lỗi khi cho pet ăn' });
   }
 });
 
-// API: Cập nhật hunger status sau battle
+// API: Sau trận đấu — decay thời gian; +1 hunger_battles; cứ 50 trận trừ 1 hunger
 app.post('/api/pets/:petId/update-hunger-after-battle', async (req, res) => {
   const { petId } = req.params;
 
   try {
-    const [petRows] = await pool.promise().query(
-      'SELECT * FROM pets WHERE id = ?',
-      [petId]
-    );
-
-    if (petRows.length === 0) {
+    const pet = await petVitals.refreshPetVitalsById(db, petId);
+    if (!pet) {
       return res.status(404).json({ message: 'Pet không tồn tại' });
     }
 
-    const pet = petRows[0];
-    const oldStatus = pet.hunger_status;
-    const oldBattles = pet.hunger_battles;
-    let newStatus = oldStatus;
-    let newBattles = oldBattles + 1;
-    
-    // Logic giảm status dựa trên số trận
-    if (oldStatus === 3 && newBattles >= 25) { // Mập mạp -> Hơi đói (25 trận)
-      newStatus = 2;
-      newBattles = 0;
-    } else if (oldStatus === 2 && newBattles >= 15) { // Hơi đói -> Đói (15 trận)
-      newStatus = 1;
-      newBattles = 0;
-    } else if (oldStatus === 1 && newBattles >= 10) { // Đói -> Chết đói (10 trận)
-      newStatus = 0;
-      newBattles = 0;
-      // Set HP về 0 khi chết đói
+    const hungerBefore = petVitals.clampHunger(pet.hunger_status);
+    const priorBattles = Number(pet.hunger_battles) || 0;
+
+    const { hunger: newHunger, hunger_battles: newBattles } = petVitals.applyBattlesIncrementToHunger(
+      hungerBefore,
+      priorBattles
+    );
+
+    await pool.promise().query(
+      'UPDATE pets SET hunger_status = ?, hunger_battles = ? WHERE id = ?',
+      [newHunger, newBattles, petId]
+    );
+
+    if (newHunger === 0) {
       await pool.promise().query(
-        'UPDATE pets SET hp = 0 WHERE id = ?',
+        'UPDATE pets SET current_hp = 0, hp = 0 WHERE id = ?',
         [petId]
       );
     }
 
-    // Cập nhật status
-    await pool.promise().query(
-      'UPDATE pets SET hunger_status = ?, hunger_battles = ? WHERE id = ?',
-      [newStatus, newBattles, petId]
-    );
-
-    // Lưu vào history nếu có thay đổi
-    if (oldStatus !== newStatus) {
+    if (newHunger !== hungerBefore) {
       await pool.promise().query(
         'INSERT INTO hunger_status_history (pet_id, old_status, new_status, old_battles, new_battles, change_reason) VALUES (?, ?, ?, ?, ?, ?)',
-        [petId, oldStatus, newStatus, oldBattles, newBattles, 'battle']
+        [petId, hungerBefore, newHunger, priorBattles, newBattles, 'battle_wear']
       );
     }
 
     res.json({
-      message: 'Cập nhật hunger status sau battle thành công',
-      old_status: oldStatus,
-      new_status: newStatus,
-      old_status_text: getHungerStatusText(oldStatus),
-      new_status_text: getHungerStatusText(newStatus),
-      old_battles: oldBattles,
+      message: 'Cập nhật đói sau trận (đếm trận / mòn đói)',
+      old_status: hungerBefore,
+      new_status: newHunger,
+      old_status_text: petVitals.getHungerStatusText(hungerBefore),
+      new_status_text: petVitals.getHungerStatusText(newHunger),
+      old_battles: priorBattles,
       new_battles: newBattles,
-      status_changed: oldStatus !== newStatus
+      status_changed: newHunger !== hungerBefore,
     });
-
   } catch (err) {
     console.error('Error updating pet hunger status after battle:', err);
     res.status(500).json({ message: 'Lỗi khi cập nhật hunger status' });
   }
 });
-
-// Hàm helper để chuyển đổi status number thành text
-function getHungerStatusText(status) {
-  switch (status) {
-    case 0: return 'Chết đói';
-    case 1: return 'Đói';
-    case 2: return 'Hơi đói';
-    case 3: return 'Mập mạp';
-    default: return 'Không xác định';
-  }
-}
 
 // ======================================================== MAIL SYSTEM ========================================================
 
@@ -8841,14 +8875,15 @@ app.post('/api/pets/:petId/use-item', async (req, res) => {
 
     const normalizedEffect = normalizeEffectRow(effectRows[0]);
 
-    // 4. Xử lý theo loại item
+    // 4. Xử lý theo loại item — food tách khỏi consumable; đồ chơi có thể vẫn là consumable+category toy
     let levelUpResult = null;
-    if (itemRows[0].type === 'consumable' || itemRows[0].type === 'medicine') {
-      levelUpResult = await handleConsumableItem(petId, item_id, itemRows[0], normalizedEffect, quantity, userId);
-    } else if (itemRows[0].type === 'booster') {
-      await handleBoosterItem(petId, item_id, itemRows[0], normalizedEffect, quantity, userId);
-    } else if (itemRows[0].type === 'food' || itemRows[0].type === 'toy') {
-      levelUpResult = await handleFoodItem(petId, item_id, itemRows[0], normalizedEffect, quantity, userId);
+    const itemRow = itemRows[0];
+    if (itemRow.type === 'booster') {
+      await handleBoosterItem(petId, item_id, itemRow, normalizedEffect, quantity, userId);
+    } else if (itemActsAsFoodForPetUse(itemRow) || itemActsAsToyForPetUse(itemRow)) {
+      levelUpResult = await handleFoodItem(petId, item_id, itemRow, normalizedEffect, quantity, userId);
+    } else if (itemRow.type === 'consumable' || itemRow.type === 'medicine') {
+      levelUpResult = await handleConsumableItem(petId, item_id, itemRow, normalizedEffect, quantity, userId);
     }
 
     // 5. Trừ item khỏi inventory
@@ -8885,8 +8920,16 @@ async function handleConsumableItem(petId, itemId, itemRow, effect, quantity, us
     // Sử dụng logic level up có sẵn
     return await handleExpGainWithLevelUp(petId, effect.value_min * quantity);
   } else if (normalizedTarget === 'hp') {
-    // Hồi current_hp theo magic_value
-    const recoverHp = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    const [petHpRows] = await pool.promise().query(
+      'SELECT max_hp, current_hp, hp FROM pets WHERE id = ? LIMIT 1',
+      [petId]
+    );
+    const petHp = petHpRows[0] || { max_hp: 1 };
+    const maxHp = Number(petHp.max_hp) || 1;
+    const recoverHp =
+      effect.effect_type === 'percent'
+        ? resolveEffectPercentOfMax(effect, quantity, maxHp)
+        : resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
     await pool.promise().query(
       `UPDATE pets
        SET current_hp = LEAST(max_hp, GREATEST(0, COALESCE(current_hp, hp, 0) + ?)),
@@ -8896,9 +8939,36 @@ async function handleConsumableItem(petId, itemId, itemRow, effect, quantity, us
     );
     return null;
   } else if (normalizedTarget === 'mp') {
-    const recoverMp = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    const [petMpRows] = await pool.promise().query('SELECT max_mp FROM pets WHERE id = ? LIMIT 1', [petId]);
+    const maxMp = Number(petMpRows[0]?.max_mp) || 1;
+    const recoverMp =
+      effect.effect_type === 'percent'
+        ? resolveEffectPercentOfMax(effect, quantity, maxMp)
+        : resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
     await pool.promise().query('UPDATE pets SET mp = LEAST(max_mp, GREATEST(0, mp + ?)) WHERE id = ?',
       [recoverMp, petId]);
+    return null;
+  } else if (normalizedTarget === 'hunger') {
+    const hungerAdd =
+      effect.effect_type === 'percent'
+        ? resolveVitalsStepsFromPercent(effect, quantity, itemRow, petVitals.HUNGER_MAX)
+        : resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    await pool.promise().query(
+      `UPDATE pets SET hunger_status = LEAST(?, GREATEST(0, COALESCE(hunger_status, 0) + ?)),
+         hunger_vitals_at = NOW() WHERE id = ?`,
+      [petVitals.HUNGER_MAX, hungerAdd, petId]
+    );
+    return null;
+  } else if (normalizedTarget === 'mood') {
+    const moodAdd =
+      effect.effect_type === 'percent'
+        ? resolveVitalsStepsFromPercent(effect, quantity, itemRow, petVitals.MOOD_MAX)
+        : resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    await pool.promise().query(
+      `UPDATE pets SET mood = LEAST(?, GREATEST(0, COALESCE(mood, 2) + ?)),
+         mood_vitals_at = NOW() WHERE id = ?`,
+      [petVitals.MOOD_MAX, moodAdd, petId]
+    );
     return null;
   } else if (normalizedTarget === 'str' || normalizedTarget === 'def' || 
              normalizedTarget === 'spd' || normalizedTarget === 'intelligence') {
@@ -8906,8 +8976,9 @@ async function handleConsumableItem(petId, itemId, itemRow, effect, quantity, us
     // Tăng stat tạm thời hoặc vĩnh viễn
     const statField = normalizedTarget;
     if (effect.effect_type === 'percent') {
+      const pts = resolveTierPointsFromPercentEffect(effect, quantity);
       await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
-        [effect.value_min, petId]);
+        [pts, petId]);
     } else if (effect.effect_type === 'flat') {
       await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
         [effect.value_min, petId]);
@@ -8942,30 +9013,81 @@ async function handleBoosterItem(petId, itemId, itemRow, effect, quantity, userI
     return;
   }
   if (statField === 'hp') {
-    const boostHp = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    const boostHp =
+      effect.effect_type === 'percent'
+        ? resolveTierPointsFromPercentEffect(effect, quantity)
+        : resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
     await pool.promise().query('UPDATE pets SET hp_added = hp_added + ? WHERE id = ?', [boostHp, petId]);
     return;
   }
   if (statField === 'mp') {
-    const boostMp = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    const boostMp =
+      effect.effect_type === 'percent'
+        ? resolveTierPointsFromPercentEffect(effect, quantity)
+        : resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
     await pool.promise().query('UPDATE pets SET mp_added = mp_added + ? WHERE id = ?', [boostMp, petId]);
     return;
   }
   if (!['str', 'def', 'spd', 'intelligence'].includes(statField)) return;
   if (effect.effect_type === 'percent') {
+    const pts = resolveTierPointsFromPercentEffect(effect, quantity);
     await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
-      [effect.value_min, petId]);
+      [pts, petId]);
+  } else if (effect.effect_type === 'flat') {
+    const add = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
+      [add, petId]);
   }
 }
 
 async function handleFoodItem(petId, itemId, itemRow, effect, quantity, userId) {
-  // Xử lý food item - có thể tăng HP, EXP hoặc stats
   const normalizedTarget = normalizeEffectTarget(effect.effect_target);
+  const qty = Math.max(1, Number(quantity) || 1);
+  const magic = resolveEffectMagicValue(effect, itemRow);
+  const tierMul = Math.max(1, Number(effect.value_min) || 1);
+
+  // Thức ăn + hunger: Tình trạng (0–9) — độ hồi phục chủ yếu theo chỉ số ma thuật
+  if (itemActsAsFoodForPetUse(itemRow) && normalizedTarget === 'hunger') {
+    const perUse = petVitals.hungerRecoveryStepsFromMagic(magic);
+    const gain = Math.min(
+      petVitals.HUNGER_MAX,
+      Math.floor(perUse * tierMul * qty)
+    );
+    await pool.promise().query(
+      `UPDATE pets SET hunger_status = LEAST(?, GREATEST(0, COALESCE(hunger_status, 0) + ?)),
+         hunger_battles = 0, hunger_vitals_at = NOW() WHERE id = ?`,
+      [petVitals.HUNGER_MAX, gain, petId]
+    );
+    return null;
+  }
+
+  // Đồ chơi + mood: Tâm trạng (0–4) — theo ma thuật (happiness alias → mood); type toy riêng
+  if (itemActsAsToyForPetUse(itemRow) && normalizedTarget === 'mood') {
+    const perUse = petVitals.moodRecoveryStepsFromMagic(magic);
+    const gain = Math.min(
+      petVitals.MOOD_MAX,
+      Math.floor(perUse * tierMul * qty)
+    );
+    await pool.promise().query(
+      `UPDATE pets SET mood = LEAST(?, GREATEST(0, COALESCE(mood, 2) + ?)),
+         mood_vitals_at = NOW() WHERE id = ?`,
+      [petVitals.MOOD_MAX, gain, petId]
+    );
+    return null;
+  }
+
   if (normalizedTarget === 'exp') {
-    // Sử dụng logic level up có sẵn
-    return await handleExpGainWithLevelUp(petId, effect.value_min * quantity);
+    return await handleExpGainWithLevelUp(petId, effect.value_min * qty);
   } else if (normalizedTarget === 'hp') {
-    const recoverHp = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    const [petHpRows] = await pool.promise().query(
+      'SELECT max_hp FROM pets WHERE id = ? LIMIT 1',
+      [petId]
+    );
+    const maxHp = Number(petHpRows[0]?.max_hp) || 1;
+    const recoverHp =
+      effect.effect_type === 'percent'
+        ? resolveEffectPercentOfMax(effect, qty, maxHp)
+        : resolveEffectAmount(effect, qty, itemRow, { scaleByMagic: true });
     await pool.promise().query(
       `UPDATE pets
        SET current_hp = LEAST(max_hp, GREATEST(0, COALESCE(current_hp, hp, 0) + ?)),
@@ -8975,27 +9097,47 @@ async function handleFoodItem(petId, itemId, itemRow, effect, quantity, userId) 
     );
     return null;
   } else if (normalizedTarget === 'mp') {
-    const recoverMp = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    const [petMpRows] = await pool.promise().query('SELECT max_mp FROM pets WHERE id = ? LIMIT 1', [petId]);
+    const maxMp = Number(petMpRows[0]?.max_mp) || 1;
+    const recoverMp =
+      effect.effect_type === 'percent'
+        ? resolveEffectPercentOfMax(effect, qty, maxMp)
+        : resolveEffectAmount(effect, qty, itemRow, { scaleByMagic: true });
     await pool.promise().query('UPDATE pets SET mp = LEAST(max_mp, GREATEST(0, mp + ?)) WHERE id = ?',
       [recoverMp, petId]);
     return null;
   } else if (normalizedTarget === 'hunger') {
-    const recoverHunger = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
+    const recoverHunger =
+      effect.effect_type === 'percent'
+        ? resolveVitalsStepsFromPercent(effect, qty, itemRow, petVitals.HUNGER_MAX)
+        : resolveEffectAmount(effect, qty, itemRow, { scaleByMagic: true });
     await pool.promise().query(
-      'UPDATE pets SET hunger_status = LEAST(10, GREATEST(0, COALESCE(hunger_status, 0) + ?)) WHERE id = ?',
-      [recoverHunger, petId]
+      `UPDATE pets SET hunger_status = LEAST(?, GREATEST(0, COALESCE(hunger_status, 0) + ?)),
+         hunger_vitals_at = NOW() WHERE id = ?`,
+      [petVitals.HUNGER_MAX, recoverHunger, petId]
     );
     return null;
-  } else if (normalizedTarget === 'str' || normalizedTarget === 'def' || 
+  } else if (normalizedTarget === 'mood') {
+    const recoverMood =
+      effect.effect_type === 'percent'
+        ? resolveVitalsStepsFromPercent(effect, qty, itemRow, petVitals.MOOD_MAX)
+        : resolveEffectAmount(effect, qty, itemRow, { scaleByMagic: true });
+    await pool.promise().query(
+      `UPDATE pets SET mood = LEAST(?, GREATEST(0, COALESCE(mood, 2) + ?)),
+         mood_vitals_at = NOW() WHERE id = ?`,
+      [petVitals.MOOD_MAX, recoverMood, petId]
+    );
+    return null;
+  } else if (normalizedTarget === 'str' || normalizedTarget === 'def' ||
              normalizedTarget === 'spd' || normalizedTarget === 'intelligence') {
     if (!effect.is_permanent) return null;
-    // Tăng stat
     const statField = normalizedTarget;
     if (effect.effect_type === 'percent') {
-      await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
-        [effect.value_min, petId]);
+      const pts = resolveTierPointsFromPercentEffect(effect, qty);
+      await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`,
+        [pts, petId]);
     } else if (effect.effect_type === 'flat') {
-      await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
+      await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`,
         [effect.value_min, petId]);
     }
     return null;
@@ -9973,7 +10115,7 @@ app.post('/api/healia-river/heal', async (req, res) => {
 // ========================================
 // RESTAURANT API (Nhà hàng - cho thú cưng ăn, hồi hunger_status)
 // ========================================
-// POST /api/restaurant/feed - Tốn 1 Peta, cho tất cả thú cưng ăn no (hunger_status = 3, hunger_battles = 0)
+// POST /api/restaurant/feed - Tốn 1 Peta, hồi đói tối đa + tâm trạng
 app.post('/api/restaurant/feed', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) {
@@ -10002,12 +10144,14 @@ app.post('/api/restaurant/feed', async (req, res) => {
       return res.status(400).json({ error: 'Bạn chưa có thú cưng nào để cho ăn.' });
     }
 
-    const HUNGER_FULL = 3;
     const HUNGER_BATTLES_RESET = 0;
     for (const pet of petRows) {
+      await petVitals.refreshPetVitalsById(db, pet.id);
       await db.query(
-        'UPDATE pets SET hunger_status = ?, hunger_battles = ? WHERE id = ?',
-        [HUNGER_FULL, HUNGER_BATTLES_RESET, pet.id]
+        `UPDATE pets SET hunger_status = ?, hunger_battles = ?,
+           mood = LEAST(?, GREATEST(0, COALESCE(mood, 2) + 1)),
+           hunger_vitals_at = NOW(), mood_vitals_at = NOW() WHERE id = ?`,
+        [petVitals.HUNGER_MAX, HUNGER_BATTLES_RESET, petVitals.MOOD_MAX, pet.id]
       );
     }
 
@@ -10015,7 +10159,7 @@ app.post('/api/restaurant/feed', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Tất cả thú cưng đã được cho ăn no (trạng thái mập mạp)!',
+      message: 'Tất cả thú cưng đã được cho ăn no và tinh thần phấn chấn hơn!',
       petaRemaining: petaBalance - 1,
       petsFed: petRows.length
     });

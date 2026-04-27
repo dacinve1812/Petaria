@@ -1,41 +1,154 @@
-﻿item_code,name,description,type,category,subtype,rarity,image_url,buy_price,sell_price,price_currency
-10001,Thần dược tiến hóa Alpha,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_alpha,legendary,item_30993.gif,150,0,petagold
-10002,Thần dược tiến hóa Beta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_beta,legendary,item_31223.gif,150,,petagold
-10003,Thần dược tiến hóa Gamma,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_gamma,legendary,,150,,petagold
-10004,Thần dược tiến hóa Delta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_delta,legendary,item_31225.gif,150,,petagold
-10005,Thần dược tiến hóa Epsilon,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_epsilon,legendary,item_31226.gif,150,,petagold
-10006,Thần dược tiến hóa Zeta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_zeta,legendary,item_31242.gif,150,,petagold
-10007,Thần dược tiến hóa Eta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_eta,legendary,item_31243.gif,150,,petagold
-10008,Thần dược tiến hóa Theta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_theta,legendary,item_31244.gif,150,,petagold
-10009,Thần dược tiến hóa Iota,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_iota,legendary,,150,,petagold
-10010,Thần dược tiến hóa Kappa,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_kappa,legendary,,150,,petagold
-10011,Thần dược tiến hóa Lambda,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_lambda,legendary,,150,,petagold
-10012,Thần dược tiến hóa Omega,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_omega,legendary,,150,,petagold
-10013,Thần dược tiến hóa Sigma,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_sigma,legendary,,150,,petagold
-10014,Thần dược tiến hóa Omicron,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_omicron,legendary,,150,,petagold
-10015,Thần dược phản tiến hóa,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,evolution_return,legendary,,150,,petagold
-10101,Dây chuyền đá,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,common,item_30965.gif,5000,800,peta
-10102,Dây chuyền hổ phách,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,common,item_30966.gif,7000,800,peta
-10103,Dây chuyền thạch anh,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,common,item_30967.gif,9000,800,peta
-10104,Dây chuyền mặt trời,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,rare,item_30968.gif,15000,800,peta
-10105,Dây chuyền băng tinh,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,rare,item_30969.gif,20000,800,peta
-10106,Dây chuyền hỏa tinh,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,rare,item_30970.gif,40000,800,peta
-10107,Dây chuyền tà thần,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,epic,item_30971.gif,,800,peta
-10108,Dây chuyền thiên thạch,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,epic,item_30972.gif,,800,peta
-10109,Dây chuyền huyền tinh,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,mythic,item_30973.gif,,800,peta
-10110,Dây chuyền long châu,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,mythic,item_30974.gif,,800,peta
-10102,Nhẫn tam bảo,Tăng sức mạnh cho thú cưng.,booster,stat_boost,str_boost,common,placeholder_ring.gif,800,240,peta
-10103,Giày siêu tốc,Tăng tốc độ cho thú cưng.,booster,stat_boost,spd_boost,common,placeholder_boots.gif,1000,300,peta
-10104,Sách giáo khoa Petaria,Tăng trí tuệ cho thú cưng.,booster,stat_boost,int_boost,common,placeholder_book.gif,1000,300,peta
-10105,Sâm tửu,Tăng sinh mệnh (HP) cho thú cưng.,booster,stat_boost,hp_boost,rare,battle_potion.gif,3000,900,peta
-10106,Nước tăng lực ngũ sắc,Tăng năng lượng (MP) cho thú cưng.,booster,stat_boost,mp_boost,epic,placeholder_energy_drink.gif,7000,2100,peta
-10107,Thần dược Exp No.1,Tăng kinh nghiệm cho thú cưng.,booster,stat_boost,exp_boost,common,mpo_kayla_7.gif,1200,360,peta
-11001,Hồng dược,Dược phẩm phục hồi sức khoẻ theo chỉ số ma thuật.,consumable,medicine,hp_recovery,common,placeholder_red_potion.gif,400,120,peta
-11002,Lục năng dược,Dược phẩm phục hồi năng lượng theo chỉ số ma thuật.,consumable,medicine,mp_recovery,common,placeholder_green_potion.gif,500,150,peta
-12001,Sao vàng,Đồ chơi giúp tăng trạng thái hạnh phúc.,consumable,toy,happiness_up,common,placeholder_star_toy.gif,200,60,peta
-12002,Bánh mì,Thức ăn cơ bản giúp thú cưng no hơn.,consumable,food,hunger_recovery,common,alf_bread.gif,100,30,peta
-13001,Bạch ngân kiếm,"Vũ khí vĩnh viễn, không bao giờ gãy.",equipment,equipment,weapon_permanent,epic,placeholder_silver_sword.gif,25000,7500,petagold
-13002,Cung Mãng xà,Vũ khí tấn công chí mạng.,equipment,stat_boost,weapon_critical,rare,placeholder_serpent_bow.gif,15000,4500,petagold
-13003,Khiên gỗ,Vũ khí phòng thủ cơ bản.,equipment,stat_boost,shield_basic,common,placeholder_wood_shield.gif,1200,360,peta
-13004,Minh dược,"Dược phẩm hỗ trợ chiến đấu, tăng độ chính xác cho thú của bạn.",equipment,stat_boost,accuracy_up,rare,placeholder_accuracy_up.gif,3000,900,peta
-13005,Ảo dược,"Dược phẩm hỗ trợ chiến đấu, giảm độ chính xác của đối thủ.",equipment,stat_boost,accuracy_down,rare,placeholder_accuracy_down.gif,3000,900,peta
+﻿item_code,name,description,type,category,subtype,rarity,image_url,buy_price,sell_price,price_currency,magic_value,stackable,max_stack,consume_policy,pet_scope
+10001,Thần dược tiến hóa Alpha,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,item_30993.gif,150,0,petagold,3,1,999,single_use,domestic_only
+10002,Thần dược tiến hóa Beta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,item_31223.gif,150,0,petagold,,1,999,single_use,all
+10003,Thần dược tiến hóa Gamma,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,,150,0,petagold,,1,999,single_use,all
+10004,Thần dược tiến hóa Delta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,item_31225.gif,150,0,petagold,,1,999,single_use,all
+10005,Thần dược tiến hóa Epsilon,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,item_31226.gif,150,0,petagold,,1,999,single_use,all
+10006,Thần dược tiến hóa Zeta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,item_31242.gif,150,0,petagold,,1,999,single_use,all
+10007,Thần dược tiến hóa Eta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,item_31243.gif,150,0,petagold,,1,999,single_use,all
+10008,Thần dược tiến hóa Theta,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,item_31244.gif,150,0,petagold,,1,999,single_use,all
+10009,Thần dược tiến hóa Iota,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,,150,0,petagold,,1,999,single_use,all
+10010,Thần dược tiến hóa Kappa,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,,150,0,petagold,,1,999,single_use,all
+10011,Thần dược tiến hóa Lambda,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,,150,0,petagold,,1,999,single_use,all
+10012,Thần dược tiến hóa Omega,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,,150,0,petagold,,1,999,single_use,all
+10013,Thần dược tiến hóa Sigma,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,,150,0,petagold,,1,999,single_use,all
+10014,Thần dược tiến hóa Omicron,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,,150,0,petagold,,1,999,single_use,all
+10015,Thần dược phản tiến hóa,Thần dược tiến hóa giúp thú cưng tăng đẳng cấp tức thời và thay đổi hình dạng.,evolve,transform,transform,legendary,,150,0,petagold,,1,999,single_use,all
+10101,Dây chuyền đá,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,common,item_30965.gif,5000,800,peta,1,1,999,single_use,all
+10102,Dây chuyền hổ phách,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,common,item_30966.gif,7000,800,peta,2,1,999,single_use,all
+10103,Dây chuyền thạch anh,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,common,item_30967.gif,9000,800,peta,3,1,999,single_use,all
+10104,Dây chuyền mặt trời,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,rare,item_30968.gif,15000,800,peta,4,1,999,single_use,all
+10105,Dây chuyền băng tinh,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,rare,item_30969.gif,20000,800,peta,5,1,999,single_use,all
+10106,Dây chuyền hỏa tinh,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,rare,item_30970.gif,40000,800,peta,6,1,999,single_use,all
+10107,Dây chuyền tà thần,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,epic,item_30971.gif,0,800,peta,7,1,999,single_use,all
+10108,Dây chuyền thiên thạch,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,epic,item_30972.gif,0,800,peta,8,1,999,single_use,all
+10109,Dây chuyền huyền tinh,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,legendary,item_30973.gif,0,800,peta,9,1,999,single_use,all
+10110,Dây chuyền long châu,Tăng phòng thủ cho thú cưng.,booster,stat_boost,def_boost,legendary,item_30974.gif,0,800,peta,10,1,999,single_use,all
+10201,Nhẫn tam bảo,Tăng sức mạnh cho thú cưng.,booster,stat_boost,str_boost,common,item_30975.gif,5000,800,peta,1,1,999,single_use,all
+10202,Nhẫn hoàng vũ,Tăng sức mạnh cho thú cưng.,booster,stat_boost,str_boost,common,item_30976.gif,7000,800,peta,2,1,999,single_use,all
+10203,Nhẫn kim cương,Tăng sức mạnh cho thú cưng.,booster,stat_boost,str_boost,common,item_30977.gif,9000,800,peta,3,1,999,single_use,all
+10204,Nhẫn thần ưng,Tăng sức mạnh cho thú cưng.,booster,stat_boost,str_boost,rare,item_30978.gif,15000,800,peta,4,1,999,single_use,all
+10205,Nhẫn thạch anh,Tăng sức mạnh cho thú cưng.,booster,stat_boost,str_boost,rare,item_30979.gif,20000,800,peta,5,1,999,single_use,all
+10206,Nhẫn tà thần,Tăng sức mạnh cho thú cưng.,booster,stat_boost,str_boost,rare,item_30980.gif,40000,800,peta,6,1,999,single_use,all
+10207,Nhẫn hồng ngọc,Tăng sức mạnh cho thú cưng.,booster,stat_boost,str_boost,epic,item_30981.gif,0,800,peta,7,1,999,single_use,all
+10208,Nhẫn thiên địa,Tăng sức mạnh cho thú cưng.,booster,stat_boost,str_boost,epic,item_30982.gif,0,800,peta,8,1,999,single_use,all
+10209,Nhẫn hoàng kim,Tăng sức mạnh cho thú cưng.,booster,stat_boost,str_boost,legendary,item_30983.gif,0,800,peta,9,1,999,single_use,all
+10210,Nhẫn long châu,Tăng sức mạnh cho thú cưng.,booster,stat_boost,str_boost,legendary,item_30984.gif,0,800,peta,10,1,999,single_use,all
+10301,Giày siêu tốc,Tăng tốc độ cho thú cưng.,booster,stat_boost,spd_boost,common,item_30985.gif,5000,800,peta,1,1,999,single_use,all
+10302,Giày lò xo,Tăng tốc độ cho thú cưng.,booster,stat_boost,spd_boost,common,item_31208.gif,7000,800,peta,2,1,999,single_use,all
+10303,Giày vạn lý,Tăng tốc độ cho thú cưng.,booster,stat_boost,spd_boost,common,item_31098.gif,9000,800,peta,3,1,999,single_use,all
+10304,Giày gia tốc,Tăng tốc độ cho thú cưng.,booster,stat_boost,spd_boost,rare,item_31109.gif,15000,800,peta,4,1,999,single_use,all
+10305,Giày xương chó,Tăng tốc độ cho thú cưng.,booster,stat_boost,spd_boost,rare,item_31209.gif,20000,800,peta,5,1,999,single_use,all
+10306,Giày pháp sư,Tăng tốc độ cho thú cưng.,booster,stat_boost,spd_boost,rare,item_31210.gif,40000,800,peta,6,1,999,single_use,all
+10307,Giày thiên thần,Tăng tốc độ cho thú cưng.,booster,stat_boost,spd_boost,epic,item_31211.gif,0,800,peta,7,1,999,single_use,all
+10308,Giày thần thú,Tăng tốc độ cho thú cưng.,booster,stat_boost,spd_boost,epic,item_31212.gif,0,800,peta,8,1,999,single_use,all
+10309,Giày thiên tinh,Tăng tốc độ cho thú cưng.,booster,stat_boost,spd_boost,legendary,item_31213.gif,0,800,peta,9,1,999,single_use,all
+10310,Giày hoàng kim,Tăng tốc độ cho thú cưng.,booster,stat_boost,spd_boost,legendary,item_31214.gif,0,800,peta,10,1,999,single_use,all
+10401,Sách giáo khoa Petaria,Tăng trí tuệ cho thú cưng,booster,stat_boost,int_boost,common,item_30963.gif,5000,800,peta,1,1,999,single_use,all
+10402,Sách lịch sử Petaria,Tăng trí tuệ cho thú cưng,booster,stat_boost,int_boost,common,item_31215.gif,7000,800,peta,2,1,999,single_use,all
+10403,Từ điển cổ Petaria,Tăng trí tuệ cho thú cưng,booster,stat_boost,int_boost,common,item_31216.gif,9000,800,peta,3,1,999,single_use,all
+10404,Sách bùa chú Petaria,Tăng trí tuệ cho thú cưng,booster,stat_boost,int_boost,rare,item_31217.gif,15000,800,peta,4,1,999,single_use,all
+10405,Bách khoa toàn thư Petaria,Tăng trí tuệ cho thú cưng,booster,stat_boost,int_boost,rare,item_30964.gif,20000,800,peta,5,1,999,single_use,all
+10406,Sách tà thuật Petaria,Tăng trí tuệ cho thú cưng,booster,stat_boost,int_boost,rare,item_31218.gif,40000,800,peta,6,1,999,single_use,all
+10407,Sách tiên tri Petaria,Tăng trí tuệ cho thú cưng,booster,stat_boost,int_boost,epic,item_31219.gif,0,800,peta,7,1,999,single_use,all
+10408,Sách tử thần Petaria,Tăng trí tuệ cho thú cưng,booster,stat_boost,int_boost,epic,item_31220.gif,0,800,peta,8,1,999,single_use,all
+10409,Sách phép thuật Petaria,Tăng trí tuệ cho thú cưng,booster,stat_boost,int_boost,legendary,item_31221.gif,0,800,peta,9,1,999,single_use,all
+10410,Sách hiệp sĩ Petaria,Tăng trí tuệ cho thú cưng,booster,stat_boost,int_boost,legendary,item_31222.gif,0,800,peta,10,1,999,single_use,all
+10501,Thuốc kích thích LX,Tăng đẳng cấp thú cưng,booster,stat_boost,lvl_boost,epic,item_30995.gif,5,0,petagold,1,1,999,single_use,all
+10502,Thần dược X-Pet Revolution,Tăng đẳng cấp thú cưng,booster,stat_boost,lvl_boost,legendary,item_31032.gif,40,0,petagold,10,1,999,single_use,all
+10601,Sâm tửu,Tăng HP thú cưng,booster,stat_boost,hp_boost,rare,item_31034.gif,1000,800,peta,5,1,999,single_use,all
+10602,Trường sinh dược,Tăng HP thú cưng,booster,stat_boost,hp_boost,rare,item_31033.gif,5000,800,peta,20,1,999,single_use,all
+10603,Thần dược X-max,Tăng HP thú cưng,booster,stat_boost,hp_boost,rare,item_31161.gif,20000,800,peta,40,1,999,single_use,all
+10701,Thần dược Exp No.1,Tăng EXP cho thú cưng,booster,stat_boost,exp_boost,rare,item_31105.gif,20000,800,peta,1,1,999,single_use,all
+10702,Thần dược Exp No.2,Tăng EXP cho thú cưng,booster,stat_boost,exp_boost,rare,item_31106.gif,40000,800,peta,2,1,999,single_use,all
+10703,Thần dược Exp No.3,Tăng EXP cho thú cưng,booster,stat_boost,exp_boost,rare,item_31107.gif,70000,800,peta,3,1,999,single_use,all
+10704,Thần dược Exp No.4,Tăng EXP cho thú cưng,booster,stat_boost,exp_boost,rare,item_31108.gif,100000,800,peta,4,1,999,single_use,all
+11001,Hồng dược,Dược phẩm phục hồi sức khoẻ cho thú cưng,consumable,medicine,hp_recovery,common,item_30996.gif,2000,800,peta,2,1,999,single_use,all
+11002,Ngũ sắc dược,Dược phẩm phục hồi sức khoẻ cho thú cưng,consumable,medicine,hp_recovery,common,item_30997.gif,4500,800,peta,5,1,999,single_use,all
+11003,Kim long huyết,Dược phẩm phục hồi sức khoẻ cho thú cưng,consumable,medicine,hp_recovery,common,item_31031.gif,8000,800,peta,10,1,999,single_use,all
+11004,Băng long huyết,Dược phẩm phục hồi sức khoẻ cho thú cưng,consumable,medicine,hp_recovery,rare,item_31184.gif,40000,800,peta,50,1,999,single_use,all
+11101,Lục năng dược,Dược phẩm phục hồi năng lượng cho thú cưng,consumable,medicine,mp_recovery,common,item_31185.gif,3000,800,peta,3,1,999,single_use,all
+11102,Hồng năng dược,Dược phẩm phục hồi năng lượng cho thú cưng,consumable,medicine,mp_recovery,common,item_31186.gif,22000,800,peta,30,1,999,single_use,all
+11103,Tử năng dược,Dược phẩm phục hồi năng lượng cho thú cưng,consumable,medicine,mp_recovery,rare,item_31187.gif,40000,800,peta,50,1,999,single_use,all
+12001,Bánh mì,Thức ăn cơ bản giúp thú cưng no hơn.,food,food,hunger_recovery,common,alf_bread.gif,100,30,peta,1,1,999,single_use,all
+12002,Hotdog,Thức ăn cơ bản giúp thú cưng no hơn.,food,food,hunger_recovery,common,alf_hotdog.gif,200,30,peta,2,1,999,single_use,all
+12003,placeholder_food_3,Thức ăn cơ bản giúp thú cưng no hơn.,food,food,hunger_recovery,common,,300,30,peta,3,1,999,single_use,all
+12004,placeholder_food_4,Thức ăn cơ bản giúp thú cưng no hơn.,food,food,hunger_recovery,common,,400,30,peta,4,1,999,single_use,all
+12005,placeholder_food_5,Thức ăn cơ bản giúp thú cưng no hơn.,food,food,hunger_recovery,common,,500,30,peta,5,1,999,single_use,all
+12006,placeholder_food_6,Thức ăn cơ bản giúp thú cưng no hơn.,food,food,hunger_recovery,common,,600,30,peta,6,1,999,single_use,all
+12007,placeholder_food_7,Thức ăn cơ bản giúp thú cưng no hơn.,food,food,hunger_recovery,common,,700,30,peta,7,1,999,single_use,all
+12008,placeholder_food_8,Thức ăn cơ bản giúp thú cưng no hơn.,food,food,hunger_recovery,common,,800,30,peta,8,1,999,single_use,all
+12009,placeholder_food_9,Thức ăn cơ bản giúp thú cưng no hơn.,food,food,hunger_recovery,rare,,900,30,peta,9,1,999,single_use,all
+12010,placeholder_food_10,Thức ăn cơ bản giúp thú cưng no hơn.,food,food,hunger_recovery,rare,,1000,30,peta,10,1,999,single_use,all
+12101,Sao vàng,Đồ chơi giúp tăng trạng thái hạnh phúc.,consumable,toy,happiness_up,common,item_30958.gif,200,60,peta,1,1,999,single_use,all
+12102,Sao biển,Đồ chơi giúp tăng trạng thái hạnh phúc.,consumable,toy,happiness_up,common,item_30959.gif,200,60,peta,2,1,999,single_use,all
+12103,Ống sáo rồng,Đồ chơi giúp tăng trạng thái hạnh phúc.,consumable,toy,happiness_up,common,item_30960.gif,300,60,peta,3,1,999,single_use,all
+12104,Xương thú,Đồ chơi giúp tăng trạng thái hạnh phúc.,consumable,toy,happiness_up,common,item_30962.gif,400,60,peta,4,1,999,single_use,all
+12105,Rồng sơ sinh,Đồ chơi giúp tăng trạng thái hạnh phúc.,consumable,toy,happiness_up,common,item_30961.gif,500,60,peta,5,1,999,single_use,all
+12106,placeholder_toy_6,Đồ chơi giúp tăng trạng thái hạnh phúc.,consumable,toy,happiness_up,common,,600,60,peta,6,1,999,single_use,all
+12107,placeholder_toy_7,Đồ chơi giúp tăng trạng thái hạnh phúc.,consumable,toy,happiness_up,common,,700,60,peta,7,1,999,single_use,all
+12108,placeholder_toy_8,Đồ chơi giúp tăng trạng thái hạnh phúc.,consumable,toy,happiness_up,common,,800,60,peta,8,1,999,single_use,all
+12109,placeholder_toy_9,Đồ chơi giúp tăng trạng thái hạnh phúc.,consumable,toy,happiness_up,common,,900,60,peta,9,1,999,single_use,all
+12110,placeholder_toy_10,Đồ chơi giúp tăng trạng thái hạnh phúc.,consumable,toy,happiness_up,common,,1000,60,peta,10,1,999,single_use,all
+13001,Bạch ngân kiếm,"Kiếm bạc tinh khiết, chuyên diệt trừ tà ma",equipment,equipment,weapon_permanent,rare,item_30936.gif,25000,7500,peta,4,0,1,on_battle_only,all
+13002,Cung thiên thần,"Cung thánh, bắn ra mũi tên ánh sáng chính xác",equipment,equipment,weapon_permanent,rare,item_31114.gif,30000,7500,peta,4,0,1,on_battle_only,all
+13003,Búa tà thần,"Đại chùy hắc ám, sức công phá cực lớn",equipment,equipment,weapon_permanent,rare,item_31015.gif,40000,7500,peta,5,0,1,on_battle_only,all
+13004,Gậy thạch anh,Trượng phép hỗ trợ hội tụ năng lượng tự nhiên,equipment,equipment,weapon_permanent,rare,item_31147.gif,40000,7500,peta,5,0,1,on_battle_only,all
+13005,Kim cương kiếm,"Kiếm siêu cứng, sắc bén vĩnh cửu",equipment,equipment,weapon_permanent,rare,item_31234.gif,40000,7500,peta,5,0,1,on_battle_only,all
+13006,Ná mãng xà,"Ná độc, tốc độ bắn nhanh và gây sát thương độc",equipment,equipment,weapon_permanent,rare,item_31026.gif,75000,7500,peta,6,0,1,on_battle_only,all
+13007,Rìu thiên tầm,"Rìu lớn, tầm quét rộng",equipment,equipment,weapon_permanent,rare,item_31006.gif,75000,7500,peta,6,0,1,on_battle_only,all
+13008,Búa nữ thần,"Vũ khí thần thánh, có đô bền vĩnh cữu",equipment,equipment,weapon_permanent,epic,item_31017.gif,90000,7500,peta,7,0,1,on_battle_only,all
+13009,Tu la kiếm,"Ma kiếm khát máu, tăng sức mạnh theo sát khí",equipment,equipment,weapon_permanent,epic,item_30942.gif,90000,7500,peta,7,0,1,on_battle_only,all
+13010,Gậy kim cương,"Pháp khí tối thượng, gia tăng mạnh uy lực phép thuật",equipment,equipment,weapon_permanent,epic,item_31149.gif,90000,7500,peta,7,0,1,on_battle_only,all
+13011,Hỏa long đao,"Đao mang sức mạnh lửa rồng, thiêu cháy mục tiêu",equipment,equipment,weapon_permanent,epic,item_30944.gif,100000,7500,peta,8,0,1,on_battle_only,all
+13012,Thủy long đao,"Đao mang uy lực nước, chém nhanh và linh hoạt.",equipment,equipment,weapon_permanent,epic,item_30945.gif,100000,7500,peta,8,0,1,on_battle_only,all
+13013,Gậy hỏa vân hoàng kim,"Trượng vàng cao quý, triệu hồi bão lửa diện rộng",equipment,equipment,weapon_permanent,legendary,item_31152.gif,200000,7500,peta,10,0,1,on_battle_only,all
+13101,Cung Mãng xà,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,rare,item_31112.gif,15000,4500,peta,3,0,1,on_battle_only,all
+13102,Búa anh vũ,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,rare,item_31014.gif,20000,7000,peta,4,0,1,on_battle_only,all
+13103,Rìu thiên thanh,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,rare,item_31005.gif,25000,7000,peta,4,0,1,on_battle_only,all
+13104,Thiết xà kiếm,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,rare,item_30935.gif,25000,7000,peta,4,0,1,on_battle_only,all
+13105,Gậy hỗn nguyên,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,rare,item_31146.gif,25000,7000,peta,4,0,1,on_battle_only,all
+13106,Vuốt sắc,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,rare,item_31097.gif,70000,7000,peta,5,0,1,on_battle_only,all
+13107,Ná vuốt cọp,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,rare,item_31025.gif,70000,7000,peta,5,0,1,on_battle_only,all
+13108,Lôi thần kiếm,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,rare,item_30940.gif,90000,7000,peta,6,0,1,on_battle_only,all
+13109,Xuyên tâm kiếm,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_30943.gif,100000,7000,peta,7,0,1,on_battle_only,all
+13110,Cung thần lực,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31117.gif,100000,7000,peta,7,0,1,on_battle_only,all
+13111,Súng hỏa tiễn,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31179.gif,100000,7000,peta,7,0,1,on_battle_only,all
+13112,Rìu tử thần,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31008.gif,145000,7000,peta,8,0,1,on_battle_only,all
+13113,Búa thần sấm,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31018.gif,145000,7000,peta,8,0,1,on_battle_only,all
+13114,Gậy long châu,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31150.gif,145000,7000,peta,8,0,1,on_battle_only,all
+13115,Hàn băng kiếm,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31240.gif,145000,7000,peta,8,0,1,on_battle_only,all
+13116,Gậy nhật nguyệt,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31151.gif,250000,7000,peta,9,0,1,on_battle_only,all
+13117,Thiên tinh hoàng kiếm,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_30946.gif,250000,7000,peta,9,0,1,on_battle_only,all
+13118,Thiên tinh tử kiếm,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31099.gif,250000,7000,peta,9,0,1,on_battle_only,all
+13119,Thiên tinh xích kiếm,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31100.gif,250000,7000,peta,9,0,1,on_battle_only,all
+13120,Tiên thiên thạch,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31096.gif,250000,7000,peta,9,0,1,on_battle_only,all
+13121,Rìu phi ưng,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31009.gif,250000,7000,peta,9,0,1,on_battle_only,all
+13122,Ná thần thú,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31029.gif,250000,7000,peta,9,0,1,on_battle_only,all
+13123,Búa long đầu,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31019.gif,250000,7000,peta,9,0,1,on_battle_only,all
+13124,Bom sình,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31132.gif,250000,7000,peta,9,0,1,on_battle_only,all
+13125,Cung hoàng thiên song tiễn,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31121.gif,250000,7000,peta,9,0,1,on_battle_only,all
+13126,Cung lam thiên song tiễn,Vũ khí tấn công chí mạng.,equipment,equipment,weapon_critical,epic,item_31120.gif,250000,7000,peta,9,0,1,on_battle_only,all
+13201,Song kiếm,Vũ khí thường,equipment,equipment,weapon_basic,common,item_13201.gif,1000,800,peta,1,0,1,on_battle_only,all
+13202,placeholder_wp2,Vũ khí thường,equipment,equipment,weapon_basic,common,,2200,800,peta,2,0,1,on_battle_only,all
+13203,placeholder_wp3,Vũ khí thường,equipment,equipment,weapon_basic,common,,3000,800,peta,3,0,1,on_battle_only,all
+13204,placeholder_wp4,Vũ khí thường,equipment,equipment,weapon_basic,common,,5000,800,peta,4,0,1,on_battle_only,all
+13205,Kiếm sắt,Vũ khí thường,equipment,equipment,weapon_basic,common,item_13205.gif,8000,800,peta,5,0,1,on_battle_only,all
+13206,placeholder_wp6,Vũ khí thường,equipment,equipment,weapon_basic,common,,10000,800,peta,6,0,1,on_battle_only,all
+13207,Cung băng tinh,Vũ khí thường,equipment,equipment,weapon_basic,epic,,12000,800,peta,7,0,1,on_battle_only,all
+13208,Bommerang Chuối,Vũ khí thường,equipment,equipment,weapon_basic,epic,,20000,800,peta,8,0,1,on_battle_only,all
+13209,placeholder_wp9,Vũ khí thường,equipment,equipment,weapon_basic,epic,,40000,800,peta,9,0,1,on_battle_only,all
+13210,placeholder_wp10,Vũ khí thường,equipment,equipment,weapon_basic,legendary,,100000,800,peta,10,0,1,on_battle_only,all
+13501,Khiên gỗ,Khiên phòng thủ,equipment,equipment,shield_basic,common,item_30948.gif,1200,500,peta,1,0,1,on_battle_only,all
+13502,Khiên chống lửa,Khiên phòng thủ,equipment,equipment,shield_basic,common,item_30949.gif,3000,800,peta,2,0,1,on_battle_only,all
+13503,Khiên chống phép,Khiên phòng thủ,equipment,equipment,shield_basic,common,item_30950.gif,5000,800,peta,3,0,1,on_battle_only,all
+13504,Khiên càn khôn,Khiên phòng thủ,equipment,equipment,shield_basic,common,item_30998.gif,8000,800,peta,4,0,1,on_battle_only,all
+13505,Khiên thiên thần,Khiên phòng thủ,equipment,equipment,shield_basic,rare,item_30952.gif,10000,800,peta,5,0,1,on_battle_only,all
+13506,Khiên mặt trời,Khiên phòng thủ,equipment,equipment,shield_basic,rare,item_30953.gif,12000,800,peta,6,0,1,on_battle_only,all
+13507,Khiên đuôi rồng,Khiên phòng thủ,equipment,equipment,shield_basic,epic,item_30954.gif,20000,800,peta,7,0,1,on_battle_only,all
+13508,Khiên hồng ngọc,Khiên phòng thủ,equipment,equipment,shield_basic,epic,item_30955.gif,40000,800,peta,8,0,1,on_battle_only,all
+13509,Khiên long đầu,Khiên phòng thủ,equipment,equipment,shield_basic,epic,item_30956.gif,100000,800,peta,9,0,1,on_battle_only,all
+13901,Minh dược,"Dược phẩm hỗ trợ chiến đấu, tăng độ chính xác cho thú của bạn.",equipment,stat_boost,accuracy_up,common,item_30989.gif,4000,900,peta,2,0,1,on_battle_only,all
+13902,Máu thần ưng,"Dược phẩm hỗ trợ chiến đấu, tăng độ chính xác cho thú của bạn.",equipment,stat_boost,accuracy_up,common,item_30990.gif,7000,900,peta,3,0,1,on_battle_only,all
+13911,Ảo dược,"Dược phẩm hỗ trợ chiến đấu, giảm độ chính xác của đối thủ.",equipment,stat_boost,accuracy_down,common,item_30999.gif,4000,900,peta,2,0,1,on_battle_only,all
+13912,Bột ngọc trai,"Dược phẩm hỗ trợ chiến đấu, giảm độ chính xác của đối thủ.",equipment,stat_boost,accuracy_down,common,item_30988.gif,7000,900,peta,3,0,1,on_battle_only,all

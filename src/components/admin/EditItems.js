@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useUser } from '../../UserContext';
+import TaxonomyFilterModal, { filterByTaxonomySelection } from '../filters/TaxonomyFilterModal';
 import './AdminNpcBossManagement.css';
 import './EditItems.css';
 
@@ -34,6 +35,8 @@ function EditItems() {
   const [modal, setModal] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'item_code', direction: 'asc' });
+  const [taxonomyFilterOpen, setTaxonomyFilterOpen] = useState(false);
+  const [taxonomyFilter, setTaxonomyFilter] = useState({ type: [], category: [], subtype: [] });
 
   useEffect(() => {
     if (!isLoading && (!user || !user.isAdmin)) navigate('/login');
@@ -145,9 +148,39 @@ function EditItems() {
     return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
   };
 
+  const uniqSorted = (arr) => [...new Set(arr.filter((v) => v != null && String(v).trim() !== ''))].sort((a, b) =>
+    String(a).localeCompare(String(b), 'vi', { sensitivity: 'base' })
+  );
+
+  const filterSections = useMemo(
+    () => [
+      {
+        id: 'type',
+        title: 'Type',
+        options: uniqSorted(items.map((i) => i.type)).map((v) => ({ value: v, label: v })),
+      },
+      {
+        id: 'category',
+        title: 'Category',
+        options: uniqSorted(items.map((i) => i.category)).map((v) => ({ value: v, label: v })),
+      },
+      {
+        id: 'subtype',
+        title: 'Subtype',
+        options: uniqSorted(items.map((i) => i.subtype)).map((v) => ({ value: v, label: v })),
+      },
+    ],
+    [items]
+  );
+
+  const taxonomyActiveCount =
+    (taxonomyFilter.type?.length || 0) +
+    (taxonomyFilter.category?.length || 0) +
+    (taxonomyFilter.subtype?.length || 0);
+
   const displayItems = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    const filtered = q
+    let filtered = q
       ? items.filter((item) => {
           const haystack = [
             item.id,
@@ -174,6 +207,12 @@ function EditItems() {
         })
       : [...items];
 
+    filtered = filterByTaxonomySelection(filtered, taxonomyFilter, {
+      type: 'type',
+      category: 'category',
+      subtype: 'subtype',
+    });
+
     const sorted = [...filtered].sort((a, b) => {
       const av = a[sortConfig.key];
       const bv = b[sortConfig.key];
@@ -188,7 +227,7 @@ function EditItems() {
       return sortConfig.direction === 'asc' ? cmp : -cmp;
     });
     return sorted;
-  }, [items, searchTerm, sortConfig]);
+  }, [items, searchTerm, sortConfig, taxonomyFilter]);
 
   if (isLoading) return <div className="admin-npc-boss"><div className="loading">Đang tải...</div></div>;
   if (!user || !user.isAdmin) return <div className="admin-npc-boss"><div className="access-denied"><h2>Access Denied</h2></div></div>;
@@ -210,20 +249,32 @@ function EditItems() {
 
       <div className="section-card">
         <h3>Bảng items</h3>
-        <div className="section-actions">
-          <button className="btn btn-primary" onClick={() => setModal({ mode: 'add', row: {} })}>Thêm</button>
-          <button className="btn btn-secondary" onClick={downloadCSV}>Tải CSV</button>
-          <label className="btn btn-secondary" style={{ margin: 0 }}>
-            Upload CSV
-            <input type="file" accept=".csv" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCSV(f); e.target.value = ''; }} />
-          </label>
-          <input
-            type="text"
-            placeholder="Search (id, item_code, name, subtype...)"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #ced4da', minWidth: 220 }}
-          />
+        <div className="section-actions edit-items-toolbar">
+          <div className="edit-items-toolbar-left">
+            <button className="btn btn-primary" onClick={() => setModal({ mode: 'add', row: {} })}>Thêm</button>
+            <button className="btn btn-secondary" onClick={downloadCSV}>Tải CSV</button>
+            <label className="btn btn-secondary" style={{ margin: 0 }}>
+              Upload CSV
+              <input type="file" accept=".csv" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCSV(f); e.target.value = ''; }} />
+            </label>
+          </div>
+          <div className="edit-items-toolbar-right">
+            <input
+              type="text"
+              className="edit-items-search-input"
+              placeholder="Search (id, item_code, name, subtype...)"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <button
+              type="button"
+              className={`btn btn-secondary edit-items-filter-btn ${taxonomyActiveCount > 0 ? 'is-active' : ''}`}
+              onClick={() => setTaxonomyFilterOpen(true)}
+            >
+              Bộ lọc
+              {taxonomyActiveCount > 0 ? ` (${taxonomyActiveCount})` : ''}
+            </button>
+          </div>
         </div>
         <div className="table-wrap edit-items-scroll">
           <table className="data-table edit-items-table">
@@ -299,6 +350,15 @@ function EditItems() {
       </div>
 
       {modal && <ItemModal mode={modal.mode} row={modal.row} onClose={() => setModal(null)} onSave={saveItem} />}
+
+      <TaxonomyFilterModal
+        open={taxonomyFilterOpen}
+        onClose={() => setTaxonomyFilterOpen(false)}
+        title="Lọc taxonomy"
+        sections={filterSections}
+        value={taxonomyFilter}
+        onApply={setTaxonomyFilter}
+      />
     </div>
   );
 }
@@ -363,6 +423,7 @@ function ItemModal({ mode, row, onClose, onSave }) {
           <div className="form-row"><label>type *</label>
             <select value={form.type} onChange={(e) => update('type', e.target.value)}>
               <option value="consumable">consumable</option>
+              <option value="food">food</option>
               <option value="booster">booster</option>
               <option value="equipment">equipment</option>
               <option value="evolve">evolve</option>
