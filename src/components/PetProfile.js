@@ -100,6 +100,19 @@ function PetProfile() {
     fetchPetDetails();
   }, [uuid, navigate, API_BASE_URL]);
 
+  /** Refetch pet row (str_added, hp, …) sau khi gỡ đồ / linh thú — không bật full-screen loading. */
+  const refreshPetDetails = useCallback(async () => {
+    if (!uuid || !API_BASE_URL) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/pets/${uuid}`);
+      if (!response.ok) return;
+      const data = await response.json();
+      setPet(data);
+    } catch (err) {
+      console.error('Error refreshing pet details:', err);
+    }
+  }, [uuid, API_BASE_URL]);
+
   const refreshEquippedItems = useCallback(() => {
     if (!pet?.id || !API_BASE_URL) return;
     fetch(`${API_BASE_URL}/api/pets/${pet.id}/equipment`)
@@ -179,6 +192,7 @@ function PetProfile() {
           const spiritsData = await spiritsResponse.json();
           if (Array.isArray(spiritsData)) setEquippedSpirits(spiritsData);
         }
+        await refreshPetDetails();
         alert('Tháo linh thú thành công!');
         // Close modal after successful unequip
         setShowSpiritDetail(false);
@@ -198,67 +212,16 @@ function PetProfile() {
     setShowItemDetail(true);
   };
 
-  // Calculate bonus stats from equipped spirits and items
-  const calculateBonusStats = () => {
-    const bonusStats = {
-      hp: 0,
-      mp: 0,
-      str: 0,
-      def: 0,
-      spd: 0,
-      intelligence: 0
-    };
-
-    // Calculate bonus from equipped spirits
-    equippedSpirits.forEach(spirit => {
-      if (spirit.stats) {
-        spirit.stats.forEach(stat => {
-          const statType = stat.stat_type;
-          const value = parseFloat(stat.stat_value) || 0;
-          const modifier = stat.stat_modifier;
-
-          if (bonusStats.hasOwnProperty(statType)) {
-            if (modifier === 'percentage') {
-              // Percentage bonus will be calculated based on base stats
-              bonusStats[`${statType}_percent`] = (bonusStats[`${statType}_percent`] || 0) + value;
-            } else {
-              // Flat bonus
-              bonusStats[statType] += value;
-            }
-          }
-        });
-      }
-    });
-
-    // Calculate bonus from equipped items
-    equippedItems.forEach(item => {
-      if (item.str_bonus) bonusStats.str += (item.str_bonus || 0);
-      if (item.def_bonus) bonusStats.def += (item.def_bonus || 0);
-      if (item.spd_bonus) bonusStats.spd += (item.spd_bonus || 0);
-      if (item.intelligence_bonus) bonusStats.intelligence += (item.intelligence_bonus || 0);
-    });
-
-    // Apply percentage bonuses
-    if (bonusStats.hp_percent) {
-      bonusStats.hp += Math.floor((pet.hp * bonusStats.hp_percent) / 100);
-    }
-    if (bonusStats.mp_percent) {
-      bonusStats.mp += Math.floor((pet.mp * bonusStats.mp_percent) / 100);
-    }
-    if (bonusStats.str_percent) {
-      bonusStats.str += Math.floor((pet.str * bonusStats.str_percent) / 100);
-    }
-    if (bonusStats.def_percent) {
-      bonusStats.def += Math.floor((pet.def * bonusStats.def_percent) / 100);
-    }
-    if (bonusStats.spd_percent) {
-      bonusStats.spd += Math.floor((pet.spd * bonusStats.spd_percent) / 100);
-    }
-    if (bonusStats.intelligence_percent) {
-      bonusStats.intelligence += Math.floor((pet.intelligence * bonusStats.intelligence_percent) / 100);
-    }
-
-    return bonusStats;
+  /** Chỉ số intrinsic: cột str/def/… (IV+level+booster) + *_added (phần added hiển thị đỏ qua .bonus-stats). Bonus linh thú/trận đấu không cộng ở đây — xem API battle-stats khi đánh. */
+  const renderCorePlusAdded = (coreVal, addedVal) => {
+    const c = Number(coreVal) || 0;
+    const a = Number(addedVal) || 0;
+    if (!a) return c;
+    return (
+      <>
+        {c} + <span className="bonus-stats">{a}</span>
+      </>
+    );
   };
 
   if (loading) return <div>Loading pet details...</div>;
@@ -273,8 +236,10 @@ function PetProfile() {
   const expRequired = expToNextLevel - expToThisLevel;
   // const progressPercent = Math.max(Math.floor(((expProgress - expToThisLevel) / expRequired) * 100), 0);
 
-  // Calculate bonus stats
-  const bonusStats = calculateBonusStats();
+  const battleWins = Number(pet.battles_won) || 0;
+  const battleLosses = Number(pet.battles_lost) || 0;
+  const battleTotal = battleWins + battleLosses;
+  const winRatePct = battleTotal > 0 ? Math.round((battleWins / battleTotal) * 1000) / 10 : null;
 
   // Tab configuration for TemplatePage
   const tabs = [
@@ -306,51 +271,21 @@ function PetProfile() {
             {/* <progress className="pet-detail-progress" value={(expProgress - expToThisLevel)} max={expRequired}></progress> */}
             <p className="pet-detail-hp">
               Sức Khỏe: {pet.current_hp ?? pet.hp}/{pet.max_hp ?? pet.hp}
-              {bonusStats.hp > 0 && (
-                <span className="bonus-stats">
-                  {' '}+ {bonusStats.hp}
-                </span>
-              )}
             </p>
             <p className="pet-detail-mp">
               Năng Lượng: {pet.mp}/{pet.max_mp}
-              {bonusStats.mp > 0 && (
-                <span className="bonus-stats">
-                  {' '}+ {bonusStats.mp}
-                </span>
-              )}
             </p>
             <p className="pet-detail-str">
-              Sức Mạnh: {pet.str}
-              {bonusStats.str > 0 && (
-                <span className="bonus-stats">
-                  {' '}+ {bonusStats.str}
-                </span>
-              )}
+              Sức Mạnh: {renderCorePlusAdded(pet.str, pet.str_added)}
             </p>
             <p className="pet-detail-def">
-              Phòng Thủ: {pet.def}
-              {bonusStats.def > 0 && (
-                <span className="bonus-stats">
-                  {' '}+ {bonusStats.def}
-                </span>
-              )}
+              Phòng Thủ: {renderCorePlusAdded(pet.def, pet.def_added)}
             </p>
             <p className="pet-detail-int">
-              Thông Minh: {pet.intelligence}
-              {bonusStats.intelligence > 0 && (
-                <span className="bonus-stats">
-                  {' '}+ {bonusStats.intelligence}
-                </span>
-              )}
+              Thông Minh: {renderCorePlusAdded(pet.intelligence, pet.intelligence_added)}
             </p>
             <p className="pet-detail-spd">
-              Tốc Độ: {pet.spd}
-              {bonusStats.spd > 0 && (
-                <span className="bonus-stats">
-                  {' '}+ {bonusStats.spd}
-                </span>
-              )}
+              Tốc Độ: {renderCorePlusAdded(pet.spd, pet.spd_added)}
             </p>
             {hungerStatus ? (
               <PetVitalsDisplay vitals={hungerStatus} />
@@ -362,7 +297,9 @@ function PetProfile() {
             )}
             
             <br />
-            <p className="pet-detail-battles">Chiến đấu thắng: {pet.battles_won || 'N/A'}</p>
+            <p className="pet-detail-battles">Chiến đấu thắng: {battleWins}</p>
+            <p className="pet-detail-battles-loss">Chiến đấu thua: {battleLosses}</p>
+            <p className="pet-detail-battles-rate">Tỉ lệ thắng: {winRatePct != null ? `${winRatePct}%` : '—'}</p>
           </div>
           <div className="pet-details-right">
             <img src={`/images/pets/${pet.image}`} alt={pet.name || pet.pet_types_name} className="pet-image" />
@@ -449,6 +386,7 @@ function PetProfile() {
           }}
           onUpdateItem={() => {
             refreshEquippedItems();
+            refreshPetDetails();
           }}
         />
       )}

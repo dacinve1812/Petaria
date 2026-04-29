@@ -90,4 +90,5 @@ This file is the first entrypoint when a new session starts.
 - Hunting map admin workflow: `docs/HUNTING_MAP_ADMIN_WORKFLOW.md`
 - Encounter: `docs/ENCOUNTER_SYSTEM_DOCS.md`
 - DB migration notes: `docs/DB_MIGRATION_GUIDE.md`
+- Booster pet (stat/EXP vĩnh viễn, `booster_stats`): `docs/PET_BOOSTER_SYSTEM.md`
 

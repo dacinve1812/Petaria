@@ -32,6 +32,9 @@ const EFFECT_TARGET_ALIASES = {
   attack: 'str',
   int: 'intelligence',
   energy: 'mp',
+  happiness: 'mood',
+  tam_trang: 'mood',
+  wellbeing: 'mood',
 };
 
 const EFFECT_TYPE_ALIASES = {

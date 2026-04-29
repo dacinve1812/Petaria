@@ -621,7 +621,7 @@ function ArenaBattlePage() {
     }, [battleEnded]);
 
     const gainExpIfVictory = async () => {
-        if (player.current_hp > 0 && battleEnded) {
+        if (!battleEnded || resultEffect !== 'win' || player.current_hp <= 0) return;
           // Cập nhật hunger status sau battle
           try {
             await fetch(`${API_BASE_URL}/api/pets/${player.id}/update-hunger-after-battle`, {
@@ -695,9 +695,8 @@ function ArenaBattlePage() {
               console.error('Lỗi khi nhận loot Boss:', err);
             }
           }
-        }
       };
-    
+
       // Save HP to database after battle
       const savePlayerHP = async () => {
         try {
@@ -712,21 +711,39 @@ function ArenaBattlePage() {
       };
 
       useEffect(() => {
-        if (battleEnded) {
-          if (player.current_hp > 0) {
-            gainExpIfVictory();
-          }
-          if (!isRedisMatch) savePlayerHP();
-          // Redis match: khi trận kết thúc luôn gọi terminate để xóa key, tránh 400 ACTIVE_MATCH khi khiêu chiến lại
-          if (isRedisMatch) {
-            fetch(`${API_BASE_URL}/api/arena/match/terminate`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
-            }).catch(() => {}); // 404 = key đã xóa, bỏ qua
-          }
-          // Item hỏng sẽ bị xóa khỏi inventory ngay khi durability về 0, nên không cần unequip-broken nữa.
+        if (!battleEnded) return;
+        if (resultEffect === 'win' && player.current_hp > 0) {
+          gainExpIfVictory();
         }
-      }, [battleEnded]);
+        if (!isRedisMatch) savePlayerHP();
+        // Redis match: khi trận kết thúc luôn gọi terminate để xóa key, tránh 400 ACTIVE_MATCH khi khiêu chiến lại
+        if (isRedisMatch) {
+          fetch(`${API_BASE_URL}/api/arena/match/terminate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+          }).catch(() => {}); // 404 = key đã xóa, bỏ qua
+        }
+        // Item hỏng sẽ bị xóa khỏi inventory ngay khi durability về 0, nên không cần unequip-broken nữa.
+      }, [battleEnded, resultEffect, isRedisMatch]);
+
+      const handleFleeBattle = async () => {
+        if (!isRedisMatch || battleEnded || battleUiLocked) return;
+        if (!window.confirm('Bỏ chạy sẽ kết thúc trận và tính là thua. Tiếp tục?')) return;
+        setActionLocked(true);
+        try {
+          await fetch(`${API_BASE_URL}/api/arena/match/terminate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+          });
+        } catch (err) {
+          console.error('Bỏ chạy / terminate:', err);
+        }
+        setLog((prev) => [...prev.slice(-49), { text: 'Bạn đã bỏ chạy! Trận đấu kết thúc.', type: 'default' }]);
+        setIsRedisMatch(false);
+        setResultEffect('lose');
+        setBattleEnded(true);
+        setActionLocked(false);
+      };
 
       const handleLeaveBattle = async (e) => {
         if (!isRedisMatch || battleEnded) return;
@@ -1024,6 +1041,14 @@ function ArenaBattlePage() {
               Go!
             </button>
           </div>
+
+          {isRedisMatch && !battleEnded && (
+            <div className="arena-flee-row">
+              <button type="button" className="arena-flee-btn" onClick={handleFleeBattle} disabled={battleUiLocked}>
+                Bỏ chạy
+              </button>
+            </div>
+          )}
         </div>
         </TemplatePage>
       );

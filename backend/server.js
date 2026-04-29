@@ -10,31 +10,7 @@ const {
   simulateBossTurn,
 } = require('./battleEngine');
 
-
-function generateIVStats() {
-  return {
-    iv_hp: Math.floor(Math.random() * 32),
-    iv_mp: Math.floor(Math.random() * 32),
-    iv_str: Math.floor(Math.random() * 32),
-    iv_def: Math.floor(Math.random() * 32),
-    iv_intelligence: Math.floor(Math.random() * 32),
-    iv_spd: Math.floor(Math.random() * 32)
-  };
-}
-
-function calculateFinalStats(base, iv, level) {
-  const getStat = (b, i) => Math.floor(((2 * b + i) * level) / 100) + 5;
-  const getHP = (b, i) => (Math.floor(((2 * b + i) * level) / 100) + level + 10) * 5;
-
-  return {
-    hp: getHP(base.hp, iv.iv_hp),
-    mp: getStat(base.mp, iv.iv_mp),
-    str: getStat(base.str, iv.iv_str),
-    def: getStat(base.def, iv.iv_def),
-    intelligence: getStat(base.intelligence, iv.iv_intelligence),
-    spd: getStat(base.spd, iv.iv_spd),
-  };
-}
+const { generateIVStats, calculateFinalStats } = require('./utils/petStats');
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
 
@@ -77,6 +53,46 @@ const pool = mysql.createPool({ // Hoặc const pool = new Pool({
 });
 
 const db = pool.promise();
+
+const {
+  ensureBoosterStatsColumn,
+  refreshPetIntrinsicStats,
+  applyBoosterCompoundPercent,
+  applyBoosterFlat,
+} = require('./utils/petIntrinsicStats');
+
+ensureBoosterStatsColumn(db).catch((err) => {
+  console.error('ensureBoosterStatsColumn:', err);
+});
+
+async function ensurePetBattleStatsColumns() {
+  try {
+    await db.query(
+      'ALTER TABLE pets ADD COLUMN battles_lost INT NOT NULL DEFAULT 0'
+    );
+  } catch (err) {
+    const code = err && err.code;
+    const msg = String((err && err.message) || '');
+    if (code !== 'ER_DUP_FIELDNAME' && !msg.includes('Duplicate column')) {
+      console.error('ensurePetBattleStatsColumns battles_lost:', err);
+    }
+  }
+  try {
+    await db.query(
+      'ALTER TABLE pets ADD COLUMN battles_won INT NOT NULL DEFAULT 0'
+    );
+  } catch (err) {
+    const code = err && err.code;
+    const msg = String((err && err.message) || '');
+    if (code !== 'ER_DUP_FIELDNAME' && !msg.includes('Duplicate column')) {
+      console.error('ensurePetBattleStatsColumns battles_won:', err);
+    }
+  }
+}
+
+ensurePetBattleStatsColumns().catch((err) => {
+  console.error('ensurePetBattleStatsColumns:', err);
+});
 
 petVitals.ensurePetVitalsSchema(db).catch((err) => {
   console.error('ensurePetVitalsSchema:', err);
@@ -4344,6 +4360,41 @@ function normalizeEffectRow(row) {
   };
 }
 
+/**
+ * Thuốc HP/MP trong catalog (consumable + category medicine + subtype hp_recovery/mp_recovery)
+ * có thể chưa có dòng trong item_effects — vẫn cho phép dùng: % hồi theo magic_value trên item.
+ */
+function buildSyntheticMedicineEffectFromItemRow(itemRow) {
+  if (!itemRow || typeof itemRow !== 'object') return null;
+  const typ = String(itemRow.type || '').toLowerCase().trim();
+  const cat = String(itemRow.category || '').toLowerCase().trim();
+  const sub = String(itemRow.subtype || '').toLowerCase().trim();
+  const isMedicine =
+    cat === 'medicine' && (typ === 'consumable' || typ === 'medicine');
+  if (!isMedicine) return null;
+  if (sub === 'hp_recovery') {
+    return normalizeEffectRow({
+      effect_target: 'hp',
+      effect_type: 'percent',
+      value_min: 0,
+      value_max: 0,
+      is_permanent: 0,
+      magic_value: itemRow.magic_value,
+    });
+  }
+  if (sub === 'mp_recovery') {
+    return normalizeEffectRow({
+      effect_target: 'mp',
+      effect_type: 'percent',
+      value_min: 0,
+      value_max: 0,
+      is_permanent: 0,
+      magic_value: itemRow.magic_value,
+    });
+  }
+  return null;
+}
+
 function resolveEffectMagicValue(effect, itemRow) {
   const fromEffect = Number(effect?.magic_value);
   if (Number.isFinite(fromEffect) && fromEffect > 0) return fromEffect;
@@ -4356,6 +4407,29 @@ function resolveEffectAmount(effect, quantity, itemRow, options = {}) {
   const base = (Number(effect?.value_min) || 0) * Math.max(1, Number(quantity) || 1);
   if (!options.scaleByMagic) return base;
   return base * resolveEffectMagicValue(effect, itemRow);
+}
+
+/**
+ * Booster EXP dạng %: ma thuật M ⇒ +M% tổng EXP hiện tại (current_exp) tại thời điểm dùng.
+ * Ví dụ current_exp 45980, magic 1 ⇒ floor(45980 * 1 / 100) = 459.
+ * `value_min` trong admin (10, 20…) có thể chỉ để hiển thị tier — không nhân thêm, tránh double với magic.
+ */
+function resolveExpBoostPercentOfCurrent(effect, quantity, currentExp, itemRow) {
+  const qty = Math.max(1, Number(quantity) || 1);
+  const cur = Math.max(0, Number(currentExp) || 0);
+  const magic = resolveEffectMagicValue(effect, itemRow);
+  return Math.floor((cur * magic * qty) / 100);
+}
+
+/**
+ * Hồi HP / MP (consumable medicine hoặc nhánh food có target hp/mp), effect_type percent:
+ * ma thuật M ⇒ cộng floor(max_pool × M × qty / 100) vào current_hp hoặc mp (trần bởi max).
+ */
+function resolveMedicineHpMpPercentRecovery(effect, quantity, maxPool, itemRow) {
+  const qty = Math.max(1, Number(quantity) || 1);
+  const cap = Math.max(1, Number(maxPool) || 1);
+  const magic = resolveEffectMagicValue(effect, itemRow);
+  return Math.floor((cap * magic * qty) / 100);
 }
 
 /** effect_type=percent: value_min là % (0–100+). Hồi theo maxBase (VD max_hp, thang đói 10). */
@@ -4395,9 +4469,10 @@ function itemActsAsFoodForPetUse(row) {
   return row?.type === 'food' || (row?.type === 'consumable' && cat === 'food');
 }
 
-/** Chỉ type toy (đồ chơi vẫn có thể là consumable — không gộp vào nhánh này) */
+/** Type `toy`, hoặc consumable + category toy (định tuyến qua handleFoodItem: mood + ma thuật / % / flat). */
 function itemActsAsToyForPetUse(row) {
-  return row?.type === 'toy';
+  const cat = String(row?.category || '').toLowerCase();
+  return row?.type === 'toy' || (row?.type === 'consumable' && cat === 'toy');
 }
 
 function normalizeEquipmentType(rawValue) {
@@ -6982,9 +7057,15 @@ async function finalizeMatchInMySQL(matchState, winner) {
     const petId = matchState.pet_id;
     const playerHp = Math.max(0, matchState.player?.current_hp ?? 0);
     if (winner === 'enemy') {
-      await conn.query('UPDATE pets SET current_hp = 0 WHERE id = ?', [petId]);
+      await conn.query(
+        'UPDATE pets SET current_hp = 0, battles_lost = COALESCE(battles_lost, 0) + 1 WHERE id = ?',
+        [petId]
+      );
     } else {
-      await conn.query('UPDATE pets SET current_hp = ? WHERE id = ?', [playerHp, petId]);
+      await conn.query(
+        'UPDATE pets SET current_hp = ?, battles_won = COALESCE(battles_won, 0) + 1 WHERE id = ?',
+        [playerHp, petId]
+      );
     }
     await conn.commit();
   } catch (e) {
@@ -7011,9 +7092,11 @@ app.post('/api/arena/match/start', async (req, res) => {
       [petId, userId]
     );
     if (!petRows.length) return res.status(404).json({ message: 'Pet not found' });
-    const petFresh = await petVitals.refreshPetVitalsById(db, petRows[0].id);
+    const petRow = petRows[0];
+    const petFresh = await petVitals.refreshPetVitalsById(db, petRow.id);
     if (!petFresh) return res.status(404).json({ message: 'Pet not found' });
-    const pet = petFresh;
+    /** Vitals chỉ trả một subset cột — merge vào SELECT p.* để giữ final_stats, level, stats, species_image… */
+    const pet = { ...petRow, ...petFresh };
     const hungerLevel = petVitals.clampHunger(pet.hunger_status);
     if (!petVitals.canEnterArenaByHunger(hungerLevel)) {
       const msg =
@@ -7164,7 +7247,10 @@ app.post('/api/arena/match/terminate', async (req, res) => {
     if (!data) return res.status(404).json({ message: 'No active match' });
     const matchState = JSON.parse(data);
     const playerHp = Math.max(0, matchState.player?.current_hp ?? 0);
-    await db.query('UPDATE pets SET current_hp = ? WHERE id = ?', [playerHp, matchState.pet_id]);
+    await db.query(
+      'UPDATE pets SET current_hp = ?, battles_lost = COALESCE(battles_lost, 0) + 1 WHERE id = ?',
+      [playerHp, matchState.pet_id]
+    );
     await redis.del(key);
     res.json({ forceLoss: true, message: 'Trận đấu đã kết thúc (rời đi).' });
   } catch (err) {
@@ -7410,66 +7496,16 @@ app.post('/api/pets/:id/gain-exp', async (req, res) => {
       newLevel++;
     }
 
-    // ✅ Recalculate stats khi level up
+    // ✅ Recalculate stats khi level up — gộp IV formula + booster_stats + *_added
     let updatedStats = null;
     if (newLevel > pet.level) {
-      // Lấy base stats từ pet_species
-      const [speciesRows] = await pool.promise().query(
-        'SELECT base_hp, base_mp, base_str, base_def, base_intelligence, base_spd FROM pet_species WHERE id = ?',
-        [pet.pet_species_id]
-      );
-      
-      if (speciesRows.length > 0) {
-        const species = speciesRows[0];
-        const base = {
-          hp: parseInt(species.base_hp),
-          mp: parseInt(species.base_mp),
-          str: parseInt(species.base_str),
-          def: parseInt(species.base_def),
-          intelligence: parseInt(species.base_intelligence),
-          spd: parseInt(species.base_spd),
-        };
-        
-        const iv = {
-          iv_hp: pet.iv_hp,
-          iv_mp: pet.iv_mp,
-          iv_str: pet.iv_str,
-          iv_def: pet.iv_def,
-          iv_intelligence: pet.iv_intelligence,
-          iv_spd: pet.iv_spd,
-        };
-        
-        updatedStats = calculateFinalStats(base, iv, newLevel);
-      }
-    }
-
-    // Update database với stats mới nếu level up
-    if (updatedStats) {
       await pool.promise().query(
-        `UPDATE pets SET 
-          current_exp = ?, 
-          level = ?, 
-          hp = ?, 
-          max_hp = ?, 
-          mp = ?, 
-          max_mp = ?, 
-          str = ?, 
-          def = ?, 
-          intelligence = ?, 
-          spd = ?, 
-          final_stats = ? 
-        WHERE id = ?`,
-        [
-          newExp, newLevel,
-          updatedStats.hp, updatedStats.hp,
-          updatedStats.mp, updatedStats.mp,
-          updatedStats.str, updatedStats.def, updatedStats.intelligence, updatedStats.spd,
-          JSON.stringify(updatedStats),
-          petId
-        ]
+        'UPDATE pets SET current_exp = ?, level = ? WHERE id = ?',
+        [newExp, newLevel, petId]
       );
+      const refreshed = await refreshPetIntrinsicStats(db, petId);
+      updatedStats = refreshed ? refreshed.merged : null;
     } else {
-      // Chỉ update exp nếu không level up
       await pool.promise().query(
         'UPDATE pets SET current_exp = ? WHERE id = ?',
         [newExp, petId]
@@ -8869,17 +8905,26 @@ app.post('/api/pets/:petId/use-item', async (req, res) => {
     const [itemRows] = await db.query('SELECT * FROM items WHERE id = ?', [item_id]);
     const [effectRows] = await db.query('SELECT * FROM item_effects WHERE item_id = ?', [item_id]);
 
-    if (!itemRows.length || !effectRows.length) {
+    if (!itemRows.length) {
       return res.status(400).json({ message: 'Invalid item' });
     }
 
-    const normalizedEffect = normalizeEffectRow(effectRows[0]);
+    let normalizedEffect;
+    if (effectRows.length) {
+      normalizedEffect = normalizeEffectRow(effectRows[0]);
+    } else {
+      const synthetic = buildSyntheticMedicineEffectFromItemRow(itemRows[0]);
+      if (!synthetic) {
+        return res.status(400).json({ message: 'Invalid item' });
+      }
+      normalizedEffect = synthetic;
+    }
 
     // 4. Xử lý theo loại item — food tách khỏi consumable; đồ chơi có thể vẫn là consumable+category toy
     let levelUpResult = null;
     const itemRow = itemRows[0];
     if (itemRow.type === 'booster') {
-      await handleBoosterItem(petId, item_id, itemRow, normalizedEffect, quantity, userId);
+      levelUpResult = await handleBoosterItem(petId, item_id, itemRow, normalizedEffect, quantity, userId);
     } else if (itemActsAsFoodForPetUse(itemRow) || itemActsAsToyForPetUse(itemRow)) {
       levelUpResult = await handleFoodItem(petId, item_id, itemRow, normalizedEffect, quantity, userId);
     } else if (itemRow.type === 'consumable' || itemRow.type === 'medicine') {
@@ -8898,9 +8943,13 @@ app.post('/api/pets/:petId/use-item', async (req, res) => {
         [userId, item_id]);
     }
 
+    if (itemRow.type === 'booster') {
+      await refreshPetIntrinsicStats(db, petId);
+    }
+
     res.json({ 
       message: 'Item used successfully',
-      exp_gained: normalizedEffect.effect_target === 'exp' ? normalizedEffect.value_min * quantity : 0,
+      exp_gained: levelUpResult ? levelUpResult.exp_gained : (normalizedEffect.effect_target === 'exp' ? normalizedEffect.value_min * quantity : 0),
       level_up: levelUpResult ? levelUpResult.level_up : false,
       old_level: levelUpResult ? levelUpResult.old_level : null,
       new_level: levelUpResult ? levelUpResult.new_level : null,
@@ -8909,6 +8958,22 @@ app.post('/api/pets/:petId/use-item', async (req, res) => {
     });
   } catch (error) {
     console.error('Error using item:', error);
+    const code = error && error.code;
+    const msg = error && error.message;
+    if (msg === 'Usage limit reached') {
+      return res.status(400).json({ message: 'Usage limit reached' });
+    }
+    const boosterLimitMsgs = {
+      BOOSTER_MEAN_LIMIT:
+        'Một trong các chỉ số Tấn công / Phòng thủ / Trí tuệ / Tốc độ đã đạt giới hạn (không vượt quá 20% so với trung bình bốn chỉ số). Không thể dùng thêm vật phẩm tăng chỉ số này.',
+      BOOSTER_ABS_CAP_CORE:
+        'Chỉ số Sức mạnh / Phòng thủ / Tốc độ / Trí tuệ đã đạt giới hạn theo đẳng cấp thú cưng. Không thể dùng thêm.',
+      BOOSTER_ABS_CAP_HP: 'Sinh mệnh đã đạt giới hạn theo đẳng cấp thú cưng. Không thể dùng thêm.',
+      BOOSTER_ABS_CAP_MP: 'Năng lượng đã đạt giới hạn theo đẳng cấp thú cưng. Không thể dùng thêm.',
+    };
+    if (code && boosterLimitMsgs[code]) {
+      return res.status(400).json({ message: boosterLimitMsgs[code] });
+    }
     res.status(500).json({ message: 'Error using item' });
   }
 });
@@ -8927,26 +8992,25 @@ async function handleConsumableItem(petId, itemId, itemRow, effect, quantity, us
     const petHp = petHpRows[0] || { max_hp: 1 };
     const maxHp = Number(petHp.max_hp) || 1;
     const recoverHp =
-      effect.effect_type === 'percent'
-        ? resolveEffectPercentOfMax(effect, quantity, maxHp)
+      normalizeEffectType(effect.effect_type) === 'percent'
+        ? resolveMedicineHpMpPercentRecovery(effect, quantity, maxHp, itemRow)
         : resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
     await pool.promise().query(
-      `UPDATE pets
-       SET current_hp = LEAST(max_hp, GREATEST(0, COALESCE(current_hp, hp, 0) + ?)),
-           hp = LEAST(max_hp, GREATEST(0, COALESCE(current_hp, hp, 0) + ?))
-       WHERE id = ?`,
-      [recoverHp, recoverHp, petId]
+      `UPDATE pets SET current_hp = LEAST(COALESCE(max_hp, hp, 0), GREATEST(0, COALESCE(current_hp, hp, 0) + ?)) WHERE id = ?`,
+      [recoverHp, petId]
     );
     return null;
   } else if (normalizedTarget === 'mp') {
-    const [petMpRows] = await pool.promise().query('SELECT max_mp FROM pets WHERE id = ? LIMIT 1', [petId]);
+    const [petMpRows] = await pool.promise().query('SELECT max_mp, mp FROM pets WHERE id = ? LIMIT 1', [petId]);
     const maxMp = Number(petMpRows[0]?.max_mp) || 1;
     const recoverMp =
-      effect.effect_type === 'percent'
-        ? resolveEffectPercentOfMax(effect, quantity, maxMp)
+      normalizeEffectType(effect.effect_type) === 'percent'
+        ? resolveMedicineHpMpPercentRecovery(effect, quantity, maxMp, itemRow)
         : resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
-    await pool.promise().query('UPDATE pets SET mp = LEAST(max_mp, GREATEST(0, mp + ?)) WHERE id = ?',
-      [recoverMp, petId]);
+    await pool.promise().query(
+      'UPDATE pets SET mp = LEAST(COALESCE(max_mp, mp, 0), GREATEST(0, COALESCE(mp, 0) + ?)) WHERE id = ?',
+      [recoverMp, petId]
+    );
     return null;
   } else if (normalizedTarget === 'hunger') {
     const hungerAdd =
@@ -8983,61 +9047,72 @@ async function handleConsumableItem(petId, itemId, itemRow, effect, quantity, us
       await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
         [effect.value_min, petId]);
     }
+    await refreshPetIntrinsicStats(db, petId);
     return null;
   }
   return null;
 }
 
+/**
+ * Giới hạn dùng cho pet (vd. tiến hóa). null / không hợp lệ = không giới hạn — chỉ bị giới hạn bởi số lượng túi đồ.
+ * Lưu ý: so sánh `used_count >= null` trong JS coi null như 0 → lỗi chặn sai từ lần 2 nếu max_usage NULL trong DB.
+ */
+function resolveEffectMaxUsageCap(effect) {
+  const raw = effect?.max_usage;
+  if (raw === null || raw === undefined || raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.floor(n);
+}
+
 async function handleBoosterItem(petId, itemId, itemRow, effect, quantity, userId) {
-  // Kiểm tra usage limit
+  const normalizedTarget = normalizeEffectTarget(effect.effect_target);
+  const qty = Math.max(1, Number(quantity) || 1);
+  const usageCap = resolveEffectMaxUsageCap(effect);
+
   const [usage] = await pool.promise().query('SELECT * FROM pet_item_usage WHERE pet_id = ? AND item_id = ?', [petId, itemId]);
-  
+
   if (!usage.length) {
-    // Tạo record mới
-    await pool.promise().query('INSERT INTO pet_item_usage (pet_id, item_id, used_count, max_usage) VALUES (?, ?, 1, ?)', 
-      [petId, itemId, effect.max_usage]);
+    await pool.promise().query(
+      'INSERT INTO pet_item_usage (pet_id, item_id, used_count, max_usage) VALUES (?, ?, ?, ?)',
+      [petId, itemId, qty, usageCap]
+    );
   } else {
-    if (usage[0].used_count >= usage[0].max_usage) {
+    const cap = resolveEffectMaxUsageCap({ max_usage: usage[0].max_usage });
+    const prev = Number(usage[0].used_count) || 0;
+    if (cap != null && prev + qty > cap) {
       throw new Error('Usage limit reached');
     }
-    // Cập nhật usage count
-    await pool.promise().query('UPDATE pet_item_usage SET used_count = used_count + 1, last_used = NOW() WHERE id = ?', 
-      [usage[0].id]);
+    await pool.promise().query(
+      'UPDATE pet_item_usage SET used_count = used_count + ?, last_used = NOW() WHERE id = ?',
+      [qty, usage[0].id]
+    );
   }
 
-  // Tăng stat vĩnh viễn
-  const statField = normalizeEffectTarget(effect.effect_target);
-  if (!effect.is_permanent) return;
-  if (statField === 'exp') {
-    await handleExpGainWithLevelUp(petId, resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true }));
+  if (normalizedTarget === 'exp') {
+    const effType = normalizeEffectType(effect.effect_type);
+    if (effType === 'percent') {
+      const [expRows] = await pool.promise().query('SELECT current_exp FROM pets WHERE id = ?', [petId]);
+      const cur = Number(expRows[0]?.current_exp) || 0;
+      const expGain = resolveExpBoostPercentOfCurrent(effect, qty, cur, itemRow);
+      return await handleExpGainWithLevelUp(petId, expGain);
+    }
+    return await handleExpGainWithLevelUp(petId, resolveEffectAmount(effect, qty, itemRow, { scaleByMagic: true }));
+  }
+
+  if (!effect.is_permanent) return null;
+
+  if (effect.effect_type === 'percent' && ['hp', 'mp', 'str', 'def', 'spd', 'intelligence'].includes(normalizedTarget)) {
+    const magic = resolveEffectMagicValue(effect, itemRow);
+    await applyBoosterCompoundPercent(db, petId, normalizedTarget, magic, qty);
     return;
   }
-  if (statField === 'hp') {
-    const boostHp =
-      effect.effect_type === 'percent'
-        ? resolveTierPointsFromPercentEffect(effect, quantity)
-        : resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
-    await pool.promise().query('UPDATE pets SET hp_added = hp_added + ? WHERE id = ?', [boostHp, petId]);
-    return;
+
+  if (['hp', 'mp', 'str', 'def', 'spd', 'intelligence'].includes(normalizedTarget) && effect.effect_type === 'flat') {
+    const flatAmt = resolveEffectAmount(effect, qty, itemRow, { scaleByMagic: true });
+    await applyBoosterFlat(db, petId, normalizedTarget, flatAmt);
   }
-  if (statField === 'mp') {
-    const boostMp =
-      effect.effect_type === 'percent'
-        ? resolveTierPointsFromPercentEffect(effect, quantity)
-        : resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
-    await pool.promise().query('UPDATE pets SET mp_added = mp_added + ? WHERE id = ?', [boostMp, petId]);
-    return;
-  }
-  if (!['str', 'def', 'spd', 'intelligence'].includes(statField)) return;
-  if (effect.effect_type === 'percent') {
-    const pts = resolveTierPointsFromPercentEffect(effect, quantity);
-    await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
-      [pts, petId]);
-  } else if (effect.effect_type === 'flat') {
-    const add = resolveEffectAmount(effect, quantity, itemRow, { scaleByMagic: true });
-    await pool.promise().query(`UPDATE pets SET ${statField}_added = ${statField}_added + ? WHERE id = ?`, 
-      [add, petId]);
-  }
+  return null;
 }
 
 async function handleFoodItem(petId, itemId, itemRow, effect, quantity, userId) {
@@ -9046,13 +9121,21 @@ async function handleFoodItem(petId, itemId, itemRow, effect, quantity, userId) 
   const magic = resolveEffectMagicValue(effect, itemRow);
   const tierMul = Math.max(1, Number(effect.value_min) || 1);
 
-  // Thức ăn + hunger: Tình trạng (0–9) — độ hồi phục chủ yếu theo chỉ số ma thuật
+  // Thức ăn + hunger: Tình trạng (0–9) — percent / flat / mặc định theo ma thuật × value_min (tier)
   if (itemActsAsFoodForPetUse(itemRow) && normalizedTarget === 'hunger') {
-    const perUse = petVitals.hungerRecoveryStepsFromMagic(magic);
-    const gain = Math.min(
-      petVitals.HUNGER_MAX,
-      Math.floor(perUse * tierMul * qty)
-    );
+    let gain;
+    if (effect.effect_type === 'percent') {
+      gain = resolveVitalsStepsFromPercent(effect, qty, itemRow, petVitals.HUNGER_MAX);
+    } else if (effect.effect_type === 'flat') {
+      const raw = resolveEffectAmount(effect, qty, itemRow, { scaleByMagic: true });
+      gain = Math.min(petVitals.HUNGER_MAX * qty, Math.max(0, Math.floor(raw)));
+    } else {
+      const perUse = petVitals.hungerRecoveryStepsFromMagic(magic);
+      gain = Math.min(
+        petVitals.HUNGER_MAX,
+        Math.floor(perUse * tierMul * qty)
+      );
+    }
     await pool.promise().query(
       `UPDATE pets SET hunger_status = LEAST(?, GREATEST(0, COALESCE(hunger_status, 0) + ?)),
          hunger_battles = 0, hunger_vitals_at = NOW() WHERE id = ?`,
@@ -9061,13 +9144,21 @@ async function handleFoodItem(petId, itemId, itemRow, effect, quantity, userId) 
     return null;
   }
 
-  // Đồ chơi + mood: Tâm trạng (0–4) — theo ma thuật (happiness alias → mood); type toy riêng
+  // Đồ chơi + mood: Tâm trạng (0–4) — percent / flat / mặc định theo ma thuật (tương tự food)
   if (itemActsAsToyForPetUse(itemRow) && normalizedTarget === 'mood') {
-    const perUse = petVitals.moodRecoveryStepsFromMagic(magic);
-    const gain = Math.min(
-      petVitals.MOOD_MAX,
-      Math.floor(perUse * tierMul * qty)
-    );
+    let gain;
+    if (effect.effect_type === 'percent') {
+      gain = resolveVitalsStepsFromPercent(effect, qty, itemRow, petVitals.MOOD_MAX);
+    } else if (effect.effect_type === 'flat') {
+      const raw = resolveEffectAmount(effect, qty, itemRow, { scaleByMagic: true });
+      gain = Math.min(petVitals.MOOD_MAX * qty, Math.max(0, Math.floor(raw)));
+    } else {
+      const perUse = petVitals.moodRecoveryStepsFromMagic(magic);
+      gain = Math.min(
+        petVitals.MOOD_MAX,
+        Math.floor(perUse * tierMul * qty)
+      );
+    }
     await pool.promise().query(
       `UPDATE pets SET mood = LEAST(?, GREATEST(0, COALESCE(mood, 2) + ?)),
          mood_vitals_at = NOW() WHERE id = ?`,
@@ -9080,31 +9171,30 @@ async function handleFoodItem(petId, itemId, itemRow, effect, quantity, userId) 
     return await handleExpGainWithLevelUp(petId, effect.value_min * qty);
   } else if (normalizedTarget === 'hp') {
     const [petHpRows] = await pool.promise().query(
-      'SELECT max_hp FROM pets WHERE id = ? LIMIT 1',
+      'SELECT max_hp, current_hp, hp FROM pets WHERE id = ? LIMIT 1',
       [petId]
     );
     const maxHp = Number(petHpRows[0]?.max_hp) || 1;
     const recoverHp =
-      effect.effect_type === 'percent'
-        ? resolveEffectPercentOfMax(effect, qty, maxHp)
+      normalizeEffectType(effect.effect_type) === 'percent'
+        ? resolveMedicineHpMpPercentRecovery(effect, qty, maxHp, itemRow)
         : resolveEffectAmount(effect, qty, itemRow, { scaleByMagic: true });
     await pool.promise().query(
-      `UPDATE pets
-       SET current_hp = LEAST(max_hp, GREATEST(0, COALESCE(current_hp, hp, 0) + ?)),
-           hp = LEAST(max_hp, GREATEST(0, COALESCE(current_hp, hp, 0) + ?))
-       WHERE id = ?`,
-      [recoverHp, recoverHp, petId]
+      `UPDATE pets SET current_hp = LEAST(COALESCE(max_hp, hp, 0), GREATEST(0, COALESCE(current_hp, hp, 0) + ?)) WHERE id = ?`,
+      [recoverHp, petId]
     );
     return null;
   } else if (normalizedTarget === 'mp') {
-    const [petMpRows] = await pool.promise().query('SELECT max_mp FROM pets WHERE id = ? LIMIT 1', [petId]);
+    const [petMpRows] = await pool.promise().query('SELECT max_mp, mp FROM pets WHERE id = ? LIMIT 1', [petId]);
     const maxMp = Number(petMpRows[0]?.max_mp) || 1;
     const recoverMp =
-      effect.effect_type === 'percent'
-        ? resolveEffectPercentOfMax(effect, qty, maxMp)
+      normalizeEffectType(effect.effect_type) === 'percent'
+        ? resolveMedicineHpMpPercentRecovery(effect, qty, maxMp, itemRow)
         : resolveEffectAmount(effect, qty, itemRow, { scaleByMagic: true });
-    await pool.promise().query('UPDATE pets SET mp = LEAST(max_mp, GREATEST(0, mp + ?)) WHERE id = ?',
-      [recoverMp, petId]);
+    await pool.promise().query(
+      'UPDATE pets SET mp = LEAST(COALESCE(max_mp, mp, 0), GREATEST(0, COALESCE(mp, 0) + ?)) WHERE id = ?',
+      [recoverMp, petId]
+    );
     return null;
   } else if (normalizedTarget === 'hunger') {
     const recoverHunger =
@@ -9163,66 +9253,16 @@ async function handleExpGainWithLevelUp(petId, expGain) {
       newLevel++;
     }
 
-    // Recalculate stats nếu level up
+    // Recalculate stats nếu level up — gộp IV formula + booster_stats + *_added
     let updatedStats = null;
     if (newLevel > pet.level) {
-      // Lấy base stats từ pet_species
-      const [speciesRows] = await pool.promise().query(
-        'SELECT base_hp, base_mp, base_str, base_def, base_intelligence, base_spd FROM pet_species WHERE id = ?',
-        [pet.pet_species_id]
-      );
-      
-      if (speciesRows.length > 0) {
-        const species = speciesRows[0];
-        const base = {
-          hp: parseInt(species.base_hp),
-          mp: parseInt(species.base_mp),
-          str: parseInt(species.base_str),
-          def: parseInt(species.base_def),
-          intelligence: parseInt(species.base_intelligence),
-          spd: parseInt(species.base_spd),
-        };
-        
-        const iv = {
-          iv_hp: pet.iv_hp,
-          iv_mp: pet.iv_mp,
-          iv_str: pet.iv_str,
-          iv_def: pet.iv_def,
-          iv_intelligence: pet.iv_intelligence,
-          iv_spd: pet.iv_spd,
-        };
-        
-        updatedStats = calculateFinalStats(base, iv, newLevel);
-      }
-    }
-
-    // Update database với stats mới nếu level up
-    if (updatedStats) {
       await pool.promise().query(
-        `UPDATE pets SET 
-          current_exp = ?, 
-          level = ?, 
-          hp = ?, 
-          max_hp = ?, 
-          mp = ?, 
-          max_mp = ?, 
-          str = ?, 
-          def = ?, 
-          intelligence = ?, 
-          spd = ?, 
-          final_stats = ? 
-        WHERE id = ?`,
-        [
-          newExp, newLevel,
-          updatedStats.hp, updatedStats.hp,
-          updatedStats.mp, updatedStats.mp,
-          updatedStats.str, updatedStats.def, updatedStats.intelligence, updatedStats.spd,
-          JSON.stringify(updatedStats),
-          petId
-        ]
+        'UPDATE pets SET current_exp = ?, level = ? WHERE id = ?',
+        [newExp, newLevel, petId]
       );
+      const refreshed = await refreshPetIntrinsicStats(db, petId);
+      updatedStats = refreshed ? refreshed.merged : null;
     } else {
-      // Chỉ update exp nếu không level up
       await pool.promise().query(
         'UPDATE pets SET current_exp = ? WHERE id = ?',
         [newExp, petId]

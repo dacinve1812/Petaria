@@ -281,7 +281,7 @@ const sampleItems = [
     price_currency: 'peta',
     magic_value: 1,
     consume_policy: 'single_use',
-    effects: [{ effect_target: 'happiness', effect_type: 'flat', value_min: 1, value_max: 1, is_permanent: 0, duration_turns: 0 }],
+    effects: [{ effect_target: 'mood', effect_type: 'flat', value_min: 1, value_max: 1, is_permanent: 0, duration_turns: 0 }],
   },
   {
     item_code: 12002,

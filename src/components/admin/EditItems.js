@@ -25,6 +25,13 @@ function rarityTableLabel(value) {
   return v === 'legendary' ? 'Legend' : v;
 }
 
+/** Link sang Effects / Equipment: lọc theo item_id + gợi ý ô tìm (chỉ tên). */
+function itemAdminDeepLink(basePath, item) {
+  const name = String(item.name || '').trim();
+  const q = name || String(item.id);
+  return `${basePath}?${new URLSearchParams({ item_id: String(item.id), q }).toString()}`;
+}
+
 function EditItems() {
   const navigate = useNavigate();
   const { user, isLoading } = useUser();
@@ -325,9 +332,9 @@ function EditItems() {
                   <td>
                     <div className="cell-actions">
                       {item.type === 'equipment' ? (
-                        <Link className="btn-edit" to={`/admin/edit-equipment-stats?item_id=${item.id}`}>Equipment</Link>
+                        <Link className="btn-edit" to={itemAdminDeepLink('/admin/edit-equipment-stats', item)}>Equipment</Link>
                       ) : item.type === 'evolve' ? null : (
-                        <Link className="btn-edit" to={`/admin/edit-item-effects?item_id=${item.id}`}>Effects</Link>
+                        <Link className="btn-edit" to={itemAdminDeepLink('/admin/edit-item-effects', item)}>Effects</Link>
                       )}
                     </div>
                   </td>

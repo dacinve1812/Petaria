@@ -17,6 +17,20 @@ function formatItemNameWithCode(item) {
   return `${item.name} (${code})`;
 }
 
+/** Alias cũ trong DB → hiển thị `mood` (một giá trị duy nhất trong admin). */
+function canonicalEffectTargetDisplay(raw) {
+  const k = String(raw ?? '').trim().toLowerCase();
+  if (['happiness', 'tam_trang', 'wellbeing'].includes(k)) return 'mood';
+  const s = String(raw ?? '').trim();
+  return s || '—';
+}
+
+function effectTargetForSelect(raw) {
+  const k = String(raw ?? '').trim().toLowerCase();
+  if (['happiness', 'tam_trang', 'wellbeing'].includes(k)) return 'mood';
+  return raw != null && String(raw).trim() !== '' ? String(raw).trim() : 'hp';
+}
+
 /** Item được phép có item_effects (khớp script sync / gameplay). */
 function itemAllowsItemEffects(item) {
   if (!item) return false;
@@ -58,7 +72,27 @@ function EditItemEffects() {
     if (user?.token && user?.isAdmin) loadAll();
   }, [user?.token, user?.isAdmin]);
 
-  const selectedItemId = useMemo(() => new URLSearchParams(location.search).get('item_id'), [location.search]);
+  const urlParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const selectedItemId = urlParams.get('item_id');
+  const filterItemId = useMemo(() => {
+    const n = Number(selectedItemId);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [selectedItemId]);
+
+  /** Từ URL: q = ô tìm; nếu chỉ có item_id thì sau khi có danh sách items sẽ điền tên. */
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const qRaw = params.get('q');
+    const itemIdParam = params.get('item_id');
+    if (qRaw != null && String(qRaw).trim() !== '') {
+      setSearchTerm(qRaw);
+      return;
+    }
+    if (itemIdParam && items.length > 0) {
+      const it = items.find((x) => String(x.id) === String(itemIdParam));
+      if (it) setSearchTerm(String(it.name || '').trim());
+    }
+  }, [location.search, items]);
 
   const showMsg = (msg, type = 'success') => {
     setMessage(msg);
@@ -162,7 +196,11 @@ function EditItemEffects() {
   const itemsForEffectDropdown = useMemo(() => (items || []).filter(itemAllowsItemEffects), [items]);
 
   const displayRows = useMemo(() => {
-    const base = rows.filter((r) => !isNoiseEffectRow(r, itemsById));
+    let base = rows.filter((r) => !isNoiseEffectRow(r, itemsById));
+    const applyItemIdFromUrl = filterItemId != null && searchTerm.trim() !== '';
+    if (applyItemIdFromUrl) {
+      base = base.filter((r) => Number(r.item_id) === filterItemId);
+    }
     const q = searchTerm.trim().toLowerCase();
     const filtered = q
       ? base.filter((r) => {
@@ -187,7 +225,7 @@ function EditItemEffects() {
       return sortConfig.direction === 'asc' ? cmp : -cmp;
     });
     return sorted;
-  }, [rows, itemsById, searchTerm, sortConfig]);
+  }, [rows, itemsById, searchTerm, sortConfig, filterItemId]);
 
   if (isLoading) return <div className="admin-npc-boss"><div className="loading">Đang tải...</div></div>;
   if (!user || !user.isAdmin) return <div className="admin-npc-boss"><div className="access-denied"><h2>Access Denied</h2></div></div>;
@@ -211,7 +249,6 @@ function EditItemEffects() {
         <h3>Bảng item_effects</h3>
         <div className="section-actions">
           <button className="btn btn-primary" onClick={() => setModal({ mode: 'add', row: { item_id: selectedItemId || '' } })}>Thêm</button>
-          <button className="btn btn-secondary" type="button" onClick={() => loadAll()}>Làm mới</button>
           <button className="btn btn-secondary" onClick={downloadCSV}>Tải CSV</button>
           <label className="btn btn-secondary" style={{ margin: 0 }}>
             Upload CSV
@@ -259,7 +296,7 @@ function EditItemEffects() {
                     <td title={item ? `item_id=${item.id}` : `item_id=${r.item_id}`}>
                       {item ? formatItemNameWithCode(item) : `⚠ orphan item_id=${r.item_id}`}
                     </td>
-                    <td>{r.effect_target}</td>
+                    <td>{canonicalEffectTargetDisplay(r.effect_target)}</td>
                     <td>{r.effect_type}</td>
                     <td>{r.value_min}</td>
                     <td>{r.value_max}</td>
@@ -287,6 +324,7 @@ function EditItemEffects() {
 
       {modal && (
         <ItemEffectModal
+          key={`ie-${modal.row.id ?? 'new'}-${modal.row.item_id}`}
           items={itemsForEffectDropdown}
           modal={modal}
           onClose={() => setModal(null)}
@@ -305,7 +343,7 @@ function ItemEffectModal({ items, modal, onClose, onSave, allItemsById }) {
     || (allItemsById && allItemsById.get(Number(row.item_id)));
   const [form, setForm] = useState({
     item_id: row.item_id ?? '',
-    effect_target: row.effect_target ?? 'hp',
+    effect_target: effectTargetForSelect(row.effect_target),
     effect_type: row.effect_type ?? 'flat',
     value_min: row.value_min ?? 0,
     value_max: row.value_max ?? 0,
@@ -352,8 +390,7 @@ function ItemEffectModal({ items, modal, onClose, onSave, allItemsById }) {
               <option value="intelligence">intelligence</option>
               <option value="exp">exp</option>
               <option value="hunger">hunger</option>
-              <option value="mood">mood (tâm trạng / đồ chơi)</option>
-              <option value="happiness">happiness (alias → mood)</option>
+              <option value="mood">mood (tâm trạng, đồ chơi)</option>
               <option value="status">status</option>
             </select>
           </div>

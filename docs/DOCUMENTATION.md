@@ -33,6 +33,7 @@ petaria/
 - **500+ pet species** với độ hiếm khác nhau
 - **IV System**: Individual Values (0-31) cho mỗi stat
 - **Level System**: 1-100 levels với EXP requirements
+- **Booster vĩnh viễn** (`booster_stats`, item stat_boost / EXP): xem chi tiết `docs/PET_BOOSTER_SYSTEM.md` (mục **6** — giới hạn cân bằng theo level + trung bình bốn chỉ số).
 - **Evolution System**: 3-stage evolution (planned)
 
 #### Pet Stats Formula
@@ -151,7 +152,7 @@ Khi người chơi bấm Battle, backend xử lý:
 **3. Trong trận — Xử lý lượt (chỉ Redis)**  
 - Mỗi hành động (tấn công vũ khí, tấn công thường, phòng thủ khiên, phòng thủ vật lý) gọi **POST /api/arena/match/turn** với `action` + tham số (itemId, power_min, power_max, moveName).
 - Server đọc state từ Redis → chạy lượt Pet (battleEngine) → chạy lượt Boss (getBossAction + simulateBossTurn) → cập nhật HP, history, equipment (durability trong DB khi dùng item).
-- Nếu chưa kết thúc: ghi lại state vào Redis và trả về. Nếu đã kết thúc (HP ≤ 0): gọi **finalizeMatchInMySQL** (cập nhật HP pet, win/lose), xóa key Redis, trả `finished` + `result` ('win' | 'lose').
+- Nếu chưa kết thúc: ghi lại state vào Redis và trả về. Nếu đã kết thúc (HP ≤ 0): gọi **finalizeMatchInMySQL** (cập nhật HP pet, **cộng `battles_won` hoặc `battles_lost`** trên `pets`), xóa key Redis, trả `finished` + `result` ('win' | 'lose').
 
 **4. Reconnect & Mất mạng**  
 - Khi user login lại hoặc mở lại trang Arena Battle (không có state từ start): frontend gọi **GET /api/arena/match/status** (Authorization: Bearer token).
@@ -165,8 +166,9 @@ Khi người chơi bấm Battle, backend xử lý:
 
 **6. Kết thúc trận (Post-Battle)**  
 - Chỉ tại thời điểm này mới thao tác nặng với MySQL:
-  - **Thắng**: `finalizeMatchInMySQL` cập nhật HP pet (current_hp sau trận); frontend gọi `gain-exp` và `claim-loot` như hiện tại.
-  - **Thua**: set `current_hp = 0` cho pet trong DB.
+  - **Thắng**: `finalizeMatchInMySQL` cập nhật HP pet (current_hp sau trận), **`battles_won += 1`**; frontend gọi `gain-exp` và `claim-loot` như hiện tại.
+  - **Thua** (hết HP trong trận): **`battles_lost += 1`**, **`current_hp = 0`** trong DB.
+  - **Rời trận** (`POST /api/arena/match/terminate`): **`battles_lost += 1`**, lưu **`current_hp`** = HP còn trong state (pet không nhất thiết về 0).
 - Sau khi finalize: xóa key `match:user_id` trên Redis.
 
 **6b. Key Redis hết hạn (TTL) mà không qua kết thúc / terminate**  

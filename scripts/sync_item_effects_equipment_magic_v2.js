@@ -32,6 +32,9 @@ const EFFECT_TARGET_ALIASES = {
   attack: 'str',
   int: 'intelligence',
   energy: 'mp',
+  happiness: 'mood',
+  tam_trang: 'mood',
+  wellbeing: 'mood',
 };
 
 function mapEffectTarget(value) {
@@ -168,6 +171,12 @@ async function ensureBoosterItemEffects(conn) {
 }
 
 async function syncItemEffectsAndEquipmentFromItems(conn) {
+  console.log('> [sync] Canonicalizing effect_target mood aliases (happiness / tam_trang / wellbeing → mood)...');
+  const [moodCanon] = await conn.query(
+    `UPDATE item_effects SET effect_target = 'mood' WHERE LOWER(TRIM(effect_target)) IN ('happiness','tam_trang','wellbeing')`
+  );
+  console.log(`> [sync] item_effects rows updated: ${moodCanon.affectedRows ?? 0}`);
+
   console.log('> [sync] Removing item_effects / equipment_data rows without matching items...');
   await conn.query(`DELETE FROM item_effects WHERE item_id NOT IN (SELECT id FROM items)`);
   await conn.query(`DELETE FROM equipment_data WHERE item_id NOT IN (SELECT id FROM items)`);

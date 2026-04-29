@@ -40,7 +40,26 @@ function EditEquipmentStats() {
     if (user?.token && user?.isAdmin) loadAll();
   }, [user?.token, user?.isAdmin]);
 
-  const selectedItemId = useMemo(() => new URLSearchParams(location.search).get('item_id'), [location.search]);
+  const urlParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const selectedItemId = urlParams.get('item_id');
+  const filterItemId = useMemo(() => {
+    const n = Number(selectedItemId);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [selectedItemId]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const qRaw = params.get('q');
+    const itemIdParam = params.get('item_id');
+    if (qRaw != null && String(qRaw).trim() !== '') {
+      setSearchTerm(qRaw);
+      return;
+    }
+    if (itemIdParam && items.length > 0) {
+      const it = items.find((x) => String(x.id) === String(itemIdParam));
+      if (it) setSearchTerm(String(it.name || '').trim());
+    }
+  }, [location.search, items]);
 
   const showMsg = (msg, type = 'success') => {
     setMessage(msg);
@@ -143,11 +162,15 @@ function EditEquipmentStats() {
   };
   const displayRows = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    const byEquipmentFilter = rows.filter((r) => {
+    const applyItemIdFromUrl = filterItemId != null && searchTerm.trim() !== '';
+    let byEquipmentFilter = rows.filter((r) => {
       if (equipmentFilter === 'booster') return r.equipment_type === 'booster';
       if (equipmentFilter === 'non-booster') return r.equipment_type !== 'booster';
       return true;
     });
+    if (applyItemIdFromUrl) {
+      byEquipmentFilter = byEquipmentFilter.filter((r) => Number(r.item_id) === filterItemId);
+    }
     const filtered = q
       ? byEquipmentFilter.filter((r) => {
           const item = items.find((i) => Number(i.id) === Number(r.item_id));
@@ -172,7 +195,7 @@ function EditEquipmentStats() {
       return sortConfig.direction === 'asc' ? cmp : -cmp;
     });
     return sorted;
-  }, [rows, items, searchTerm, sortConfig, equipmentFilter]);
+  }, [rows, items, searchTerm, sortConfig, equipmentFilter, filterItemId]);
 
   if (isLoading) return <div className="admin-npc-boss"><div className="loading">Đang tải...</div></div>;
   if (!user || !user.isAdmin) return <div className="admin-npc-boss"><div className="access-denied"><h2>Access Denied</h2></div></div>;

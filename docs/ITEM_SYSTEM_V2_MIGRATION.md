@@ -250,12 +250,14 @@ Script `migrate_item_system_v2.js` (hàm normalize) và seed đã căn theo rule
 
 **Upload:** cần `effect_target`, `effect_type` và **`item_code`** hoặc **`item_id`**.
 
+API lưu **`effect_target` đã chuẩn hoá** (ví dụ `happiness` / `tam_trang` → `mood`). Nên dùng **`mood`** trong CSV và schema; script `sync_item_effects_equipment_magic_v2.js` + migration `db/migrations/20260426_item_effects_effect_target_mood_aliases.sql` gộp alias cũ trong DB.
+
 ---
 
 ## 7) Admin UI liên quan
 
 - **Edit Items:** bảng có **bốn cột đầu** (`id`, `item_code`, ảnh, `name`) **cố định** khi scroll ngang; không hiển thị cột `stackable`, `consume_policy`, `pet_scope` trên bảng (vẫn có trong form, CSV download/upload và API). Thanh công cụ: ô **Search** và nút **Bộ lọc** (modal `TaxonomyFilterModal` — lọc multi-select theo `type`, `category`, `subtype`). Form + CSV: đủ `item_code`, `type` / `category` / `subtype`, `rarity` (4 mức chuẩn), `magic_value`, `stackable` / `max_stack`, `consume_policy`, `pet_scope`, `price_currency`, giá. Liên kết: `equipment` → Edit Equipment Stats; `evolve` không link; còn lại → Edit Item Effects.
-- **Edit Item Effects:** `magic_value`, target chuẩn (`str`, `intelligence`, `mp`, …).
+- **Edit Item Effects:** `magic_value`; một target **`mood`** cho tâm trạng / đồ chơi (không còn option `happiness` trùng lặp). Hàng có alias cũ trong DB hiển thị như `mood`.
 - **Edit Equipment Stats:** filter `All` / `non-booster` / `booster`; `durability_mode` + `random_break_chance` khi `unknown`.
 
 ---
