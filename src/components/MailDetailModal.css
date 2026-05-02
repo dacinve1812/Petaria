@@ -203,6 +203,58 @@
   transform: scale(1.05);
 }
 
+/* Đã nhận thưởng — làm mờ / xám toàn bộ ô đính kèm */
+.mail-detail-rewards--claimed .rewards-label {
+  color: #94a3b8;
+}
+
+.mail-detail-rewards--claimed .rewards-container {
+  background: #eceff1;
+}
+
+.mail-detail-rewards--claimed .reward-item-small {
+  opacity: 0.52;
+  filter: grayscale(0.92);
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.mail-detail-rewards--claimed .reward-icon-container {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  box-shadow: none;
+}
+
+.mail-detail-rewards--claimed .reward-item-label {
+  color: #94a3b8;
+}
+
+.mail-detail-rewards--claimed .reward-quantity-badge {
+  background: rgba(100, 116, 139, 0.85);
+  border-color: #e2e8f0;
+}
+
+.mail-detail-rewards--claimed .reward-item-small.clickable {
+  cursor: pointer;
+}
+
+.mail-detail-rewards--claimed .reward-item-small.clickable:hover {
+  transform: none;
+}
+
+.reward-item-label {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #475569;
+  text-align: center;
+  max-width: 88px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .reward-icon-container {
   position: relative;
   width: 50px;
@@ -273,13 +325,14 @@
 
 .mail-detail-btn {
   flex: 1;
-  padding: 12px 20px;
-  border: none;
-  border-radius: 8px;
+  padding: 14px 22px;
+  border-radius: 10px !important;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--font-md) !important;
+  line-height: 1.25;
   cursor: pointer;
   transition: all 0.2s;
+  min-height: 48px;
 }
 
 /* When only close button is present, make it full width */
@@ -288,17 +341,22 @@
 }
 
 .close-btn {
-  background: #95a5a6;
-  color: white;
+  background: #ffffff;
+  color: #2c3e50;
+  border: 2px solid #cbd5e0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .close-btn:hover {
-  background: #7f8c8d;
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #1e293b;
 }
 
 .claim-btn {
   background: #27ae60;
   color: white;
+  border: 2px solid transparent;
 }
 
 .claim-btn:hover:not(:disabled) {
@@ -461,11 +519,12 @@
 
   .mail-detail-actions {
     padding: 16px 20px;
-    flex-direction: column;
   }
 
   .mail-detail-btn {
     padding: 14px 20px;
+    font-size: 16px;
+    min-height: 48px;
   }
 
   .reward-icon-container {

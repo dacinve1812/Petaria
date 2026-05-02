@@ -24,3 +24,6 @@ backend/node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Auction admin logs (JSONL theo ngày)
+backend/logs/auction/

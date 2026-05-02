@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
-import GlobalBanner from '../GlobalBanner';
+import { dispatchCurrencyUpdate } from '../../utils/currencyEvents';
+import { getAuctionDisplay } from '../../utils/auctionDisplay';
 import './AuctionDetail.css';
 
 const AuctionDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useUser();
+  const { user, updateUserData } = useUser();
   const [auction, setAuction] = useState(null);
   const [bids, setBids] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -92,9 +93,10 @@ const AuctionDetail = () => {
     }
   };
 
-  const fetchUserCurrency = async () => {
+  const fetchUserCurrency = async (opts = {}) => {
+    const { syncCtx = false, notifySidebar = false } = opts;
     if (!user) return;
-    
+
     try {
       const response = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000'}/api/user/profile`, {
         headers: {
@@ -105,10 +107,11 @@ const AuctionDetail = () => {
 
       if (response.ok) {
         const userProfile = await response.json();
-        setUserCurrency({
-          peta: userProfile.peta || 0,
-          petagold: userProfile.petagold || 0
-        });
+        const peta = Math.floor(Number(userProfile.peta ?? 0));
+        const petagold = Math.floor(Number(userProfile.petagold ?? 0));
+        setUserCurrency({ peta, petagold });
+        if (syncCtx) updateUserData({ peta, petagold });
+        if (notifySidebar) dispatchCurrencyUpdate();
       }
     } catch (error) {
       console.error('Error fetching user currency:', error);
@@ -130,21 +133,22 @@ const AuctionDetail = () => {
       return;
     }
 
-    const bidAmountNum = parseInt(bidAmount);
+    const bidAmountNum = parseInt(bidAmount, 10);
     const currentBid = parseFloat(auction.current_bid);
     const minIncrement = parseFloat(auction.min_increment);
     const minimumBid = Math.ceil(currentBid + minIncrement);
+    const bidCur = String(auction.bid_currency || 'peta').toLowerCase() === 'petagold' ? 'petagold' : 'peta';
+    const balance = Math.floor(bidCur === 'petagold' ? userCurrency.petagold : userCurrency.peta);
 
     // Validate bid amount
     if (bidAmountNum < minimumBid) {
-      setMessage(`Minimum bid is ${minimumBid} peta (current bid + minimum increment)`);
+      setMessage(`Minimum bid is ${minimumBid} ${bidCur} (current bid + minimum increment)`);
       setMessageType('error');
       return;
     }
 
-    // Check if user has enough currency (auctions use peta only)
-    if (bidAmountNum > userCurrency.peta) {
-      setMessage(`Insufficient funds. You have ${userCurrency.peta.toLocaleString()} peta`);
+    if (bidAmountNum > balance) {
+      setMessage(`Insufficient funds. You have ${balance.toLocaleString()} ${bidCur}`);
       setMessageType('error');
       return;
     }
@@ -164,7 +168,8 @@ const AuctionDetail = () => {
       if (response.ok) {
         setMessage('Bid placed successfully! Redirecting to auction list...');
         setMessageType('success');
-        
+        await fetchUserCurrency({ syncCtx: true, notifySidebar: true });
+
         // Redirect to auction list after successful bid
         setTimeout(() => {
           navigate('/auction');
@@ -193,7 +198,8 @@ const AuctionDetail = () => {
       return;
     }
 
-    if (window.confirm(`Are you sure you want to buy this item for ${Math.floor(auction.buy_now_price)} peta?`)) {
+    const bidCur = String(auction.bid_currency || 'peta').toLowerCase() === 'petagold' ? 'petagold' : 'peta';
+    if (window.confirm(`Are you sure you want to buy this item for ${Math.floor(auction.buy_now_price)} ${bidCur}?`)) {
       try {
         const response = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000'}/api/auctions/${id}/buy-now`, {
           method: 'POST',
@@ -208,7 +214,8 @@ const AuctionDetail = () => {
         if (response.ok) {
           setMessage('Item purchased successfully! Redirecting to auction list...');
           setMessageType('success');
-          
+          await fetchUserCurrency({ syncCtx: true, notifySidebar: true });
+
           // Redirect to auction list after successful purchase
           setTimeout(() => {
             navigate('/auction');
@@ -244,23 +251,13 @@ const AuctionDetail = () => {
   const isEnded = timeLeft === 'Ended';
   const isOwner = user && user.userId === auction.seller_id;
   const canBid = user && !isOwner && !isEnded && auction.status === 'active';
+  const bidCur = String(auction.bid_currency || 'peta').toLowerCase() === 'petagold' ? 'petagold' : 'peta';
+  const minBidDisplay = Math.ceil(parseFloat(auction.current_bid) + parseFloat(auction.min_increment));
+  const display = getAuctionDisplay(auction);
+  const assetType = auction.asset_type || 'item';
 
   return (
     <>
-    <div>
-      {/* Global Banner */}
-      <GlobalBanner
-        backgroundImage="/images/background/banner-1.jpeg"
-        title="Auction Details"
-        subtitle="Bid on items or buy now"
-        showBackButton={true}
-        onBackClick={() => navigate('/auction')}
-        className="small"
-        overlay={true}
-      />
-
-      {/* Navigation Menu */}
-
       <div className="auction-detail-container">
         <div className="auction-detail-header">
           <button onClick={() => navigate('/auction')} className="auction-back-btn">
@@ -285,6 +282,16 @@ const AuctionDetail = () => {
                 {Math.floor(userCurrency.peta).toLocaleString()} peta
               </span>
             </div>
+            <div className="auction-detail-currency-item">
+              <span className="auction-detail-currency-label">Your PetaGold:</span>
+              <span className="auction-detail-currency-amount auction-detail-currency-gold">
+                {Math.floor(userCurrency.petagold).toLocaleString()} petagold
+              </span>
+            </div>
+            <div className="auction-detail-currency-item auction-detail-bid-currency-hint">
+              <span className="auction-detail-currency-label">Bidding currency:</span>
+              <span className="auction-detail-currency-amount">{bidCur}</span>
+            </div>
           </div>
         </div>
       )}
@@ -293,9 +300,9 @@ const AuctionDetail = () => {
         <div className="auction-detail-main">
           <div className="auction-item-section">
             <div className="auction-item-image-large">
-              <img 
-                src={auction.item_image ? `/images/equipments/${auction.item_image}` : '/images/default-item.png'} 
-                alt={auction.item_name}
+              <img
+                src={display.image}
+                alt={display.name}
                 className="auction-item-img-large"
                 onError={(e) => {
                   e.target.src = '/images/default-item.png';
@@ -303,11 +310,13 @@ const AuctionDetail = () => {
               />
             </div>
             <div className="auction-item-details">
-              <h2 className="auction-item-name-large">{auction.item_name}</h2>
-              <div className="auction-item-rarity-large auction-rarity-{auction.item_rarity}">
-                {auction.item_rarity} • {auction.item_type}
-              </div>
-              {auction.item_description && (
+              <h2 className="auction-item-name-large">{display.name}</h2>
+              {assetType === 'item' && auction.item_rarity && (
+                <div className={`auction-item-rarity-large auction-rarity-${auction.item_rarity}`}>
+                  {auction.item_rarity} • {auction.item_type}
+                </div>
+              )}
+              {assetType === 'item' && auction.item_description && (
                 <p className="auction-item-description">{auction.item_description}</p>
               )}
             </div>
@@ -317,7 +326,7 @@ const AuctionDetail = () => {
             <div className="auction-bid-info">
               <div className="auction-current-bid">
                 <span className="auction-bid-label">Current Bid:</span>
-                <span className="auction-bid-amount">{Math.floor(auction.current_bid)} peta</span>
+                <span className="auction-bid-amount">{Math.floor(auction.current_bid)} {bidCur}</span>
               </div>
               <div className="auction-time-left-large">
                 <span className="auction-time-label">Time Left:</span>
@@ -337,13 +346,13 @@ const AuctionDetail = () => {
               <form onSubmit={handleBid} className="auction-bid-form">
                 <div className="auction-bid-input-group">
                   <label className="auction-bid-input-label">
-                    Your Bid (Min: {Math.ceil(parseFloat(auction.current_bid) + parseFloat(auction.min_increment))} peta):
+                    Your Bid (Min: {minBidDisplay} {bidCur}):
                   </label>
                   <input
                     type="number"
                     value={bidAmount}
                     onChange={(e) => setBidAmount(e.target.value)}
-                    min={Math.ceil(parseFloat(auction.current_bid) + parseFloat(auction.min_increment))}
+                    min={minBidDisplay}
                     step="1"
                     className="auction-bid-input"
                     required
@@ -358,7 +367,7 @@ const AuctionDetail = () => {
             {auction.buy_now_price && !isOwner && !isEnded && (
               <div className="auction-buy-now-section">
                 <div className="auction-buy-now-price">
-                  Buy Now: {Math.floor(auction.buy_now_price)} peta
+                  Buy Now: {Math.floor(auction.buy_now_price)} {bidCur}
                 </div>
                 <button onClick={handleBuyNow} className="auction-buy-now-btn">
                   Buy Now
@@ -388,7 +397,7 @@ const AuctionDetail = () => {
             <div className="auction-bids-list">
               {bids.map((bid, index) => (
                 <div key={index} className="auction-bid-item">
-                  <div className="auction-bid-amount">{bid.bid_amount} peta</div>
+                  <div className="auction-bid-amount">{bid.bid_amount} {bidCur}</div>
                   <div className="auction-bid-bidder">{bid.bidder_name}</div>
                   <div className="auction-bid-time">
                     {new Date(bid.bid_time).toLocaleString()}
@@ -399,8 +408,7 @@ const AuctionDetail = () => {
           )}
         </div>
       </div>
-    </div>
-    </div>
+      </div>
     </>
   );
 };

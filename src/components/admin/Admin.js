@@ -74,22 +74,15 @@ function Admin() {
         <div className="admin-section">
           <h2>Hệ thống</h2>
           <ul>
-            <li><Link to="/admin/mail-test">Gửi Test Mail</Link></li>
+            <li><Link to="/admin/mail-test">Hệ thống Mail</Link></li>
+            <li><Link to="/admin/auction-logs">Hệ thống đấu giá — Log</Link></li>
             <li><Link to="/admin/bank-management">Hệ thống Bank</Link></li>
+            <li><Link to="/admin/titles">Hệ thống Title</Link></li>
             <li>
-              <button 
-                className="config-btn"
+              <button
+                type="button"
+                className="admin-link-as-anchor"
                 onClick={() => setIsGlobalConfigModalOpen(true)}
-                style={{
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500'
-                }}
               >
                 🔧 Global Configuration
               </button>
@@ -101,6 +94,7 @@ function Admin() {
           <h2>Quản lý Site</h2>
           <ul>
             <li><Link to="/admin/site-management">Quản lý Homepage</Link></li>
+            <li><Link to="/admin/site/auction-mail">Quản lý Thư đấu giá</Link></li>
             <li><Link to="/admin/hunting-maps">Quản lý Map săn</Link></li>
             <li><Link to="/map-tool">Map tool</Link></li>
           </ul>

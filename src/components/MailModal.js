@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './MailModal.css';
 import MailDetailModal from './MailDetailModal';
+import { mailHasClaimableRewards, normalizeSqlBool } from '../utils/mailRewardUtils';
+import { dispatchCurrencyUpdate } from '../utils/currencyEvents';
+import { dispatchMailInboxViewed, dispatchMailUnreadRefresh } from '../utils/mailEvents';
 
 const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
   const [mails, setMails] = useState([]);
@@ -70,7 +73,7 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
         // After claiming, mark all claimed mails as read
         const claimedMails = mails.filter(mail => {
           const rewards = parseRewards(mail.attached_rewards);
-          const hasRewards = rewards.peta || rewards.peta_gold || (rewards.items && rewards.items.length > 0);
+          const hasRewards = mailHasClaimableRewards(rewards);
           return hasRewards && !mail.is_read;
         });
         
@@ -92,6 +95,8 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
         // Refresh mails
         fetchMails(activeFilter);
         fetchUnclaimedCount();
+        dispatchCurrencyUpdate();
+        dispatchMailUnreadRefresh();
       } else {
         const error = await response.json();
         alert(`Lỗi: ${error.error}`);
@@ -113,10 +118,10 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
         if (!mail.is_read) return false; // Chưa đọc thì không xóa
         
         const rewards = parseRewards(mail.attached_rewards);
-        const hasRewards = rewards.peta || rewards.peta_gold || (rewards.items && rewards.items.length > 0);
+        const hasRewards = mailHasClaimableRewards(rewards);
         
         if (!hasRewards) return true; // Không có rewards thì xóa được
-        return mail.is_claimed; // Có rewards thì phải claim hết mới xóa được
+        return normalizeSqlBool(mail.is_claimed); // Có rewards thì phải claim hết mới xóa được
       });
       
       // // Debug: Log mail status
@@ -157,6 +162,7 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
       // Refresh mails
       fetchMails(activeFilter);
       fetchUnclaimedCount();
+      dispatchMailUnreadRefresh();
     } catch (error) {
       console.error('Lỗi khi xóa mail:', error);
       alert('Lỗi khi xóa mail');
@@ -221,9 +227,8 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
   const handleMailClick = async (mail) => {
     // Parse rewards to check if mail has items
     const rewards = parseRewards(mail.attached_rewards);
-    const hasItems = rewards.items && rewards.items.length > 0;
-    const hasRewards = rewards.peta || rewards.peta_gold || hasItems;
-    const isUnclaimed = hasRewards && !mail.is_claimed;
+    const hasRewards = mailHasClaimableRewards(rewards);
+    const isUnclaimed = hasRewards && !normalizeSqlBool(mail.is_claimed);
     
     // // Debug log
     // console.log('handleMailClick Debug:', {
@@ -241,7 +246,7 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
     // Mark as read if:
     // 1. Mail chưa đọc VÀ không có items, HOẶC
     // 2. Mail chưa đọc VÀ có items nhưng đã claim
-    if (!mail.is_read && (!hasItems || !isUnclaimed)) {
+    if (!mail.is_read && (!hasRewards || !isUnclaimed)) {
       try {
         // console.log('Marking mail as read...');
         const response = await fetch(`${API_BASE_URL}/api/mails/${mail.id}/read`, {
@@ -264,6 +269,7 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
           
           // Refresh mails to update UI
           fetchMails(activeFilter);
+          dispatchMailUnreadRefresh();
         } else {
           console.error('API Error:', await response.text());
         }
@@ -298,6 +304,7 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
     }
     
     fetchUnclaimedCount();
+    dispatchMailUnreadRefresh();
     if (onCurrencyUpdate) {
       onCurrencyUpdate();
     }
@@ -306,6 +313,7 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
   // Load data when modal opens
   useEffect(() => {
     if (isOpen && userId) {
+      dispatchMailInboxViewed();
       fetchMails(activeFilter);
       fetchUnclaimedCount();
     }
@@ -315,7 +323,7 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
   useEffect(() => {
     if (selectedMail && mails.length > 0) {
       const updatedMail = mails.find(mail => mail.id === selectedMail.id);
-      if (updatedMail && updatedMail.is_claimed !== selectedMail.is_claimed) {
+      if (updatedMail && normalizeSqlBool(updatedMail.is_claimed) !== normalizeSqlBool(selectedMail.is_claimed)) {
         setSelectedMail(updatedMail);
       }
     }
@@ -372,15 +380,9 @@ const MailModal = ({ isOpen, onClose, userId, onCurrencyUpdate }) => {
             ) : (
               mails.map(mail => {
                 const rewards = parseRewards(mail.attached_rewards);
-                const hasRewards = rewards.peta || rewards.peta_gold || (rewards.items && rewards.items.length > 0);
-                const hasItems = rewards.items && rewards.items.length > 0;
-                const isUnclaimed = hasRewards && !mail.is_claimed;
-                
-                // New logic for determining if mail should show as unread
-                // Mail is unread if:
-                // 1. It has items and they are unclaimed (ignore is_read), OR
-                // 2. It has no items and is marked as unread
-                const isUnread = hasItems ? !mail.is_claimed : !mail.is_read;
+                const hasRewards = mailHasClaimableRewards(rewards);
+                const isUnclaimed = hasRewards && !normalizeSqlBool(mail.is_claimed);
+                const isUnread = !mail.is_read || (hasRewards && !normalizeSqlBool(mail.is_claimed));
                 
                 // // Debug log
                 // console.log('Mail Debug:', {

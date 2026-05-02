@@ -1,0 +1,30 @@
+/* Badge cảnh báo / thư mới — dùng lại ở nav, dropdown, v.v. */
+@keyframes alert-exclamation-badge-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.alert-exclamation-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  flex-shrink: 0;
+  animation: alert-exclamation-badge-bounce 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alert-exclamation-badge {
+    animation: none;
+  }
+}
+
+.alert-exclamation-badge__svg {
+  display: block;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}

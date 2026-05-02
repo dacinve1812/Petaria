@@ -57,6 +57,29 @@
   margin: 0;
 }
 
+.profile-name-block {
+  width: 100%;
+  text-align: center;
+}
+
+.profile-name-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.profile-title-badge {
+  height: 32px;
+  width: auto;
+  max-width: 120px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
 .profile-status-badge {
   display: inline-flex;
   align-items: center;

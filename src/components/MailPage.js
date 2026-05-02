@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../UserContext';
 import TemplatePage from './template/TemplatePage';
 import MailDetailModal from './MailDetailModal';
+import { dispatchCurrencyUpdate } from '../utils/currencyEvents';
+import { dispatchMailInboxViewed, dispatchMailUnreadRefresh } from '../utils/mailEvents';
+import { mailHasClaimableRewards, normalizeSqlBool } from '../utils/mailRewardUtils';
 
 const MailPage = () => {
   const { user, isLoading } = React.useContext(UserContext);
@@ -74,10 +77,9 @@ const MailPage = () => {
         alert(`Nhận thành công! ${result.message}`);
         
         // After claiming, mark all claimed mails as read
-        const claimedMails = mails.filter(mail => {
+        const claimedMails = mails.filter((mail) => {
           const rewards = parseRewards(mail.attached_rewards);
-          const hasRewards = rewards.peta || rewards.peta_gold || (rewards.items && rewards.items.length > 0);
-          return hasRewards && !mail.is_read;
+          return mailHasClaimableRewards(rewards) && !mail.is_read;
         });
         
         // Mark each claimed mail as read
@@ -98,6 +100,8 @@ const MailPage = () => {
         // Refresh mails
         fetchMails('all');
         fetchUnclaimedCount();
+        dispatchCurrencyUpdate();
+        dispatchMailUnreadRefresh();
       } else {
         const error = await response.json();
         alert(`Lỗi: ${error.error}`);
@@ -118,10 +122,10 @@ const MailPage = () => {
         if (!mail.is_read) return false;
         
         const rewards = parseRewards(mail.attached_rewards);
-        const hasRewards = rewards.peta || rewards.peta_gold || (rewards.items && rewards.items.length > 0);
-        
+        const hasRewards = mailHasClaimableRewards(rewards);
+
         if (!hasRewards) return true;
-        return mail.is_claimed;
+        return normalizeSqlBool(mail.is_claimed);
       });
       
       if (deletableMails.length === 0) {
@@ -146,6 +150,7 @@ const MailPage = () => {
       alert(`Đã xóa ${deletableMails.length} mail!`);
       fetchMails('all');
       fetchUnclaimedCount();
+      dispatchMailUnreadRefresh();
     } catch (error) {
       console.error('Lỗi khi xóa mail:', error);
       alert('Lỗi khi xóa mail');
@@ -191,11 +196,9 @@ const MailPage = () => {
     if (!user?.userId) return;
     
     const rewards = parseRewards(mail.attached_rewards);
-    const hasItems = rewards.items && rewards.items.length > 0;
-    const hasRewards = rewards.peta || rewards.peta_gold || hasItems;
-    const isUnclaimed = hasRewards && !mail.is_claimed;
-    
-    if (!mail.is_read && (!hasItems || !isUnclaimed)) {
+    const hasRewards = mailHasClaimableRewards(rewards);
+
+    if (!mail.is_read && (!hasRewards || normalizeSqlBool(mail.is_claimed))) {
       try {
         const response = await fetch(`${API_BASE_URL}/api/mails/${mail.id}/read`, {
           method: 'PUT',
@@ -208,6 +211,7 @@ const MailPage = () => {
         if (response.ok) {
           mail.is_read = true;
           fetchMails('all');
+          dispatchMailUnreadRefresh();
         }
       } catch (error) {
         console.error('Error marking mail as read:', error);
@@ -236,11 +240,14 @@ const MailPage = () => {
     }
     
     fetchUnclaimedCount();
+    dispatchCurrencyUpdate();
+    dispatchMailUnreadRefresh();
   };
 
   // Load data when component mounts
   useEffect(() => {
     if (user?.userId) {
+      dispatchMailInboxViewed();
       fetchMails('all'); // Load all mails
       fetchUnclaimedCount();
     }
@@ -250,7 +257,7 @@ const MailPage = () => {
   useEffect(() => {
     if (selectedMail && mails.length > 0) {
       const updatedMail = mails.find(mail => mail.id === selectedMail.id);
-      if (updatedMail && updatedMail.is_claimed !== selectedMail.is_claimed) {
+      if (updatedMail && normalizeSqlBool(updatedMail.is_claimed) !== normalizeSqlBool(selectedMail.is_claimed)) {
         setSelectedMail(updatedMail);
       }
     }
@@ -291,15 +298,24 @@ const MailPage = () => {
 
               {/* Action buttons */}
               <div className="mail-page-actions">
-                <button 
-                  className="mail-page-action-btn mail-page-claim-all" 
+                <button
+                  type="button"
+                  className="mail-page-action-btn mail-page-compose"
+                  onClick={() => navigate('/mail/compose')}
+                >
+                  Gửi thư
+                </button>
+                <button
+                  type="button"
+                  className="mail-page-action-btn mail-page-claim-all"
                   onClick={claimAllMails}
                   disabled={unclaimedCount === 0}
                 >
                   Nhận tất cả ({unclaimedCount})
                 </button>
-                <button 
-                  className="mail-page-action-btn mail-page-delete-all" 
+                <button
+                  type="button"
+                  className="mail-page-action-btn mail-page-delete-all"
                   onClick={deleteAllReadMails}
                 >
                   Xóa mail đã đọc
@@ -316,8 +332,8 @@ const MailPage = () => {
                   <div className="mail-page-list">
                     {mails.map((mail) => {
                       const rewards = parseRewards(mail.attached_rewards);
-                      const hasRewards = rewards.peta || rewards.peta_gold || (rewards.items && rewards.items.length > 0);
-                      const isUnclaimed = hasRewards && !mail.is_claimed;
+                      const hasRewards = mailHasClaimableRewards(rewards);
+                      const isUnclaimed = hasRewards && !normalizeSqlBool(mail.is_claimed);
 
                       return (
                         <div
@@ -332,11 +348,14 @@ const MailPage = () => {
                           <div className="mail-page-item-body">
                             {mail.message}
                           </div>
-                          {isUnclaimed && (
-                            <div className="mail-page-item-footer">
+                          <div className="mail-page-item-footer">
+                            <span className="mail-page-sender-name" title={mail.sender_name || 'Hệ thống'}>
+                              {mail.sender_name || 'Hệ thống'}
+                            </span>
+                            {isUnclaimed && (
                               <div className="mail-page-unclaimed-badge">Chưa nhận</div>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                       );
                     })}

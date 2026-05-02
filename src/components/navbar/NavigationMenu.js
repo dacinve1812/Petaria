@@ -1,16 +1,75 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '../../UserContext';
+import {
+  MAIL_INBOX_VIEWED_EVENT,
+  MAIL_UNREAD_REFRESH_EVENT,
+} from '../../utils/mailEvents';
+import { AlertExclamationBadge } from '../ui/AlertExclamationBadge';
 
 const NavigationMenu = ({ className = '' }) => {
   const navigate = useNavigate();
+  const { user, isLoading } = useUser();
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [triggerRect, setTriggerRect] = useState(null);
   const navRef = useRef(null);
   const dropdownRef = useRef(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [inboxDismissed, setInboxDismissed] = useState(false);
+  const prevUnreadRef = useRef(0);
 
   // Check if user is admin
   const isAdmin = localStorage.getItem('isAdmin') === 'true';
+
+  const fetchUnread = useCallback(async () => {
+    if (!user?.userId) {
+      setUnreadCount(0);
+      return;
+    }
+    const base = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
+    try {
+      const r = await fetch(`${base}/api/mails/${user.userId}/unread-count`);
+      if (!r.ok) return;
+      const d = await r.json();
+      const n = Math.floor(Number(d.unread_count) || 0);
+      const prev = prevUnreadRef.current;
+      if (n > prev) setInboxDismissed(false);
+      if (n === 0) setInboxDismissed(false);
+      prevUnreadRef.current = n;
+      setUnreadCount(n);
+    } catch {
+      /* ignore */
+    }
+  }, [user?.userId]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user?.userId) {
+      setUnreadCount(0);
+      prevUnreadRef.current = 0;
+      return;
+    }
+    fetchUnread();
+    const t = setInterval(fetchUnread, 45000);
+    const onFocus = () => fetchUnread();
+    const onInboxViewed = () => {
+      setInboxDismissed(true);
+      fetchUnread();
+    };
+    const onUnreadRefresh = () => fetchUnread();
+    window.addEventListener('focus', onFocus);
+    window.addEventListener(MAIL_INBOX_VIEWED_EVENT, onInboxViewed);
+    window.addEventListener(MAIL_UNREAD_REFRESH_EVENT, onUnreadRefresh);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener(MAIL_INBOX_VIEWED_EVENT, onInboxViewed);
+      window.removeEventListener(MAIL_UNREAD_REFRESH_EVENT, onUnreadRefresh);
+    };
+  }, [isLoading, user?.userId, fetchUnread]);
+
+  const showMailAlert = unreadCount > 0 && !inboxDismissed && !!user?.userId;
 
   // Close dropdown when clicking outside (nav hoặc dropdown portal)
   useEffect(() => {
@@ -170,7 +229,14 @@ const NavigationMenu = ({ className = '' }) => {
                 onClick={(e) => handleItemClick(item, e)}
               >
                 <span className="nav-icon"></span>
-                <span className="nav-title">{item.title}</span>
+                {item.id === 'features' && showMailAlert ? (
+                  <span className="nav-title-wrap">
+                    <span className="nav-title">{item.title}</span>
+                    <AlertExclamationBadge size={16} title="Có thư chưa đọc" />
+                  </span>
+                ) : (
+                  <span className="nav-title">{item.title}</span>
+                )}
                 <span className="nav-arrow">∨</span>
               </div>
             </div>
@@ -188,10 +254,15 @@ const NavigationMenu = ({ className = '' }) => {
             {activeItem.submenu.map((submenuItem, index) => (
               <div
                 key={index}
-                className="dropdown-item"
+                className={`dropdown-item ${
+                  submenuItem.path === '/mail' ? 'dropdown-item--mail' : ''
+                }`}
                 onClick={() => handleSubmenuClick(submenuItem)}
               >
-                {submenuItem.title}
+                <span className="dropdown-item__label">{submenuItem.title}</span>
+                {submenuItem.path === '/mail' && showMailAlert ? (
+                  <AlertExclamationBadge size={20} title="Có thư chưa đọc" />
+                ) : null}
               </div>
             ))}
           </div>,

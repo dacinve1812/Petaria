@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext';
 import { getDisplayName } from '../utils/userDisplay';
 import './Sidebar.css';
+import { CURRENCY_UPDATE_EVENT } from '../utils/currencyEvents';
 
 function Sidebar({ userId, handleLogout, isAdmin: isAdminProp, className = 'sidebar', onCurrencyUpdate }) {
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
   const navigate = useNavigate();
   const { user, isLoading } = useUser();
   const [displayName, setDisplayName] = useState('');
@@ -28,8 +29,12 @@ function Sidebar({ userId, handleLogout, isAdmin: isAdminProp, className = 'side
         setDisplayName(getDisplayName(data, ''));
         setOnlineStatus(data.online_status);
         // Backend (server.js) GET /users/:userId trả về peta, petagold (không có gold)
-        setGold(Number(data.peta ?? 0));
-        setPetagold(Number(data.petagold ?? 0));
+        const n = (v) => {
+          const x = Number(v);
+          return Number.isFinite(x) ? x : 0;
+        };
+        setGold(n(data.peta ?? data.gold));
+        setPetagold(n(data.petagold ?? data.peta_gold));
       })
       .catch((error) => console.error('Error fetching user data:', error));
   };
@@ -41,6 +46,12 @@ function Sidebar({ userId, handleLogout, isAdmin: isAdminProp, className = 'side
   useEffect(() => {
     if (onCurrencyUpdate != null) fetchUserData();
   }, [onCurrencyUpdate]);
+
+  useEffect(() => {
+    const onExternalCurrency = () => fetchUserData();
+    window.addEventListener(CURRENCY_UPDATE_EVENT, onExternalCurrency);
+    return () => window.removeEventListener(CURRENCY_UPDATE_EVENT, onExternalCurrency);
+  }, [userId]);
 
   useEffect(() => {
     if (!displayName) {

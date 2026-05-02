@@ -1,0 +1,213 @@
+.admin-site-auction-mail-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  background: #f8f9fa;
+  min-height: 100vh;
+}
+
+.admin-site-auction-mail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.admin-site-auction-mail-header h1 {
+  margin: 0;
+  color: #333;
+  font-size: 1.75rem;
+}
+
+.admin-site-auction-mail-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-site-auction-mail-nav a,
+.admin-site-auction-mail-nav button {
+  text-decoration: none;
+}
+
+.admin-site-auction-mail-nav .back-btn {
+  background: #6c757d;
+  color: #fff !important;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.auction-mail-site-tab {
+  max-width: 960px;
+}
+
+.auction-mail-site-intro h2 {
+  margin-top: 0;
+  color: #333;
+}
+
+.auction-mail-site-intro p {
+  color: #555;
+  line-height: 1.5;
+}
+
+.auction-mail-site-intro code {
+  background: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.auction-mail-site-error {
+  color: #b00020;
+  font-weight: 600;
+}
+
+.auction-mail-locale-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.locale-pill {
+  border: 1px solid #ced4da;
+  background: #fff;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.locale-pill.active {
+  background: #0d6efd;
+  color: #fff;
+  border-color: #0d6efd;
+}
+
+.auction-mail-template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.auction-mail-template-card {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.auction-mail-template-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.auction-mail-template-head h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #212529;
+}
+
+.auction-mail-template-key {
+  font-size: 0.8rem;
+  background: #f1f3f5;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.auction-mail-badge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #d1e7dd;
+  color: #0f5132;
+}
+
+.auction-mail-badge.muted {
+  background: #e2e3e5;
+  color: #41464b;
+}
+
+.auction-mail-placeholders {
+  font-size: 0.85rem;
+  color: #6c757d;
+  margin: 0 0 12px;
+}
+
+.auction-mail-field-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+}
+
+.auction-mail-input-subject {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+}
+
+.auction-mail-textarea-message {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.auction-mail-locale-bar .save-navbar-btn {
+  background: #28a745;
+  color: #fff;
+  border: none;
+  padding: 12px 22px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.auction-mail-locale-bar .save-navbar-btn:hover:not(:disabled) {
+  background: #218838;
+}
+
+.auction-mail-locale-bar .save-navbar-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auction-mail-locale-bar .cancel-btn {
+  background: #6c757d;
+  color: #fff;
+  border: none;
+  padding: 12px 22px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.auction-mail-locale-bar .cancel-btn:hover:not(:disabled) {
+  background: #545b62;
+}

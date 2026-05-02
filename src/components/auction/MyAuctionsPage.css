@@ -1,0 +1,381 @@
+/* Trang 2 cột: luôn 2 cột kể cả mobile; cột nội dung scroll khi dài */
+.my-auctions-page {
+  flex: 1 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0 10px 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 480px) {
+  .my-auctions-page {
+    padding: 0 20px 24px;
+  }
+}
+
+.my-auctions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+}
+
+@media (min-width: 480px) {
+  .my-auctions-header {
+    padding: 16px 20px;
+    margin-bottom: 16px;
+  }
+}
+
+.my-auctions-title {
+  margin: 0;
+  font-size: clamp(16px, 3.5vw, 22px);
+  font-weight: 700;
+  color: #2c3e50;
+  line-height: 1.2;
+}
+
+.my-auctions-back {
+  padding: 6px 10px;
+  border: 1px solid #3498db;
+  background: #fff;
+  color: #3498db;
+  cursor: pointer;
+  font-size: 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (min-width: 480px) {
+  .my-auctions-back {
+    padding: 8px 14px;
+    font-size: 14px;
+  }
+}
+
+.my-auctions-back:hover {
+  background: #ebf5fb;
+}
+
+/* Luôn 2 cột; minmax(0,1fr) tránh tràn ngang trên mobile */
+.my-auctions-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+@media (min-width: 480px) {
+  .my-auctions-grid {
+    gap: 14px;
+  }
+}
+
+@media (min-width: 768px) {
+  .my-auctions-grid {
+    gap: 20px;
+  }
+}
+
+.my-auctions-column {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.my-auctions-column-head {
+  padding: 10px 10px;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  border-bottom: 1px solid #dee2e6;
+  font-weight: 600;
+  font-size: clamp(12px, 2.8vw, 15px);
+  color: #1e293b;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+@media (min-width: 480px) {
+  .my-auctions-column-head {
+    padding: 12px 14px;
+    font-size: 16px;
+  }
+}
+
+.my-auctions-column-body {
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Chiều cao tối đa: còn chỗ cho header + tab bar layout */
+  max-height: min(520px, calc(100dvh - 200px));
+}
+
+@media (min-width: 480px) {
+  .my-auctions-column-body {
+    padding: 12px;
+    max-height: min(600px, calc(100dvh - 220px));
+  }
+}
+
+.my-auctions-empty {
+  padding: 20px 8px;
+  text-align: center;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (min-width: 480px) {
+  .my-auctions-empty {
+    font-size: 14px;
+    padding: 28px 16px;
+  }
+}
+
+.my-auctions-card {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  margin-bottom: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  background: #fff;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  align-items: flex-start;
+  position: relative;
+  overflow: hidden;
+}
+
+@media (min-width: 480px) {
+  .my-auctions-card {
+    gap: 12px;
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+}
+
+.my-auctions-card:last-child {
+  margin-bottom: 0;
+}
+
+.my-auctions-card:hover {
+  background: #f8fafc;
+  border-color: #93c5fd;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+.my-auctions-card--outbid {
+  border-color: #fca5a5;
+}
+
+.my-auctions-outbid-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: rgba(15, 23, 42, 0.52);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.my-auctions-outbid-label {
+  font-size: clamp(10px, 2.4vw, 12px);
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  line-height: 1.25;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+@media (min-width: 480px) {
+  .my-auctions-outbid-label {
+    font-size: 13px;
+  }
+}
+
+.my-auctions-card-img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #f1f5f9, #e2e8f0);
+  flex-shrink: 0;
+  border: 1px solid #e2e8f0;
+}
+
+@media (min-width: 480px) {
+  .my-auctions-card-img {
+    width: 52px;
+    height: 52px;
+  }
+}
+
+.my-auctions-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.my-auctions-card-name {
+  font-weight: 600;
+  font-size: clamp(11px, 2.6vw, 14px);
+  color: #0f172a;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+
+/* Khối meta: pill giá + hàng phụ */
+.my-auctions-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.my-auctions-card-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.my-auctions-card-meta-row--prices {
+  gap: 4px;
+}
+
+.my-auctions-card-meta-row--footer {
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px solid #f1f5f9;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 10px;
+  color: #64748b;
+}
+
+@media (min-width: 480px) {
+  .my-auctions-card-meta-row--footer {
+    font-size: 11px;
+    padding-top: 8px;
+  }
+}
+
+.my-auctions-meta-pill {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 480px) {
+  .my-auctions-meta-pill {
+    padding: 5px 8px;
+    border-radius: 9px;
+  }
+}
+
+.my-auctions-meta-pill--you {
+  background: linear-gradient(145deg, #eff6ff, #e0f2fe);
+  border-color: #7dd3fc;
+}
+
+.my-auctions-meta-pill--wide {
+  flex: 1;
+  min-width: 0;
+}
+
+.my-auctions-meta-pill-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  line-height: 1;
+}
+
+@media (min-width: 480px) {
+  .my-auctions-meta-pill-label {
+    font-size: 10px;
+  }
+}
+
+.my-auctions-meta-pill-value {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+  line-height: 1.2;
+  word-break: break-all;
+}
+
+@media (min-width: 480px) {
+  .my-auctions-meta-pill-value {
+    font-size: 12px;
+  }
+}
+
+.my-auctions-meta-cur {
+  font-weight: 600;
+  font-size: 0.92em;
+  color: #475569;
+}
+
+.my-auctions-meta-time {
+  font-weight: 600;
+  color: #334155;
+}
+
+.my-auctions-meta-time::before {
+  content: '⏱ ';
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.my-auctions-msg {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.my-auctions-msg.error {
+  background: #fdecea;
+  color: #c0392b;
+  border: 1px solid #f5c6cb;
+}

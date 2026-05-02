@@ -181,7 +181,21 @@ function UserProfile() {
                 event.currentTarget.src = '/images/character/knight_warrior.jpg';
               }}
             />
-            <h2>{effectiveName}</h2>
+            <div className="profile-name-block">
+              <h2 className="profile-name-row">
+                {profileUser.equipped_title_image_url && (
+                  <img
+                    src={profileUser.equipped_title_image_url}
+                    alt=""
+                    className="profile-title-badge"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                )}
+                <span>{effectiveName}</span>
+              </h2>
+            </div>
             <span
               className={`profile-status-badge ${profileUser.online_status ? 'online' : 'offline'}`}
             >
@@ -195,7 +209,10 @@ function UserProfile() {
             <p><strong>Tên thật:</strong> {profileUser.real_name || 'Chưa cập nhật'}</p>
             <p><strong>Giới tính:</strong> {profileUser.gender || 'Chưa cập nhật'}</p>
             <p><strong>Bang hội:</strong> {profileUser.guild || 'Chưa có'}</p>
-            <p><strong>Danh hiệu:</strong> {profileUser.title || 'Chưa có'}</p>
+            <p>
+              <strong>Danh hiệu:</strong>{' '}
+              {profileUser.equipped_title_name || profileUser.title || 'Chưa có'}
+            </p>
             <p><strong>Hạng:</strong> {profileUser.ranking || 'Chưa có'}</p>
             <p><strong>Peta:</strong> {Number(profileUser.peta ?? profileUser.gold ?? 0).toLocaleString()}</p>
             <p><strong>PetaGold:</strong> {Number(profileUser.petagold ?? 0).toLocaleString()}</p>

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
+import { dispatchCurrencyUpdate } from '../../utils/currencyEvents';
+import { getAuctionDisplay } from '../../utils/auctionDisplay';
 import TemplatePage from '../template/TemplatePage';
 import './AuctionList.css';
 
 const AuctionList = () => {
   const navigate = useNavigate();
-  const { user } = useUser();
+  const { user, updateUserData } = useUser();
   const [auctions, setAuctions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,6 +22,7 @@ const AuctionList = () => {
   const [userCurrency, setUserCurrency] = useState({ peta: 0, petagold: 0 });
   const [tooltip, setTooltip] = useState({ show: false, text: '', x: 0, y: 0 });
   const [isLoadingAuctions, setIsLoadingAuctions] = useState(false);
+  const [assetTypeFilter, setAssetTypeFilter] = useState('all'); // all | item | pet | spirit | currency
 
   // Debounce search term
   useEffect(() => {
@@ -35,7 +38,7 @@ const AuctionList = () => {
     
     setIsLoadingAuctions(true);
     fetchAuctions().finally(() => setIsLoadingAuctions(false));
-  }, [debouncedSearchTerm, sortBy, order, currentPage]);
+  }, [debouncedSearchTerm, sortBy, order, currentPage, assetTypeFilter]);
 
   useEffect(() => {
     if (user?.userId) {
@@ -46,13 +49,15 @@ const AuctionList = () => {
   const fetchAuctions = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
+      const paramsObj = {
         page: currentPage,
         limit: 20,
         search: debouncedSearchTerm,
         sortBy,
         order
-      });
+      };
+      if (assetTypeFilter && assetTypeFilter !== 'all') paramsObj.asset_type = assetTypeFilter;
+      const params = new URLSearchParams(paramsObj);
       
       const response = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000'}/api/auctions?${params}`);
       const data = await response.json();
@@ -115,9 +120,10 @@ const AuctionList = () => {
     setCurrentPage(newPage);
   };
 
-  const fetchUserCurrency = async () => {
+  const fetchUserCurrency = async (opts = {}) => {
+    const { syncCtx = false, notifySidebar = false } = opts;
     if (!user) return;
-    
+
     try {
       const response = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000'}/api/user/profile`, {
         headers: {
@@ -128,10 +134,11 @@ const AuctionList = () => {
 
       if (response.ok) {
         const userProfile = await response.json();
-        setUserCurrency({
-          peta: userProfile.peta || 0,
-          petagold: userProfile.petagold || 0
-        });
+        const peta = Math.floor(Number(userProfile.peta ?? 0));
+        const petagold = Math.floor(Number(userProfile.petagold ?? 0));
+        setUserCurrency({ peta, petagold });
+        if (syncCtx) updateUserData({ peta, petagold });
+        if (notifySidebar) dispatchCurrencyUpdate();
       }
     } catch (error) {
       console.error('Error fetching user currency:', error);
@@ -151,7 +158,9 @@ const AuctionList = () => {
       return;
     }
 
-    if (window.confirm(`Are you sure you want to buy ${auction.item_name} for ${Math.floor(auction.buy_now_price)} peta?`)) {
+    const display = getAuctionDisplay(auction);
+    const bidCur = String(auction.bid_currency || 'peta').toLowerCase() === 'petagold' ? 'petagold' : 'peta';
+    if (window.confirm(`Are you sure you want to buy ${display.name} for ${Math.floor(auction.buy_now_price)} ${bidCur}?`)) {
       try {
         const response = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000'}/api/auctions/${auction.id}/buy-now`, {
           method: 'POST',
@@ -167,7 +176,7 @@ const AuctionList = () => {
           setMessage('Item purchased successfully!');
           setMessageType('success');
           fetchAuctions(); // Refresh auction list
-          fetchUserCurrency(); // Refresh user currency
+          await fetchUserCurrency({ syncCtx: true, notifySidebar: true });
         } else {
           setMessage(data.message || 'Error purchasing item');
           setMessageType('error');
@@ -226,6 +235,44 @@ const AuctionList = () => {
           <button onClick={() => navigate('/auction/create')} className="auction-nav-link">Create Auction</button>
           <button onClick={() => navigate('/auction/my-auctions')} className="auction-nav-link">My Auctions</button>
         </div>
+      </div>
+
+      <div className="auction-asset-tabs">
+        <button
+          type="button"
+          onClick={() => { setAssetTypeFilter('item'); setCurrentPage(1); }}
+          className={`auction-asset-tab ${assetTypeFilter === 'item' ? 'active' : ''}`}
+        >
+          Items
+        </button>
+        <button
+          type="button"
+          onClick={() => { setAssetTypeFilter('pet'); setCurrentPage(1); }}
+          className={`auction-asset-tab ${assetTypeFilter === 'pet' ? 'active' : ''}`}
+        >
+          Pets
+        </button>
+        <button
+          type="button"
+          onClick={() => { setAssetTypeFilter('spirit'); setCurrentPage(1); }}
+          className={`auction-asset-tab ${assetTypeFilter === 'spirit' ? 'active' : ''}`}
+        >
+          Spirits
+        </button>
+        <button
+          type="button"
+          onClick={() => { setAssetTypeFilter('currency'); setCurrentPage(1); }}
+          className={`auction-asset-tab ${assetTypeFilter === 'currency' ? 'active' : ''}`}
+        >
+          PetaGold
+        </button>
+        <button
+          type="button"
+          onClick={() => { setAssetTypeFilter('all'); setCurrentPage(1); }}
+          className={`auction-asset-tab subtle ${assetTypeFilter === 'all' ? 'active' : ''}`}
+        >
+          All
+        </button>
       </div>
 
       {message && (
@@ -289,6 +336,12 @@ const AuctionList = () => {
                 {Math.floor(userCurrency.peta).toLocaleString()} peta
               </span>
             </div>
+            <div className="auction-currency-item">
+              <span className="auction-currency-label">Your PetaGold:</span>
+              <span className="auction-currency-amount auction-currency-gold">
+                {Math.floor(userCurrency.petagold).toLocaleString()} petagold
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -308,19 +361,22 @@ const AuctionList = () => {
         {auctions.length === 0 ? (
           <div className="auction-empty">No auctions found</div>
         ) : (
-          auctions.map((auction) => (
+          auctions.map((auction) => {
+            const display = getAuctionDisplay(auction);
+            const bidCur = String(auction.bid_currency || 'peta').toLowerCase() === 'petagold' ? 'petagold' : 'peta';
+            return (
             <div key={auction.id} className="auction-item">
               <div className="auction-item-col auction-col-item">
                 <div className="auction-item-image">
                   <img 
-                    src={auction.item_image ? `/images/equipments/${auction.item_image}` : '/images/default-item.png'} 
-                    alt={auction.item_name}
+                    src={display.image} 
+                    alt={display.name}
                     className="auction-item-img"
-                    title={auction.item_name}
+                    title={display.name}
                     onClick={(e) => {
                       // On mobile, show tooltip; on desktop, navigate to detail
                       if (window.innerWidth <= 768) {
-                        showTooltip(e, auction.item_name);
+                        showTooltip(e, display.name);
                         setTimeout(() => hideTooltip(), 2000);
                       } else {
                         navigate(`/auction/${auction.id}`);
@@ -333,7 +389,7 @@ const AuctionList = () => {
                 </div>
                 <div className="auction-item-info">
                   <button onClick={() => navigate(`/auction/${auction.id}`)} className="auction-item-name">
-                    {auction.item_name}
+                    {display.name}
                   </button>
                   
                   {/* Mobile compact info */}
@@ -344,11 +400,11 @@ const AuctionList = () => {
                 </div>
               </div>
               <div className="auction-item-col auction-col-price">
-                <div className="auction-current-price">{Math.floor(auction.current_bid).toLocaleString()} peta</div>
+                <div className="auction-current-price">{Math.floor(auction.current_bid).toLocaleString()} {bidCur}</div>
               </div>
               <div className="auction-item-col auction-col-buy-now">
                 {auction.buy_now_price ? (
-                  <div className="auction-buy-now-price">{Math.floor(auction.buy_now_price).toLocaleString()} peta
+                  <div className="auction-buy-now-price">{Math.floor(auction.buy_now_price).toLocaleString()} {bidCur}
                   </div>
                 ) : (
                   <div className="auction-no-buy-now">-</div>
@@ -383,7 +439,7 @@ const AuctionList = () => {
                 </button>
               </div>
             </div>
-          ))
+          )})
         )}
       </div>
 

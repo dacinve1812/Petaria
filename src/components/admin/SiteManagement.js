@@ -41,7 +41,7 @@ function SiteManagement() {
       visible: true
     }
   });
-  const [activeTab, setActiveTab] = useState('pages'); // 'pages' or 'navbar'
+  const [activeTab, setActiveTab] = useState('pages'); // 'pages' | 'navbar'
   const [layoutCollapsed, setLayoutCollapsed] = useState(true);
   const [bannerCollapsed, setBannerCollapsed] = useState(true);
   const [elementsCollapsed, setElementsCollapsed] = useState(true);

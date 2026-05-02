@@ -10,6 +10,7 @@ import GlobalChatBox from './GlobalChatBox';
 import { Outlet } from 'react-router-dom';
 import '../styles/global.css';
 import { resolveAssetPath } from '../utils/pathUtils';
+import { dispatchMailInboxViewed } from '../utils/mailEvents';
 
 function MainLayout() {
     const navigate = useNavigate();
@@ -45,6 +46,12 @@ function MainLayout() {
             console.error('Error decoding token:', err);
         }
     }, [navigate]);
+
+    useEffect(() => {
+        if (isMailModalOpen && userId) {
+            dispatchMailInboxViewed();
+        }
+    }, [isMailModalOpen, userId]);
 
     const handleLogout = () => {
         localStorage.removeItem('token');
@@ -104,6 +111,7 @@ function MainLayout() {
             '/quest': 'NHIỆM VỤ',
             '/tasks': 'NHIỆM VỤ',
             '/management': 'QUẢN LÝ',
+            '/title': 'DANH HIỆU',
             '/exhibition': 'PHÒNG TRIỂN LÃM',
             '/buddies': 'BẠN BÈ',
             '/admin': 'ADMIN PANEL',
@@ -141,6 +149,7 @@ function MainLayout() {
             handleLogout={handleLogout} 
             isAdmin={isAdmin}
             className={sidebarOpen ? 'sidebar open' : 'sidebar'}
+            onCurrencyUpdate={currencyUpdateTrigger}
         />
         {sidebarOpen && (
             <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>

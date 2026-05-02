@@ -1,5 +1,6 @@
 // Updated ItemDetailModal.js with support for unequip and use item for pets
 import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PetSelectionModal from './PetSelectionModal';
 import GameDialogModal from '../ui/GameDialogModal';
 import GameModalButton from '../ui/GameModalButton';
@@ -50,7 +51,16 @@ function getPetUseActionsForItem(item) {
   return rows;
 }
 
+function isMiscInventoryItem(item) {
+  const type = String(item?.type || '').toLowerCase().trim();
+  const cat = String(item?.item_category ?? item?.category ?? '')
+    .toLowerCase()
+    .trim();
+  return type === 'misc' || cat === 'misc';
+}
+
 function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem }) {
+  const navigate = useNavigate();
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
   const [userPets, setUserPets] = useState([]);
   const [selectedPetId, setSelectedPetId] = useState('');
@@ -200,23 +210,29 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   // Define available actions for different item types
   const getAvailableActions = () => {
     if (item?.type === 'equipment' && !item?.is_equipped) {
-      return [
+      const rows = [
         { value: 'equip', label: 'Trang bị cho thú cưng' },
         { value: 'sell', label: 'Bán ve chai' },
         { value: 'sell_auction', label: 'Đặt vào cửa hàng' },
         { value: 'exhibition', label: 'Mang vào phòng triển lãm' },
-        { value: 'gift', label: 'Tặng cho bạn bè' }
       ];
+      if (!isMiscInventoryItem(item)) {
+        rows.push({ value: 'gift', label: 'Tặng cho bạn bè' });
+      }
+      return rows;
     }
 
     const petRows = getPetUseActionsForItem(item);
-    return [
+    const rows = [
       { value: 'sell', label: 'Bán ve chai' },
       ...petRows,
       { value: 'sell_auction', label: 'Đặt vào cửa hàng' },
       { value: 'exhibition', label: 'Mang vào phòng triển lãm' },
-      { value: 'gift', label: 'Tặng cho bạn bè' },
     ];
+    if (!isMiscInventoryItem(item)) {
+      rows.push({ value: 'gift', label: 'Tặng cho bạn bè' });
+    }
+    return rows;
   };
 
   const handleActionSelect = (actionValue) => {
@@ -236,12 +252,19 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
       setGameDialog({ mode: 'sell' });
     } else if (actionValue === 'exhibition') {
       handleBringToExhibition();
-    } else if (['sell_auction', 'gift'].includes(actionValue)) {
+    } else if (actionValue === 'sell_auction') {
       setGameDialog({
         mode: 'placeholder',
         actionValue,
         label: getActionLabel(actionValue),
       });
+    } else if (actionValue === 'gift') {
+      if (item?.id != null) {
+        navigate(`/mail/compose?inventory_id=${encodeURIComponent(String(item.id))}`);
+      } else {
+        navigate('/mail/compose');
+      }
+      onClose();
     } else {
       setAction(actionValue);
       setShowPetSelection(true);

@@ -49,6 +49,8 @@ function EditProfile() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [savingTitle, setSavingTitle] = useState(false);
+  const [titleState, setTitleState] = useState({ unlocked: [], equipped_title_id: null, progress: {} });
 
   useEffect(() => {
     if (isLoading) return;
@@ -95,6 +97,22 @@ function EditProfile() {
     fetchProfile();
   }, [API_BASE_URL, isLoading, navigate, user]);
 
+  const loadTitleState = async () => {
+    if (!user?.token) return;
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/user/titles-state`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      const d = await r.json();
+      if (r.ok) setTitleState(d);
+    } catch (_) {}
+  };
+
+  useEffect(() => {
+    if (isLoading || !user?.token) return;
+    loadTitleState();
+  }, [API_BASE_URL, isLoading, user?.token]);
+
   useEffect(() => {
     let active = true;
     const fetchAvatarOptions = async () => {
@@ -127,6 +145,41 @@ function EditProfile() {
   const handleChange = (key) => (event) => {
     const value = event.target.value;
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleEquipTitleChange = async (event) => {
+    if (!user?.token) return;
+    const raw = event.target.value;
+    const titleId = raw === '' ? null : Number(raw);
+    setError('');
+    setSuccess('');
+    setSavingTitle(true);
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/user/equipped-title`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({ titleId }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.message || 'Không thể đổi danh hiệu');
+      const pr = await fetch(`${API_BASE_URL}/users/${user.userId}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      const prof = await pr.json();
+      if (pr.ok) {
+        setForm((prev) => ({ ...prev, title: prof.title || '' }));
+      }
+      setTitleState((prev) => ({ ...prev, equipped_title_id: d.equipped_title_id ?? titleId }));
+      setSuccess('Đã cập nhật danh hiệu.');
+      await loadTitleState();
+    } catch (err) {
+      setError(err.message || 'Lỗi danh hiệu');
+    } finally {
+      setSavingTitle(false);
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -343,6 +396,37 @@ function EditProfile() {
               value={form.birthday}
               onChange={handleChange('birthday')}
             />
+          </section>
+
+          <section className="edit-profile-card">
+            <h3>Danh hiệu</h3>
+            <p className="edit-profile-hint">
+              Ảnh đặt tại <code>public/images/title/</code> (vd: <code>t1.png</code>). Chỉ hiển thị các danh hiệu đã mở
+              khóa.
+            </p>
+            <label htmlFor="equippedTitle">Trang bị danh hiệu</label>
+            <select
+              id="equippedTitle"
+              value={titleState.equipped_title_id != null ? String(titleState.equipped_title_id) : ''}
+              onChange={handleEquipTitleChange}
+              disabled={savingTitle}
+            >
+              <option value="">— Không —</option>
+              {(titleState.unlocked || []).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            {titleState.progress && (
+              <p className="edit-profile-title-progress">
+                <small>
+                  Tiến độ: kiếm {Number(titleState.progress.peta_earned || 0).toLocaleString()} peta · tiêu{' '}
+                  {Number(titleState.progress.peta_spent || 0).toLocaleString()} · bắt {titleState.progress.pets_caught || 0}{' '}
+                  pet · tiến hóa {titleState.progress.pet_evolutions || 0} · thắng quái {titleState.progress.hunt_wins || 0}
+                </small>
+              </p>
+            )}
           </section>
 
           <section className="edit-profile-card">

@@ -591,6 +591,42 @@ div {
   border-bottom: none;
 }
 
+/* Bưu điện: hàng menu + badge thư chưa xem */
+.dropdown-item--mail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dropdown-item--mail .dropdown-item__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.dropdown-item--mail .alert-exclamation-badge {
+  pointer-events: none;
+}
+
+/* Đặc trưng: badge góc phải phía trên chữ tiêu đề */
+.nav-title-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.nav-title-wrap > .alert-exclamation-badge {
+  position: absolute;
+  top: -13px;
+  right: -20px;
+}
+
+@media (max-width: 768px) {
+  .nav-title-wrap > .alert-exclamation-badge .alert-exclamation-badge__svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
 /* Navigation Menu Responsive Design */
 @media (max-width: 768px) {
   .navigation-menu {
@@ -4990,10 +5026,8 @@ progress {
 
 .mail-page-card {
   background: #f8f9fa;
-  border-radius: 20px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   width: 100%;
-  max-width: 900px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -5007,7 +5041,6 @@ progress {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-radius: 20px 20px 0 0;
   position: relative;
   overflow: hidden;
 }
@@ -5046,6 +5079,7 @@ progress {
 /* Action buttons */
 .mail-page-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 15px 30px;
   background: white;
@@ -5053,7 +5087,7 @@ progress {
 }
 
 .mail-page-action-btn {
-  flex: 1;
+  flex: 1 1 160px;
   padding: 10px 16px;
   border: none;
   border-radius: 10px;
@@ -5094,6 +5128,17 @@ progress {
 .mail-page-delete-all:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(108, 117, 125, 0.3);
+}
+
+.mail-page-compose {
+  background: linear-gradient(135deg, #4c6ef5 0%, #364fc7 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(76, 110, 245, 0.25);
+}
+
+.mail-page-compose:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(76, 110, 245, 0.35);
 }
 
 /* Mail list content */
@@ -5186,11 +5231,25 @@ progress {
 
 .mail-page-item-footer {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 8px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.mail-page-sender-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mail-page-unclaimed-badge {
+  flex-shrink: 0;
   background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
   color: white;
   padding: 6px 14px;
@@ -5273,7 +5332,8 @@ progress {
   }
 
   .mail-page-item-footer {
-    margin-top: 6px;
+    margin-top: 8px;
+    flex-wrap: wrap;
   }
 
   .mail-page-unclaimed-badge {

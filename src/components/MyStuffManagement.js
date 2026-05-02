@@ -93,7 +93,7 @@ function MyStuffManagement() {
     // },
     {
       id: 'title',
-      name: 'Title',
+      name: 'Danh hiệu',
       backgroundImage: '/images/buttons/my_title.png',
       path: '/title',
     }

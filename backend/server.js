@@ -15,6 +15,7 @@ const { generateIVStats, calculateFinalStats } = require('./utils/petStats');
 require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
 
 const petVitals = require('./petVitals');
+const titleService = require('./titleService');
 
 const express = require('express');
 const http = require('http');
@@ -118,6 +119,11 @@ async function ensureUserProfilesTable() {
 }
 
 ensureUserProfilesTable();
+
+const { ensureAuctionMailTemplatesTable } = require('./services/auctionMailTemplateService');
+ensureAuctionMailTemplatesTable(db).catch((err) => {
+  console.error('ensureAuctionMailTemplatesTable:', err);
+});
 
 async function ensureBuddiesTables() {
   try {
@@ -395,6 +401,11 @@ ensureBuddiesTables();
 ensureGuildTables();
 ensureChatTables();
 ensureExhibitionTables();
+
+titleService
+  .ensureTitleSchema(db)
+  .then(() => titleService.seedDefaultTitles(db))
+  .catch((err) => console.error('Title schema:', err));
 
 const CHAT_COOLDOWN_SECONDS = Math.max(1, Number(process.env.CHAT_COOLDOWN_SECONDS || 30));
 const CHAT_MESSAGE_MAX_LENGTH = Math.min(
@@ -770,8 +781,12 @@ io.on('connection', async (socket) => {
 // Import auction routes
 const auctionRoutes = require('./routes/auctions');
 app.use('/api/auctions', auctionRoutes);
+const { ensureAuctionMultiAssetSchema } = require('./services/auctionMultiAssetSchema');
+ensureAuctionMultiAssetSchema().catch((err) =>
+  console.warn('ensureAuctionMultiAssetSchema:', err && err.message)
+);
 
-// User Items API (for auction system)
+// User Items API (for auction system) — lấy từ inventory (cùng nguồn với kho game), không dùng user_items
 app.get('/api/user/items', async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
@@ -783,23 +798,71 @@ app.get('/api/user/items', async (req, res) => {
     const userId = decoded.userId;
 
     const [items] = await db.query(`
-      SELECT ui.id, ui.quantity, i.name, i.description, i.image_url, i.rarity, i.type
-      FROM user_items ui
-      JOIN items i ON ui.item_id = i.id
-      WHERE ui.user_id = ? 
-        AND ui.quantity > 0
-        AND ui.item_id NOT IN (
-          SELECT DISTINCT item_id 
-          FROM auctions 
-          WHERE seller_id = ? AND status = 'active'
+      SELECT
+        inv.id AS inventory_id,
+        inv.item_id,
+        inv.quantity,
+        it.name,
+        it.description,
+        it.image_url,
+        it.rarity,
+        it.type
+      FROM inventory inv
+      JOIN items it ON inv.item_id = it.id
+      LEFT JOIN equipment_data ed ON ed.item_id = it.id
+      WHERE inv.player_id = ?
+        AND inv.quantity > 0
+        AND (inv.is_equipped = 0 OR inv.is_equipped IS NULL)
+        AND NOT EXISTS (
+          SELECT 1 FROM auctions a
+          WHERE a.seller_id = ?
+            AND a.status = 'active'
+            AND (a.asset_type = 'item' OR a.asset_type IS NULL)
+            AND COALESCE(NULLIF(a.asset_ref_id, 0), a.item_id) = inv.item_id
         )
-      ORDER BY i.name
+        AND (
+          LOWER(COALESCE(it.type, '')) <> 'equipment'
+          OR ed.item_id IS NULL
+          OR LOWER(COALESCE(ed.durability_mode, '')) = 'unbreakable'
+          OR COALESCE(ed.durability_max, 0) >= 999999
+          OR LOWER(COALESCE(ed.durability_mode, '')) IN ('unknown', 'random')
+          OR (
+            COALESCE(ed.durability_max, 0) > 0
+            AND COALESCE(ed.durability_max, 0) < 999999
+            AND COALESCE(inv.durability_left, 0) >= ed.durability_max
+          )
+        )
+      ORDER BY it.name ASC, inv.id ASC
     `, [userId, userId]);
 
     res.json({ items });
   } catch (error) {
     console.error('Error fetching user items:', error);
     res.status(500).json({ message: 'Error fetching user items' });
+  }
+});
+
+// Metadata vật phẩm theo id (mail, preview — không cần quyền admin)
+app.get('/api/items/by-ids', async (req, res) => {
+  try {
+    const raw = String(req.query.ids || '');
+    const ids = [
+      ...new Set(
+        raw
+          .split(',')
+          .map((x) => parseInt(String(x).trim(), 10))
+          .filter((n) => Number.isFinite(n) && n > 0)
+      ),
+    ];
+    if (!ids.length) return res.json([]);
+    const [rows] = await db.query(
+      `SELECT id, name, image_url, description, type, rarity, stackable, max_stack FROM items WHERE id IN (?)`,
+      [ids]
+    );
+    res.json(rows || []);
+  } catch (err) {
+    console.error('GET /api/items/by-ids:', err);
+    res.status(500).json({ error: 'Không thể tải vật phẩm' });
   }
 });
 
@@ -1932,6 +1995,11 @@ app.put('/api/guilds/my', async (req, res) => {
         GUILD_RENAME_COST_PETA,
         userId,
       ]);
+      try {
+        await titleService.recordPetaSpent(db, userId, GUILD_RENAME_COST_PETA);
+      } catch (e) {
+        console.error('title spend (guild rename):', e);
+      }
       await connection.query('UPDATE users SET guild = ? WHERE guild = ?', [incomingName, currentGuildName]);
       await connection.query('UPDATE guild_chat_messages SET guild_name = ? WHERE guild_name = ?', [
         incomingName,
@@ -3611,6 +3679,19 @@ app.get('/users/:userId/pets', (req, res) => {
           return res.status(403).json({ message: 'Forbidden: You can only access your own pets' });
       }
 
+      const auctionEligible = String(req.query.auction_eligible || '') === '1';
+      const auctionSql = auctionEligible
+        ? `
+        AND (p.is_listed = 0 OR p.is_listed IS NULL)
+        AND NOT EXISTS (
+          SELECT 1 FROM user_spirits us WHERE us.equipped_pet_id = p.id AND us.is_equipped = 1
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM inventory i WHERE i.equipped_pet_id = p.id AND i.is_equipped = 1
+        )
+      `
+        : '';
+
       pool.query(`
         SELECT
           p.id,
@@ -3631,6 +3712,7 @@ app.get('/users/:userId/pets', (req, res) => {
         FROM pets p
         JOIN pet_species ps ON p.pet_species_id = ps.id
         WHERE p.owner_id = ?
+        ${auctionSql}
       `, [userId], (err, results) => {
         if (err) {
           console.error('Error fetching user pets: ', err);
@@ -4081,6 +4163,12 @@ app.post('/api/adopt-pet', async (req, res) => {
       [owner_id]
     );
 
+    try {
+      await titleService.recordPetCatch(db, owner_id, 1);
+    } catch (e) {
+      console.error('titleService.recordPetCatch:', e);
+    }
+
     orphanagePets = orphanagePets.filter(pet => pet.tempId !== tempId);
     res.json({ message: 'Pet adopted successfully', uuid: petUuid });
   } catch (error) {
@@ -4096,15 +4184,17 @@ app.post('/api/adopt-pet', async (req, res) => {
 
 
 // API Get User Info
-app.get('/users/:userId', (req, res) => {
-  const userId = parseInt(req.params.userId); // Parse to integer
+app.get('/users/:userId', async (req, res) => {
+  const userId = parseInt(req.params.userId, 10);
 
   if (isNaN(userId)) {
     res.status(400).json({ message: 'Invalid user ID' });
     return;
   }
 
-  pool.query(`
+  try {
+    const [results] = await db.query(
+      `
     SELECT
       u.id,
       u.username,
@@ -4117,27 +4207,101 @@ app.get('/users/:userId', (req, res) => {
       u.online_status,
       u.birthday,
       u.role,
+      u.equipped_title_id,
       up.display_name,
       up.gender,
-      up.avatar_url
+      up.avatar_url,
+      t.name AS equipped_title_name,
+      t.image_key AS equipped_title_image_key,
+      t.slug AS equipped_title_slug
     FROM users u
     LEFT JOIN user_profiles up ON up.user_id = u.id
+    LEFT JOIN titles t ON t.id = u.equipped_title_id
     WHERE u.id = ?
     LIMIT 1
-  `, [userId], (err, results) => {
-    if (err) {
-      console.error('Error fetching user info: ', err);
-      res.status(500).json({ message: 'Error fetching user info' });
-      return;
-    }
+  `,
+      [userId]
+    );
 
     if (results.length === 0) {
       res.status(404).json({ message: 'User not found' });
       return;
     }
 
-    res.json(results[0]);
-  });
+    const row = results[0];
+    if (row.equipped_title_image_key) {
+      row.equipped_title_image_url = titleService.titleImageUrl(row.equipped_title_image_key);
+    }
+    res.json(row);
+  } catch (err) {
+    console.error('Error fetching user info: ', err);
+    res.status(500).json({ message: 'Error fetching user info' });
+  }
+});
+
+app.get('/api/titles', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT id, slug, name, image_key, metric_type, threshold, sort_order FROM titles WHERE is_active = 1 ORDER BY sort_order ASC, id ASC'
+    );
+    res.json(
+      (rows || []).map((r) => ({
+        ...r,
+        image_url: titleService.titleImageUrl(r.image_key),
+      }))
+    );
+  } catch (err) {
+    console.error('GET /api/titles', err);
+    res.status(500).json({ message: 'Error loading titles' });
+  }
+});
+
+app.get('/api/user/titles-state', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ message: 'Unauthorized' });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+    await titleService.unlockTitlesForUser(db, userId);
+    const [progRows] = await db.query('SELECT * FROM user_title_progress WHERE user_id = ?', [userId]);
+    const [unlocked] = await db.query(
+      `SELECT t.id, t.slug, t.name, t.image_key, t.metric_type, t.threshold, u.unlocked_at
+       FROM user_unlocked_titles u
+       JOIN titles t ON t.id = u.title_id
+       WHERE u.user_id = ?
+       ORDER BY t.sort_order ASC, t.id ASC`,
+      [userId]
+    );
+    const [eqRows] = await db.query('SELECT equipped_title_id FROM users WHERE id = ?', [userId]);
+    const equipped_title_id = eqRows && eqRows[0] ? eqRows[0].equipped_title_id : null;
+    res.json({
+      progress: progRows[0] || {},
+      unlocked: (unlocked || []).map((r) => ({
+        ...r,
+        image_url: titleService.titleImageUrl(r.image_key),
+      })),
+      equipped_title_id,
+    });
+  } catch (err) {
+    console.error('GET /api/user/titles-state', err);
+    res.status(500).json({ message: 'Error loading title state' });
+  }
+});
+
+app.put('/api/user/equipped-title', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ message: 'Unauthorized' });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+    const { titleId } = req.body;
+    const result = await titleService.setEquippedTitle(db, userId, titleId);
+    res.json(result);
+  } catch (e) {
+    if (e.code === 'TITLE_LOCKED') return res.status(400).json({ message: e.message });
+    console.error('PUT /api/user/equipped-title', e);
+    res.status(500).json({ message: e.message || 'Error' });
+  }
 });
 
 // API: Get user role
@@ -4609,6 +4773,87 @@ const checkAdminRoleItems = async (req, res, next) => {
     return res.status(401).json({ error: 'Invalid token' });
   }
 };
+
+app.get('/api/admin/titles', checkAdminRoleItems, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM titles ORDER BY sort_order ASC, id ASC');
+    res.json(rows || []);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi tải titles' });
+  }
+});
+
+app.post('/api/admin/titles', checkAdminRoleItems, async (req, res) => {
+  try {
+    const { slug, name, image_key, metric_type, threshold, sort_order, is_active } = req.body;
+    if (!slug || !name || !metric_type) {
+      return res.status(400).json({ message: 'Thiếu slug, name hoặc metric_type' });
+    }
+    const [r] = await db.query(
+      `INSERT INTO titles (slug, name, image_key, metric_type, threshold, sort_order, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        String(slug).trim(),
+        String(name).trim(),
+        String(image_key || 't1').trim(),
+        metric_type,
+        Math.max(0, parseInt(threshold, 10) || 0),
+        parseInt(sort_order, 10) || 0,
+        is_active === false ? 0 : 1,
+      ]
+    );
+    const [rows] = await db.query('SELECT * FROM titles WHERE id = ?', [r.insertId]);
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    if (String(err.message || '').includes('Duplicate')) {
+      return res.status(409).json({ message: 'Slug đã tồn tại' });
+    }
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi tạo title' });
+  }
+});
+
+app.put('/api/admin/titles/:id', checkAdminRoleItems, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { slug, name, image_key, metric_type, threshold, sort_order, is_active } = req.body;
+    await db.query(
+      `UPDATE titles SET slug = ?, name = ?, image_key = ?, metric_type = ?, threshold = ?, sort_order = ?, is_active = ?
+       WHERE id = ?`,
+      [
+        String(slug || '').trim(),
+        String(name || '').trim(),
+        String(image_key || 't1').trim(),
+        metric_type,
+        Math.max(0, parseInt(threshold, 10) || 0),
+        parseInt(sort_order, 10) || 0,
+        is_active === false ? 0 : 1,
+        id,
+      ]
+    );
+    const [rows] = await db.query('SELECT * FROM titles WHERE id = ?', [id]);
+    if (!rows.length) return res.status(404).json({ message: 'Không tìm thấy' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi cập nhật title' });
+  }
+});
+
+app.delete('/api/admin/titles/:id', checkAdminRoleItems, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    await db.query('UPDATE users SET equipped_title_id = NULL, title = NULL WHERE equipped_title_id = ?', [id]);
+    await db.query('DELETE FROM user_unlocked_titles WHERE title_id = ?', [id]);
+    const [r] = await db.query('DELETE FROM titles WHERE id = ?', [id]);
+    if (!r.affectedRows) return res.status(404).json({ message: 'Không tìm thấy' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi xóa title' });
+  }
+});
 
 // Admin - Tạo vật phẩm mới
 app.post('/api/admin/items', checkAdminRoleItems, (req, res) => {
@@ -5136,6 +5381,13 @@ app.post('/api/shop/buy', async (req, res) => {
 
     // 5. Trừ tiền
     await db.query(`UPDATE users SET ${currency} = ${currency} - ? WHERE id = ?`, [totalPrice, user_id]);
+    if (currency === 'peta') {
+      try {
+        await titleService.recordPetaSpent(db, user_id, totalPrice);
+      } catch (e) {
+        console.error('title spend (shop):', e);
+      }
+    }
 
     // 6. Thêm item vào inventory
     if (itemRow.type === 'equipment') {
@@ -5602,6 +5854,13 @@ app.post('/api/inventory/:id/sell', async (req, res) => {
 
     if (currencyGained > 0) {
       await conn.query(`UPDATE users SET ${sellCurrency} = ${sellCurrency} + ? WHERE id = ?`, [currencyGained, userId]);
+      if (sellCurrency === 'peta') {
+        try {
+          await titleService.recordPetaEarned(db, userId, currencyGained);
+        } catch (e) {
+          console.error('title earn (sell):', e);
+        }
+      }
     }
 
     await conn.commit();
@@ -6992,6 +7251,11 @@ app.post('/api/arena/claim-loot', async (req, res) => {
     for (const entry of loot) {
       if (entry.item_id === 0) {
         await db.query('UPDATE users SET peta = peta + ? WHERE id = ?', [entry.quantity, userId]);
+        try {
+          await titleService.recordPetaEarned(db, userId, entry.quantity);
+        } catch (e) {
+          console.error('title earn (loot):', e);
+        }
         responseLoot.push({
           ...entry,
           image_url: null,
@@ -7066,6 +7330,14 @@ async function finalizeMatchInMySQL(matchState, winner) {
         'UPDATE pets SET current_hp = ?, battles_won = COALESCE(battles_won, 0) + 1 WHERE id = ?',
         [playerHp, petId]
       );
+      const uid = matchState.userId;
+      if (uid) {
+        try {
+          await titleService.recordHuntWin(db, uid, 1);
+        } catch (e) {
+          console.error('titleService.recordHuntWin:', e);
+        }
+      }
     }
     await conn.commit();
   } catch (e) {
@@ -7512,6 +7784,14 @@ app.post('/api/pets/:id/gain-exp', async (req, res) => {
       );
     }
 
+    if (String(source) === 'hunt' && pet.owner_id) {
+      try {
+        await titleService.recordHuntWin(db, pet.owner_id, 1);
+      } catch (e) {
+        console.error('title hunt (gain-exp):', e);
+      }
+    }
+
     res.json({ 
       id: petId, 
       level: newLevel, 
@@ -7847,6 +8127,486 @@ app.get('/api/mails/:userId', async (req, res) => {
   }
 });
 
+/** Ảnh xem trước pet/spirit trong thư (đấu giá + tặng quà). Chỉ chủ thư. */
+app.get('/api/mails/:mailId/preview-assets', async (req, res) => {
+  const mailId = parseInt(req.params.mailId, 10);
+  const userId = parseInt(req.query.userId, 10);
+  if (!Number.isFinite(mailId) || !Number.isFinite(userId)) {
+    return res.status(400).json({ error: 'Tham số không hợp lệ' });
+  }
+  try {
+    const [rows] = await db.query(
+      'SELECT attached_rewards FROM mails WHERE id = ? AND user_id = ? LIMIT 1',
+      [mailId, userId]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Không tìm thấy thư' });
+    }
+    let rewards = {};
+    try {
+      const raw = rows[0].attached_rewards;
+      rewards =
+        typeof raw === 'object' && raw !== null && !Buffer.isBuffer(raw)
+          ? raw
+          : JSON.parse(raw ? String(raw) : '{}');
+    } catch (_) {
+      rewards = {};
+    }
+    const fromAuctionPets = Array.isArray(rewards.auction_transfer_pet_ids)
+      ? rewards.auction_transfer_pet_ids.map((x) => parseInt(x, 10)).filter((n) => Number.isFinite(n) && n > 0)
+      : [];
+    const fromGiftPets = Array.isArray(rewards.pets)
+      ? rewards.pets.map((x) => parseInt(x.pet_id, 10)).filter((n) => Number.isFinite(n) && n > 0)
+      : [];
+    const petIds = [...new Set([...fromAuctionPets, ...fromGiftPets])];
+
+    const fromAuctionSpirits = Array.isArray(rewards.auction_transfer_spirit_ids)
+      ? rewards.auction_transfer_spirit_ids.map((x) => parseInt(x, 10)).filter((n) => Number.isFinite(n) && n > 0)
+      : [];
+    const fromGiftSpirits = Array.isArray(rewards.spirits)
+      ? rewards.spirits
+          .map((x) => parseInt(x.user_spirit_id, 10))
+          .filter((n) => Number.isFinite(n) && n > 0)
+      : [];
+    const spiritIds = [...new Set([...fromAuctionSpirits, ...fromGiftSpirits])];
+
+    const out = { pets: [], spirits: [] };
+    if (petIds.length) {
+      const ph = petIds.map(() => '?').join(',');
+      const [pets] = await db.query(
+        `SELECT p.id, p.name, ps.image AS species_image
+         FROM pets p
+         LEFT JOIN pet_species ps ON ps.id = p.pet_species_id
+         WHERE p.id IN (${ph})`,
+        petIds
+      );
+      out.pets = pets || [];
+    }
+    if (spiritIds.length) {
+      const sh = spiritIds.map(() => '?').join(',');
+      const [spirits] = await db.query(
+        `SELECT us.id AS user_spirit_id, COALESCE(s.name, '') AS name, s.image_url AS spirit_image
+         FROM user_spirits us
+         LEFT JOIN spirits s ON s.id = us.spirit_id
+         WHERE us.id IN (${sh})`,
+        spiritIds
+      );
+      out.spirits = spirits || [];
+    }
+    res.json(out);
+  } catch (err) {
+    console.error('GET /api/mails/:mailId/preview-assets', err);
+    res.status(500).json({ error: 'Không tải được ảnh xem trước' });
+  }
+});
+
+/** Thêm vật phẩm vào inventory khi nhận mail (đồng bộ trang bị / độ bền với đấu giá). */
+async function grantMailItemsToInventory(dbConn, playerId, itemId, quantity) {
+  const qty = Math.max(0, parseInt(quantity, 10) || 0);
+  if (!qty || !itemId) return;
+  const [itemRows] = await dbConn.query('SELECT id, type, stackable FROM items WHERE id = ?', [itemId]);
+  if (!itemRows.length) return;
+  const itemRow = itemRows[0];
+  const isEquipment = String(itemRow.type || '').toLowerCase() === 'equipment';
+  if (isEquipment) {
+    const [equipInfo] = await dbConn.query('SELECT durability_max FROM equipment_data WHERE item_id = ?', [itemId]);
+    const durability = equipInfo.length > 0 ? (equipInfo[0].durability_max ?? 1) : 1;
+    for (let i = 0; i < qty; i++) {
+      await dbConn.query(
+        `INSERT INTO inventory (player_id, item_id, quantity, is_equipped, durability_left) VALUES (?, ?, 1, 0, ?)`,
+        [playerId, itemId, durability]
+      );
+    }
+    return;
+  }
+  const stackable = itemRow.stackable === 1 || itemRow.stackable === true;
+  if (stackable) {
+    const [invRows] = await dbConn.query(
+      `SELECT id, quantity FROM inventory WHERE player_id = ? AND item_id = ? AND (is_equipped = 0 OR is_equipped IS NULL)`,
+      [playerId, itemId]
+    );
+    if (invRows.length > 0) {
+      await dbConn.query(`UPDATE inventory SET quantity = quantity + ? WHERE id = ?`, [qty, invRows[0].id]);
+    } else {
+      await dbConn.query(`INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, ?)`, [playerId, itemId, qty]);
+    }
+  } else {
+    for (let i = 0; i < qty; i++) {
+      await dbConn.query(`INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, 1)`, [playerId, itemId]);
+    }
+  }
+}
+
+async function petHasActiveArenaMatch(userId, petId) {
+  try {
+    const redis = getRedis();
+    if (!redis) return false;
+    const key = REDIS_MATCH_PREFIX + userId;
+    const data = await redis.get(key);
+    if (!data) return false;
+    const state = JSON.parse(data);
+    return Number(state.pet_id) === Number(petId);
+  } catch (_) {
+    return false;
+  }
+}
+
+/** Gỡ toàn bộ vật phẩm / linh thú đang gắn pet (trước khi tặng pet hoặc sau khi chuẩn bị gửi thư). */
+async function stripAllGearFromPet(conn, petId, ownerPlayerId) {
+  const pid = parseInt(petId, 10);
+  const uid = parseInt(ownerPlayerId, 10);
+  if (!Number.isFinite(pid) || !Number.isFinite(uid)) return;
+  await conn.query(
+    `UPDATE inventory SET is_equipped = 0, equipped_pet_id = NULL WHERE equipped_pet_id = ? AND player_id = ?`,
+    [pid, uid]
+  );
+  await conn.query(
+    `UPDATE user_spirits SET is_equipped = 0, equipped_pet_id = NULL WHERE equipped_pet_id = ? AND user_id = ?`,
+    [pid, uid]
+  );
+}
+
+/** Áp dụng attached_rewards cho người nhận. Thư user: chuyển pet/spirit; không cộng peta/petagold. */
+async function applyMailAttachedRewards(mailRow, recipientUserId) {
+  let rewards;
+  try {
+    if (typeof mailRow.attached_rewards === 'object' && mailRow.attached_rewards !== null) {
+      rewards = mailRow.attached_rewards;
+    } else {
+      rewards = JSON.parse(mailRow.attached_rewards || '{}');
+    }
+  } catch (e) {
+    rewards = {};
+  }
+  const isUserMail =
+    String(mailRow.sender_type || '').toLowerCase() === 'user' &&
+    mailRow.sender_id != null &&
+    Number(mailRow.sender_id) > 0;
+  const senderId = Number(mailRow.sender_id);
+
+  if (rewards.peta && !isUserMail) {
+    await db.query(`UPDATE users SET peta = peta + ? WHERE id = ?`, [rewards.peta, recipientUserId]);
+    try {
+      await titleService.recordPetaEarned(db, recipientUserId, rewards.peta);
+    } catch (e) {
+      console.error('title earn (mail peta):', e);
+    }
+  }
+  if (rewards.peta_gold && !isUserMail) {
+    await db.query(`UPDATE users SET petagold = petagold + ? WHERE id = ?`, [rewards.peta_gold, recipientUserId]);
+  }
+
+  if (rewards.items && rewards.items.length > 0) {
+    for (const item of rewards.items) {
+      await grantMailItemsToInventory(db, recipientUserId, item.item_id, item.quantity);
+    }
+  }
+
+  if (rewards.spirits && rewards.spirits.length > 0) {
+    for (const spirit of rewards.spirits) {
+      const qty = Math.max(1, parseInt(spirit.quantity, 10) || 1);
+      if (isUserMail && spirit.user_spirit_id) {
+        await db.query(
+          `UPDATE user_spirits SET user_id = ?, is_equipped = 0, equipped_pet_id = NULL, is_listed = 0
+           WHERE id = ?`,
+          [recipientUserId, spirit.user_spirit_id]
+        );
+      } else {
+        for (let i = 0; i < qty; i++) {
+          await db.query(
+            `INSERT INTO user_spirits (user_id, spirit_id, is_equipped, equipped_pet_id)
+             VALUES (?, ?, FALSE, NULL)`,
+            [recipientUserId, spirit.spirit_id]
+          );
+        }
+      }
+    }
+  }
+
+  if (rewards.pets && rewards.pets.length > 0) {
+    for (const pet of rewards.pets) {
+      const qty = Math.max(1, parseInt(pet.quantity, 10) || 1);
+      if (isUserMail && pet.pet_id) {
+        await db.query(`UPDATE pets SET owner_id = ?, is_listed = 0 WHERE id = ?`, [
+          recipientUserId,
+          pet.pet_id,
+        ]);
+      } else {
+        for (let i = 0; i < qty; i++) {
+          const [petRows] = await db.query('SELECT * FROM pets WHERE id = ?', [pet.pet_id]);
+          if (!petRows.length) continue;
+          const o = petRows[0];
+          const speciesId = o.pet_species_id ?? o.species_id;
+          if (speciesId == null) continue;
+          const finalStats =
+            typeof o.final_stats === 'string'
+              ? o.final_stats
+              : JSON.stringify(
+                  o.final_stats || {
+                    hp: o.hp,
+                    mp: o.mp,
+                    str: o.str,
+                    def: o.def,
+                    intelligence: o.intelligence,
+                    spd: o.spd,
+                  }
+                );
+          await db.query(
+            `INSERT INTO pets (
+              uuid, name, hp, str, def, intelligence, spd, mp,
+              owner_id, pet_species_id, level, max_hp, max_mp,
+              created_date, final_stats,
+              iv_hp, iv_mp, iv_str, iv_def, iv_intelligence, iv_spd,
+              current_exp, exp_to_next_level
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              uuidv4(),
+              o.name,
+              o.hp,
+              o.str,
+              o.def,
+              o.intelligence,
+              o.spd,
+              o.mp,
+              recipientUserId,
+              speciesId,
+              o.level,
+              o.max_hp ?? o.hp,
+              o.max_mp ?? o.mp,
+              new Date(),
+              finalStats,
+              o.iv_hp ?? 0,
+              o.iv_mp ?? 0,
+              o.iv_str ?? 0,
+              o.iv_def ?? 0,
+              o.iv_intelligence ?? 0,
+              o.iv_spd ?? 0,
+              o.current_exp ?? 0,
+              o.exp_to_next_level ?? 100,
+            ]
+          );
+          try {
+            await titleService.recordPetCatch(db, recipientUserId, 1);
+          } catch (e) {
+            console.error('title catch (mail pet):', e);
+          }
+        }
+      }
+    }
+  }
+
+  /** Đấu giá: pet/spirit đã chuyển owner khi kết phiên — claim thư chỉ idempotent (đồng bộ is_listed). */
+  if (
+    Array.isArray(rewards.auction_transfer_pet_ids) &&
+    rewards.auction_transfer_pet_ids.length > 0 &&
+    !isUserMail
+  ) {
+    for (const rawId of rewards.auction_transfer_pet_ids) {
+      const pid = parseInt(rawId, 10);
+      if (!Number.isFinite(pid)) continue;
+      await db.query(
+        `UPDATE pets SET owner_id = ?, is_listed = 0 WHERE id = ?`,
+        [recipientUserId, pid]
+      );
+    }
+  }
+  if (
+    Array.isArray(rewards.auction_transfer_spirit_ids) &&
+    rewards.auction_transfer_spirit_ids.length > 0 &&
+    !isUserMail
+  ) {
+    for (const rawId of rewards.auction_transfer_spirit_ids) {
+      const sid = parseInt(rawId, 10);
+      if (!Number.isFinite(sid)) continue;
+      await db.query(
+        `UPDATE user_spirits
+         SET user_id = ?, is_equipped = 0, equipped_pet_id = NULL, is_listed = 0
+         WHERE id = ?`,
+        [recipientUserId, sid]
+      );
+    }
+  }
+}
+
+// POST /api/mails/gift — User gửi quà cho bạn bè (một loại: items | pet | spirit; không peta)
+app.post('/api/mails/gift', async (req, res) => {
+  const senderId = getUserIdFromToken(req);
+  if (!senderId) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    recipient_user_id,
+    subject,
+    message,
+    gift_kind,
+    items,
+    pet_id,
+    user_spirit_id,
+    expire_days = 14,
+  } = req.body;
+
+  const rid = parseInt(recipient_user_id, 10);
+  if (!Number.isFinite(rid) || rid <= 0 || rid === senderId) {
+    return res.status(400).json({ error: 'Người nhận không hợp lệ' });
+  }
+  const subj = String(subject || '').trim();
+  const msg = String(message || '').trim();
+  if (!subj || !msg) return res.status(400).json({ error: 'Tiêu đề và nội dung không được để trống' });
+  if (!['items', 'pet', 'spirit'].includes(String(gift_kind || ''))) {
+    return res.status(400).json({ error: 'gift_kind phải là items, pet hoặc spirit' });
+  }
+
+  let conn;
+  try {
+    const [fr] = await db.query(
+      `SELECT 1 FROM user_friendships WHERE user_id = ? AND friend_id = ? LIMIT 1`,
+      [senderId, rid]
+    );
+    if (!fr.length) return res.status(403).json({ error: 'Chỉ có thể gửi quà cho bạn bè trong danh sách' });
+
+    const [recv] = await db.query('SELECT id FROM users WHERE id = ? LIMIT 1', [rid]);
+    if (!recv.length) return res.status(404).json({ error: 'Người nhận không tồn tại' });
+
+    const [snd] = await db.query('SELECT username FROM users WHERE id = ? LIMIT 1', [senderId]);
+    const senderName = snd[0]?.username || `User#${senderId}`;
+
+    let attached = null;
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    if (gift_kind === 'items') {
+      const list = Array.isArray(items) ? items : [];
+      if (!list.length) {
+        await conn.rollback();
+        return res.status(400).json({ error: 'Chọn ít nhất một vật phẩm từ kho' });
+      }
+      const outItems = [];
+      for (const row of list) {
+        const invId = parseInt(row.inventory_id, 10);
+        const qty = Math.max(1, parseInt(row.quantity, 10) || 1);
+        if (!Number.isFinite(invId)) {
+          await conn.rollback();
+          return res.status(400).json({ error: 'inventory_id không hợp lệ' });
+        }
+        const [invRows] = await conn.query(
+          `SELECT i.id, i.quantity, i.is_equipped, it.id AS catalogue_item_id, it.type AS it_type, it.category AS it_cat
+           FROM inventory i JOIN items it ON i.item_id = it.id
+           WHERE i.id = ? AND i.player_id = ? FOR UPDATE`,
+          [invId, senderId]
+        );
+        if (!invRows.length) {
+          await conn.rollback();
+          return res.status(400).json({ error: `Không tìm thấy vật phẩm trong kho (id ${invId})` });
+        }
+        const inv = invRows[0];
+        if (Number(inv.is_equipped) === 1) {
+          await conn.rollback();
+          return res.status(400).json({ error: 'Không thể tặng vật phẩm đang trang bị' });
+        }
+        const cat = String(inv.it_cat || '').toLowerCase();
+        const typ = String(inv.it_type || '').toLowerCase();
+        if (typ === 'misc' || cat === 'misc') {
+          await conn.rollback();
+          return res.status(400).json({ error: 'Không thể tặng vật phẩm loại misc' });
+        }
+        if (inv.quantity < qty) {
+          await conn.rollback();
+          return res.status(400).json({ error: 'Số lượng vượt quá kho' });
+        }
+        if (inv.quantity === qty) {
+          await conn.query(`DELETE FROM inventory WHERE id = ?`, [invId]);
+        } else {
+          await conn.query(`UPDATE inventory SET quantity = quantity - ? WHERE id = ?`, [qty, invId]);
+        }
+        outItems.push({ item_id: inv.catalogue_item_id, quantity: qty });
+      }
+      attached = { items: outItems };
+    } else if (gift_kind === 'pet') {
+      const pid = parseInt(pet_id, 10);
+      if (!Number.isFinite(pid)) {
+        await conn.rollback();
+        return res.status(400).json({ error: 'pet_id không hợp lệ' });
+      }
+      const [pRows] = await conn.query(`SELECT id, owner_id, level FROM pets WHERE id = ? FOR UPDATE`, [pid]);
+      if (!pRows.length || Number(pRows[0].owner_id) !== senderId) {
+        await conn.rollback();
+        return res.status(400).json({ error: 'Pet không thuộc về bạn' });
+      }
+      if (Number(pRows[0].level) < 20) {
+        await conn.rollback();
+        return res.status(400).json({ error: 'Chỉ có thể tặng thú cưng từ cấp 20 trở lên' });
+      }
+      await stripAllGearFromPet(conn, pid, senderId);
+      const inArena = await petHasActiveArenaMatch(senderId, pid);
+      if (inArena) {
+        await conn.rollback();
+        return res.status(400).json({ error: 'Pet đang trong trận đấu, không thể tặng' });
+      }
+      const [moved] = await conn.query(
+        `UPDATE pets SET owner_id = ?, is_listed = 0 WHERE id = ? AND owner_id = ?`,
+        [rid, pid, senderId]
+      );
+      if (!moved.affectedRows) {
+        await conn.rollback();
+        return res.status(400).json({ error: 'Không thể chuyển pet — thử lại sau' });
+      }
+      attached = { pets: [{ pet_id: pid, quantity: 1 }] };
+    } else if (gift_kind === 'spirit') {
+      const sid = parseInt(user_spirit_id, 10);
+      if (!Number.isFinite(sid)) {
+        await conn.rollback();
+        return res.status(400).json({ error: 'user_spirit_id không hợp lệ' });
+      }
+      const [usRows] = await conn.query(
+        `SELECT us.id, us.user_id, us.spirit_id, us.is_equipped, us.equipped_pet_id
+         FROM user_spirits us WHERE us.id = ? FOR UPDATE`,
+        [sid]
+      );
+      if (!usRows.length || Number(usRows[0].user_id) !== senderId) {
+        await conn.rollback();
+        return res.status(400).json({ error: 'Linh thú không thuộc về bạn' });
+      }
+      await conn.query(
+        `UPDATE user_spirits SET is_equipped = 0, equipped_pet_id = NULL WHERE id = ? AND user_id = ?`,
+        [sid, senderId]
+      );
+      const [movedSp] = await conn.query(
+        `UPDATE user_spirits SET user_id = ?, is_equipped = 0, equipped_pet_id = NULL, is_listed = 0
+         WHERE id = ? AND user_id = ?`,
+        [rid, sid, senderId]
+      );
+      if (!movedSp.affectedRows) {
+        await conn.rollback();
+        return res.status(400).json({ error: 'Không thể chuyển linh thú — thử lại sau' });
+      }
+      attached = {
+        spirits: [{ user_spirit_id: sid, spirit_id: usRows[0].spirit_id, quantity: 1 }],
+      };
+    }
+
+    const expireAt = new Date();
+    expireAt.setDate(expireAt.getDate() + Math.min(90, Math.max(1, parseInt(expire_days, 10) || 14)));
+
+    const rewardsJson = attached ? JSON.stringify(attached) : null;
+    await conn.query(
+      `INSERT INTO mails (user_id, sender_id, sender_type, sender_name, subject, message, attached_rewards, expire_at)
+       VALUES (?, ?, 'user', ?, ?, ?, ?, ?)`,
+      [rid, senderId, senderName, subj, msg, rewardsJson, expireAt]
+    );
+
+    await conn.commit();
+    res.json({ success: true, message: 'Đã gửi thư tặng quà!' });
+  } catch (err) {
+    try {
+      if (conn) await conn.rollback();
+    } catch (_) {}
+    console.error('POST /api/mails/gift:', err);
+    res.status(500).json({ error: 'Không thể gửi thư', details: err.message });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 // POST /api/mails/claim/:mailId - Claim 1 mail
 app.post('/api/mails/claim/:mailId', async (req, res) => {
   const { mailId } = req.params;
@@ -7865,11 +8625,9 @@ app.post('/api/mails/claim/:mailId', async (req, res) => {
     const mail = mailRows[0];
     let rewards;
     try {
-      // Handle case where attached_rewards is already an object
       if (typeof mail.attached_rewards === 'object') {
         rewards = mail.attached_rewards;
       } else {
-        // Handle case where attached_rewards is a string
         rewards = JSON.parse(mail.attached_rewards || '{}');
       }
     } catch (error) {
@@ -7877,84 +8635,16 @@ app.post('/api/mails/claim/:mailId', async (req, res) => {
       rewards = {};
     }
 
-    // 2. Cập nhật currency nếu có
-    if (rewards.peta) {
-      await db.query(`UPDATE users SET peta = peta + ? WHERE id = ?`, [rewards.peta, userId]);
-    }
-    if (rewards.peta_gold) {
-      await db.query(`UPDATE users SET petagold = petagold + ? WHERE id = ?`, [rewards.peta_gold, userId]);
-    }
+    await applyMailAttachedRewards(mail, userId);
 
-    // 3. Thêm items vào inventory nếu có
-    if (rewards.items && rewards.items.length > 0) {
-      for (const item of rewards.items) {
-        const [invRows] = await db.query(`
-          SELECT id, quantity FROM inventory 
-          WHERE player_id = ? AND item_id = ? AND is_equipped = 0
-        `, [userId, item.item_id]);
-
-        if (invRows.length > 0) {
-          // Cập nhật quantity nếu item đã có
-          await db.query(`
-            UPDATE inventory SET quantity = quantity + ? WHERE id = ?
-          `, [item.quantity, invRows[0].id]);
-        } else {
-          // Thêm item mới
-          await db.query(`
-            INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, ?)
-          `, [userId, item.item_id, item.quantity]);
-        }
-      }
-    }
-
-    // 4. Thêm spirits vào user_spirits nếu có
-    if (rewards.spirits && rewards.spirits.length > 0) {
-      for (const spirit of rewards.spirits) {
-        for (let i = 0; i < spirit.quantity; i++) {
-          await db.query(`
-            INSERT INTO user_spirits (user_id, spirit_id, is_equipped, equipped_pet_id)
-            VALUES (?, ?, FALSE, NULL)
-          `, [userId, spirit.spirit_id]);
-        }
-      }
-    }
-
-    // 5. Thêm pets nếu có
-    if (rewards.pets && rewards.pets.length > 0) {
-      for (const pet of rewards.pets) {
-        for (let i = 0; i < pet.quantity; i++) {
-          // Lấy thông tin pet từ database
-          const [petRows] = await db.query(`
-            SELECT * FROM pets WHERE id = ?
-          `, [pet.pet_id]);
-          
-          if (petRows.length > 0) {
-            const originalPet = petRows[0];
-            // Tạo pet mới cho user
-            await db.query(`
-              INSERT INTO pets (owner_id, species_id, name, level, exp, hp, mp, str, def, spd, intelligence, 
-                              iv_hp, iv_mp, iv_str, iv_def, iv_spd, iv_intelligence, image, is_deployed)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)
-            `, [
-              userId, originalPet.species_id, originalPet.name, originalPet.level, originalPet.exp,
-              originalPet.hp, originalPet.mp, originalPet.str, originalPet.def, originalPet.spd, originalPet.intelligence,
-              originalPet.iv_hp, originalPet.iv_mp, originalPet.iv_str, originalPet.iv_def, originalPet.iv_spd, originalPet.iv_intelligence,
-              originalPet.image
-            ]);
-          }
-        }
-      }
-    }
-
-    // 4. Đánh dấu mail đã claim
     await db.query(`
       UPDATE mails SET is_claimed = TRUE WHERE id = ?
     `, [mailId]);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Claim thành công!',
-      rewards: rewards
+      rewards: rewards,
     });
 
   } catch (err) {
@@ -7979,125 +8669,49 @@ app.post('/api/mails/claim-all/:userId', async (req, res) => {
 
     let totalPeta = 0;
     let totalPetaGold = 0;
-    const itemsToAdd = {};
-    const spiritsToAdd = {};
-    const petsToAdd = {};
+    let itemGrantCount = 0;
+    let spiritGrantCount = 0;
+    let petGrantCount = 0;
 
-    // 2. Tính tổng rewards
     for (const mail of mails) {
       let rewards;
       try {
-        // Handle case where attached_rewards is already an object
         if (typeof mail.attached_rewards === 'object') {
           rewards = mail.attached_rewards;
         } else {
-          // Handle case where attached_rewards is a string
           rewards = JSON.parse(mail.attached_rewards || '{}');
         }
       } catch (error) {
         console.error('Error parsing rewards for mail:', mail.id, error);
         rewards = {};
       }
-      
-      if (rewards.peta) totalPeta += rewards.peta;
-      if (rewards.peta_gold) totalPetaGold += rewards.peta_gold;
-      
-      if (rewards.items) {
-        for (const item of rewards.items) {
-          const key = item.item_id;
-          itemsToAdd[key] = (itemsToAdd[key] || 0) + item.quantity;
-        }
-      }
+      const isUserMail =
+        String(mail.sender_type || '').toLowerCase() === 'user' &&
+        mail.sender_id != null &&
+        Number(mail.sender_id) > 0;
+      if (rewards.peta && !isUserMail) totalPeta += rewards.peta;
+      if (rewards.peta_gold && !isUserMail) totalPetaGold += rewards.peta_gold;
+      if (rewards.items?.length) itemGrantCount += rewards.items.length;
+      if (rewards.spirits?.length) spiritGrantCount += rewards.spirits.length;
+      if (rewards.pets?.length) petGrantCount += rewards.pets.length;
+      if (rewards.auction_transfer_pet_ids?.length) petGrantCount += rewards.auction_transfer_pet_ids.length;
+      if (rewards.auction_transfer_spirit_ids?.length) spiritGrantCount += rewards.auction_transfer_spirit_ids.length;
 
-      if (rewards.spirits) {
-        for (const spirit of rewards.spirits) {
-          const key = spirit.spirit_id;
-          spiritsToAdd[key] = (spiritsToAdd[key] || 0) + spirit.quantity;
-        }
-      }
-
-      if (rewards.pets) {
-        for (const pet of rewards.pets) {
-          const key = pet.pet_id;
-          petsToAdd[key] = (petsToAdd[key] || 0) + pet.quantity;
-        }
-      }
+      await applyMailAttachedRewards(mail, targetUserId);
     }
 
-    // 3. Cập nhật currency
-    if (totalPeta > 0) {
-      await db.query(`UPDATE users SET peta = peta + ? WHERE id = ?`, [totalPeta, targetUserId]);
-    }
-    if (totalPetaGold > 0) {
-      await db.query(`UPDATE users SET petagold = petagold + ? WHERE id = ?`, [totalPetaGold, targetUserId]);
-    }
-
-    // 4. Thêm items
-    for (const [itemId, quantity] of Object.entries(itemsToAdd)) {
-      const [invRows] = await db.query(`
-        SELECT id, quantity FROM inventory 
-        WHERE player_id = ? AND item_id = ? AND is_equipped = 0
-      `, [targetUserId, itemId]);
-
-      if (invRows.length > 0) {
-        await db.query(`
-          UPDATE inventory SET quantity = quantity + ? WHERE id = ?
-        `, [quantity, invRows[0].id]);
-      } else {
-        await db.query(`
-          INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, ?)
-        `, [targetUserId, itemId, quantity]);
-      }
-    }
-
-    // 5. Thêm spirits
-    for (const [spiritId, quantity] of Object.entries(spiritsToAdd)) {
-      for (let i = 0; i < quantity; i++) {
-        await db.query(`
-          INSERT INTO user_spirits (user_id, spirit_id, is_equipped, equipped_pet_id)
-          VALUES (?, ?, FALSE, NULL)
-        `, [targetUserId, spiritId]);
-      }
-    }
-
-    // 6. Thêm pets
-    for (const [petId, quantity] of Object.entries(petsToAdd)) {
-      for (let i = 0; i < quantity; i++) {
-        // Lấy thông tin pet từ database
-        const [petRows] = await db.query(`
-          SELECT * FROM pets WHERE id = ?
-        `, [petId]);
-        
-        if (petRows.length > 0) {
-          const originalPet = petRows[0];
-          // Tạo pet mới cho user
-          await db.query(`
-            INSERT INTO pets (owner_id, species_id, name, level, exp, hp, mp, str, def, spd, intelligence, 
-                            iv_hp, iv_mp, iv_str, iv_def, iv_spd, iv_intelligence, image, is_deployed)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)
-          `, [
-            targetUserId, originalPet.species_id, originalPet.name, originalPet.level, originalPet.exp,
-            originalPet.hp, originalPet.mp, originalPet.str, originalPet.def, originalPet.spd, originalPet.intelligence,
-            originalPet.iv_hp, originalPet.iv_mp, originalPet.iv_str, originalPet.iv_def, originalPet.iv_spd, originalPet.iv_intelligence,
-            originalPet.image
-          ]);
-        }
-      }
-    }
-
-    // 5. Đánh dấu tất cả mail đã claim
     await db.query(`
       UPDATE mails SET is_claimed = TRUE WHERE user_id = ? AND is_claimed = FALSE
     `, [targetUserId]);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: `Claim thành công ${mails.length} mail!`,
       totalPeta,
       totalPetaGold,
-      totalItems: Object.keys(itemsToAdd).length,
-      totalSpirits: Object.keys(spiritsToAdd).length,
-      totalPets: Object.keys(petsToAdd).length
+      totalItems: itemGrantCount,
+      totalSpirits: spiritGrantCount,
+      totalPets: petGrantCount,
     });
 
   } catch (err) {
@@ -8279,6 +8893,12 @@ app.get('/api/spirits', async (req, res) => {
 // GET /api/users/:userId/spirits - Lấy Linh Thú của user
 app.get('/api/users/:userId/spirits', async (req, res) => {
   const { userId } = req.params;
+  const auctionEligible = String(req.query.auction_eligible || '') === '1';
+  const auctionSql = auctionEligible
+    ? ` AND COALESCE(us.is_listed, 0) = 0
+        AND us.equipped_pet_id IS NULL
+        AND (us.is_equipped = 0 OR us.is_equipped IS NULL)`
+    : '';
   
   try {
     const [userSpirits] = await db.query(`
@@ -8288,6 +8908,7 @@ app.get('/api/users/:userId/spirits', async (req, res) => {
       JOIN spirits s ON us.spirit_id = s.id
       LEFT JOIN pets p ON us.equipped_pet_id = p.id
       WHERE us.user_id = ?
+      ${auctionSql}
       ORDER BY us.is_equipped DESC, s.rarity DESC, s.name ASC
     `, [userId]);
 
@@ -8882,6 +9503,60 @@ app.get('/api/pets/:petId/battle-stats', async (req, res) => {
 });
 
 
+async function handleEvolveItemUse(dbConn, petId, userId, targetSpeciesId) {
+  const tid = parseInt(targetSpeciesId, 10);
+  if (!tid || Number.isNaN(tid)) {
+    const err = new Error('ID loài đích không hợp lệ');
+    err.code = 'EVOLVE_INVALID';
+    throw err;
+  }
+
+  const [pRows] = await dbConn.query('SELECT * FROM pets WHERE id = ? AND owner_id = ?', [petId, userId]);
+  if (!pRows.length) {
+    const err = new Error('Không tìm thấy pet');
+    err.code = 'EVOLVE_INVALID';
+    throw err;
+  }
+  const pet = pRows[0];
+
+  const [sRows] = await dbConn.query('SELECT id, evolve_to FROM pet_species WHERE id = ?', [pet.pet_species_id]);
+  if (!sRows.length) {
+    const err = new Error('Loài hiện tại không hợp lệ');
+    err.code = 'EVOLVE_INVALID';
+    throw err;
+  }
+
+  const ev = sRows[0].evolve_to;
+  let allowed = true;
+  if (ev != null && String(ev).trim() !== '') {
+    try {
+      const arr = typeof ev === 'string' ? JSON.parse(ev) : ev;
+      if (Array.isArray(arr) && arr.length) {
+        const ids = arr.map((x) => parseInt(x, 10)).filter((n) => !Number.isNaN(n));
+        allowed = ids.includes(tid);
+      }
+    } catch (_) {
+      allowed = true;
+    }
+  }
+  if (!allowed) {
+    const err = new Error('Loài đích không nằm trong chuỗi tiến hóa của pet');
+    err.code = 'EVOLVE_INVALID';
+    throw err;
+  }
+
+  const [tRows] = await dbConn.query('SELECT id FROM pet_species WHERE id = ?', [tid]);
+  if (!tRows.length) {
+    const err = new Error('Loài đích không tồn tại');
+    err.code = 'EVOLVE_INVALID';
+    throw err;
+  }
+
+  await dbConn.query('UPDATE pets SET pet_species_id = ?, evolution_stage = 1 WHERE id = ?', [tid, petId]);
+  await refreshPetIntrinsicStats(dbConn, petId);
+  await titleService.recordPetEvolution(dbConn, userId, 1);
+}
+
 // Sử dụng vật phẩm
 app.post('/api/pets/:petId/use-item', async (req, res) => {
   const { petId } = req.params;
@@ -8909,26 +9584,48 @@ app.post('/api/pets/:petId/use-item', async (req, res) => {
       return res.status(400).json({ message: 'Invalid item' });
     }
 
-    let normalizedEffect;
-    if (effectRows.length) {
-      normalizedEffect = normalizeEffectRow(effectRows[0]);
-    } else {
-      const synthetic = buildSyntheticMedicineEffectFromItemRow(itemRows[0]);
-      if (!synthetic) {
-        return res.status(400).json({ message: 'Invalid item' });
-      }
-      normalizedEffect = synthetic;
-    }
-
-    // 4. Xử lý theo loại item — food tách khỏi consumable; đồ chơi có thể vẫn là consumable+category toy
-    let levelUpResult = null;
     const itemRow = itemRows[0];
-    if (itemRow.type === 'booster') {
-      levelUpResult = await handleBoosterItem(petId, item_id, itemRow, normalizedEffect, quantity, userId);
-    } else if (itemActsAsFoodForPetUse(itemRow) || itemActsAsToyForPetUse(itemRow)) {
-      levelUpResult = await handleFoodItem(petId, item_id, itemRow, normalizedEffect, quantity, userId);
-    } else if (itemRow.type === 'consumable' || itemRow.type === 'medicine') {
-      levelUpResult = await handleConsumableItem(petId, item_id, itemRow, normalizedEffect, quantity, userId);
+    let normalizedEffect = null;
+    let levelUpResult = null;
+
+    if (itemRow.type === 'evolve') {
+      const rawMv = itemRow.magic_value;
+      let target =
+        rawMv != null && rawMv !== ''
+          ? parseInt(rawMv, 10)
+          : NaN;
+      if (Number.isNaN(target) && effectRows.length) {
+        target = parseInt(effectRows[0].value_min, 10);
+      }
+      if (!target || Number.isNaN(target)) {
+        return res.status(400).json({
+          message: 'Vật phẩm tiến hóa cần magic_value hoặc item_effects.value_min = id loài đích.',
+        });
+      }
+      try {
+        await handleEvolveItemUse(db, petId, userId, target);
+      } catch (e) {
+        const code = e.code === 'EVOLVE_INVALID' ? 400 : 500;
+        return res.status(code).json({ message: e.message || 'Không thể tiến hóa' });
+      }
+    } else {
+      if (effectRows.length) {
+        normalizedEffect = normalizeEffectRow(effectRows[0]);
+      } else {
+        const synthetic = buildSyntheticMedicineEffectFromItemRow(itemRows[0]);
+        if (!synthetic) {
+          return res.status(400).json({ message: 'Invalid item' });
+        }
+        normalizedEffect = synthetic;
+      }
+
+      if (itemRow.type === 'booster') {
+        levelUpResult = await handleBoosterItem(petId, item_id, itemRow, normalizedEffect, quantity, userId);
+      } else if (itemActsAsFoodForPetUse(itemRow) || itemActsAsToyForPetUse(itemRow)) {
+        levelUpResult = await handleFoodItem(petId, item_id, itemRow, normalizedEffect, quantity, userId);
+      } else if (itemRow.type === 'consumable' || itemRow.type === 'medicine') {
+        levelUpResult = await handleConsumableItem(petId, item_id, itemRow, normalizedEffect, quantity, userId);
+      }
     }
 
     // 5. Trừ item khỏi inventory
@@ -8948,8 +9645,8 @@ app.post('/api/pets/:petId/use-item', async (req, res) => {
     }
 
     res.json({ 
-      message: 'Item used successfully',
-      exp_gained: levelUpResult ? levelUpResult.exp_gained : (normalizedEffect.effect_target === 'exp' ? normalizedEffect.value_min * quantity : 0),
+      message: itemRow.type === 'evolve' ? 'Tiến hóa thành công!' : 'Item used successfully',
+      exp_gained: levelUpResult ? levelUpResult.exp_gained : (normalizedEffect && normalizedEffect.effect_target === 'exp' ? normalizedEffect.value_min * quantity : 0),
       level_up: levelUpResult ? levelUpResult.level_up : false,
       old_level: levelUpResult ? levelUpResult.old_level : null,
       new_level: levelUpResult ? levelUpResult.new_level : null,
@@ -9312,6 +10009,24 @@ const checkAdminRole = async (req, res, next) => {
   }
 };
 
+// Pet sự kiện chưa gán chủ (tạo từ admin/create-pet) — dùng chọn thưởng mail
+app.get('/api/admin/pets/unowned-mail', checkAdminRole, async (req, res) => {
+  try {
+    const [pets] = await db.query(`
+      SELECT p.id, p.uuid, p.name, p.level, p.pet_species_id,
+             ps.name AS species_name, ps.image AS species_image
+      FROM pets p
+      LEFT JOIN pet_species ps ON ps.id = p.pet_species_id
+      WHERE p.owner_id IS NULL
+      ORDER BY p.id DESC
+    `);
+    res.json(Array.isArray(pets) ? pets : []);
+  } catch (err) {
+    console.error('GET /api/admin/pets/unowned-mail:', err);
+    res.status(500).json({ error: 'Không thể tải danh sách pet chưa có chủ' });
+  }
+});
+
 // POST /api/admin/mails/system-send - System auto send mail (single user)
 app.post('/api/admin/mails/system-send', checkAdminRole, async (req, res) => {
   const { 
@@ -9398,6 +10113,12 @@ app.post('/api/admin/mails/broadcast', checkAdminRole, async (req, res) => {
     res.status(500).json({ error: 'Lỗi khi broadcast mail', details: err.message });
   }
 });
+
+const createAuctionLogAdminRouter = require('./routes/auctionLogsAdmin');
+app.use('/api/admin/auction-logs', createAuctionLogAdminRouter(checkAdminRole));
+
+const siteAuctionMailAdmin = require('./routes/siteAuctionMailAdmin');
+app.use('/api/admin/site/auction-mail-templates', checkAdminRole, siteAuctionMailAdmin);
 
 // GET /api/admin/bank/interest-rates - Lấy lãi suất hiện tại
 app.get('/api/admin/bank/interest-rates', checkAdminRole, async (req, res) => {
@@ -10196,6 +10917,12 @@ app.post('/api/restaurant/feed', async (req, res) => {
     }
 
     await db.query('UPDATE users SET peta = peta - 1 WHERE id = ?', [userId]);
+
+    try {
+      await titleService.recordPetaSpent(db, userId, 1);
+    } catch (e) {
+      console.error('title spend (restaurant):', e);
+    }
 
     res.json({
       success: true,
