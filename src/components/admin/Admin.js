@@ -94,6 +94,7 @@ function Admin() {
           <h2>Quản lý Site</h2>
           <ul>
             <li><Link to="/admin/site-management">Quản lý Homepage</Link></li>
+            <li><Link to="/admin/game-center">Quản lý Game center</Link></li>
             <li><Link to="/admin/site/auction-mail">Quản lý Thư đấu giá</Link></li>
             <li><Link to="/admin/hunting-maps">Quản lý Map săn</Link></li>
             <li><Link to="/map-tool">Map tool</Link></li>

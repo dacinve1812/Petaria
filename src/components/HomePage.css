@@ -94,109 +94,7 @@ header img {
   transform: translateY(0);
 }
 
-.map-scroll-container {
-  width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  white-space: nowrap;
-  position: relative;
-  scrollbar-width: none;
-}
-
-.map-scroll-container::-webkit-scrollbar {
-  display: none;
-}
-
-.map-wrapper {
-  position: relative;
-  display: inline-block;
-  min-width: 100%;
-}
-
-.castle-map-buttons {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 6;
-}
-
-.castle-map-button {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  pointer-events: auto;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  background: rgba(20, 24, 39, 0.78);
-  color: #f3f7ff;
-  font-size: 12px;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.castle-map-button:hover {
-  background: rgba(36, 46, 78, 0.92);
-  transform: translate(-50%, -50%) !important;
-  box-shadow: none;
-}
-
-.castle-map-button:focus-visible,
-.castle-map-button:active {
-  transform: translate(-50%, -50%) !important;
-  animation: none !important;
-  box-shadow: none;
-}
-
-/* Test different map sizes - HTML Map Tag will work with ALL sizes! */
-.map-img {
-  height: 640px; /* Default size */
-  width: auto;
-  display: block;
-  margin: 0 auto;
-}
-
-/* Test: Small size */
-.map-img.small {
-  height: 320px;
-}
-
-/* Test: Large size */
-.map-img.large {
-  height: 960px;
-}
-
-/* Test: Extra large size */
-.map-img.xlarge {
-  height: 1280px;
-}
-
-/* Test: Responsive sizes */
-@media (max-width: 768px) {
-  .map-img {
-    height: 480px;
-  }
-  .castle-map-button {
-    font-size: 11px;
-    padding: 5px 8px;
-  }
-}
-
-@media (max-width: 480px) {
-  .map-img {
-    height: 320px;
-  }
-}
-
-/* HTML Map Tag works with ALL these sizes automatically! */
-
-/* HTML Map Styles */
-map {
-  cursor: pointer;
-}
-
-area {
-  cursor: pointer;
-}
+/* Bản đồ Kinh thành: dùng cấu trúc .regionmap-* (RegionMapPage.css) */
 
 /* Visual Overlay for Areas */
 .areas-overlay {
@@ -511,27 +409,10 @@ table {
 }
 
 @media (max-width: 860px) {
-
-    .map-scroll-container{
-      width: 100vw;
-    }
-
+  .map-interactive-container .regionmap-scroll-x {
+    width: 100vw;
   }
-  @media (max-height: 933px) {
-    .map-img {
-      height: 600px;
-    }
-  }
-  @media (max-height: 860px) {
-    .map-img {
-      height: 500px;
-    }
-  }
-  @media (max-height: 760px) {
-    .map-img {
-      height: 400px;
-    }
-  }
+}
 
 /* Admin Page Styles */
 .admin-page {

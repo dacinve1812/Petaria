@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import './SiteManagement.css';
 import { DEFAULT_CONTENT_BLOCKS, CONTENT_BLOCK_KEYS, CONTENT_BLOCK_LABELS, LIST_BLOCK_KEYS } from '../../data/homePageContentBlocks';
 
@@ -30,22 +30,12 @@ function SiteManagement() {
   const [customElements, setCustomElements] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingConfigId, setEditingConfigId] = useState(null); // Track which config is being edited
-  
-  // Navbar management state
-  const [navbarConfig, setNavbarConfig] = useState({
-    bottomNavbar: {
-      visible: true,
-      showMenuOnly: false
-    },
-    floatingButtons: {
-      visible: true
-    }
-  });
-  const [activeTab, setActiveTab] = useState('pages'); // 'pages' | 'navbar'
+
+  const [activeTab, setActiveTab] = useState('pages'); // 'pages' | 'notificationContent'
   const [layoutCollapsed, setLayoutCollapsed] = useState(true);
   const [bannerCollapsed, setBannerCollapsed] = useState(true);
   const [elementsCollapsed, setElementsCollapsed] = useState(true);
-  const [contentBlockCollapsed, setContentBlockCollapsed] = useState({ notice: true, forum: true, notes: true, worldmap: true });
+  const [contentBlockCollapsed, setContentBlockCollapsed] = useState({ worldmap: true });
   const [elementCardCollapsed, setElementCardCollapsed] = useState({}); // { [elementId]: true = collapsed }
 
   // API Functions
@@ -165,47 +155,6 @@ function SiteManagement() {
     }
   };
 
-  // Navbar management functions
-  const fetchNavbarConfig = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/site-config/navbar`);
-      if (response.ok) {
-        const data = await response.json();
-        setNavbarConfig(data);
-      }
-    } catch (error) {
-      console.error('Error fetching navbar config:', error);
-    }
-  };
-
-  const saveNavbarConfig = async (config) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/site-config/navbar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      });
-      if (response.ok) {
-        // Dispatch event to update navbar visibility
-        window.dispatchEvent(new CustomEvent('navbarConfigUpdated', { detail: config }));
-        return true;
-      }
-    } catch (error) {
-      console.error('Error saving navbar config:', error);
-    }
-    return false;
-  };
-
-  const handleNavbarConfigChange = (section, key, value) => {
-    setNavbarConfig(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [key]: value
-      }
-    }));
-  };
-
   // Default page configurations (fallback)
   const defaultPages = [
     {
@@ -278,8 +227,7 @@ function SiteManagement() {
       try {
         await Promise.all([
           fetchPages(),
-          fetchSavedConfigs(),
-          fetchNavbarConfig()
+          fetchSavedConfigs()
         ]);
       } catch (error) {
         console.error('Error initializing data:', error);
@@ -295,7 +243,7 @@ function SiteManagement() {
   }, []);
 
   useEffect(() => {
-    if (activeTab !== 'pages') return;
+    if (activeTab !== 'pages' && activeTab !== 'notificationContent') return;
     const home = pages.find(p => p.path === '/') || defaultPages[0];
     if (home && (!selectedPage || selectedPage.path !== '/')) {
       handlePageSelect(home);
@@ -350,6 +298,33 @@ function SiteManagement() {
       alert('Đã lưu nội dung hiện tại làm mặc định. Các lần mở trang chủ sau sẽ dùng bản mặc định này nếu chưa có cấu hình lưu.');
     } catch (e) {
       alert('Không thể lưu mặc định.');
+    }
+  };
+
+  /** Ghi cấu hình trang chủ + elements lên server (dùng cho tab nội dung thông báo / lưu trực tiếp) */
+  const persistHomepageToDatabase = async () => {
+    if (!selectedPage?.id || !currentConfig) {
+      alert('Không có dữ liệu trang chủ để lưu.');
+      return;
+    }
+    try {
+      const pageData = {
+        id: selectedPage.id,
+        path: selectedPage.path,
+        name: selectedPage.name,
+        component: selectedPage.component,
+        config: { ...currentConfig }
+      };
+      const saveResult = await savePageToDatabase(pageData);
+      if (!saveResult) throw new Error('save page failed');
+      await saveElementsToDatabase(selectedPage.id, customElements || []);
+      setPages((prev) => prev.map((p) => (p.id === selectedPage.id ? { ...p, config: currentConfig } : p)));
+      setSelectedPage((prev) => (prev ? { ...prev, config: currentConfig } : prev));
+      window.dispatchEvent(new CustomEvent('configUpdated'));
+      alert('Đã lưu nội dung lên trang chủ.');
+    } catch (e) {
+      console.error(e);
+      alert('Lỗi khi lưu trang chủ.');
     }
   };
 
@@ -704,16 +679,198 @@ function SiteManagement() {
     });
   };
 
+  const canEditBlockFields = (alwaysEditable) => (alwaysEditable ? true : isEditing);
+
+  const renderContentBlockEditors = (blockKeys, { collapsible, alwaysEditable, showInlineSave }) => {
+    if (!currentConfig) return null;
+    return blockKeys.map((key) => {
+      const defaults = getDefaultContentBlocks();
+      const block = (currentConfig.contentBlocks && currentConfig.contentBlocks[key]) || defaults[key];
+      const collapsed = collapsible ? contentBlockCollapsed[key] : false;
+      const setCollapsed = (v) => setContentBlockCollapsed((prev) => ({ ...prev, [key]: v }));
+      const isListBlock = LIST_BLOCK_KEYS.includes(key);
+      const items = Array.isArray(block?.items) ? block.items : (defaults[key]?.items ? [...defaults[key].items] : []);
+      const fieldsEnabled = canEditBlockFields(alwaysEditable);
+
+      const setItems = (newItems) => setCurrentConfig((prev) => ({
+        ...prev,
+        contentBlocks: {
+          ...(prev.contentBlocks || {}),
+          [key]: { ...(prev.contentBlocks?.[key] || defaults[key]), items: newItems }
+        }
+      }));
+
+      const updateItem = (index, field, value) => {
+        const next = items.map((it, i) => (i === index ? { ...it, [field]: value } : it));
+        setItems(next);
+      };
+
+      const addItem = () => setItems([...items, { text: '', link: '', color: key === 'notice' ? 'red' : 'orange', isNew: false, prefix: '' }]);
+      const removeItem = (index) => setItems(items.filter((_, i) => i !== index));
+
+      const body = (
+        <div className="config-section-body">
+          {isListBlock ? (
+            <>
+              <div className="config-row">
+                <label>Danh sách mục (mỗi dòng: text, link, color, isNew, prefix nếu có):</label>
+                <button type="button" className="toolbar-btn" disabled={!fieldsEnabled} onClick={addItem}>+ Thêm mục</button>
+              </div>
+              <div className="content-block-items-list">
+                {items.map((item, index) => (
+                  <div key={index} className="content-block-item-row">
+                    {key === 'notice' && (
+                      <input
+                        type="text"
+                        placeholder="Prefix (VD: Event)"
+                        value={item.prefix || ''}
+                        onChange={(e) => updateItem(index, 'prefix', e.target.value)}
+                        disabled={!fieldsEnabled}
+                        className="item-field item-prefix"
+                      />
+                    )}
+                    <input
+                      type="text"
+                      placeholder="Nội dung text"
+                      value={item.text || ''}
+                      onChange={(e) => updateItem(index, 'text', e.target.value)}
+                      disabled={!fieldsEnabled}
+                      className="item-field item-text"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Link (tùy chọn)"
+                      value={item.link || ''}
+                      onChange={(e) => updateItem(index, 'link', e.target.value)}
+                      disabled={!fieldsEnabled}
+                      className="item-field item-link"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Color (red/orange)"
+                      value={item.color || ''}
+                      onChange={(e) => updateItem(index, 'color', e.target.value)}
+                      disabled={!fieldsEnabled}
+                      className="item-field item-color"
+                    />
+                    <label className="item-new-check">
+                      <input
+                        type="checkbox"
+                        checked={!!item.isNew}
+                        onChange={(e) => updateItem(index, 'isNew', e.target.checked)}
+                        disabled={!fieldsEnabled}
+                      />
+                      New
+                    </label>
+                    <button type="button" className="item-remove-btn" onClick={() => removeItem(index)} disabled={!fieldsEnabled} title="Xóa mục">×</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="config-row">
+              <label>HTML:</label>
+              <textarea
+                className="content-block-textarea"
+                value={(currentConfig.contentBlocks && currentConfig.contentBlocks[key]?.html) ?? block?.html ?? ''}
+                onChange={(e) => setCurrentConfig((prev) => ({
+                  ...prev,
+                  contentBlocks: {
+                    ...(prev.contentBlocks || {}),
+                    [key]: { ...(prev.contentBlocks?.[key] || defaults[key]), html: e.target.value }
+                  }
+                }))}
+                disabled={!fieldsEnabled}
+                rows={6}
+                spellCheck={false}
+              />
+            </div>
+          )}
+          {!isListBlock && (
+            <div className="config-row">
+              <label>CSS (cho .homepage-block-{key}):</label>
+              <textarea
+                className="content-block-css-textarea"
+                value={(currentConfig.contentBlocks && currentConfig.contentBlocks[key]?.css) ?? block?.css ?? ''}
+                onChange={(e) => setCurrentConfig((prev) => ({
+                  ...prev,
+                  contentBlocks: {
+                    ...(prev.contentBlocks || {}),
+                    [key]: { ...(prev.contentBlocks?.[key] || defaults[key]), css: e.target.value }
+                  }
+                }))}
+                disabled={!fieldsEnabled}
+                rows={4}
+                spellCheck={false}
+                placeholder={'.homepage-block-' + key + ' { }'}
+              />
+            </div>
+          )}
+          <div className="content-block-editor-actions">
+            <button
+              type="button"
+              className="toolbar-btn"
+              disabled={!fieldsEnabled}
+              onClick={() => setCurrentConfig((prev) => ({
+                ...prev,
+                contentBlocks: {
+                  ...(prev.contentBlocks || {}),
+                  [key]: { ...DEFAULT_CONTENT_BLOCKS[key] }
+                }
+              }))}
+            >
+              Khôi phục mặc định
+            </button>
+            {showInlineSave && (
+              <button
+                type="button"
+                className="toolbar-btn save-btn"
+                onClick={handleSavePage}
+                disabled={!selectedPage?.id || !currentConfig}
+              >
+                Lưu (lưu cấu hình hiện tại)
+              </button>
+            )}
+          </div>
+        </div>
+      );
+
+      return (
+        <div key={key} className="content-block-editor-card config-section-collapsible">
+          {collapsible ? (
+            <>
+              <button type="button" className="config-section-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>
+                <span className="config-section-toggle-icon">{collapsed ? '▶' : '▼'}</span>
+                <h4>{CONTENT_BLOCK_LABELS[key]}</h4>
+              </button>
+              {!collapsed && body}
+            </>
+          ) : (
+            <>
+              <h4 className="content-block-section-title">{CONTENT_BLOCK_LABELS[key]}</h4>
+              {body}
+            </>
+          )}
+        </div>
+      );
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="site-management">
         <div className="site-management-header">
-          <h1>Quản lý Site</h1>
+        <h1>Quản lý Site</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <Link to="/admin/game-center" className="back-btn" style={{ textDecoration: 'none' }}>
+            Trung tâm giải trí
+          </Link>
           <button className="back-btn" onClick={() => navigate('/admin')}>
             ← Quay lại Admin Panel
           </button>
         </div>
-        <div style={{ textAlign: 'center', padding: '50px' }}>
+      </div>
+      <div style={{ textAlign: 'center', padding: '50px' }}>
           <p>Đang tải dữ liệu...</p>
         </div>
       </div>
@@ -724,9 +881,14 @@ function SiteManagement() {
     <div className="site-management">
       <div className="site-management-header">
         <h1>Quản lý Site</h1>
-        <button className="back-btn" onClick={() => navigate('/admin')}>
-          ← Quay lại Admin Panel
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <Link to="/admin/game-center" className="back-btn" style={{ textDecoration: 'none' }}>
+            Trung tâm giải trí
+          </Link>
+          <button className="back-btn" onClick={() => navigate('/admin')}>
+            ← Quay lại Admin Panel
+          </button>
+        </div>
       </div>
 
       {/* Navigation Tabs */}
@@ -737,11 +899,11 @@ function SiteManagement() {
         >
           📄 Quản lý Home Page
         </button>
-        <button 
-          className={`tab-btn ${activeTab === 'navbar' ? 'active' : ''}`}
-          onClick={() => setActiveTab('navbar')}
+        <button
+          className={`tab-btn ${activeTab === 'notificationContent' ? 'active' : ''}`}
+          onClick={() => setActiveTab('notificationContent')}
         >
-          🧭 Quản lý Navbar
+          🔔 Quản lý Nội dung thông báo
         </button>
       </div>
 
@@ -1514,7 +1676,7 @@ function SiteManagement() {
                   </div>
                 )}
 
-                {/* Nội dung khối trang chủ (4 block riêng) - chỉ khi chọn Homepage */}
+                {/* Khối World Map — Thông báo / Diễn đàn / Lưu ý chỉnh ở tab Quản lý Nội dung thông báo */}
                 {selectedPage?.path === '/' && (
                   <div className="homepage-content-blocks-editor">
                     <div className="content-block-editor-actions" style={{ marginBottom: 12 }}>
@@ -1526,163 +1688,7 @@ function SiteManagement() {
                         Lưu mặc định
                       </button>
                     </div>
-                    {CONTENT_BLOCK_KEYS.map((key) => {
-                      const defaults = getDefaultContentBlocks();
-                      const block = (currentConfig.contentBlocks && currentConfig.contentBlocks[key]) || defaults[key];
-                      const collapsed = contentBlockCollapsed[key];
-                      const setCollapsed = (v) => setContentBlockCollapsed(prev => ({ ...prev, [key]: v }));
-                      const isListBlock = LIST_BLOCK_KEYS.includes(key);
-                      const items = Array.isArray(block?.items) ? block.items : (defaults[key]?.items ? [...defaults[key].items] : []);
-
-                      const setItems = (newItems) => setCurrentConfig(prev => ({
-                        ...prev,
-                        contentBlocks: {
-                          ...(prev.contentBlocks || {}),
-                          [key]: { ...(prev.contentBlocks?.[key] || defaults[key]), items: newItems }
-                        }
-                      }));
-
-                      const updateItem = (index, field, value) => {
-                        const next = items.map((it, i) => i === index ? { ...it, [field]: value } : it);
-                        setItems(next);
-                      };
-
-                      const addItem = () => setItems([...items, { text: '', link: '', color: key === 'notice' ? 'red' : 'orange', isNew: false, prefix: '' }]);
-                      const removeItem = (index) => setItems(items.filter((_, i) => i !== index));
-
-                      return (
-                        <div key={key} className="content-block-editor-card config-section-collapsible">
-                          <button type="button" className="config-section-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>
-                            <span className="config-section-toggle-icon">{collapsed ? '▶' : '▼'}</span>
-                            <h4>{CONTENT_BLOCK_LABELS[key]}</h4>
-                          </button>
-                          {!collapsed && (
-                            <div className="config-section-body">
-                              {isListBlock ? (
-                                <>
-                                  <div className="config-row">
-                                    <label>Danh sách mục (mỗi dòng: text, link, color, isNew, prefix nếu có):</label>
-                                    <button type="button" className="toolbar-btn" disabled={!isEditing} onClick={addItem}>+ Thêm mục</button>
-                                  </div>
-                                  <div className="content-block-items-list">
-                                    {items.map((item, index) => (
-                                      <div key={index} className="content-block-item-row">
-                                        {key === 'notice' && (
-                                          <input
-                                            type="text"
-                                            placeholder="Prefix (VD: Event)"
-                                            value={item.prefix || ''}
-                                            onChange={(e) => updateItem(index, 'prefix', e.target.value)}
-                                            disabled={!isEditing}
-                                            className="item-field item-prefix"
-                                          />
-                                        )}
-                                        <input
-                                          type="text"
-                                          placeholder="Nội dung text"
-                                          value={item.text || ''}
-                                          onChange={(e) => updateItem(index, 'text', e.target.value)}
-                                          disabled={!isEditing}
-                                          className="item-field item-text"
-                                        />
-                                        <input
-                                          type="text"
-                                          placeholder="Link (tùy chọn)"
-                                          value={item.link || ''}
-                                          onChange={(e) => updateItem(index, 'link', e.target.value)}
-                                          disabled={!isEditing}
-                                          className="item-field item-link"
-                                        />
-                                        <input
-                                          type="text"
-                                          placeholder="Color (red/orange)"
-                                          value={item.color || ''}
-                                          onChange={(e) => updateItem(index, 'color', e.target.value)}
-                                          disabled={!isEditing}
-                                          className="item-field item-color"
-                                        />
-                                        <label className="item-new-check">
-                                          <input
-                                            type="checkbox"
-                                            checked={!!item.isNew}
-                                            onChange={(e) => updateItem(index, 'isNew', e.target.checked)}
-                                            disabled={!isEditing}
-                                          />
-                                          New
-                                        </label>
-                                        <button type="button" className="item-remove-btn" onClick={() => removeItem(index)} disabled={!isEditing} title="Xóa mục">×</button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="config-row">
-                                  <label>HTML:</label>
-                                  <textarea
-                                    className="content-block-textarea"
-                                    value={(currentConfig.contentBlocks && currentConfig.contentBlocks[key]?.html) ?? block?.html ?? ''}
-                                    onChange={(e) => setCurrentConfig(prev => ({
-                                      ...prev,
-                                      contentBlocks: {
-                                        ...(prev.contentBlocks || {}),
-                                        [key]: { ...(prev.contentBlocks?.[key] || defaults[key]), html: e.target.value }
-                                      }
-                                    }))}
-                                    disabled={!isEditing}
-                                    rows={6}
-                                    spellCheck={false}
-                                  />
-                                </div>
-                              )}
-                              {!isListBlock && (
-                                <div className="config-row">
-                                  <label>CSS (cho .homepage-block-{key}):</label>
-                                  <textarea
-                                    className="content-block-css-textarea"
-                                    value={(currentConfig.contentBlocks && currentConfig.contentBlocks[key]?.css) ?? block?.css ?? ''}
-                                    onChange={(e) => setCurrentConfig(prev => ({
-                                      ...prev,
-                                      contentBlocks: {
-                                        ...(prev.contentBlocks || {}),
-                                        [key]: { ...(prev.contentBlocks?.[key] || defaults[key]), css: e.target.value }
-                                      }
-                                    }))}
-                                    disabled={!isEditing}
-                                    rows={4}
-                                    spellCheck={false}
-                                    placeholder={'.homepage-block-' + key + ' { }'}
-                                  />
-                                </div>
-                              )}
-                              <div className="content-block-editor-actions">
-                                <button
-                                  type="button"
-                                  className="toolbar-btn"
-                                  disabled={!isEditing}
-                                  onClick={() => setCurrentConfig(prev => ({
-                                    ...prev,
-                                    contentBlocks: {
-                                      ...(prev.contentBlocks || {}),
-                                      [key]: { ...DEFAULT_CONTENT_BLOCKS[key] }
-                                    }
-                                  }))}
-                                >
-                                  Khôi phục mặc định
-                                </button>
-                                <button
-                                  type="button"
-                                  className="toolbar-btn save-btn"
-                                  onClick={handleSavePage}
-                                  disabled={!selectedPage?.id || !currentConfig}
-                                >
-                                  Lưu (lưu cấu hình hiện tại)
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                    {renderContentBlockEditors(['worldmap'], { collapsible: true, alwaysEditable: false, showInlineSave: true })}
                   </div>
                 )}
 
@@ -1696,36 +1702,36 @@ function SiteManagement() {
       </div>
       )}
 
-      {/* Navbar Management Tab */}
-      {activeTab === 'navbar' && (
-        <div className="navbar-management">
-          <div className="navbar-management-header">
-            <h2>Quản lý Navbar</h2>
-            <p>Điều chỉnh hiển thị floating action buttons</p>
+      {activeTab === 'notificationContent' && (
+        <div className="site-management-content notification-content-management">
+          <div className="notification-content-management-header">
+            <h2>Quản lý Nội dung thông báo</h2>
+            <p>Chỉnh sửa Thông báo, Thông tin diễn đàn và Lưu ý hiển thị trên trang chủ. Dùng nút Lưu lên trang chủ để áp dụng thay đổi.</p>
           </div>
-
-          <div className="navbar-config-section">
-            <h3>Floating Action Buttons</h3>
-            <div className="config-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={navbarConfig.floatingButtons.visible}
-                  onChange={(e) => handleNavbarConfigChange('floatingButtons', 'visible', e.target.checked)}
-                />
-                Hiển thị Floating Action Buttons
-              </label>
+          {selectedPage?.path === '/' && currentConfig ? (
+            <div className="homepage-content-blocks-editor">
+              <div className="content-block-editor-actions notification-content-toolbar">
+                <button
+                  type="button"
+                  className="toolbar-btn default-btn"
+                  onClick={handleSaveAsDefault}
+                >
+                  Lưu mặc định (local)
+                </button>
+                <button
+                  type="button"
+                  className="save-btn toolbar-btn"
+                  onClick={persistHomepageToDatabase}
+                  disabled={!selectedPage?.id}
+                >
+                  Lưu lên trang chủ
+                </button>
+              </div>
+              {renderContentBlockEditors(LIST_BLOCK_KEYS, { collapsible: false, alwaysEditable: true, showInlineSave: false })}
             </div>
-          </div>
-
-          <div className="navbar-actions">
-            <button 
-              className="save-navbar-btn"
-              onClick={() => saveNavbarConfig(navbarConfig)}
-            >
-              Lưu cấu hình Navbar
-            </button>
-          </div>
+          ) : (
+            <p className="notification-content-loading">Đang tải cấu hình trang chủ…</p>
+          )}
         </div>
       )}
     </div>

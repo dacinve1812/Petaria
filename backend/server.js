@@ -29,6 +29,11 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { createClient } = require('redis');
+const {
+  getDefaultGameCenterConfig,
+  mergeGameCenterConfig,
+  buildLuckyWheelSegments,
+} = require('./gameCenterConfigDefaults');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -878,6 +883,592 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 const uploadMemory = multer({ storage: multer.memoryStorage() });
 
+// ---------- Forum (MVP) ----------
+async function ensureForumTables() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS forum_categories (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      slug VARCHAR(80) NOT NULL,
+      name VARCHAR(120) NOT NULL,
+      description VARCHAR(300) NULL,
+      sort_order INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_forum_categories_slug (slug),
+      INDEX idx_forum_categories_sort (sort_order, id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS forum_threads (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      category_id INT NOT NULL,
+      author_user_id INT NOT NULL,
+      title VARCHAR(180) NOT NULL,
+      body_markdown MEDIUMTEXT NOT NULL,
+      is_pinned TINYINT NOT NULL DEFAULT 0,
+      is_locked TINYINT NOT NULL DEFAULT 0,
+      view_count INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_forum_threads_category FOREIGN KEY (category_id) REFERENCES forum_categories(id) ON DELETE CASCADE,
+      CONSTRAINT fk_forum_threads_author FOREIGN KEY (author_user_id) REFERENCES users(id) ON DELETE CASCADE,
+      INDEX idx_forum_threads_category_created (category_id, is_pinned, created_at),
+      INDEX idx_forum_threads_author_created (author_user_id, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS forum_comments (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      thread_id BIGINT NOT NULL,
+      author_user_id INT NOT NULL,
+      parent_comment_id BIGINT NULL,
+      body_markdown MEDIUMTEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_forum_comments_thread FOREIGN KEY (thread_id) REFERENCES forum_threads(id) ON DELETE CASCADE,
+      CONSTRAINT fk_forum_comments_author FOREIGN KEY (author_user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_forum_comments_parent FOREIGN KEY (parent_comment_id) REFERENCES forum_comments(id) ON DELETE SET NULL,
+      INDEX idx_forum_comments_thread_created (thread_id, created_at),
+      INDEX idx_forum_comments_parent (parent_comment_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // Seed mặc định (nếu chưa có category nào)
+  const [catCountRows] = await db.query(`SELECT COUNT(*) AS c FROM forum_categories`);
+  const c = Number(catCountRows?.[0]?.c || 0);
+  if (c === 0) {
+    await db.query(
+      `
+        INSERT INTO forum_categories (slug, name, description, sort_order)
+        VALUES
+          ('thong-bao', 'Thông báo', 'Thông báo từ hệ thống / event', 1),
+          ('hoi-dap', 'Hỏi đáp', 'Hỏi đáp và chia sẻ kiến thức', 2),
+          ('show-pet', 'Show Pet', 'Khoe thú cưng, linh thú, build', 3),
+          ('trade', 'Trade', 'Mua bán / trao đổi', 4),
+          ('guide', 'Guide', 'Hướng dẫn, mẹo, kinh nghiệm', 5)
+      `
+    );
+  }
+
+  // Seed thread cơ bản từ "nháp" trang chủ (nếu chưa có thread nào)
+  const [threadCountRows] = await db.query(`SELECT COUNT(*) AS c FROM forum_threads`);
+  const tc = Number(threadCountRows?.[0]?.c || 0);
+  if (tc === 0) {
+    const [authorRows] = await db.query(`SELECT id FROM users ORDER BY id ASC LIMIT 1`);
+    const authorUserId = authorRows?.[0]?.id ? Number(authorRows[0].id) : null;
+    if (!authorUserId) return;
+
+    const [cats] = await db.query(`SELECT id, slug FROM forum_categories`);
+    const catBySlug = new Map((cats || []).map((r) => [r.slug, r.id]));
+    const catThongBao = catBySlug.get('thong-bao');
+    const catTrade = catBySlug.get('trade');
+    const catHoiDap = catBySlug.get('hoi-dap');
+
+    const seedThreads = [];
+    if (catThongBao) {
+      seedThreads.push({
+        categoryId: catThongBao,
+        title: 'Thông báo nhanh (tổng hợp link từ trang chủ)',
+        body: [
+          '### Tổng hợp thông báo',
+          '- [KM nạp Petagold qua thẻ cào và thưởng peta, exp khi train pet](https://web.archive.org/web/20140329030556/http://www.vnpet.com/forum/showpost.php?p=1059984&postcount=75)',
+          '- [Giới hạn 3 tài khoản/1 IP](https://web.archive.org/web/20140329030556/http://www.vnpet.com/forum/showpost.php?p=934402&postcount=59)',
+          '- [Cấp độ, Điểm kinh nghiệm người chơi](https://web.archive.org/web/20140329030556/http://www.vnpet.com/forum/showpost.php?p=924284&postcount=54)',
+          '- [Auto luyện cấp dành cho Firefox / Internet Explorer](https://web.archive.org/web/20140329030556/http://www.vnpet.com/forum/showpost.php?p=920496&postcount=14)',
+          '- [Phóng thích thú cưng nhận peta](https://web.archive.org/web/20140329030556/http://www.vnpet.com/forum/showpost.php?p=870541&postcount=49)',
+          '',
+          'Bạn có thể reply ở đây để góp ý/đề xuất cập nhật nội dung.',
+        ].join('\n'),
+        isPinned: 1,
+      });
+    }
+    if (catTrade) {
+      seedThreads.push({
+        categoryId: catTrade,
+        title: 'Các vấn đề về giao dịch (link tham khảo forum cũ)',
+        body: [
+          '### Tham khảo',
+          '- [Các vấn đề về giao dịch](https://web.archive.org/web/20140329030556/http://vnpet.com/forum/showthread.php?t=34658)',
+          '- [Đăng ký giao dịch ngoài chức năng của web](https://web.archive.org/web/20140329030556/http://vnpet.com/forum/showthread.php?t=70908)',
+          '- [Tình trạng lừa đảo, gian lận trên Petaria](https://web.archive.org/web/20140329030556/http://www.vnpet.com/forum/showthread.php?p=166406#post166406)',
+          '',
+          'MVP forum mới: ưu tiên minh bạch & dễ report. Nội quy sẽ được bổ sung sau.',
+        ].join('\n'),
+      });
+    }
+    if (catHoiDap) {
+      seedThreads.push({
+        categoryId: catHoiDap,
+        title: 'Hỏi đáp các vấn đề trong game (bắt đầu từ đây)',
+        body: [
+          '### Hỏi đáp',
+          '- Bạn là newbie? Hãy hỏi tại đây.',
+          '- Kèm ảnh/screenshot nếu có.',
+          '',
+          'Gợi ý: dùng nút **Ảnh** để upload và chèn vào bài/comment.',
+        ].join('\n'),
+      });
+    }
+
+    for (const t of seedThreads) {
+      await db.query(
+        `
+          INSERT INTO forum_threads (category_id, author_user_id, title, body_markdown, is_pinned)
+          VALUES (?, ?, ?, ?, ?)
+        `,
+        [t.categoryId, authorUserId, t.title, t.body, t.isPinned ? 1 : 0]
+      );
+    }
+  }
+}
+
+ensureForumTables().catch((err) => console.error('ensureForumTables:', err));
+
+async function ensureSiteGameCenterTable() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS site_game_center_config (
+        id INT PRIMARY KEY,
+        config JSON NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+  } catch (error) {
+    console.error('ensureSiteGameCenterTable:', error);
+  }
+}
+
+ensureSiteGameCenterTable();
+
+function getForumUploadDir() {
+  // Static hosting via CRA `public/` → served as `/images/forum/threads/*`
+  return path.resolve(__dirname, '..', 'public', 'images', 'forum', 'threads');
+}
+
+const forumStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    try {
+      const dir = getForumUploadDir();
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    } catch (e) {
+      cb(e);
+    }
+  },
+  filename: (req, file, cb) => {
+    const safeOriginal = String(file.originalname || 'image')
+      .replace(/[^\w.\-]+/g, '_')
+      .slice(0, 120);
+    cb(null, `${Date.now()}-${uuidv4()}-${safeOriginal}`);
+  },
+});
+const forumUpload = multer({
+  storage: forumStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+function getGameCenterUploadDir() {
+  return path.resolve(__dirname, '..', 'public', 'images', 'entertainment', 'uploads');
+}
+
+const gcStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    try {
+      const dir = getGameCenterUploadDir();
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    } catch (e) {
+      cb(e);
+    }
+  },
+  filename: (req, file, cb) => {
+    const safeOriginal = String(file.originalname || 'asset')
+      .replace(/[^\w.\-]+/g, '_')
+      .slice(0, 120);
+    cb(null, `${Date.now()}-${uuidv4()}-${safeOriginal}`);
+  },
+});
+
+const gcUpload = multer({
+  storage: gcStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+function requireAuthUserId(req, res) {
+  const userId = getUserIdFromToken(req);
+  if (!userId) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return null;
+  }
+  return userId;
+}
+
+async function getUserRoleById(userId) {
+  if (!userId) return 'user';
+  const [rows] = await db.query(`SELECT role FROM users WHERE id = ? LIMIT 1`, [userId]);
+  return rows?.[0]?.role || 'user';
+}
+
+async function canManageForumThread(userId, threadId) {
+  const [rows] = await db.query(
+    `SELECT id, author_user_id FROM forum_threads WHERE id = ? LIMIT 1`,
+    [threadId]
+  );
+  if (!rows.length) return { ok: false, reason: 'NOT_FOUND' };
+  const thread = rows[0];
+  if (Number(thread.author_user_id) === Number(userId)) return { ok: true, thread };
+  const role = await getUserRoleById(userId);
+  if (String(role).toLowerCase() === 'admin') return { ok: true, thread };
+  return { ok: false, reason: 'FORBIDDEN', thread };
+}
+
+app.get('/api/forum/categories', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `
+        SELECT id, slug, name, description, sort_order
+        FROM forum_categories
+        ORDER BY sort_order ASC, id ASC
+      `
+    );
+    res.json(rows || []);
+  } catch (err) {
+    console.error('GET /api/forum/categories:', err);
+    res.status(500).json({ message: 'Không thể tải danh mục' });
+  }
+});
+
+app.get('/api/forum/categories/:slug/threads', async (req, res) => {
+  try {
+    const slug = String(req.params.slug || '').trim();
+    const limit = Math.max(1, Math.min(50, parseInt(req.query.limit, 10) || 20));
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+    if (!slug) return res.status(400).json({ message: 'Thiếu category slug' });
+
+    const [cats] = await db.query(`SELECT id, slug, name FROM forum_categories WHERE slug = ? LIMIT 1`, [slug]);
+    if (!cats.length) return res.status(404).json({ message: 'Không tìm thấy category' });
+    const category = cats[0];
+
+    const [threads] = await db.query(
+      `
+        SELECT
+          t.id,
+          t.title,
+          t.is_pinned,
+          t.is_locked,
+          t.view_count,
+          t.created_at,
+          t.updated_at,
+          u.id AS author_user_id,
+          u.username,
+          up.display_name,
+          up.avatar_url,
+          (
+            SELECT COUNT(*)
+            FROM forum_comments c
+            WHERE c.thread_id = t.id
+          ) AS comment_count
+        FROM forum_threads t
+        JOIN users u ON u.id = t.author_user_id
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        WHERE t.category_id = ?
+        ORDER BY t.is_pinned DESC, t.updated_at DESC
+        LIMIT ? OFFSET ?
+      `,
+      [category.id, limit, offset]
+    );
+
+    res.json({ category, threads: threads || [], limit, offset });
+  } catch (err) {
+    console.error('GET /api/forum/categories/:slug/threads:', err);
+    res.status(500).json({ message: 'Không thể tải danh sách thread' });
+  }
+});
+
+app.get('/api/forum/threads/:id', async (req, res) => {
+  try {
+    const threadId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(threadId) || threadId <= 0) {
+      return res.status(400).json({ message: 'Thread id không hợp lệ' });
+    }
+
+    await db.query(`UPDATE forum_threads SET view_count = view_count + 1 WHERE id = ?`, [threadId]);
+
+    const [rows] = await db.query(
+      `
+        SELECT
+          t.id,
+          t.category_id,
+          cat.slug AS category_slug,
+          cat.name AS category_name,
+          t.title,
+          t.body_markdown,
+          t.is_pinned,
+          t.is_locked,
+          t.view_count,
+          t.created_at,
+          t.updated_at,
+          u.id AS author_user_id,
+          u.username,
+          u.role AS author_role,
+          u.online_status AS author_online_status,
+          up.display_name,
+          up.avatar_url
+        FROM forum_threads t
+        JOIN forum_categories cat ON cat.id = t.category_id
+        JOIN users u ON u.id = t.author_user_id
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        WHERE t.id = ?
+        LIMIT 1
+      `,
+      [threadId]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Không tìm thấy thread' });
+    const thread = rows[0];
+
+    const [comments] = await db.query(
+      `
+        SELECT
+          c.id,
+          c.thread_id,
+          c.parent_comment_id,
+          c.body_markdown,
+          c.created_at,
+          c.updated_at,
+          u.id AS author_user_id,
+          u.username,
+          u.role AS author_role,
+          u.online_status AS author_online_status,
+          up.display_name,
+          up.avatar_url
+        FROM forum_comments c
+        JOIN users u ON u.id = c.author_user_id
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        WHERE c.thread_id = ?
+        ORDER BY c.created_at ASC, c.id ASC
+      `,
+      [threadId]
+    );
+
+    res.json({ thread, comments: comments || [] });
+  } catch (err) {
+    console.error('GET /api/forum/threads/:id:', err);
+    res.status(500).json({ message: 'Không thể tải thread' });
+  }
+});
+
+app.get('/api/forum/my/threads', async (req, res) => {
+  try {
+    const userId = requireAuthUserId(req, res);
+    if (!userId) return;
+
+    const limit = Math.max(1, Math.min(50, parseInt(req.query.limit, 10) || 20));
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
+    const [threads] = await db.query(
+      `
+        SELECT
+          t.id,
+          t.title,
+          t.is_pinned,
+          t.is_locked,
+          t.view_count,
+          t.created_at,
+          t.updated_at,
+          cat.slug AS category_slug,
+          cat.name AS category_name,
+          (
+            SELECT COUNT(*)
+            FROM forum_comments c
+            WHERE c.thread_id = t.id
+          ) AS comment_count
+        FROM forum_threads t
+        JOIN forum_categories cat ON cat.id = t.category_id
+        WHERE t.author_user_id = ?
+        ORDER BY t.updated_at DESC
+        LIMIT ? OFFSET ?
+      `,
+      [userId, limit, offset]
+    );
+    res.json({ threads: threads || [], limit, offset });
+  } catch (err) {
+    console.error('GET /api/forum/my/threads:', err);
+    res.status(500).json({ message: 'Không thể tải bài của bạn' });
+  }
+});
+
+app.post('/api/forum/threads', async (req, res) => {
+  try {
+    const userId = requireAuthUserId(req, res);
+    if (!userId) return;
+
+    const categorySlug = String(req.body?.categorySlug || '').trim();
+    const title = String(req.body?.title || '').trim();
+    const bodyMarkdown = String(req.body?.content || '').trim();
+
+    if (!categorySlug || !title || !bodyMarkdown) {
+      return res.status(400).json({ message: 'Thiếu categorySlug/title/content' });
+    }
+    if (title.length < 4 || title.length > 180) {
+      return res.status(400).json({ message: 'Title phải từ 4 đến 180 ký tự' });
+    }
+    if (bodyMarkdown.length < 10) {
+      return res.status(400).json({ message: 'Nội dung quá ngắn' });
+    }
+
+    const [cats] = await db.query(`SELECT id, slug FROM forum_categories WHERE slug = ? LIMIT 1`, [categorySlug]);
+    if (!cats.length) return res.status(404).json({ message: 'Category không tồn tại' });
+
+    const [result] = await db.query(
+      `
+        INSERT INTO forum_threads (category_id, author_user_id, title, body_markdown)
+        VALUES (?, ?, ?, ?)
+      `,
+      [cats[0].id, userId, title, bodyMarkdown]
+    );
+    const threadId = result.insertId;
+    res.json({ success: true, threadId });
+  } catch (err) {
+    console.error('POST /api/forum/threads:', err);
+    res.status(500).json({ message: 'Không thể tạo thread' });
+  }
+});
+
+app.put('/api/forum/threads/:id', async (req, res) => {
+  try {
+    const userId = requireAuthUserId(req, res);
+    if (!userId) return;
+
+    const threadId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(threadId) || threadId <= 0) {
+      return res.status(400).json({ message: 'Thread id không hợp lệ' });
+    }
+
+    const title = String(req.body?.title || '').trim();
+    const bodyMarkdown = String(req.body?.content || '').trim();
+    if (!title || !bodyMarkdown) return res.status(400).json({ message: 'Thiếu title/content' });
+    if (title.length < 4 || title.length > 180) {
+      return res.status(400).json({ message: 'Title phải từ 4 đến 180 ký tự' });
+    }
+    if (bodyMarkdown.length < 10) return res.status(400).json({ message: 'Nội dung quá ngắn' });
+
+    const perm = await canManageForumThread(userId, threadId);
+    if (!perm.ok && perm.reason === 'NOT_FOUND') return res.status(404).json({ message: 'Thread không tồn tại' });
+    if (!perm.ok) return res.status(403).json({ message: 'Bạn không có quyền sửa thread này' });
+
+    await db.query(
+      `
+        UPDATE forum_threads
+        SET title = ?, body_markdown = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `,
+      [title, bodyMarkdown, threadId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('PUT /api/forum/threads/:id:', err);
+    res.status(500).json({ message: 'Không thể sửa thread' });
+  }
+});
+
+app.delete('/api/forum/threads/:id', async (req, res) => {
+  try {
+    const userId = requireAuthUserId(req, res);
+    if (!userId) return;
+
+    const threadId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(threadId) || threadId <= 0) {
+      return res.status(400).json({ message: 'Thread id không hợp lệ' });
+    }
+
+    const perm = await canManageForumThread(userId, threadId);
+    if (!perm.ok && perm.reason === 'NOT_FOUND') return res.status(404).json({ message: 'Thread không tồn tại' });
+    if (!perm.ok) return res.status(403).json({ message: 'Bạn không có quyền xóa thread này' });
+
+    await db.query(`DELETE FROM forum_threads WHERE id = ?`, [threadId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('DELETE /api/forum/threads/:id:', err);
+    res.status(500).json({ message: 'Không thể xóa thread' });
+  }
+});
+
+app.post('/api/forum/threads/:id/comments', async (req, res) => {
+  try {
+    const userId = requireAuthUserId(req, res);
+    if (!userId) return;
+
+    const threadId = parseInt(req.params.id, 10);
+    const bodyMarkdown = String(req.body?.content || '').trim();
+    const parentCommentIdRaw = req.body?.parentCommentId;
+    const parentCommentId =
+      parentCommentIdRaw == null || parentCommentIdRaw === ''
+        ? null
+        : parseInt(parentCommentIdRaw, 10);
+
+    if (!Number.isFinite(threadId) || threadId <= 0) {
+      return res.status(400).json({ message: 'Thread id không hợp lệ' });
+    }
+    if (!bodyMarkdown || bodyMarkdown.length < 1) {
+      return res.status(400).json({ message: 'Thiếu nội dung comment' });
+    }
+
+    const [threadRows] = await db.query(`SELECT id, is_locked FROM forum_threads WHERE id = ? LIMIT 1`, [threadId]);
+    if (!threadRows.length) return res.status(404).json({ message: 'Thread không tồn tại' });
+    if (Number(threadRows[0].is_locked) === 1) return res.status(403).json({ message: 'Thread đã bị khóa' });
+
+    if (parentCommentId != null) {
+      if (!Number.isFinite(parentCommentId) || parentCommentId <= 0) {
+        return res.status(400).json({ message: 'parentCommentId không hợp lệ' });
+      }
+      const [parentRows] = await db.query(
+        `SELECT id FROM forum_comments WHERE id = ? AND thread_id = ? LIMIT 1`,
+        [parentCommentId, threadId]
+      );
+      if (!parentRows.length) return res.status(400).json({ message: 'Parent comment không tồn tại' });
+    }
+
+    const [result] = await db.query(
+      `
+        INSERT INTO forum_comments (thread_id, author_user_id, parent_comment_id, body_markdown)
+        VALUES (?, ?, ?, ?)
+      `,
+      [threadId, userId, parentCommentId, bodyMarkdown]
+    );
+
+    await db.query(`UPDATE forum_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [threadId]);
+
+    res.json({ success: true, commentId: result.insertId });
+  } catch (err) {
+    console.error('POST /api/forum/threads/:id/comments:', err);
+    res.status(500).json({ message: 'Không thể gửi comment' });
+  }
+});
+
+app.post('/api/forum/upload-image', (req, res) => {
+  try {
+    const userId = requireAuthUserId(req, res);
+    if (!userId) return;
+
+    forumUpload.single('image')(req, res, (err) => {
+      if (err) {
+        console.error('Forum upload error:', err);
+        return res.status(400).json({ message: 'Upload thất bại' });
+      }
+      if (!req.file) return res.status(400).json({ message: 'Thiếu file' });
+
+      // URL public cho frontend: /images/forum/threads/<filename>
+      const url = `/images/forum/threads/${req.file.filename}`;
+      res.json({ success: true, url });
+    });
+  } catch (err) {
+    console.error('POST /api/forum/upload-image:', err);
+    res.status(500).json({ message: 'Upload thất bại' });
+  }
+});
+
 // API endpoints sẽ được thêm vào đây
 
 // Site Configuration API Endpoints
@@ -1030,6 +1621,358 @@ app.delete('/api/site-config/saved-configs/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting saved config:', error);
     res.status(500).json({ error: 'Failed to delete saved config' });
+  }
+});
+
+// ---------- Trung tâm giải trí — vòng quay (helpers) ----------
+const LUCKY_WHEEL_SERVER_HISTORY_MAX = 500;
+
+function luckyWheelRandIntInclusive(min, max) {
+  let a = Math.ceil(Number(min));
+  let b = Math.floor(Number(max));
+  if (!Number.isFinite(a)) a = 0;
+  if (!Number.isFinite(b)) b = a;
+  if (b < a) {
+    const t = a;
+    a = b;
+    b = t;
+  }
+  return Math.floor(Math.random() * (b - a + 1)) + a;
+}
+
+/** Chuỗi khóa kỳ “ngày game” theo lần reset gần nhất (global_reset_time). */
+function luckyWheelDailyPeriodKey(now, resetHm) {
+  const [rh, rm] = String(resetHm || '19:00')
+    .trim()
+    .split(':')
+    .map((x) => parseInt(x, 10) || 0);
+  const t = new Date(now.getTime());
+  const anchor = new Date(t.getFullYear(), t.getMonth(), t.getDate(), rh, rm, 0, 0);
+  if (t.getTime() < anchor.getTime()) {
+    anchor.setDate(anchor.getDate() - 1);
+  }
+  return String(anchor.getTime());
+}
+
+function luckyWheelPickSegmentIndex(segments) {
+  if (!segments?.length) return 0;
+  const total = segments.reduce((s, x) => s + (Number(x.weight) || 1), 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < segments.length; i += 1) {
+    r -= Number(segments[i].weight) || 1;
+    if (r <= 0) return i;
+  }
+  return 0;
+}
+
+async function luckyWheelFetchGlobalResetHm(conn) {
+  const [resetRows] = await conn.query(
+    `SELECT config_value FROM global_config WHERE config_key = 'global_reset_time' LIMIT 1`
+  );
+  if (!resetRows.length) return '19:00';
+  return String(resetRows[0].config_value || '19:00').trim() || '19:00';
+}
+
+function luckyWheelFormatPrizeLog(seg, rewardMeta) {
+  const label = String(seg?.label ?? '').trim() || '—';
+  const rarity = String(seg?.rarity ?? '').trim();
+  const base = rarity ? `${label} (${rarity})` : label;
+  const c = String(seg?.currency || '').toLowerCase();
+  if (c === 'peta' || c === 'petagold') {
+    const amt = rewardMeta?.amount;
+    const unit = c === 'peta' ? 'Peta' : 'Peta Gold';
+    if (Number.isFinite(amt)) return `${base} — ${amt} ${unit}`;
+    return base;
+  }
+  /** Chỉ thêm tên DB khi khác label ô quay — tránh "Tên (Hiếm) — Tên" */
+  if (rewardMeta?.itemName) {
+    const itemName = String(rewardMeta.itemName).trim();
+    if (
+      itemName &&
+      itemName.toLowerCase() !== label.toLowerCase()
+    ) {
+      return `${base} — ${itemName}`;
+    }
+  }
+  return base;
+}
+
+async function luckyWheelGrantReward(conn, userId, seg) {
+  const cur = String(seg.currency || '').toLowerCase();
+  if (cur === 'peta') {
+    const amount = luckyWheelRandIntInclusive(seg.amountMin, seg.amountMax);
+    await conn.query('UPDATE users SET peta = peta + ? WHERE id = ?', [amount, userId]);
+    try {
+      await titleService.recordPetaEarned(conn, userId, amount);
+    } catch (e) {
+      console.error('title earn (lucky wheel):', e);
+    }
+    return { kind: 'peta', amount };
+  }
+  if (cur === 'petagold') {
+    const amount = luckyWheelRandIntInclusive(seg.amountMin, seg.amountMax);
+    await conn.query('UPDATE users SET petagold = petagold + ? WHERE id = ?', [amount, userId]);
+    return { kind: 'petagold', amount };
+  }
+  const itemId = seg.itemId != null ? parseInt(seg.itemId, 10) : NaN;
+  if (!Number.isFinite(itemId) || itemId <= 0) {
+    const err = new Error('ITEM_NOT_CONFIGURED');
+    err.code = 'ITEM_NOT_CONFIGURED';
+    throw err;
+  }
+  await grantMailItemsToInventory(conn, userId, itemId, 1);
+  const [nameRows] = await conn.query('SELECT name FROM items WHERE id = ?', [itemId]);
+  const itemName = nameRows.length ? nameRows[0].name : `Item #${itemId}`;
+  return { kind: 'item', itemId, quantity: 1, itemName };
+}
+
+function luckyWheelPrependHistory(gcConfig, username, prizeLine) {
+  const timeStr = new Date().toLocaleString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  const entry = { user: username, prize: prizeLine, time: timeStr };
+  const prev = Array.isArray(gcConfig.luckyWheel?.serverHistory) ? gcConfig.luckyWheel.serverHistory : [];
+  gcConfig.luckyWheel.serverHistory = [entry, ...prev].slice(0, LUCKY_WHEEL_SERVER_HISTORY_MAX);
+  return gcConfig.luckyWheel.serverHistory;
+}
+
+// ---------- Trung tâm giải trí (config công khai) ----------
+app.get('/api/game-center/config', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT config FROM site_game_center_config WHERE id = 1 LIMIT 1'
+    );
+    let stored = null;
+    if (rows.length) {
+      const c = rows[0].config;
+      if (c == null) stored = null;
+      else if (typeof c === 'string') {
+        try {
+          stored = JSON.parse(c);
+        } catch {
+          stored = null;
+        }
+      } else if (typeof c === 'object') {
+        stored = c;
+      }
+    }
+    res.json(mergeGameCenterConfig(stored));
+  } catch (error) {
+    console.error('GET /api/game-center/config', error);
+    res.json(getDefaultGameCenterConfig());
+  }
+});
+
+/**
+ * GET /api/game-center/lucky-wheel/status
+ * Lượt đã quay / max trong kỳ hiện tại (reset theo global_reset_time).
+ */
+app.get('/api/game-center/lucky-wheel/status', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Cần đăng nhập' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch {
+      return res.status(401).json({ error: 'Token không hợp lệ' });
+    }
+    const userId = decoded.userId;
+
+    const [resetRows] = await db.query(
+      `SELECT config_value FROM global_config WHERE config_key = 'global_reset_time' LIMIT 1`
+    );
+    const resetHm = resetRows.length
+      ? String(resetRows[0].config_value || '19:00').trim() || '19:00'
+      : '19:00';
+    const periodKey = luckyWheelDailyPeriodKey(new Date(), resetHm);
+
+    const [userRows] = await db.query(
+      `SELECT lucky_wheel_period_key, lucky_wheel_spins FROM users WHERE id = ? LIMIT 1`,
+      [userId]
+    );
+    if (!userRows.length) return res.status(404).json({ error: 'Không tìm thấy người chơi' });
+
+    let spinsUsed = Number(userRows[0].lucky_wheel_spins) || 0;
+    if (String(userRows[0].lucky_wheel_period_key || '') !== periodKey) {
+      spinsUsed = 0;
+    }
+
+    const [gcRows] = await db.query('SELECT config FROM site_game_center_config WHERE id = 1 LIMIT 1');
+    let storedGc = null;
+    if (gcRows.length && gcRows[0].config != null) {
+      const c = gcRows[0].config;
+      if (typeof c === 'string') {
+        try {
+          storedGc = JSON.parse(c);
+        } catch {
+          storedGc = null;
+        }
+      } else if (typeof c === 'object') {
+        storedGc = c;
+      }
+    }
+    const gcConfig = mergeGameCenterConfig(storedGc);
+    const maxSpins = Math.max(1, parseInt(gcConfig.luckyWheel?.maxPurchasesPerDay, 10) || 2);
+
+    res.json({
+      spinsUsedToday: spinsUsed,
+      maxSpinsPerDay: maxSpins,
+    });
+  } catch (error) {
+    if (error && error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(503).json({
+        error: 'DB chưa có cột lucky_wheel (chạy migration db/migrations/20260504_lucky_wheel_daily.sql).',
+      });
+    }
+    console.error('GET /api/game-center/lucky-wheel/status', error);
+    res.status(500).json({ error: 'Lỗi tải trạng thái vòng quay' });
+  }
+});
+
+/**
+ * POST /api/game-center/lucky-wheel/spin
+ * Random có trọng số trên server, giới hạn lượt/ngày (theo global_reset_time), cộng thưởng + ghi lịch sử.
+ */
+app.post('/api/game-center/lucky-wheel/spin', async (req, res) => {
+  let conn;
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Cần đăng nhập để quay' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch {
+      return res.status(401).json({ error: 'Token không hợp lệ' });
+    }
+    const userId = decoded.userId;
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const resetHm = await luckyWheelFetchGlobalResetHm(conn);
+    const periodKey = luckyWheelDailyPeriodKey(new Date(), resetHm);
+
+    const [userRows] = await conn.query(
+      `SELECT id, username, lucky_wheel_period_key, lucky_wheel_spins FROM users WHERE id = ? FOR UPDATE`,
+      [userId]
+    );
+    if (!userRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy người chơi' });
+    }
+    const u = userRows[0];
+    const username = String(u.username || '').trim() || `User#${userId}`;
+
+    let spins = Number(u.lucky_wheel_spins) || 0;
+    if (String(u.lucky_wheel_period_key || '') !== periodKey) {
+      spins = 0;
+      await conn.query('UPDATE users SET lucky_wheel_period_key = ?, lucky_wheel_spins = 0 WHERE id = ?', [
+        periodKey,
+        userId,
+      ]);
+    }
+
+    const [gcRows] = await conn.query(
+      'SELECT config FROM site_game_center_config WHERE id = 1 FOR UPDATE'
+    );
+    let storedGc = null;
+    if (gcRows.length && gcRows[0].config != null) {
+      const c = gcRows[0].config;
+      if (typeof c === 'string') {
+        try {
+          storedGc = JSON.parse(c);
+        } catch {
+          storedGc = null;
+        }
+      } else if (typeof c === 'object') {
+        storedGc = c;
+      }
+    }
+
+    const gcConfig = mergeGameCenterConfig(storedGc);
+    const lw = gcConfig.luckyWheel;
+    const maxSpins = Math.max(1, parseInt(lw.maxPurchasesPerDay, 10) || 2);
+    const segments = buildLuckyWheelSegments(lw);
+
+    if (segments.length < 2) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Cấu hình vòng quay chưa đủ ô' });
+    }
+
+    if (spins >= maxSpins) {
+      await conn.rollback();
+      return res.status(429).json({
+        error: 'Đã hết lượt quay trong kỳ hiện tại',
+        spinsUsedToday: spins,
+        maxSpinsPerDay: maxSpins,
+      });
+    }
+
+    const segmentIndex = luckyWheelPickSegmentIndex(segments);
+    const wonSeg = segments[segmentIndex];
+
+    let rewardMeta;
+    try {
+      rewardMeta = await luckyWheelGrantReward(conn, userId, wonSeg);
+    } catch (e) {
+      await conn.rollback();
+      if (e.code === 'ITEM_NOT_CONFIGURED') {
+        return res.status(400).json({ error: 'Ô trúng chưa gán vật phẩm (itemId) trên Admin' });
+      }
+      throw e;
+    }
+
+    const newSpins = spins + 1;
+    await conn.query(
+      'UPDATE users SET lucky_wheel_spins = ?, lucky_wheel_period_key = ? WHERE id = ?',
+      [newSpins, periodKey, userId]
+    );
+
+    const prizeLine = luckyWheelFormatPrizeLog(wonSeg, rewardMeta);
+    const serverHistory = luckyWheelPrependHistory(gcConfig, username, prizeLine);
+    await conn.query(
+      `INSERT INTO site_game_center_config (id, config) VALUES (1, ?)
+       ON DUPLICATE KEY UPDATE config = VALUES(config), updated_at = CURRENT_TIMESTAMP`,
+      [JSON.stringify(gcConfig)]
+    );
+
+    await conn.commit();
+
+    const cur = String(wonSeg.currency || '').toLowerCase();
+    const rolled =
+      cur === 'peta' || cur === 'petagold' ? rewardMeta.amount : null;
+    const lastWin = {
+      ...wonSeg,
+      amountMin: rolled != null ? rolled : wonSeg.amountMin,
+      amountMax: rolled != null ? rolled : wonSeg.amountMax,
+    };
+
+    res.json({
+      success: true,
+      segmentIndex,
+      reward: rewardMeta,
+      lastWin,
+      spinsUsedToday: newSpins,
+      maxSpinsPerDay: maxSpins,
+      serverHistory,
+    });
+  } catch (error) {
+    if (conn) await conn.rollback();
+    if (error && error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(503).json({
+        error: 'DB chưa có cột lucky_wheel (chạy migration db/migrations/20260504_lucky_wheel_daily.sql).',
+      });
+    }
+    console.error('POST /api/game-center/lucky-wheel/spin', error);
+    res.status(500).json({ error: 'Không quay được vòng quay' });
+  } finally {
+    if (conn) conn.release();
   }
 });
 
@@ -3679,10 +4622,13 @@ app.get('/users/:userId/pets', (req, res) => {
           return res.status(403).json({ message: 'Forbidden: You can only access your own pets' });
       }
 
-      const auctionEligible = String(req.query.auction_eligible || '') === '1';
-      const auctionSql = auctionEligible
-        ? `
+      /** Luôn ẩn pet đang treo đấu giá (giống item đã trừ khỏi túi). */
+      const hideListedSql = `
         AND (p.is_listed = 0 OR p.is_listed IS NULL)
+      `;
+      const auctionEligible = String(req.query.auction_eligible || '') === '1';
+      const auctionEligibleExtraSql = auctionEligible
+        ? `
         AND NOT EXISTS (
           SELECT 1 FROM user_spirits us WHERE us.equipped_pet_id = p.id AND us.is_equipped = 1
         )
@@ -3712,7 +4658,8 @@ app.get('/users/:userId/pets', (req, res) => {
         FROM pets p
         JOIN pet_species ps ON p.pet_species_id = ps.id
         WHERE p.owner_id = ?
-        ${auctionSql}
+        ${hideListedSql}
+        ${auctionEligibleExtraSql}
       `, [userId], (err, results) => {
         if (err) {
           console.error('Error fetching user pets: ', err);
@@ -4773,6 +5720,36 @@ const checkAdminRoleItems = async (req, res, next) => {
     return res.status(401).json({ error: 'Invalid token' });
   }
 };
+
+app.put('/api/admin/game-center/config', checkAdminRoleItems, async (req, res) => {
+  try {
+    if (!req.body || typeof req.body !== 'object') {
+      return res.status(400).json({ error: 'Invalid config' });
+    }
+    const normalized = mergeGameCenterConfig(req.body);
+    await db.query(
+      `INSERT INTO site_game_center_config (id, config) VALUES (1, ?)
+       ON DUPLICATE KEY UPDATE config = VALUES(config), updated_at = CURRENT_TIMESTAMP`,
+      [JSON.stringify(normalized)]
+    );
+    res.json({ success: true, config: normalized });
+  } catch (error) {
+    console.error('PUT /api/admin/game-center/config', error);
+    res.status(500).json({ error: 'Failed to save game center config' });
+  }
+});
+
+app.post('/api/admin/game-center/upload', checkAdminRoleItems, (req, res) => {
+  gcUpload.single('file')(req, res, (err) => {
+    if (err) {
+      console.error('game-center upload:', err);
+      return res.status(400).json({ error: 'Upload thất bại' });
+    }
+    if (!req.file) return res.status(400).json({ error: 'Thiếu file' });
+    const url = `/images/entertainment/uploads/${req.file.filename}`;
+    res.json({ success: true, url });
+  });
+});
 
 app.get('/api/admin/titles', checkAdminRoleItems, async (req, res) => {
   try {
@@ -8893,13 +9870,14 @@ app.get('/api/spirits', async (req, res) => {
 // GET /api/users/:userId/spirits - Lấy Linh Thú của user
 app.get('/api/users/:userId/spirits', async (req, res) => {
   const { userId } = req.params;
+  /** Luôn ẩn linh thú đang treo đấu giá. */
+  const hideListedSql = ` AND COALESCE(us.is_listed, 0) = 0`;
   const auctionEligible = String(req.query.auction_eligible || '') === '1';
-  const auctionSql = auctionEligible
-    ? ` AND COALESCE(us.is_listed, 0) = 0
-        AND us.equipped_pet_id IS NULL
+  const auctionEligibleExtraSql = auctionEligible
+    ? ` AND us.equipped_pet_id IS NULL
         AND (us.is_equipped = 0 OR us.is_equipped IS NULL)`
     : '';
-  
+
   try {
     const [userSpirits] = await db.query(`
       SELECT us.*, s.name, s.description, s.image_url, s.rarity, s.max_stats_count,
@@ -8908,7 +9886,8 @@ app.get('/api/users/:userId/spirits', async (req, res) => {
       JOIN spirits s ON us.spirit_id = s.id
       LEFT JOIN pets p ON us.equipped_pet_id = p.id
       WHERE us.user_id = ?
-      ${auctionSql}
+      ${hideListedSql}
+      ${auctionEligibleExtraSql}
       ORDER BY us.is_equipped DESC, s.rarity DESC, s.name ASC
     `, [userId]);
 

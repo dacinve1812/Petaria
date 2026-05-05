@@ -1,7 +1,6 @@
 .regionmap-page {
   width: 100%;
-  /* height: var(--regionmap-view-height, 60dvh); */
-  background-color: white
+  background-color: white;
 }
 
 .regionmap-header {
@@ -23,7 +22,8 @@
 
 .regionmap-scroll-x {
   width: 100%;
-  height: 100%;
+  height: auto;
+  min-height: 0;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
@@ -39,18 +39,18 @@
   position: relative;
   width: var(--regionmap-render-width, 100%);
   min-width: var(--regionmap-render-width, 100%);
-  height: var(--regionmap-view-height, 60dvh);
+  height: auto;
+  aspect-ratio: var(--regionmap-natural-w, 1) / var(--regionmap-natural-h, 1);
   margin: 0 auto;
   overflow: hidden;
-  box-shadow:0px 0px 10px 0px rgba(0, 0, 0, 0.5);
-  /* border: 1px solid rgba(255, 255, 255, 0.14); */
-  /* background: #0e1527; */
+  box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.5);
 }
 
 .regionmap-base-image {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  object-position: center center;
   display: block;
   user-select: none;
 }
@@ -85,6 +85,9 @@
   font-size: 0.75rem;
   cursor: pointer;
   white-space: nowrap;
+  transition-property: transform, background-color, border-color, box-shadow, color, opacity;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
 }
 
 .regionmap-button:hover,
@@ -108,4 +111,19 @@
 .regionmap-not-found p {
   margin: 0 0 12px;
   color: #aebede;
+}
+
+/* Mobile: khung cố định theo chiều cao → scroll ngang, không thu nhỏ ảnh theo width viewport */
+@media (max-width: 499px) {
+  .regionmap-mobile-slot {
+    height: var(--regionmap-slot-height, min(65dvh, 520px));
+    min-height: 240px;
+    box-sizing: border-box;
+  }
+
+  .regionmap-mobile-slot .regionmap-scroll-x {
+    height: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
 }

@@ -34,8 +34,8 @@ function RegionMapPage() {
   );
 
   const [loadedNaturalSize, setLoadedNaturalSize] = useState({ width: 0, height: 0 });
-  const [viewHeight, setViewHeight] = useState(520);
   const [renderWidth, setRenderWidth] = useState(780);
+  const [slotHeight, setSlotHeight] = useState(520);
 
   const naturalWidth =
     Number(regionConfig?.naturalSize?.width) || Number(loadedNaturalSize.width) || 2100;
@@ -57,11 +57,22 @@ function RegionMapPage() {
     if (!el) return;
 
     const recalcLayout = () => {
+      const vv = window.visualViewport;
+      const layoutHeight = vv && vv.height ? vv.height : window.innerHeight;
       const rect = el.getBoundingClientRect();
-      const available = Math.max(220, Math.floor(window.innerHeight - rect.top - 2));
-      const nextWidth = Math.max(360, Math.round(available * mapAspect));
-      setViewHeight(available);
-      setRenderWidth(nextWidth);
+      const measured = Math.max(220, Math.floor(layoutHeight - rect.top - 2));
+      const REGION_LIKE_TOP = 200;
+      const synthetic = Math.max(220, Math.floor(layoutHeight - REGION_LIKE_TOP - 2));
+      const available = Math.max(measured, synthetic);
+
+      const isNarrow = window.matchMedia('(max-width: 499px)').matches;
+      let nextW = Math.max(360, Math.round(available * mapAspect));
+      if (isNarrow) {
+        nextW = Math.max(280, Math.round(available * mapAspect));
+      }
+
+      setRenderWidth(nextW);
+      setSlotHeight(Math.round(nextW / mapAspect));
 
       window.requestAnimationFrame(() => {
         const isMobile = window.matchMedia('(max-width: 900px)').matches;
@@ -77,9 +88,12 @@ function RegionMapPage() {
     recalcLayout();
     window.addEventListener('resize', recalcLayout);
     window.addEventListener('orientationchange', recalcLayout);
+    const vv = window.visualViewport;
+    if (vv) vv.addEventListener('resize', recalcLayout);
     return () => {
       window.removeEventListener('resize', recalcLayout);
       window.removeEventListener('orientationchange', recalcLayout);
+      if (vv) vv.removeEventListener('resize', recalcLayout);
     };
   }, [mapAspect]);
 
@@ -118,8 +132,9 @@ function RegionMapPage() {
     <div
       className="regionmap-page"
       style={{
-        '--regionmap-view-height': `${viewHeight}px`,
         '--regionmap-render-width': `${renderWidth}px`,
+        '--regionmap-natural-w': naturalWidth,
+        '--regionmap-natural-h': naturalHeight,
       }}
     >
       <div className="regionmap-header">
@@ -127,71 +142,76 @@ function RegionMapPage() {
         <p>{regionConfig.description || 'Khu vuc dang duoc cap nhat noi dung.'}</p>
       </div>
 
-      <div ref={scrollRef} className="regionmap-scroll-x">
-        <div className="regionmap-canvas-wrap">
-          <img
-            ref={imageRef}
-            className="regionmap-base-image"
-            src={regionConfig.imageSrc}
-            alt={regionConfig.name}
-            draggable={false}
-            onLoad={() => {
-              if (!imageRef.current) return;
-              setLoadedNaturalSize({
-                width: imageRef.current.naturalWidth || 0,
-                height: imageRef.current.naturalHeight || 0,
-              });
-            }}
-          />
+      <div
+        className="regionmap-map-slot regionmap-mobile-slot"
+        style={{ '--regionmap-slot-height': `${slotHeight}px` }}
+      >
+        <div ref={scrollRef} className="regionmap-scroll-x">
+          <div className="regionmap-canvas-wrap">
+            <img
+              ref={imageRef}
+              className="regionmap-base-image"
+              src={regionConfig.imageSrc}
+              alt={regionConfig.name}
+              draggable={false}
+              onLoad={() => {
+                if (!imageRef.current) return;
+                setLoadedNaturalSize({
+                  width: imageRef.current.naturalWidth || 0,
+                  height: imageRef.current.naturalHeight || 0,
+                });
+              }}
+            />
 
-          <div className="regionmap-hit-layer">
-            {areaRects.map((area, idx) => {
-              const coords = Array.isArray(area.coords) ? area.coords : null;
-              if (!coords || coords.length !== 4 || naturalWidth <= 0 || naturalHeight <= 0) return null;
-              const left = (coords[0] / naturalWidth) * 100;
-              const top = (coords[1] / naturalHeight) * 100;
-              const width = ((coords[2] - coords[0]) / naturalWidth) * 100;
-              const height = ((coords[3] - coords[1]) / naturalHeight) * 100;
-              return (
+            <div className="regionmap-hit-layer">
+              {areaRects.map((area, idx) => {
+                const coords = Array.isArray(area.coords) ? area.coords : null;
+                if (!coords || coords.length !== 4 || naturalWidth <= 0 || naturalHeight <= 0) return null;
+                const left = (coords[0] / naturalWidth) * 100;
+                const top = (coords[1] / naturalHeight) * 100;
+                const width = ((coords[2] - coords[0]) / naturalWidth) * 100;
+                const height = ((coords[3] - coords[1]) / naturalHeight) * 100;
+                return (
+                  <button
+                    key={`${area.id || idx}-hit`}
+                    type="button"
+                    className="regionmap-area-hit"
+                    style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%` }}
+                    onClick={() =>
+                      handleNavigate(area.path, {
+                        spotId: area.id,
+                        spotName: area.name,
+                        huntingMapId: area.huntingMapId,
+                      })
+                    }
+                    title={area.name || `Area ${idx + 1}`}
+                  />
+                );
+              })}
+            </div>
+
+            <div className="regionmap-buttons-layer">
+              {mapButtons.map((btn, idx) => (
                 <button
-                  key={`${area.id || idx}-hit`}
+                  key={`${btn.id || idx}-btn`}
                   type="button"
-                  className="regionmap-area-hit"
-                  style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%` }}
+                  className="regionmap-button"
+                  style={{
+                    left: `${(Number(btn.x) / naturalWidth) * 100}%`,
+                    top: `${(Number(btn.y) / naturalHeight) * 100}%`,
+                  }}
                   onClick={() =>
-                    handleNavigate(area.path, {
-                      spotId: area.id,
-                      spotName: area.name,
-                      huntingMapId: area.huntingMapId,
+                    handleNavigate(btn.path, {
+                      spotId: btn.id,
+                      spotName: btn.label || btn.name,
+                      huntingMapId: btn.huntingMapId,
                     })
                   }
-                  title={area.name || `Area ${idx + 1}`}
-                />
-              );
-            })}
-          </div>
-
-          <div className="regionmap-buttons-layer">
-            {mapButtons.map((btn, idx) => (
-              <button
-                key={`${btn.id || idx}-btn`}
-                type="button"
-                className="regionmap-button"
-                style={{
-                  left: `${(Number(btn.x) / naturalWidth) * 100}%`,
-                  top: `${(Number(btn.y) / naturalHeight) * 100}%`,
-                }}
-                onClick={() =>
-                  handleNavigate(btn.path, {
-                    spotId: btn.id,
-                    spotName: btn.label || btn.name,
-                    huntingMapId: btn.huntingMapId,
-                  })
-                }
-              >
-                {btn.label || `Go ${idx + 1}`}
-              </button>
-            ))}
+                >
+                  {btn.label || `Go ${idx + 1}`}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

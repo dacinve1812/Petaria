@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "imageSrc": "/castle.jpg",
+  "imageSrc": "/castle2.png",
   "mapName": "petaria-map",
   "previewHeight": 640,
   "originalHeight": 1200,
@@ -42,7 +42,7 @@
         741
       ],
       "name": "Giải Trí",
-      "path": "/",
+      "path": "/game-center",
       "buttonLabel": "Giải Trí"
     },
     {
@@ -66,7 +66,7 @@
         362
       ],
       "name": "Bank",
-      "path": "/bank",
+      "path": "/mail",
       "buttonLabel": "Bank"
     },
     {
@@ -102,7 +102,7 @@
         302
       ],
       "name": "Bưu Điên",
-      "path": "/office",
+      "path": "/mail",
       "buttonLabel": "Bưu Điện"
     },
     {
@@ -114,7 +114,7 @@
         1094
       ],
       "name": "Đi Săn",
-      "path": "/hunting",
+      "path": "/hunting-world",
       "buttonLabel": "Đi Săn"
     },
     {
@@ -126,7 +126,7 @@
         177
       ],
       "name": "Sông Healla",
-      "path": "/river",
+      "path": "/healia-river",
       "buttonLabel": "Sông Healla"
     },
     {
@@ -161,7 +161,7 @@
       "id": 4,
       "x": 195,
       "y": 700,
-      "path": "/",
+      "path": "/game-center",
       "label": "Giải Trí"
     },
     {
@@ -175,7 +175,7 @@
       "id": 6,
       "x": 533,
       "y": 330,
-      "path": "/bank",
+      "path": "/mail",
       "label": "Bank"
     },
     {
@@ -196,21 +196,21 @@
       "id": 9,
       "x": 1512,
       "y": 271,
-      "path": "/office",
+      "path": "/mail",
       "label": "Bưu Điện"
     },
     {
       "id": 11,
       "x": 1270,
       "y": 1061,
-      "path": "/hunting",
+      "path": "/hunting-world",
       "label": "Đi Săn"
     },
     {
       "id": 11,
       "x": 758,
       "y": 154,
-      "path": "/river",
+      "path": "/healia-river",
       "label": "Sông Healla"
     },
     {

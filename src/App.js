@@ -65,9 +65,39 @@ import CreateGuildPage from './components/CreateGuildPage';
 import GuildDetailPage from './components/GuildDetailPage';
 import EditGuildPage from './components/EditGuildPage';
 import ExampleTemplatePage from './components/template/ExampleTemplatePage';
+import ForumLayout from './components/forum/ForumLayout';
+import ForumHome from './components/forum/ForumHome';
+import ForumCategory from './components/forum/ForumCategory';
+import ForumThread from './components/forum/ForumThread';
+import ForumNewThread from './components/forum/ForumNewThread';
+import ForumMyThreads from './components/forum/ForumMyThreads';
+import ForumEditThread from './components/forum/ForumEditThread';
+import EntertainmentCenterPage from './components/entertainment/EntertainmentCenterPage';
+import EntertainmentHub from './components/entertainment/EntertainmentHub';
+import LuckyWheelGame from './components/entertainment/LuckyWheelGame';
+import ScratchLotteryGame from './components/entertainment/ScratchLotteryGame';
+import MysteryBoxGame from './components/entertainment/MysteryBoxGame';
+import BeggarKingGame from './components/entertainment/BeggarKingGame';
+import DailyFreeItemsGame from './components/entertainment/DailyFreeItemsGame';
+import LuckyBoothGame from './components/entertainment/LuckyBoothGame';
+import SlotMachineGame from './components/entertainment/SlotMachineGame';
+import GuessNumberGame from './components/entertainment/GuessNumberGame';
+import AdminGameCenterManagement from './components/admin/AdminGameCenterManagement';
 
 const router = createBrowserRouter([
   { path: '/login', element: <Auth /> },
+  {
+    path: '/forum',
+    element: <ForumLayout />,
+    children: [
+      { index: true, element: <ForumHome /> },
+      { path: 'my', element: <ForumMyThreads /> },
+      { path: ':categorySlug', element: <ForumCategory /> },
+      { path: ':categorySlug/new', element: <ForumNewThread /> },
+      { path: ':categorySlug/:threadId/edit', element: <ForumEditThread /> },
+      { path: ':categorySlug/:threadId', element: <ForumThread /> },
+    ],
+  },
   {
     path: '/',
     element: <MainLayout />,
@@ -94,6 +124,7 @@ const router = createBrowserRouter([
       { path: 'admin/npc-boss-management', element: <AdminNpcBossManagement /> },
       { path: 'admin/spirits', element: <AdminSpiritEditor /> },
       { path: 'admin/site-management', element: <SiteManagement /> },
+      { path: 'admin/game-center', element: <AdminGameCenterManagement /> },
       { path: 'admin/site/auction-mail', element: <AdminSiteAuctionMailPage /> },
       { path: 'admin/hunting-maps', element: <AdminHuntingMapManagement /> },
       { path: 'management', element: <MyStuffManagement /> },
@@ -136,6 +167,21 @@ const router = createBrowserRouter([
       { path: 'auction/create', element: <CreateAuction /> },
       { path: 'auction/:id', element: <AuctionDetail /> },
       { path: 'example/*', element: <ExampleTemplatePage /> },
+      {
+        path: 'game-center',
+        element: <EntertainmentCenterPage />,
+        children: [
+          { index: true, element: <EntertainmentHub /> },
+          { path: 'lucky-wheel', element: <LuckyWheelGame /> },
+          { path: 'scratch-lottery', element: <ScratchLotteryGame /> },
+          { path: 'mystery-box', element: <MysteryBoxGame /> },
+          { path: 'beggar-king', element: <BeggarKingGame /> },
+          { path: 'daily-free', element: <DailyFreeItemsGame /> },
+          { path: 'lucky-booth', element: <LuckyBoothGame /> },
+          { path: 'slot-machine', element: <SlotMachineGame /> },
+          { path: 'guess-number', element: <GuessNumberGame /> },
+        ],
+      },
     ],
   },
 ]);
