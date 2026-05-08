@@ -209,7 +209,8 @@ async function refreshPetVitalsById(db, petId) {
     );
     if (dec.hunger === 0 && prevHunger > 0) {
       await db.query(
-        'UPDATE pets SET current_hp = 0, hp = 0 WHERE id = ?',
+        // hp là base stat (dùng để tính final_stats). Chỉ nên làm pet "gục" bằng current_hp = 0.
+        'UPDATE pets SET current_hp = 0 WHERE id = ?',
         [petId]
       );
     }

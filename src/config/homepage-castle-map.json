@@ -29,9 +29,9 @@
         197,
         473
       ],
-      "name": "Quảng Cáo",
-      "path": "/",
-      "buttonLabel": "Quảng Cáo"
+      "name": "Diễn Đàn",
+      "path": "/forum",
+      "buttonLabel": "Diễn Đàn"
     },
     {
       "id": 4,
@@ -154,8 +154,8 @@
       "id": 3,
       "x": 115,
       "y": 445,
-      "path": "/",
-      "label": "Quảng Cáo"
+      "path": "/forum",
+      "label": "Diễn Đàn"
     },
     {
       "id": 4,

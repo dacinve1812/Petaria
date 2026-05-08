@@ -99,10 +99,37 @@ function getDefaultGameCenterConfig() {
       ],
     },
     scratchLottery: {
-      ticketPrice3: 10,
-      ticketPrice5: 25,
-      matchCountToWin3: 3,
-      matchCountToWin5: 3,
+      /**
+       * Vé cào luôn "trúng" theo mẫu:
+       * - Vé 3 ô: luôn có 2 icon trùng (2-match)
+       * - Vé 5 ô: luôn có 3 icon trùng (3-match)
+       *
+       * Phần thưởng phụ thuộc symbolId được chọn theo weight (tỉ lệ).
+       */
+      ticket3: {
+        pricePeta: 10,
+        dailyBuyLimit: 20,
+        winMatchCount: 2,
+        rewards: [
+          { symbolId: 'sym_apple', rewardPeta: 1000, weight: 35 },
+          { symbolId: 'sym_star', rewardPeta: 2000, weight: 30 },
+          { symbolId: 'sym_gift', rewardPeta: 5000, weight: 20 },
+          { symbolId: 'sym_gem', rewardPeta: 8000, weight: 10 },
+          { symbolId: 'sym_moon', rewardPeta: 12000, weight: 5 },
+        ],
+      },
+      ticket5: {
+        pricePeta: 25,
+        dailyBuyLimit: 10,
+        winMatchCount: 3,
+        rewards: [
+          { symbolId: 'sym_apple', rewardPeta: 5000, weight: 35 },
+          { symbolId: 'sym_star', rewardPeta: 10000, weight: 30 },
+          { symbolId: 'sym_gift', rewardPeta: 25000, weight: 20 },
+          { symbolId: 'sym_gem', rewardPeta: 40000, weight: 10 },
+          { symbolId: 'sym_moon', rewardPeta: 60000, weight: 5 },
+        ],
+      },
       symbols: [
         { id: 'sym_apple', label: 'Táo', emoji: '🍎', imageUrl: '' },
         { id: 'sym_star', label: 'Sao', emoji: '⭐', imageUrl: '' },
@@ -112,12 +139,15 @@ function getDefaultGameCenterConfig() {
       ],
     },
     mysteryBox: {
-      outcomes: [
-        { id: 'o1', label: 'Thuốc nhỏ', rarity: 'Thường', weight: 40, itemId: null },
-        { id: 'o2', label: 'Mảnh quặng', rarity: 'Thường', weight: 30, itemId: null },
-        { id: 'o3', label: 'Rương xanh', rarity: 'Hiếm', weight: 18, itemId: null },
-        { id: 'o4', label: 'Pet shard SSR', rarity: 'SSR', weight: 8, itemId: null },
-        { id: 'o5', label: 'Skin cực hiếm', rarity: 'SSR', weight: 4, itemId: null },
+      /**
+       * Tỉ lệ theo rarity (khớp `items.rarity` sau chuẩn hóa: common | rare | epic | legendary).
+       * weight tương đối; khi mở hộp: quay rarity → random 1 item trong DB có đúng rarity đó.
+       */
+      rarityWeights: [
+        { rarity: 'common', weight: 45 },
+        { rarity: 'rare', weight: 30 },
+        { rarity: 'epic', weight: 18 },
+        { rarity: 'legendary', weight: 7 },
       ],
     },
     beggarKing: {
@@ -126,24 +156,40 @@ function getDefaultGameCenterConfig() {
       cooldownHours: 6,
     },
     dailyFree: {
-      tiers: [
-        { id: 't1', tierLabel: 'Thường', itemLabel: 'Gói thức ăn C', itemId: null, dailyWeight: 50 },
-        { id: 't2', tierLabel: 'Hiếm', itemLabel: 'Hộp ngẫu nhiên B', itemId: null, dailyWeight: 35 },
-        { id: 't3', tierLabel: 'Siêu hiếm', itemLabel: 'Rương A', itemId: null, dailyWeight: 15 },
+      /** Số vật phẩm nhận mỗi lần (random trong [min, max]) */
+      minItemsPerClaim: 1,
+      maxItemsPerClaim: 3,
+      /**
+       * Tỉ lệ rarity mỗi “món” trong lần nhận (random item trong catalog đúng rarity).
+       * Rarity tối thiểu common (không có tier dưới common).
+       */
+      rarityWeights: [
+        { rarity: 'common', weight: 72 },
+        { rarity: 'rare', weight: 20 },
+        { rarity: 'epic', weight: 7 },
+        { rarity: 'legendary', weight: 1 },
       ],
     },
     luckyBooth: {
       dailyResetEnabled: true,
-      ticketPrice: 1,
-      jackpotPeta: 10000,
+      /** Giá vé (Peta) — 1 vé / kỳ / người */
+      ticketPrice: 10,
+      /** Tổng giải jackpot chia đều cho mọi vé trùng số (nếu >1 người trùng) */
+      jackpotPeta: 1000000,
     },
     slotMachine: {
+      /** Giá quay mỗi lần (Peta) */
+      spinPricePeta: 50000,
+      /** Tối đa lượt quay / kỳ (theo global_reset_time) */
+      maxPlaysPerDay: 10,
+      /** Thưởng khi trúng pair (any_pair) */
+      pairRewardPeta: 20000,
       reelIcons: [
-        { id: 'cherry', label: 'Cherry', emoji: '🍒', imageUrl: '' },
-        { id: 'bell', label: 'Bell', emoji: '🔔', imageUrl: '' },
-        { id: 'star', label: 'Star', emoji: '⭐', imageUrl: '' },
-        { id: 'gem', label: 'Gem', emoji: '💎', imageUrl: '' },
-        { id: 'seven', label: 'Seven', emoji: '7️⃣', imageUrl: '' },
+        { id: 'cherry', label: 'Cherry', emoji: '🍒', imageUrl: '', reward: { kind: 'placeholder', itemId: null, spiritId: null } },
+        { id: 'bell', label: 'Bell', emoji: '🔔', imageUrl: '', reward: { kind: 'placeholder', itemId: null, spiritId: null } },
+        { id: 'star', label: 'Star', emoji: '⭐', imageUrl: '', reward: { kind: 'placeholder', itemId: null, spiritId: null } },
+        { id: 'gem', label: 'Gem', emoji: '💎', imageUrl: '', reward: { kind: 'placeholder', itemId: null, spiritId: null } },
+        { id: 'seven', label: 'Seven', emoji: '7️⃣', imageUrl: '', reward: { kind: 'placeholder', itemId: null, spiritId: null } },
       ],
       winRules: [
         {
@@ -172,6 +218,12 @@ function getDefaultGameCenterConfig() {
     guessNumber: {
       minSecret: 1,
       maxSecret: 99,
+      /** Thưởng khi đoán đúng (cao hơn / thấp hơn mốc đúng) */
+      rewardPetaWin: 10000,
+      /** Trừ Peta khi đoán sai */
+      penaltyPetaLose: 5000,
+      /** Tối đa số vòng hoàn thành / ngày (theo global_reset_time) */
+      maxPlaysPerDay: 10,
     },
   };
 }
@@ -216,22 +268,64 @@ function mergeGameCenterConfig(stored) {
   }
 
   if (stored.scratchLottery && isPlainObject(stored.scratchLottery)) {
+    const ss = stored.scratchLottery;
+    const ds = defaults.scratchLottery;
+
+    // Back-compat: cấu hình cũ (ticketPrice3/ticketPrice5/matchCount...) → cấu hình mới ticket3/ticket5
+    const ticket3FromLegacy =
+      !ss.ticket3 && (ss.ticketPrice3 != null || ss.matchCountToWin3 != null)
+        ? {
+            ...ds.ticket3,
+            pricePeta: Number(ss.ticketPrice3 ?? ds.ticket3.pricePeta),
+            winMatchCount: Number(ss.matchCountToWin3 ?? ds.ticket3.winMatchCount),
+          }
+        : null;
+
+    const ticket5FromLegacy =
+      !ss.ticket5 && (ss.ticketPrice5 != null || ss.matchCountToWin5 != null)
+        ? {
+            ...ds.ticket5,
+            pricePeta: Number(ss.ticketPrice5 ?? ds.ticket5.pricePeta),
+            winMatchCount: Number(ss.matchCountToWin5 ?? ds.ticket5.winMatchCount),
+          }
+        : null;
+
     out.scratchLottery = {
-      ...defaults.scratchLottery,
-      ...stored.scratchLottery,
-      symbols: Array.isArray(stored.scratchLottery.symbols) && stored.scratchLottery.symbols.length
-        ? stored.scratchLottery.symbols
-        : defaults.scratchLottery.symbols,
+      ...ds,
+      ...ss,
+      ticket3: {
+        ...ds.ticket3,
+        ...(isPlainObject(ss.ticket3) ? ss.ticket3 : ticket3FromLegacy || {}),
+        rewards: Array.isArray(ss.ticket3?.rewards) && ss.ticket3.rewards.length ? ss.ticket3.rewards : ds.ticket3.rewards,
+      },
+      ticket5: {
+        ...ds.ticket5,
+        ...(isPlainObject(ss.ticket5) ? ss.ticket5 : ticket5FromLegacy || {}),
+        rewards: Array.isArray(ss.ticket5?.rewards) && ss.ticket5.rewards.length ? ss.ticket5.rewards : ds.ticket5.rewards,
+      },
+      symbols:
+        Array.isArray(ss.symbols) && ss.symbols.length
+          ? ss.symbols
+          : ds.symbols,
     };
   }
 
   if (stored.mysteryBox && isPlainObject(stored.mysteryBox)) {
+    const sm = stored.mysteryBox;
+    const dm = defaults.mysteryBox;
+    let rarityWeights = dm.rarityWeights;
+    if (Array.isArray(sm.rarityWeights) && sm.rarityWeights.length > 0) {
+      rarityWeights = sm.rarityWeights.map((row) => ({
+        rarity: String(row?.rarity ?? 'common').trim().toLowerCase(),
+        weight: Math.max(0, Number(row?.weight) || 0),
+      }));
+    }
     out.mysteryBox = {
-      ...defaults.mysteryBox,
-      outcomes: Array.isArray(stored.mysteryBox.outcomes) && stored.mysteryBox.outcomes.length
-        ? stored.mysteryBox.outcomes
-        : defaults.mysteryBox.outcomes,
+      ...dm,
+      ...sm,
+      rarityWeights,
     };
+    delete out.mysteryBox.outcomes;
   }
 
   if (stored.beggarKing && isPlainObject(stored.beggarKing)) {
@@ -239,12 +333,29 @@ function mergeGameCenterConfig(stored) {
   }
 
   if (stored.dailyFree && isPlainObject(stored.dailyFree)) {
+    const sd = stored.dailyFree;
+    const dd = defaults.dailyFree;
+    let rarityWeights = dd.rarityWeights;
+    if (Array.isArray(sd.rarityWeights) && sd.rarityWeights.length > 0) {
+      rarityWeights = sd.rarityWeights.map((rw) => ({
+        rarity: String(rw?.rarity ?? 'common').trim().toLowerCase(),
+        weight: Math.max(0, Number(rw?.weight) || 0),
+      }));
+    }
+    let minItems = parseInt(sd.minItemsPerClaim, 10);
+    let maxItems = parseInt(sd.maxItemsPerClaim, 10);
+    if (!Number.isFinite(minItems) || minItems < 1) minItems = dd.minItemsPerClaim;
+    if (!Number.isFinite(maxItems) || maxItems < 1) maxItems = dd.maxItemsPerClaim;
+    minItems = Math.max(1, Math.min(20, minItems));
+    maxItems = Math.max(minItems, Math.min(20, maxItems));
     out.dailyFree = {
-      ...defaults.dailyFree,
-      tiers: Array.isArray(stored.dailyFree.tiers) && stored.dailyFree.tiers.length
-        ? stored.dailyFree.tiers
-        : defaults.dailyFree.tiers,
+      ...dd,
+      ...sd,
+      rarityWeights,
+      minItemsPerClaim: minItems,
+      maxItemsPerClaim: maxItems,
     };
+    delete out.dailyFree.tiers;
   }
 
   if (stored.luckyBooth && isPlainObject(stored.luckyBooth)) {

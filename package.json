@@ -23,7 +23,14 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "gen:worldmap-points": "node scripts/generate_worldmap_zone_points.js",
-    "migrate:lucky-wheel": "node scripts/migrate_lucky_wheel_daily.js"
+    "migrate:lucky-wheel": "node scripts/migrate_lucky_wheel_daily.js",
+    "migrate:scratch-lottery": "node scripts/migrate_scratch_lottery_daily.js",
+    "migrate:beggar-king": "node scripts/migrate_beggar_king.js",
+    "migrate:guess-number": "node scripts/migrate_guess_number_daily.js",
+    "migrate:mystery-box": "node scripts/migrate_mystery_box_index.js",
+    "migrate:daily-free": "node scripts/migrate_daily_free.js",
+    "migrate:lucky-booth": "node scripts/migrate_lucky_booth.js",
+    "migrate:slot-machine": "node scripts/migrate_slot_machine_daily.js"
   },
   "eslintConfig": {
     "extends": [

@@ -34,6 +34,10 @@ const {
   mergeGameCenterConfig,
   buildLuckyWheelSegments,
 } = require('./gameCenterConfigDefaults');
+const {
+  buildScratchTicketFromConfig,
+  parsePending,
+} = require('./scratchLotteryService');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -59,6 +63,98 @@ const pool = mysql.createPool({ // Hoặc const pool = new Pool({
 });
 
 const db = pool.promise();
+
+async function normalizePetCurrentHp(conn, petId) {
+  if (petId == null) return;
+  const pid = Number(petId);
+  if (!Number.isFinite(pid) || pid <= 0) return;
+
+  const [rows] = await conn.query(
+    'SELECT id, current_hp, max_hp, hp, final_stats FROM pets WHERE id = ? LIMIT 1',
+    [pid]
+  );
+  if (!rows.length) return;
+  const pet = rows[0];
+
+  // CHECK hiện tại trong DB: current_hp IS NULL OR current_hp <= json_extract(final_stats,'$.hp')
+  // Nếu final_stats.hp không tồn tại / NULL => mọi current_hp != NULL sẽ vi phạm CHECK. Khi đó set current_hp = NULL là an toàn nhất.
+  let fsHp = null;
+  if (pet.final_stats) {
+    try {
+      const fs = typeof pet.final_stats === 'string' ? JSON.parse(pet.final_stats) : pet.final_stats;
+      if (fs && fs.hp != null) fsHp = Number(fs.hp);
+    } catch (_) {}
+  }
+  if (!(Number.isFinite(fsHp) && fsHp > 0)) {
+    if (pet.current_hp != null) {
+      await conn.query('UPDATE pets SET current_hp = NULL WHERE id = ?', [pid]);
+    }
+    return;
+  }
+
+  // Nhiều DB dùng CHECK theo cột max_hp/hp; final_stats.hp có thể khác / lệch. Lấy CEILING hợp lệ = min mọi nguồn dương.
+  const caps = [];
+  const addCap = (raw) => {
+    if (raw === null || raw === undefined) return;
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) caps.push(n);
+  };
+  addCap(pet.max_hp);
+  addCap(pet.hp);
+  addCap(fsHp);
+  const maxHpVal = caps.length ? Math.min(...caps) : 1;
+  const curHpRaw = pet.current_hp != null ? Number(pet.current_hp) : maxHpVal;
+  const curHp = Number.isFinite(curHpRaw) ? curHpRaw : maxHpVal;
+  const validHp = Math.max(0, Math.min(curHp, maxHpVal));
+
+  if (validHp !== curHp) {
+    await conn.query('UPDATE pets SET current_hp = ? WHERE id = ?', [validHp, pid]);
+  }
+}
+
+async function getPetHpCap(conn, petId) {
+  if (petId == null) return 1;
+  const pid = Number(petId);
+  if (!Number.isFinite(pid) || pid <= 0) return 1;
+
+  const [rows] = await conn.query(
+    'SELECT max_hp, hp, final_stats FROM pets WHERE id = ? LIMIT 1',
+    [pid]
+  );
+  if (!rows.length) return 1;
+  const pet = rows[0];
+
+  const caps = [];
+  const addCap = (raw) => {
+    if (raw === null || raw === undefined) return;
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) caps.push(n);
+  };
+  addCap(pet.max_hp);
+  addCap(pet.hp);
+  if (pet.final_stats) {
+    try {
+      const fs = typeof pet.final_stats === 'string' ? JSON.parse(pet.final_stats) : pet.final_stats;
+      if (fs && fs.hp != null) addCap(fs.hp);
+    } catch (_) {}
+  }
+  return caps.length ? Math.min(...caps) : 1;
+}
+
+async function getFinalStatsHp(conn, petId) {
+  if (petId == null) return null;
+  const pid = Number(petId);
+  if (!Number.isFinite(pid) || pid <= 0) return null;
+
+  const [rows] = await conn.query(
+    "SELECT CAST(JSON_UNQUOTE(JSON_EXTRACT(final_stats, '$.hp')) AS UNSIGNED) AS fs_hp FROM pets WHERE id = ? LIMIT 1",
+    [pid]
+  );
+  if (!rows.length) return null;
+  const fsHp = rows[0]?.fs_hp;
+  const n = Number(fsHp);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
 
 const {
   ensureBoosterStatsColumn,
@@ -1640,6 +1736,32 @@ function luckyWheelRandIntInclusive(min, max) {
   return Math.floor(Math.random() * (b - a + 1)) + a;
 }
 
+/** Một vòng Đoán số: so sánh số ẩn với mốc pivot (client chỉ thấy pivot). */
+function guessNumberBuildRound(minS, maxS) {
+  let min = Math.ceil(Number(minS));
+  let max = Math.floor(Number(maxS));
+  if (!Number.isFinite(min)) min = 1;
+  if (!Number.isFinite(max)) max = 99;
+  if (max < min) {
+    const t = min;
+    min = max;
+    max = t;
+  }
+  if (min >= max) return null;
+  let secret = luckyWheelRandIntInclusive(min, max);
+  let pivot = luckyWheelRandIntInclusive(min, max);
+  let guard = 0;
+  while (pivot === secret && guard < 50) {
+    pivot = luckyWheelRandIntInclusive(min, max);
+    secret = luckyWheelRandIntInclusive(min, max);
+    guard += 1;
+  }
+  if (pivot === secret) {
+    pivot = secret === min ? min + 1 : secret - 1;
+  }
+  return { secret, pivot, minS: min, maxS: max };
+}
+
 /** Chuỗi khóa kỳ “ngày game” theo lần reset gần nhất (global_reset_time). */
 function luckyWheelDailyPeriodKey(now, resetHm) {
   const [rh, rm] = String(resetHm || '19:00')
@@ -1971,6 +2093,1983 @@ app.post('/api/game-center/lucky-wheel/spin', async (req, res) => {
     }
     console.error('POST /api/game-center/lucky-wheel/spin', error);
     res.status(500).json({ error: 'Không quay được vòng quay' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+/**
+ * GET /api/game-center/scratch/status
+ * Lượt đã mua / giới hạn vé 3 ô & 5 ô trong kỳ (theo global_reset_time).
+ */
+app.get('/api/game-center/scratch/status', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Cần đăng nhập' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch {
+      return res.status(401).json({ error: 'Token không hợp lệ' });
+    }
+    const userId = decoded.userId;
+    const conn = await db.getConnection();
+    try {
+      const resetHm = await luckyWheelFetchGlobalResetHm(conn);
+      const periodKey = luckyWheelDailyPeriodKey(new Date(), resetHm);
+      const [rows] = await conn.query(
+        `SELECT scratch_daily_period_key, scratch_daily_buys_3, scratch_daily_buys_5, scratch_pending_json
+         FROM users WHERE id = ? LIMIT 1`,
+        [userId]
+      );
+      if (!rows.length) return res.status(404).json({ error: 'Không tìm thấy người chơi' });
+      const u = rows[0];
+      let buys3 = Number(u.scratch_daily_buys_3) || 0;
+      let buys5 = Number(u.scratch_daily_buys_5) || 0;
+      if (String(u.scratch_daily_period_key || '') !== periodKey) {
+        buys3 = 0;
+        buys5 = 0;
+      }
+      let storedGc = null;
+      const [gcRows] = await conn.query('SELECT config FROM site_game_center_config WHERE id = 1 LIMIT 1');
+      if (gcRows.length && gcRows[0].config != null) {
+        const c = gcRows[0].config;
+        if (typeof c === 'string') {
+          try {
+            storedGc = JSON.parse(c);
+          } catch {
+            storedGc = null;
+          }
+        } else if (typeof c === 'object') storedGc = c;
+      }
+      const gcConfig = mergeGameCenterConfig(storedGc);
+      const sl = gcConfig.scratchLottery || {};
+      const max3 = Math.max(0, parseInt(sl.ticket3?.dailyBuyLimit, 10) || 0);
+      const max5 = Math.max(0, parseInt(sl.ticket5?.dailyBuyLimit, 10) || 0);
+      const pend = parsePending(u.scratch_pending_json);
+      let pendingResume = null;
+      if (pend && Array.isArray(pend.ids) && (pend.mode === 3 || pend.mode === 5)) {
+        pendingResume = {
+          mode: pend.mode,
+          ids: pend.ids,
+        };
+      }
+
+      res.json({
+        periodKey,
+        buysToday3: buys3,
+        buysToday5: buys5,
+        maxBuysPerDay3: max3,
+        maxBuysPerDay5: max5,
+        hasPendingTicket: !!pend,
+        pendingResume,
+      });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    if (error && error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(503).json({
+        error:
+          'DB chưa có cột scratch (chạy migration db/migrations/20260506_scratch_lottery_daily.sql).',
+      });
+    }
+    console.error('GET /api/game-center/scratch/status', error);
+    res.status(500).json({ error: 'Lỗi tải trạng thái vé cào' });
+  }
+});
+
+/**
+ * POST /api/game-center/scratch/purchase { mode: 3 | 5 }
+ * Trừ Peta, tăng lượt/ngày, lưu vé chờ claim (JSON).
+ */
+app.post('/api/game-center/scratch/purchase', async (req, res) => {
+  let conn;
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Cần đăng nhập' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch {
+      return res.status(401).json({ error: 'Token không hợp lệ' });
+    }
+    const userId = decoded.userId;
+    const mode = parseInt(req.body?.mode, 10);
+    if (mode !== 3 && mode !== 5) return res.status(400).json({ error: 'mode phải là 3 hoặc 5' });
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const resetHm = await luckyWheelFetchGlobalResetHm(conn);
+    const periodKey = luckyWheelDailyPeriodKey(new Date(), resetHm);
+
+    const [userRows] = await conn.query(
+      `SELECT id, peta, scratch_daily_period_key, scratch_daily_buys_3, scratch_daily_buys_5, scratch_pending_json
+       FROM users WHERE id = ? FOR UPDATE`,
+      [userId]
+    );
+    if (!userRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy người chơi' });
+    }
+    const u = userRows[0];
+
+    if (parsePending(u.scratch_pending_json)) {
+      await conn.rollback();
+      return res.status(409).json({ error: 'Bạn đang có vé chưa nhận thưởng. Hãy cào xong vé hiện tại.' });
+    }
+
+    let buys3 = Number(u.scratch_daily_buys_3) || 0;
+    let buys5 = Number(u.scratch_daily_buys_5) || 0;
+    if (String(u.scratch_daily_period_key || '') !== periodKey) {
+      buys3 = 0;
+      buys5 = 0;
+      await conn.query(
+        'UPDATE users SET scratch_daily_period_key = ?, scratch_daily_buys_3 = 0, scratch_daily_buys_5 = 0 WHERE id = ?',
+        [periodKey, userId]
+      );
+    }
+
+    const [gcRows] = await conn.query('SELECT config FROM site_game_center_config WHERE id = 1 FOR UPDATE');
+    let storedGc = null;
+    if (gcRows.length && gcRows[0].config != null) {
+      const c = gcRows[0].config;
+      if (typeof c === 'string') {
+        try {
+          storedGc = JSON.parse(c);
+        } catch {
+          storedGc = null;
+        }
+      } else if (typeof c === 'object') storedGc = c;
+    }
+    const gcConfig = mergeGameCenterConfig(storedGc);
+    const sl = gcConfig.scratchLottery;
+    const t = mode === 3 ? sl?.ticket3 : sl?.ticket5;
+    const maxBuys = Math.max(0, parseInt(t?.dailyBuyLimit, 10) || 0);
+    const buys = mode === 3 ? buys3 : buys5;
+    if (maxBuys > 0 && buys >= maxBuys) {
+      await conn.rollback();
+      return res.status(429).json({ error: 'Đã hết lượt mua vé trong kỳ hiện tại', maxBuysPerDay: maxBuys });
+    }
+
+    const price = Math.max(0, Number(t?.pricePeta) || 0);
+    const petaBal = Number(u.peta) || 0;
+    if (petaBal < price) {
+      await conn.rollback();
+      return res.status(402).json({ error: 'Không đủ Peta', petaRemaining: petaBal, pricePeta: price });
+    }
+
+    const ticket = buildScratchTicketFromConfig(sl, Array.isArray(sl?.symbols) ? sl.symbols : [], mode);
+    if (!ticket) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Cấu hình vé cào chưa hợp lệ (ticket3/ticket5)' });
+    }
+
+    const pendingPayload = JSON.stringify(ticket);
+    const newBuys = buys + 1;
+    const col = mode === 3 ? 'scratch_daily_buys_3' : 'scratch_daily_buys_5';
+
+    await conn.query(
+      `UPDATE users SET peta = peta - ?, scratch_pending_json = ?, ${col} = ?, scratch_daily_period_key = ? WHERE id = ?`,
+      [price, pendingPayload, newBuys, periodKey, userId]
+    );
+
+    await conn.commit();
+
+    const [[after]] = await db.query(
+      `SELECT scratch_daily_buys_3, scratch_daily_buys_5, peta FROM users WHERE id = ? LIMIT 1`,
+      [userId]
+    );
+    const petaRemaining = Number(after.peta) || 0;
+
+    res.json({
+      success: true,
+      mode: ticket.mode,
+      ids: ticket.ids,
+      petaRemaining,
+      buysToday3: Number(after.scratch_daily_buys_3) || 0,
+      buysToday5: Number(after.scratch_daily_buys_5) || 0,
+      maxBuysPerDay3: Math.max(0, parseInt(sl.ticket3?.dailyBuyLimit, 10) || 0),
+      maxBuysPerDay5: Math.max(0, parseInt(sl.ticket5?.dailyBuyLimit, 10) || 0),
+    });
+  } catch (error) {
+    if (conn) await conn.rollback();
+    if (error && error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(503).json({
+        error:
+          'DB chưa có cột scratch (chạy migration db/migrations/20260506_scratch_lottery_daily.sql).',
+      });
+    }
+    console.error('POST /api/game-center/scratch/purchase', error);
+    res.status(500).json({ error: 'Không mua được vé cào' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+/**
+ * POST /api/game-center/scratch/claim { revealedIndices: number[] }
+ * Xác nhận đã cào đủ ô trùng — cộng Peta và xóa pending.
+ */
+app.post('/api/game-center/scratch/claim', async (req, res) => {
+  let conn;
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Cần đăng nhập' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch {
+      return res.status(401).json({ error: 'Token không hợp lệ' });
+    }
+    const userId = decoded.userId;
+    const revealedRaw = req.body?.revealedIndices;
+    const revealedIndices = Array.isArray(revealedRaw) ? revealedRaw : [];
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const [userRows] = await conn.query(
+      `SELECT id, scratch_pending_json FROM users WHERE id = ? FOR UPDATE`,
+      [userId]
+    );
+    if (!userRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy người chơi' });
+    }
+
+    const pending = parsePending(userRows[0].scratch_pending_json);
+    if (!pending || !Array.isArray(pending.ids)) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Không có vé chờ nhận thưởng' });
+    }
+
+    const { ids, winSymbolId, rewardPeta, requiredMatch } = pending;
+    const count = ids.length;
+
+    const uniq = [
+      ...new Set(
+        revealedIndices
+          .map((x) => parseInt(x, 10))
+          .filter((i) => Number.isFinite(i) && i >= 0 && i < count),
+      ),
+    ];
+
+    let winSeen = 0;
+    for (const i of uniq) {
+      if (ids[i] === winSymbolId) winSeen += 1;
+    }
+
+    const need = parseInt(requiredMatch, 10) || 0;
+    if (winSeen < need) {
+      await conn.rollback();
+      return res.status(400).json({
+        error: `Cần cào mở ít nhất ${need} ô trùng đúng biểu tượng trúng`,
+      });
+    }
+
+    const granted = Math.max(0, Number(rewardPeta) || 0);
+
+    await conn.query('UPDATE users SET peta = peta + ?, scratch_pending_json = NULL WHERE id = ?', [
+      granted,
+      userId,
+    ]);
+    try {
+      if (granted > 0) await titleService.recordPetaEarned(conn, userId, granted);
+    } catch (e) {
+      console.error('title earn (scratch):', e);
+    }
+
+    await conn.commit();
+
+    const [[row]] = await db.query(`SELECT peta FROM users WHERE id = ? LIMIT 1`, [userId]);
+    const petaRemaining = Number(row?.peta) || 0;
+
+    res.json({
+      success: true,
+      grantedPeta: granted,
+      petaRemaining,
+    });
+  } catch (error) {
+    if (conn) await conn.rollback();
+    if (error && error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(503).json({
+        error:
+          'DB chưa có cột scratch (chạy migration db/migrations/20260506_scratch_lottery_daily.sql).',
+      });
+    }
+    console.error('POST /api/game-center/scratch/claim', error);
+    res.status(500).json({ error: 'Không nhận được thưởng' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+/**
+ * GET /api/game-center/beggar-king/status
+ * Cấu hình Vua ăn mày + cooldown theo user (nếu có token).
+ */
+app.get('/api/game-center/beggar-king/status', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    let userId = null;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        userId = decoded.userId;
+      } catch (_) {
+        userId = null;
+      }
+    }
+
+    const [gcRows] = await db.query('SELECT config FROM site_game_center_config WHERE id = 1 LIMIT 1');
+    let storedGc = null;
+    if (gcRows.length && gcRows[0].config != null) {
+      const c = gcRows[0].config;
+      if (typeof c === 'string') {
+        try {
+          storedGc = JSON.parse(c);
+        } catch {
+          storedGc = null;
+        }
+      } else if (typeof c === 'object') storedGc = c;
+    }
+    const gcConfig = mergeGameCenterConfig(storedGc);
+    const bk = gcConfig.beggarKing || {};
+    const minPeta = Math.max(0, Number(bk.minPeta) || 100);
+    const maxPeta = Math.max(minPeta, Number(bk.maxPeta) || 5000);
+    const cooldownHours = Math.max(0, Number(bk.cooldownHours) || 6);
+    const cooldownMs = cooldownHours * 3600 * 1000;
+
+    let lastClaimMs = null;
+    if (userId) {
+      try {
+        const [rows] = await db.query(
+          'SELECT beggar_king_last_claim_ms FROM users WHERE id = ? LIMIT 1',
+          [userId],
+        );
+        if (rows.length && rows[0].beggar_king_last_claim_ms != null) {
+          lastClaimMs = Number(rows[0].beggar_king_last_claim_ms);
+        }
+      } catch (e) {
+        if (e && e.code === 'ER_BAD_FIELD_ERROR') {
+          return res.status(503).json({
+            error:
+              'DB chưa có cột beggar_king (chạy migration db/migrations/20260507_beggar_king.sql hoặc npm run migrate:beggar-king).',
+          });
+        }
+        throw e;
+      }
+    }
+
+    const now = Date.now();
+    let nextAvailableMs = null;
+    let canClaim = false;
+    if (userId) {
+      if (lastClaimMs == null || !Number.isFinite(lastClaimMs)) {
+        canClaim = true;
+      } else {
+        nextAvailableMs = lastClaimMs + cooldownMs;
+        canClaim = now >= nextAvailableMs;
+      }
+    }
+
+    res.json({
+      minPeta,
+      maxPeta,
+      cooldownHours,
+      cooldownMs,
+      lastClaimMs,
+      nextAvailableMs: canClaim ? null : nextAvailableMs,
+      canClaim: !!userId && canClaim,
+      loggedIn: !!userId,
+    });
+  } catch (error) {
+    console.error('GET /api/game-center/beggar-king/status', error);
+    res.status(500).json({ error: 'Lỗi tải trạng thái Vua ăn mày' });
+  }
+});
+
+/**
+ * POST /api/game-center/beggar-king/claim
+ * Random Peta trong [min,max], cooldown theo Admin — cộng vào users.peta.
+ */
+app.post('/api/game-center/beggar-king/claim', async (req, res) => {
+  let conn;
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Cần đăng nhập để nhận Peta' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch {
+      return res.status(401).json({ error: 'Token không hợp lệ' });
+    }
+    const userId = decoded.userId;
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const [gcRows] = await conn.query(
+      'SELECT config FROM site_game_center_config WHERE id = 1 LIMIT 1',
+    );
+    let storedGc = null;
+    if (gcRows.length && gcRows[0].config != null) {
+      const c = gcRows[0].config;
+      if (typeof c === 'string') {
+        try {
+          storedGc = JSON.parse(c);
+        } catch {
+          storedGc = null;
+        }
+      } else if (typeof c === 'object') storedGc = c;
+    }
+    const gcConfig = mergeGameCenterConfig(storedGc);
+    const bk = gcConfig.beggarKing || {};
+    const minPeta = Math.max(0, Number(bk.minPeta) || 100);
+    const maxPeta = Math.max(minPeta, Number(bk.maxPeta) || 5000);
+    const cooldownHours = Math.max(0, Number(bk.cooldownHours) || 6);
+    const cooldownMs = cooldownHours * 3600 * 1000;
+
+    const [userRows] = await conn.query(
+      `SELECT id, peta, beggar_king_last_claim_ms FROM users WHERE id = ? FOR UPDATE`,
+      [userId],
+    );
+    if (!userRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy người chơi' });
+    }
+    const u = userRows[0];
+    const lastMs =
+      u.beggar_king_last_claim_ms != null ? Number(u.beggar_king_last_claim_ms) : null;
+    const now = Date.now();
+    if (lastMs != null && Number.isFinite(lastMs)) {
+      const nextAt = lastMs + cooldownMs;
+      if (now < nextAt) {
+        await conn.rollback();
+        return res.status(429).json({
+          error: 'Chưa hết thời gian chờ',
+          nextAvailableMs: nextAt,
+        });
+      }
+    }
+
+    const amount = luckyWheelRandIntInclusive(minPeta, maxPeta);
+    await conn.query(
+      'UPDATE users SET peta = peta + ?, beggar_king_last_claim_ms = ? WHERE id = ?',
+      [amount, now, userId],
+    );
+    try {
+      if (amount > 0) await titleService.recordPetaEarned(conn, userId, amount);
+    } catch (e) {
+      console.error('title earn (beggar king):', e);
+    }
+
+    await conn.commit();
+
+    const [[row]] = await db.query(`SELECT peta FROM users WHERE id = ? LIMIT 1`, [userId]);
+    const petaRemaining = Number(row?.peta) || 0;
+
+    res.json({
+      success: true,
+      grantedPeta: amount,
+      petaRemaining,
+      nextAvailableMs: now + cooldownMs,
+      minPeta,
+      maxPeta,
+      cooldownHours,
+    });
+  } catch (error) {
+    if (conn) await conn.rollback();
+    if (error && error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(503).json({
+        error:
+          'DB chưa có cột beggar_king (chạy migration db/migrations/20260507_beggar_king.sql hoặc npm run migrate:beggar-king).',
+      });
+    }
+    console.error('POST /api/game-center/beggar-king/claim', error);
+    res.status(500).json({ error: 'Không nhận được Peta' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+function guessNumberLoadConfig(conn) {
+  return conn.query('SELECT config FROM site_game_center_config WHERE id = 1 LIMIT 1').then(([gcRows]) => {
+    let storedGc = null;
+    if (gcRows.length && gcRows[0].config != null) {
+      const c = gcRows[0].config;
+      if (typeof c === 'string') {
+        try {
+          storedGc = JSON.parse(c);
+        } catch {
+          storedGc = null;
+        }
+      } else if (typeof c === 'object') storedGc = c;
+    }
+    const gcConfig = mergeGameCenterConfig(storedGc);
+    const gn = gcConfig.guessNumber || {};
+    const minSecret = Math.max(0, Number(gn.minSecret) || 1);
+    const maxSecret = Math.max(minSecret, Number(gn.maxSecret) || 99);
+    const rewardPetaWin = Math.max(0, Number(gn.rewardPetaWin) || 10000);
+    const penaltyPetaLose = Math.max(0, Number(gn.penaltyPetaLose) || 5000);
+    const maxPlaysPerDay = Math.max(1, Math.min(500, parseInt(gn.maxPlaysPerDay, 10) || 10));
+    return { minSecret, maxSecret, rewardPetaWin, penaltyPetaLose, maxPlaysPerDay };
+  });
+}
+
+/**
+ * GET /api/game-center/guess-number/status
+ */
+app.get('/api/game-center/guess-number/status', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    let userId = null;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        userId = decoded.userId;
+      } catch (_) {
+        userId = null;
+      }
+    }
+
+    const conn = await db.getConnection();
+    let cfg;
+    try {
+      cfg = await guessNumberLoadConfig(conn);
+    } finally {
+      conn.release();
+    }
+
+    const { minSecret, maxSecret, rewardPetaWin, penaltyPetaLose, maxPlaysPerDay } = cfg;
+
+    let playsToday = 0;
+    let pendingPivot = null;
+    if (userId) {
+      try {
+        const c2 = await db.getConnection();
+        try {
+          const resetHm = await luckyWheelFetchGlobalResetHm(c2);
+          const periodKey = luckyWheelDailyPeriodKey(new Date(), resetHm);
+          const [ur] = await c2.query(
+            `SELECT guess_number_period_key, guess_number_daily_plays, guess_number_pending_json FROM users WHERE id = ? LIMIT 1`,
+            [userId],
+          );
+          if (ur.length) {
+            const u = ur[0];
+            let p = Number(u.guess_number_daily_plays) || 0;
+            if (String(u.guess_number_period_key || '') !== periodKey) p = 0;
+            playsToday = p;
+            const pend = parsePending(u.guess_number_pending_json);
+            if (pend != null && Number.isFinite(Number(pend.pivot))) pendingPivot = Number(pend.pivot);
+          }
+        } finally {
+          c2.release();
+        }
+      } catch (e) {
+        if (e && e.code === 'ER_BAD_FIELD_ERROR') {
+          return res.status(503).json({
+            error:
+              'DB chưa có cột guess_number (chạy migration db/migrations/20260508_guess_number_daily.sql hoặc npm run migrate:guess-number).',
+          });
+        }
+        throw e;
+      }
+    }
+
+    res.json({
+      minSecret,
+      maxSecret,
+      rewardPetaWin,
+      penaltyPetaLose,
+      maxPlaysPerDay,
+      playsToday,
+      playsRemaining: userId != null ? Math.max(0, maxPlaysPerDay - playsToday) : null,
+      pendingPivot,
+      hasPending: pendingPivot != null,
+      loggedIn: !!userId,
+    });
+  } catch (error) {
+    console.error('GET /api/game-center/guess-number/status', error);
+    res.status(500).json({ error: 'Lỗi tải trạng thái Đoán số' });
+  }
+});
+
+/**
+ * POST /api/game-center/guess-number/start-round
+ * Tạo (hoặc trả lại) mốc pivot — không tính lượt cho đến khi submit.
+ */
+app.post('/api/game-center/guess-number/start-round', async (req, res) => {
+  let conn;
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Cần đăng nhập' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch {
+      return res.status(401).json({ error: 'Token không hợp lệ' });
+    }
+    const userId = decoded.userId;
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const resetHm = await luckyWheelFetchGlobalResetHm(conn);
+    const periodKey = luckyWheelDailyPeriodKey(new Date(), resetHm);
+
+    const cfg = await guessNumberLoadConfig(conn);
+    const { minSecret, maxSecret, maxPlaysPerDay } = cfg;
+    const roundDef = guessNumberBuildRound(minSecret, maxSecret);
+    if (!roundDef) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'minSecret phải nhỏ hơn maxSecret trong Admin' });
+    }
+
+    const [userRows] = await conn.query(
+      `SELECT id, guess_number_period_key, guess_number_daily_plays, guess_number_pending_json FROM users WHERE id = ? FOR UPDATE`,
+      [userId],
+    );
+    if (!userRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy người chơi' });
+    }
+    const u = userRows[0];
+
+    let plays = Number(u.guess_number_daily_plays) || 0;
+    if (String(u.guess_number_period_key || '') !== periodKey) {
+      plays = 0;
+      await conn.query(
+        'UPDATE users SET guess_number_period_key = ?, guess_number_daily_plays = 0 WHERE id = ?',
+        [periodKey, userId],
+      );
+    }
+
+    const existing = parsePending(u.guess_number_pending_json);
+    if (existing != null && Number.isFinite(Number(existing.pivot))) {
+      await conn.commit();
+      return res.json({
+        pivot: Number(existing.pivot),
+        minSecret,
+        maxSecret,
+        playsToday: plays,
+        playsRemaining: Math.max(0, maxPlaysPerDay - plays),
+        maxPlaysPerDay,
+      });
+    }
+
+    if (plays >= maxPlaysPerDay) {
+      await conn.rollback();
+      return res.status(429).json({
+        error: 'Đã hết lượt chơi trong kỳ hiện tại',
+        playsToday: plays,
+        maxPlaysPerDay,
+      });
+    }
+
+    const payload = JSON.stringify({
+      secret: roundDef.secret,
+      pivot: roundDef.pivot,
+      minS: roundDef.minS,
+      maxS: roundDef.maxS,
+    });
+    await conn.query(
+      'UPDATE users SET guess_number_pending_json = ?, guess_number_period_key = ? WHERE id = ?',
+      [payload, periodKey, userId],
+    );
+
+    await conn.commit();
+
+    res.json({
+      pivot: roundDef.pivot,
+      minSecret,
+      maxSecret,
+      playsToday: plays,
+      playsRemaining: Math.max(0, maxPlaysPerDay - plays),
+      maxPlaysPerDay,
+    });
+  } catch (error) {
+    if (conn) await conn.rollback();
+    if (error && error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(503).json({
+        error:
+          'DB chưa có cột guess_number (chạy migration db/migrations/20260508_guess_number_daily.sql hoặc npm run migrate:guess-number).',
+      });
+    }
+    console.error('POST /api/game-center/guess-number/start-round', error);
+    res.status(500).json({ error: 'Không bắt đầu được vòng' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+/**
+ * POST /api/game-center/guess-number/submit { choice: 'high' | 'low' }
+ */
+app.post('/api/game-center/guess-number/submit', async (req, res) => {
+  let conn;
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Cần đăng nhập' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch {
+      return res.status(401).json({ error: 'Token không hợp lệ' });
+    }
+    const userId = decoded.userId;
+    const choice = String(req.body?.choice || '').toLowerCase();
+    if (choice !== 'high' && choice !== 'low') {
+      return res.status(400).json({ error: 'choice phải là high hoặc low' });
+    }
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const resetHm = await luckyWheelFetchGlobalResetHm(conn);
+    const periodKey = luckyWheelDailyPeriodKey(new Date(), resetHm);
+
+    const cfg = await guessNumberLoadConfig(conn);
+    const { rewardPetaWin, penaltyPetaLose, maxPlaysPerDay } = cfg;
+
+    const [userRows] = await conn.query(
+      `SELECT id, peta, guess_number_period_key, guess_number_daily_plays, guess_number_pending_json FROM users WHERE id = ? FOR UPDATE`,
+      [userId],
+    );
+    if (!userRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy người chơi' });
+    }
+    const u = userRows[0];
+
+    let plays = Number(u.guess_number_daily_plays) || 0;
+    if (String(u.guess_number_period_key || '') !== periodKey) {
+      plays = 0;
+      await conn.query(
+        'UPDATE users SET guess_number_period_key = ?, guess_number_daily_plays = 0 WHERE id = ?',
+        [periodKey, userId],
+      );
+    }
+
+    const pending = parsePending(u.guess_number_pending_json);
+    if (
+      !pending ||
+      !Number.isFinite(Number(pending.secret)) ||
+      !Number.isFinite(Number(pending.pivot))
+    ) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Chưa có vòng đoán — hãy bắt đầu vòng mới' });
+    }
+
+    const secret = Number(pending.secret);
+    const pivot = Number(pending.pivot);
+    const answerHigher = secret > pivot;
+    const answerLower = secret < pivot;
+    const correct =
+      (choice === 'high' && answerHigher) || (choice === 'low' && answerLower);
+
+    if (plays >= maxPlaysPerDay) {
+      await conn.rollback();
+      return res.status(429).json({
+        error: 'Đã hết lượt chơi trong kỳ hiện tại',
+        playsToday: plays,
+        maxPlaysPerDay,
+      });
+    }
+
+    const petaBal = Number(u.peta) || 0;
+    if (!correct && penaltyPetaLose > 0 && petaBal < penaltyPetaLose) {
+      await conn.rollback();
+      return res.status(402).json({
+        error: 'Không đủ Peta để trừ khi đoán sai',
+        petaRemaining: petaBal,
+        penaltyPetaLose,
+      });
+    }
+
+    let delta = 0;
+    if (correct) {
+      delta = rewardPetaWin;
+      if (delta > 0) {
+        await conn.query('UPDATE users SET peta = peta + ? WHERE id = ?', [delta, userId]);
+        try {
+          await titleService.recordPetaEarned(conn, userId, delta);
+        } catch (e) {
+          console.error('title earn (guess number):', e);
+        }
+      }
+    } else if (penaltyPetaLose > 0) {
+      delta = -penaltyPetaLose;
+      await conn.query('UPDATE users SET peta = GREATEST(0, peta - ?) WHERE id = ?', [
+        penaltyPetaLose,
+        userId,
+      ]);
+    }
+
+    const newPlays = plays + 1;
+    await conn.query(
+      'UPDATE users SET guess_number_daily_plays = ?, guess_number_pending_json = NULL WHERE id = ?',
+      [newPlays, userId],
+    );
+
+    await conn.commit();
+
+    const [[row]] = await db.query(`SELECT peta FROM users WHERE id = ? LIMIT 1`, [userId]);
+    const petaRemaining = Number(row?.peta) || 0;
+
+    res.json({
+      success: true,
+      correct,
+      secret,
+      pivot,
+      deltaPeta: delta,
+      petaRemaining,
+      rewardPetaWin,
+      penaltyPetaLose,
+      playsToday: newPlays,
+      playsRemaining: Math.max(0, maxPlaysPerDay - newPlays),
+      maxPlaysPerDay,
+    });
+  } catch (error) {
+    if (conn) await conn.rollback();
+    if (error && error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(503).json({
+        error:
+          'DB chưa có cột guess_number (chạy migration db/migrations/20260508_guess_number_daily.sql hoặc npm run migrate:guess-number).',
+      });
+    }
+    console.error('POST /api/game-center/guess-number/submit', error);
+    res.status(500).json({ error: 'Không hoàn thành được vòng' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+/** Gom item id theo rarity đã chuẩn hóa (cho Hộp bí ẩn). */
+function mysteryBoxBuildRarityPools(itemRows) {
+  const pools = { common: [], rare: [], epic: [], legendary: [] };
+  for (const row of itemRows) {
+    const k = normalizeItemRarity(row.rarity);
+    if (pools[k]) pools[k].push(Number(row.id));
+  }
+  return pools;
+}
+
+function mysteryBoxPickWeightedRarity(rarityWeights, pools) {
+  const viable = (rarityWeights || [])
+    .map((rw) => ({
+      rarity: normalizeItemRarity(rw.rarity),
+      weight: Math.max(0, Number(rw.weight) || 0),
+    }))
+    .filter((x) => x.weight > 0 && (pools[x.rarity] || []).length > 0);
+  if (!viable.length) return null;
+  const total = viable.reduce((s, x) => s + x.weight, 0);
+  let r = Math.random() * total;
+  for (const x of viable) {
+    r -= x.weight;
+    if (r <= 0) return x.rarity;
+  }
+  return viable[viable.length - 1].rarity;
+}
+
+function mysteryBoxPickRandomItemId(poolIds) {
+  if (!poolIds?.length) return null;
+  const idx = Math.floor(Math.random() * poolIds.length);
+  return poolIds[idx];
+}
+
+async function mysteryBoxGrantItemToInventory(conn, playerId, itemId) {
+  const [itemRows] = await conn.query(`SELECT it.id, it.type FROM items it WHERE it.id = ? LIMIT 1`, [
+    itemId,
+  ]);
+  if (!itemRows.length) return { ok: false, error: 'Phần thưởng không tồn tại trong catalog' };
+  const it = itemRows[0];
+  const typeLower = String(it.type || '').toLowerCase();
+  if (typeLower === 'equipment') {
+    const [equipInfo] = await conn.query('SELECT durability_max FROM equipment_data WHERE item_id = ?', [
+      itemId,
+    ]);
+    const durability =
+      equipInfo.length > 0 ? Number(equipInfo[0].durability_max ?? 1) : 1;
+    await conn.query(
+      `INSERT INTO inventory (player_id, item_id, quantity, is_equipped, durability_left)
+       VALUES (?, ?, 1, 0, ?)`,
+      [playerId, itemId, durability],
+    );
+    return { ok: true };
+  }
+  const [invRows] = await conn.query(
+    `SELECT id, quantity FROM inventory
+     WHERE player_id = ? AND item_id = ? AND is_equipped = 0`,
+    [playerId, itemId],
+  );
+  if (invRows.length > 0) {
+    await conn.query(`UPDATE inventory SET quantity = quantity + 1 WHERE id = ?`, [invRows[0].id]);
+  } else {
+    await conn.query(`INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, 1)`, [
+      playerId,
+      itemId,
+    ]);
+  }
+  return { ok: true };
+}
+
+function mysteryBoxLoadGc(conn) {
+  return conn.query('SELECT config FROM site_game_center_config WHERE id = 1 LIMIT 1').then(([gcRows]) => {
+    let storedGc = null;
+    if (gcRows.length && gcRows[0].config != null) {
+      const c = gcRows[0].config;
+      if (typeof c === 'string') {
+        try {
+          storedGc = JSON.parse(c);
+        } catch {
+          storedGc = null;
+        }
+      } else if (typeof c === 'object') storedGc = c;
+    }
+    return mergeGameCenterConfig(storedGc);
+  });
+}
+
+/**
+ * GET /api/game-center/mystery-box/status
+ */
+app.get('/api/game-center/mystery-box/status', async (req, res) => {
+  try {
+    const conn = await db.getConnection();
+    let gcConfig;
+    let itemRows;
+    try {
+      gcConfig = await mysteryBoxLoadGc(conn);
+      const [rows] = await conn.query('SELECT id, rarity FROM items');
+      itemRows = rows;
+    } finally {
+      conn.release();
+    }
+
+    const mb = gcConfig.mysteryBox || {};
+    const rawWeights = Array.isArray(mb.rarityWeights) ? mb.rarityWeights : [];
+    const normalized = rawWeights.map((rw) => ({
+      rarity: normalizeItemRarity(rw.rarity),
+      weight: Math.max(0, Number(rw.weight) || 0),
+    }));
+    const totalW = normalized.reduce((s, x) => s + x.weight, 0);
+    const rarityWeights = normalized.map((x) => ({
+      rarity: x.rarity,
+      weight: x.weight,
+      percent: totalW > 0 ? Math.round((10000 * x.weight) / totalW) / 100 : 0,
+    }));
+
+    const pools = mysteryBoxBuildRarityPools(itemRows);
+    const poolCounts = {};
+    for (const k of ['common', 'rare', 'epic', 'legendary']) {
+      poolCounts[k] = (pools[k] || []).length;
+    }
+
+    res.json({
+      rarityWeights,
+      canonicalRarities: ['common', 'rare', 'epic', 'legendary'],
+      poolCounts,
+      /** Viable = có ít nhất 1 item trong DB cho rarity đó */
+      viableRarities: ['common', 'rare', 'epic', 'legendary'].filter((k) => (pools[k] || []).length > 0),
+    });
+  } catch (error) {
+    console.error('GET /api/game-center/mystery-box/status', error);
+    res.status(500).json({ error: 'Lỗi tải Hộp bí ẩn' });
+  }
+});
+
+/**
+ * POST /api/game-center/mystery-box/exchange { inventoryId }
+ * Tiêu thụ 1 đơn vị vật phẩm trong kho → random item theo tỉ lệ rarity (catalog).
+ */
+app.post('/api/game-center/mystery-box/exchange', async (req, res) => {
+  let conn;
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Cần đăng nhập' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch {
+      return res.status(401).json({ error: 'Token không hợp lệ' });
+    }
+    const userId = decoded.userId;
+    const inventoryId = Number(req.body?.inventoryId);
+    if (!Number.isInteger(inventoryId) || inventoryId <= 0) {
+      return res.status(400).json({ error: 'inventoryId không hợp lệ' });
+    }
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const gcConfig = await mysteryBoxLoadGc(conn);
+    const mb = gcConfig.mysteryBox || {};
+    const rarityWeights = Array.isArray(mb.rarityWeights) ? mb.rarityWeights : [];
+
+    const [itemRows] = await conn.query('SELECT id, rarity FROM items');
+    const pools = mysteryBoxBuildRarityPools(itemRows);
+
+    const rolledRarity = mysteryBoxPickWeightedRarity(rarityWeights, pools);
+    if (!rolledRarity) {
+      await conn.rollback();
+      return res.status(503).json({
+        error:
+          'Không có vật phẩm nào trong catalog cho các rarity đã cấu hình (hoặc bảng items trống).',
+      });
+    }
+
+    const rewardPool = pools[rolledRarity] || [];
+    const rewardItemId = mysteryBoxPickRandomItemId(rewardPool);
+    if (rewardItemId == null) {
+      await conn.rollback();
+      return res.status(503).json({ error: `Không có item rarity ${rolledRarity} trong catalog.` });
+    }
+
+    const [invRows] = await conn.query(
+      `SELECT i.id, i.player_id, i.quantity, i.is_equipped, i.item_id,
+              it.name AS item_name, it.image_url AS consumed_image_url, it.rarity AS consumed_rarity
+       FROM inventory i
+       JOIN items it ON i.item_id = it.id
+       WHERE i.id = ? AND i.player_id = ?
+       FOR UPDATE`,
+      [inventoryId, userId],
+    );
+
+    if (!invRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy vật phẩm trong kho' });
+    }
+
+    const inv = invRows[0];
+    if (Number(inv.is_equipped) === 1) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Không thể cho vào hộp vật phẩm đang trang bị' });
+    }
+
+    const qty = Number(inv.quantity) || 0;
+    if (qty < 1) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Không đủ số lượng' });
+    }
+
+    if (qty <= 1) {
+      await conn.query('DELETE FROM inventory WHERE id = ?', [inventoryId]);
+    } else {
+      await conn.query('UPDATE inventory SET quantity = quantity - 1 WHERE id = ?', [inventoryId]);
+    }
+
+    const grant = await mysteryBoxGrantItemToInventory(conn, userId, rewardItemId);
+    if (!grant.ok) {
+      await conn.rollback();
+      return res.status(500).json({ error: grant.error || 'Không thêm được phần thưởng' });
+    }
+
+    await conn.commit();
+
+    const [[rewardItem]] = await db.query(
+      `SELECT id, name, image_url, rarity, type FROM items WHERE id = ? LIMIT 1`,
+      [rewardItemId],
+    );
+
+    res.json({
+      success: true,
+      rolledRarity,
+      consumed: {
+        inventoryId,
+        itemId: Number(inv.item_id),
+        name: inv.item_name,
+        rarity: normalizeItemRarity(inv.consumed_rarity),
+        imageUrl: inv.consumed_image_url || '',
+      },
+      reward: rewardItem
+        ? {
+            itemId: rewardItem.id,
+            name: rewardItem.name,
+            image_url: rewardItem.image_url,
+            rarity: normalizeItemRarity(rewardItem.rarity),
+            type: rewardItem.type,
+          }
+        : null,
+    });
+  } catch (error) {
+    if (conn) await conn.rollback();
+    console.error('POST /api/game-center/mystery-box/exchange', error);
+    res.status(500).json({ error: 'Không đổi được hộp' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+function dailyFreeLoadGc(conn) {
+  return conn.query('SELECT config FROM site_game_center_config WHERE id = 1 LIMIT 1').then(([gcRows]) => {
+    let storedGc = null;
+    if (gcRows.length && gcRows[0].config != null) {
+      const c = gcRows[0].config;
+      if (typeof c === 'string') {
+        try {
+          storedGc = JSON.parse(c);
+        } catch {
+          storedGc = null;
+        }
+      } else if (typeof c === 'object') storedGc = c;
+    }
+    return mergeGameCenterConfig(storedGc);
+  });
+}
+
+/** Random số lượng vật phẩm trong [min, max] cho quà miễn phí ngày. */
+function dailyFreeRollItemCount(minS, maxS) {
+  let a = Math.ceil(Number(minS));
+  let b = Math.floor(Number(maxS));
+  if (!Number.isFinite(a)) a = 1;
+  if (!Number.isFinite(b)) b = a;
+  if (b < a) {
+    const t = a;
+    a = b;
+    b = t;
+  }
+  a = Math.max(1, Math.min(20, a));
+  b = Math.max(a, Math.min(20, b));
+  return luckyWheelRandIntInclusive(a, b);
+}
+
+/**
+ * GET /api/game-center/daily-free/status
+ */
+app.get('/api/game-center/daily-free/status', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    let userId = null;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        userId = decoded.userId;
+      } catch (_) {
+        userId = null;
+      }
+    }
+
+    const conn = await db.getConnection();
+    let gcConfig;
+    try {
+      gcConfig = await dailyFreeLoadGc(conn);
+    } finally {
+      conn.release();
+    }
+
+    const df = gcConfig.dailyFree || {};
+    const rawWeights = Array.isArray(df.rarityWeights) ? df.rarityWeights : [];
+    const normalized = rawWeights.map((rw) => ({
+      rarity: normalizeItemRarity(rw.rarity),
+      weight: Math.max(0, Number(rw.weight) || 0),
+    }));
+    const totalW = normalized.reduce((s, x) => s + x.weight, 0);
+    const rarityWeights = normalized.map((x) => ({
+      rarity: x.rarity,
+      weight: x.weight,
+      percent: totalW > 0 ? Math.round((10000 * x.weight) / totalW) / 100 : 0,
+    }));
+
+    const minItemsPerClaim = Math.max(1, Math.min(20, parseInt(df.minItemsPerClaim, 10) || 1));
+    const maxItemsPerClaim = Math.max(
+      minItemsPerClaim,
+      Math.min(20, parseInt(df.maxItemsPerClaim, 10) || minItemsPerClaim),
+    );
+
+    const [itemRows] = await db.query('SELECT id, rarity FROM items');
+    const pools = mysteryBoxBuildRarityPools(itemRows);
+    const poolCounts = {};
+    for (const k of ['common', 'rare', 'epic', 'legendary']) {
+      poolCounts[k] = (pools[k] || []).length;
+    }
+
+    let canClaim = null;
+    let loggedIn = !!userId;
+    if (userId) {
+      try {
+        const c2 = await db.getConnection();
+        try {
+          const resetHm = await luckyWheelFetchGlobalResetHm(c2);
+          const periodKey = luckyWheelDailyPeriodKey(new Date(), resetHm);
+          const [ur] = await c2.query(
+            `SELECT daily_free_last_claim_period_key FROM users WHERE id = ? LIMIT 1`,
+            [userId],
+          );
+          if (ur.length) {
+            const last = ur[0].daily_free_last_claim_period_key;
+            canClaim = String(last || '') !== periodKey;
+          } else {
+            canClaim = true;
+          }
+        } finally {
+          c2.release();
+        }
+      } catch (e) {
+        if (e && e.code === 'ER_BAD_FIELD_ERROR') {
+          return res.status(503).json({
+            error:
+              'DB chưa có cột daily_free (chạy migration db/migrations/20260510_daily_free_claim.sql hoặc npm run migrate:daily-free).',
+          });
+        }
+        throw e;
+      }
+    }
+
+    res.json({
+      minItemsPerClaim,
+      maxItemsPerClaim,
+      rarityWeights,
+      canonicalRarities: ['common', 'rare', 'epic', 'legendary'],
+      poolCounts,
+      viableRarities: ['common', 'rare', 'epic', 'legendary'].filter((k) => (pools[k] || []).length > 0),
+      loggedIn,
+      canClaim,
+    });
+  } catch (error) {
+    console.error('GET /api/game-center/daily-free/status', error);
+    res.status(500).json({ error: 'Lỗi tải Vật phẩm miễn phí' });
+  }
+});
+
+/**
+ * POST /api/game-center/daily-free/claim
+ * Một lần mỗi kỳ (global_reset_time); random 1..N item theo rarityWeights + catalog.
+ */
+app.post('/api/game-center/daily-free/claim', async (req, res) => {
+  let conn;
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Cần đăng nhập' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch {
+      return res.status(401).json({ error: 'Token không hợp lệ' });
+    }
+    const userId = decoded.userId;
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const resetHm = await luckyWheelFetchGlobalResetHm(conn);
+    const periodKey = luckyWheelDailyPeriodKey(new Date(), resetHm);
+
+    const gcConfig = await dailyFreeLoadGc(conn);
+    const df = gcConfig.dailyFree || {};
+    const rarityWeightsCfg = Array.isArray(df.rarityWeights) ? df.rarityWeights : [];
+    const minItemsPerClaim = Math.max(1, Math.min(20, parseInt(df.minItemsPerClaim, 10) || 1));
+    const maxItemsPerClaim = Math.max(
+      minItemsPerClaim,
+      Math.min(20, parseInt(df.maxItemsPerClaim, 10) || minItemsPerClaim),
+    );
+
+    const [userRows] = await conn.query(
+      `SELECT id, daily_free_last_claim_period_key FROM users WHERE id = ? FOR UPDATE`,
+      [userId],
+    );
+    if (!userRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy người chơi' });
+    }
+    const u = userRows[0];
+    if (String(u.daily_free_last_claim_period_key || '') === periodKey) {
+      await conn.rollback();
+      return res.status(429).json({ error: 'Bạn đã nhận quà trong kỳ hiện tại' });
+    }
+
+    const [itemRows] = await conn.query('SELECT id, rarity FROM items');
+    const pools = mysteryBoxBuildRarityPools(itemRows);
+
+    const n = dailyFreeRollItemCount(minItemsPerClaim, maxItemsPerClaim);
+    const rewards = [];
+
+    for (let i = 0; i < n; i += 1) {
+      const rolledRarity = mysteryBoxPickWeightedRarity(rarityWeightsCfg, pools);
+      if (!rolledRarity) {
+        await conn.rollback();
+        return res.status(503).json({
+          error:
+            'Không có vật phẩm trong catalog cho các rarity đã cấu hình (hoặc items trống).',
+        });
+      }
+      const rewardItemId = mysteryBoxPickRandomItemId(pools[rolledRarity]);
+      if (rewardItemId == null) {
+        await conn.rollback();
+        return res.status(503).json({ error: `Không có item rarity ${rolledRarity} trong catalog.` });
+      }
+      const grant = await mysteryBoxGrantItemToInventory(conn, userId, rewardItemId);
+      if (!grant.ok) {
+        await conn.rollback();
+        return res.status(500).json({ error: grant.error || 'Không thêm được vào kho' });
+      }
+      const [[rewardRow]] = await conn.query(
+        `SELECT id, name, image_url, rarity, type FROM items WHERE id = ? LIMIT 1`,
+        [rewardItemId],
+      );
+      if (rewardRow) {
+        rewards.push({
+          itemId: rewardRow.id,
+          name: rewardRow.name,
+          image_url: rewardRow.image_url,
+          rarity: normalizeItemRarity(rewardRow.rarity),
+          type: rewardRow.type,
+        });
+      }
+    }
+
+    await conn.query(
+      'UPDATE users SET daily_free_last_claim_period_key = ? WHERE id = ?',
+      [periodKey, userId],
+    );
+
+    await conn.commit();
+
+    res.json({
+      success: true,
+      itemCount: n,
+      rewards,
+      minItemsPerClaim,
+      maxItemsPerClaim,
+    });
+  } catch (error) {
+    if (conn) await conn.rollback();
+    if (error && error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(503).json({
+        error:
+          'DB chưa có cột daily_free (chạy migration db/migrations/20260510_daily_free_claim.sql hoặc npm run migrate:daily-free).',
+      });
+    }
+    console.error('POST /api/game-center/daily-free/claim', error);
+    res.status(500).json({ error: 'Không nhận được quà' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+function luckyBoothLoadGc(conn) {
+  return conn.query('SELECT config FROM site_game_center_config WHERE id = 1 LIMIT 1').then(([gcRows]) => {
+    let storedGc = null;
+    if (gcRows.length && gcRows[0].config != null) {
+      const c = gcRows[0].config;
+      if (typeof c === 'string') {
+        try {
+          storedGc = JSON.parse(c);
+        } catch {
+          storedGc = null;
+        }
+      } else if (typeof c === 'object') storedGc = c;
+    }
+    return mergeGameCenterConfig(storedGc);
+  });
+}
+
+function luckyBoothRandomWinningNumber() {
+  return String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+}
+
+function luckyBoothNormalizeDigits(body) {
+  if (!body || typeof body !== 'object') return null;
+  const ds = body.digits;
+  if (typeof ds === 'string' && /^\d{4}$/.test(ds.trim())) return ds.trim();
+  if (Array.isArray(ds) && ds.length === 4) {
+    const parts = ds.map((x) => String(x ?? '').replace(/\D/g, '').slice(0, 1));
+    const s = parts.join('');
+    if (/^\d{4}$/.test(s)) return s;
+  }
+  return null;
+}
+
+async function luckyBoothExecuteDraw(conn, closedPeriodKey, gcConfig) {
+  const lb = gcConfig.luckyBooth || {};
+  const jackpotPeta = Math.max(0, Math.floor(Number(lb.jackpotPeta) || 0));
+
+  const [ticketRows] = await conn.query(
+    `SELECT user_id, digits, username_snapshot FROM lucky_booth_tickets WHERE period_key = ? ORDER BY id ASC`,
+    [closedPeriodKey],
+  );
+  const totalTickets = ticketRows.length;
+  const winningNumber = luckyBoothRandomWinningNumber();
+  const winners = ticketRows.filter((t) => String(t.digits) === winningNumber);
+  const winnerCount = winners.length;
+  let shareEach = 0;
+  if (winnerCount > 0 && jackpotPeta > 0) {
+    shareEach = Math.floor(jackpotPeta / winnerCount);
+  }
+
+  const winnersPayload = [];
+  for (const w of winners) {
+    winnersPayload.push({
+      userId: Number(w.user_id),
+      username: String(w.username_snapshot || w.user_id || ''),
+      digits: String(w.digits),
+      petaShare: shareEach,
+    });
+    if (shareEach > 0) {
+      await conn.query('UPDATE users SET peta = peta + ? WHERE id = ?', [shareEach, w.user_id]);
+      try {
+        await titleService.recordPetaEarned(conn, w.user_id, shareEach);
+      } catch (e) {
+        console.error('title earn (lucky booth):', e);
+      }
+      const expireAt = new Date();
+      expireAt.setDate(expireAt.getDate() + 30);
+      await conn.query(
+        `INSERT INTO mails (user_id, sender_type, sender_name, subject, message, attached_rewards, expire_at)
+         VALUES (?, 'admin', 'Xổ số', ?, ?, NULL, ?)`,
+        [
+          w.user_id,
+          'Chúc mừng trúng Xổ số!',
+          `Bạn đã trúng giải Xổ số kỳ ${closedPeriodKey}. Số trúng thưởng: ${winningNumber}. Bạn nhận được ${shareEach.toLocaleString(
+            'vi-VN',
+          )} Peta (đã cộng vào tài khoản).`,
+          expireAt,
+        ],
+      );
+    }
+  }
+
+  const winnersJson = JSON.stringify(winnersPayload);
+  await conn.query(
+    `INSERT INTO lucky_booth_draws (period_key, winning_number, drawn_at, total_tickets, winner_count, jackpot_peta, winners_json)
+     VALUES (?, ?, NOW(), ?, ?, ?, ?)`,
+    [closedPeriodKey, winningNumber, totalTickets, winnerCount, jackpotPeta, winnersJson],
+  );
+}
+
+async function luckyBoothMaybeAdvancePeriod(conn) {
+  const resetHm = await luckyWheelFetchGlobalResetHm(conn);
+  const nowPeriod = luckyWheelDailyPeriodKey(new Date(), resetHm);
+
+  const [stateRows] = await conn.query(
+    'SELECT active_period_key FROM lucky_booth_state WHERE id = 1 FOR UPDATE',
+  );
+  const stateRow = stateRows[0];
+  if (!stateRow) {
+    await conn.query('INSERT INTO lucky_booth_state (id, active_period_key) VALUES (1, ?)', [nowPeriod]);
+    return;
+  }
+  let active = stateRow.active_period_key;
+
+  if (active == null || active === '') {
+    await conn.query('UPDATE lucky_booth_state SET active_period_key = ? WHERE id = 1', [nowPeriod]);
+    return;
+  }
+  if (String(active) === String(nowPeriod)) return;
+
+  const gcConfig = await luckyBoothLoadGc(conn);
+  const [[dupDraw]] = await conn.query('SELECT id FROM lucky_booth_draws WHERE period_key = ? LIMIT 1', [active]);
+  if (!dupDraw) {
+    await luckyBoothExecuteDraw(conn, active, gcConfig);
+  }
+  await conn.query('DELETE FROM lucky_booth_tickets WHERE period_key = ?', [active]);
+  await conn.query('UPDATE lucky_booth_state SET active_period_key = ? WHERE id = 1', [nowPeriod]);
+}
+
+function luckyBoothTableMissing(err) {
+  return (
+    err &&
+    (err.code === 'ER_NO_SUCH_TABLE' ||
+      err.errno === 1146 ||
+      (typeof err.message === 'string' && err.message.includes("doesn't exist")))
+  );
+}
+
+/**
+ * GET /api/game-center/lucky-booth/status
+ */
+app.get('/api/game-center/lucky-booth/status', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    let userId = null;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        userId = decoded.userId;
+      } catch (_) {
+        userId = null;
+      }
+    }
+
+    let conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      await luckyBoothMaybeAdvancePeriod(conn);
+      await conn.commit();
+    } catch (e) {
+      if (conn) await conn.rollback();
+      throw e;
+    } finally {
+      if (conn) conn.release();
+      conn = null;
+    }
+
+    const gcConn = await db.getConnection();
+    let gcConfig;
+    try {
+      gcConfig = await luckyBoothLoadGc(gcConn);
+    } finally {
+      gcConn.release();
+    }
+
+    const lb = gcConfig.luckyBooth || {};
+    const ticketPrice = Math.max(0, Number(lb.ticketPrice) || 0);
+    const jackpotPeta = Math.max(0, Math.floor(Number(lb.jackpotPeta) || 0));
+
+    const [[st]] = await db.query('SELECT active_period_key FROM lucky_booth_state WHERE id = 1 LIMIT 1');
+    const activePeriodKey = st?.active_period_key ?? null;
+
+    const [drawRows] = await db.query(
+      `SELECT period_key, winning_number, drawn_at, total_tickets, winner_count, jackpot_peta, winners_json
+       FROM lucky_booth_draws ORDER BY drawn_at DESC, id DESC LIMIT 1`,
+    );
+
+    let lastDraw = null;
+    if (drawRows.length) {
+      const d = drawRows[0];
+      let winners = [];
+      try {
+        const wj = d.winners_json;
+        if (typeof wj === 'string') winners = JSON.parse(wj || '[]');
+        else if (Array.isArray(wj)) winners = wj;
+        else winners = [];
+        if (!Array.isArray(winners)) winners = [];
+      } catch {
+        winners = [];
+      }
+      lastDraw = {
+        periodKey: d.period_key,
+        winningNumber: d.winning_number,
+        drawnAt: d.drawn_at,
+        totalTickets: Number(d.total_tickets) || 0,
+        winnerCount: Number(d.winner_count) || 0,
+        jackpotPeta: Number(d.jackpot_peta) || 0,
+        winners,
+      };
+    }
+
+    let myTicket = null;
+    if (userId && activePeriodKey) {
+      const [tr] = await db.query(
+        `SELECT digits FROM lucky_booth_tickets WHERE period_key = ? AND user_id = ? LIMIT 1`,
+        [activePeriodKey, userId],
+      );
+      if (tr.length) myTicket = { digits: String(tr[0].digits) };
+    }
+
+    res.json({
+      ticketPrice,
+      jackpotPeta,
+      activePeriodKey,
+      lastDraw,
+      myTicket,
+      loggedIn: !!userId,
+    });
+  } catch (error) {
+    if (luckyBoothTableMissing(error)) {
+      return res.status(503).json({
+        error:
+          'DB chưa có bảng Xổ số (chạy migration db/migrations/20260511_lucky_booth.sql hoặc npm run migrate:lucky-booth).',
+      });
+    }
+    console.error('GET /api/game-center/lucky-booth/status', error);
+    res.status(500).json({ error: 'Lỗi tải Xổ số' });
+  }
+});
+
+/**
+ * POST /api/game-center/lucky-booth/purchase { digits: "1234" | digits: [a,b,c,d] }
+ */
+app.post('/api/game-center/lucky-booth/purchase', async (req, res) => {
+  let conn;
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Cần đăng nhập' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch {
+      return res.status(401).json({ error: 'Token không hợp lệ' });
+    }
+    const userId = decoded.userId;
+    const digits = luckyBoothNormalizeDigits(req.body || {});
+    if (!digits) {
+      return res.status(400).json({ error: 'Chọn đủ 4 chữ số (0000–9999)' });
+    }
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+    await luckyBoothMaybeAdvancePeriod(conn);
+
+    const gcConfig = await luckyBoothLoadGc(conn);
+    const lb = gcConfig.luckyBooth || {};
+    const ticketPrice = Math.max(0, Math.floor(Number(lb.ticketPrice) || 0));
+
+    const [[st]] = await conn.query('SELECT active_period_key FROM lucky_booth_state WHERE id = 1 FOR UPDATE');
+    const activePeriodKey = st?.active_period_key;
+    if (!activePeriodKey) {
+      await conn.rollback();
+      return res.status(503).json({ error: 'Chưa khởi tạo kỳ xổ số' });
+    }
+
+    const [dup] = await conn.query(
+      `SELECT id FROM lucky_booth_tickets WHERE period_key = ? AND user_id = ? LIMIT 1`,
+      [activePeriodKey, userId],
+    );
+    if (dup.length) {
+      await conn.rollback();
+      return res.status(429).json({ error: 'Bạn đã mua vé trong kỳ này' });
+    }
+
+    const [ur] = await conn.query('SELECT id, peta, username FROM users WHERE id = ? FOR UPDATE', [userId]);
+    if (!ur.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy người chơi' });
+    }
+    const petaBal = Number(ur[0].peta) || 0;
+    if (petaBal < ticketPrice) {
+      await conn.rollback();
+      return res.status(402).json({ error: 'Không đủ Peta để mua vé', petaRemaining: petaBal });
+    }
+
+    await conn.query('UPDATE users SET peta = peta - ? WHERE id = ?', [ticketPrice, userId]);
+    try {
+      await titleService.recordPetaSpent(conn, userId, ticketPrice);
+    } catch (e) {
+      console.error('title spend (lucky booth):', e);
+    }
+
+    const usernameSnapshot = String(ur[0].username || '').slice(0, 128);
+    await conn.query(
+      `INSERT INTO lucky_booth_tickets (period_key, user_id, digits, username_snapshot)
+       VALUES (?, ?, ?, ?)`,
+      [activePeriodKey, userId, digits, usernameSnapshot || null],
+    );
+
+    await conn.commit();
+
+    const [[row]] = await db.query(`SELECT peta FROM users WHERE id = ? LIMIT 1`, [userId]);
+    const petaRemaining = Number(row?.peta) || 0;
+
+    res.json({
+      success: true,
+      digits,
+      ticketPrice,
+      petaRemaining,
+      periodKey: activePeriodKey,
+    });
+  } catch (error) {
+    if (conn) await conn.rollback();
+    if (luckyBoothTableMissing(error)) {
+      return res.status(503).json({
+        error:
+          'DB chưa có bảng Xổ số (chạy migration db/migrations/20260511_lucky_booth.sql hoặc npm run migrate:lucky-booth).',
+      });
+    }
+    if (error && error.code === 'ER_DUP_ENTRY') {
+      return res.status(429).json({ error: 'Bạn đã mua vé trong kỳ này' });
+    }
+    console.error('POST /api/game-center/lucky-booth/purchase', error);
+    res.status(500).json({ error: 'Không mua được vé' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+function slotMachinePickIconId(reelIcons) {
+  if (!reelIcons?.length) return '';
+  return String(reelIcons[Math.floor(Math.random() * reelIcons.length)].id || '');
+}
+
+function slotMachineEvaluate(ids, rules) {
+  const [a, b, c] = ids;
+  const tripleSame = a && a === b && b === c;
+  const anyPair = a === b || b === c || a === c;
+  const list = rules?.length ? rules : [];
+
+  const jackpot = list.find((r) => r.kind === 'triple_icon' && r.iconId);
+  if (jackpot && tripleSame && a === jackpot.iconId) {
+    return { tier: 'jackpot', msg: jackpot.rewardDescription || jackpot.label || 'Jackpot' };
+  }
+  const tripleRule = list.find((r) => r.kind === 'triple_same');
+  if (tripleSame && tripleRule) {
+    return { tier: 'triple', msg: tripleRule.rewardDescription || tripleRule.label || 'Ba giống nhau' };
+  }
+  const pairRule = list.find((r) => r.kind === 'any_pair');
+  if (anyPair && pairRule) {
+    return { tier: 'pair', msg: pairRule.rewardDescription || pairRule.label || 'Hai trùng' };
+  }
+  return { tier: 'none', msg: 'Không đủ điều kiện — quay lại sau.' };
+}
+
+async function grantSlotSpiritToUser(conn, userId, spiritId) {
+  const sid = Number(spiritId);
+  if (!Number.isFinite(sid) || sid <= 0) return { ok: false, error: 'spiritId không hợp lệ' };
+  const [rows] = await conn.query('SELECT id, name, image FROM spirits WHERE id = ? LIMIT 1', [sid]);
+  if (!rows.length) return { ok: false, error: 'Spirit không tồn tại' };
+  await conn.query(
+    `INSERT INTO user_spirits (user_id, spirit_id, is_equipped, equipped_pet_id)
+     VALUES (?, ?, FALSE, NULL)`,
+    [userId, sid],
+  );
+  return { ok: true, spirit: { spiritId: sid, name: rows[0].name, image: rows[0].image } };
+}
+
+/**
+ * GET /api/game-center/slot-machine/status
+ * Trả giá quay + lượt còn lại theo kỳ.
+ */
+app.get('/api/game-center/slot-machine/status', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    let userId = null;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        userId = decoded.userId;
+      } catch (_) {
+        userId = null;
+      }
+    }
+
+    const conn = await db.getConnection();
+    try {
+      const [gcRows] = await conn.query('SELECT config FROM site_game_center_config WHERE id = 1 LIMIT 1');
+      let stored = null;
+      if (gcRows.length && gcRows[0].config != null) {
+        const c = gcRows[0].config;
+        if (typeof c === 'string') {
+          try {
+            stored = JSON.parse(c);
+          } catch {
+            stored = null;
+          }
+        } else if (typeof c === 'object') stored = c;
+      }
+      const gcConfig = mergeGameCenterConfig(stored);
+      const sm = gcConfig.slotMachine || {};
+      const spinPricePeta = Math.max(0, Math.floor(Number(sm.spinPricePeta) || 0));
+      const maxPlaysPerDay = Math.max(1, Math.min(500, parseInt(sm.maxPlaysPerDay, 10) || 10));
+      const pairRewardPeta = Math.max(0, Math.floor(Number(sm.pairRewardPeta) || 0));
+
+      let playsToday = 0;
+      let canSpin = null;
+      if (userId) {
+        try {
+          const resetHm = await luckyWheelFetchGlobalResetHm(conn);
+          const periodKey = luckyWheelDailyPeriodKey(new Date(), resetHm);
+          const [ur] = await conn.query(
+            `SELECT slot_machine_period_key, slot_machine_spins FROM users WHERE id = ? LIMIT 1`,
+            [userId],
+          );
+          if (ur.length) {
+            const u = ur[0];
+            let p = Number(u.slot_machine_spins) || 0;
+            if (String(u.slot_machine_period_key || '') !== periodKey) p = 0;
+            playsToday = p;
+            canSpin = p < maxPlaysPerDay;
+          } else {
+            canSpin = true;
+          }
+        } catch (e) {
+          if (e && e.code === 'ER_BAD_FIELD_ERROR') {
+            return res.status(503).json({
+              error:
+                'DB chưa có cột slot_machine (chạy migration db/migrations/20260512_slot_machine_daily.sql hoặc npm run migrate:slot-machine).',
+            });
+          }
+          throw e;
+        }
+      }
+
+      res.json({
+        spinPricePeta,
+        maxPlaysPerDay,
+        pairRewardPeta,
+        playsToday,
+        playsRemaining: userId != null ? Math.max(0, maxPlaysPerDay - playsToday) : null,
+        canSpin,
+        loggedIn: !!userId,
+      });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    console.error('GET /api/game-center/slot-machine/status', error);
+    res.status(500).json({ error: 'Lỗi tải máy đánh bạc' });
+  }
+});
+
+/**
+ * POST /api/game-center/slot-machine/spin
+ * Server quyết định kết quả + cộng thưởng.
+ */
+app.post('/api/game-center/slot-machine/spin', async (req, res) => {
+  let conn;
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Cần đăng nhập' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch {
+      return res.status(401).json({ error: 'Token không hợp lệ' });
+    }
+    const userId = decoded.userId;
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const gcConfig = await (async () => {
+      const [gcRows] = await conn.query('SELECT config FROM site_game_center_config WHERE id = 1 LIMIT 1');
+      let stored = null;
+      if (gcRows.length && gcRows[0].config != null) {
+        const c = gcRows[0].config;
+        if (typeof c === 'string') {
+          try {
+            stored = JSON.parse(c);
+          } catch {
+            stored = null;
+          }
+        } else if (typeof c === 'object') stored = c;
+      }
+      return mergeGameCenterConfig(stored);
+    })();
+
+    const sm = gcConfig.slotMachine || {};
+    const spinPricePeta = Math.max(0, Math.floor(Number(sm.spinPricePeta) || 0));
+    const maxPlaysPerDay = Math.max(1, Math.min(500, parseInt(sm.maxPlaysPerDay, 10) || 10));
+    const pairRewardPeta = Math.max(0, Math.floor(Number(sm.pairRewardPeta) || 0));
+    const reelIcons = Array.isArray(sm.reelIcons) ? sm.reelIcons : [];
+    const rules = Array.isArray(sm.winRules) ? sm.winRules : [];
+    if (!reelIcons.length) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Chưa có icon guồng (Admin)' });
+    }
+
+    const resetHm = await luckyWheelFetchGlobalResetHm(conn);
+    const periodKey = luckyWheelDailyPeriodKey(new Date(), resetHm);
+
+    const [uRows] = await conn.query(
+      `SELECT id, peta, petagold, slot_machine_period_key, slot_machine_spins FROM users WHERE id = ? FOR UPDATE`,
+      [userId],
+    );
+    if (!uRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy người chơi' });
+    }
+    const u = uRows[0];
+    let plays = Number(u.slot_machine_spins) || 0;
+    if (String(u.slot_machine_period_key || '') !== periodKey) {
+      plays = 0;
+      await conn.query(
+        'UPDATE users SET slot_machine_period_key = ?, slot_machine_spins = 0 WHERE id = ?',
+        [periodKey, userId],
+      );
+    }
+    if (plays >= maxPlaysPerDay) {
+      await conn.rollback();
+      return res.status(429).json({ error: 'Đã hết lượt quay trong kỳ hiện tại', maxPlaysPerDay });
+    }
+
+    const petaBal = Number(u.peta) || 0;
+    if (petaBal < spinPricePeta) {
+      await conn.rollback();
+      return res.status(402).json({ error: 'Không đủ Peta để quay', petaRemaining: petaBal, spinPricePeta });
+    }
+
+    if (spinPricePeta > 0) {
+      await conn.query('UPDATE users SET peta = peta - ? WHERE id = ?', [spinPricePeta, userId]);
+      try {
+        await titleService.recordPetaSpent(conn, userId, spinPricePeta);
+      } catch (e) {
+        console.error('title spend (slot machine):', e);
+      }
+    }
+
+    const a = slotMachinePickIconId(reelIcons);
+    const b = slotMachinePickIconId(reelIcons);
+    const c = slotMachinePickIconId(reelIcons);
+    const reels = [a, b, c];
+    const out = slotMachineEvaluate(reels, rules);
+
+    const rewards = [];
+    let deltaPetagold = 0;
+
+    if (out.tier === 'jackpot') {
+      // 777: nhận 10 petagold
+      deltaPetagold = 10;
+      await conn.query('UPDATE users SET petagold = petagold + ? WHERE id = ?', [deltaPetagold, userId]);
+      rewards.push({ kind: 'petagold', amount: deltaPetagold, label: 'PetaGold' });
+    } else if (out.tier === 'triple') {
+      const icon = reelIcons.find((x) => String(x.id) === String(a));
+      const rewardKind = String(icon?.reward?.kind || 'placeholder');
+      if (rewardKind === 'item' && icon?.reward?.itemId != null) {
+        const itemId = Number(icon.reward.itemId);
+        await grantMailItemsToInventory(conn, userId, itemId, 1);
+        const [[it]] = await conn.query(
+          `SELECT id, name, image_url, rarity, type FROM items WHERE id = ? LIMIT 1`,
+          [itemId],
+        );
+        rewards.push({
+          kind: 'item',
+          itemId,
+          name: it?.name || `Item #${itemId}`,
+          image_url: it?.image_url || '',
+          rarity: normalizeItemRarity(it?.rarity),
+        });
+      } else if (rewardKind === 'spirit' && icon?.reward?.spiritId != null) {
+        const g = await grantSlotSpiritToUser(conn, userId, icon.reward.spiritId);
+        if (g.ok && g.spirit) {
+          rewards.push({
+            kind: 'spirit',
+            spiritId: g.spirit.spiritId,
+            name: g.spirit.name,
+            image: g.spirit.image,
+          });
+        }
+      }
+    } else if (out.tier === 'pair' && pairRewardPeta > 0) {
+      await conn.query('UPDATE users SET peta = peta + ? WHERE id = ?', [pairRewardPeta, userId]);
+      try {
+        await titleService.recordPetaEarned(conn, userId, pairRewardPeta);
+      } catch (e) {
+        console.error('title earn (slot pair):', e);
+      }
+      rewards.push({ kind: 'peta', amount: pairRewardPeta, label: 'Peta' });
+    }
+
+    const newPlays = plays + 1;
+    await conn.query('UPDATE users SET slot_machine_spins = ? WHERE id = ?', [newPlays, userId]);
+
+    await conn.commit();
+
+    const [[bal]] = await db.query('SELECT peta, petagold FROM users WHERE id = ? LIMIT 1', [userId]);
+    res.json({
+      success: true,
+      reels,
+      tier: out.tier,
+      message: out.msg,
+      rewards,
+      petagoldRemaining: Number(bal?.petagold) || 0,
+      petaRemaining: Number(bal?.peta) || 0,
+      spinPricePeta,
+      playsToday: newPlays,
+      playsRemaining: Math.max(0, maxPlaysPerDay - newPlays),
+      maxPlaysPerDay,
+    });
+  } catch (error) {
+    if (conn) await conn.rollback();
+    if (error && error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(503).json({
+        error:
+          'DB chưa có cột slot_machine (chạy migration db/migrations/20260512_slot_machine_daily.sql hoặc npm run migrate:slot-machine).',
+      });
+    }
+    console.error('POST /api/game-center/slot-machine/spin', error);
+    res.status(500).json({ error: 'Không quay được máy' });
   } finally {
     if (conn) conn.release();
   }
@@ -4927,70 +7026,131 @@ app.delete('/api/admin/pets/:uuid', (req, res) => {
   });
 });
 
-// API Delete Pet (User)
-app.delete('/api/pets/:uuid/release', (req, res) => {
+// API Delete Pet (User) — phóng thích / xóa 1 pet: gỡ trang bị + linh thú gắn pet rồi mới DELETE
+app.delete('/api/pets/:uuid/release', async (req, res) => {
   const uuid = req.params.uuid;
-  const token = req.headers.authorization?.split(' ')[1]; // Lấy token từ header
+  const token = req.headers.authorization?.split(' ')[1];
 
   if (!token) {
-      return res.status(401).json({ message: 'Unauthorized' });
+    return res.status(401).json({ message: 'Unauthorized' });
   }
 
+  let conn;
   try {
-      const decodedToken = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key'); // Xác thực token
-      const userId = decodedToken.userId;
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decodedToken.userId;
 
-      // Kiểm tra xem thú cưng có thuộc sở hữu của người dùng này không
-      pool.query('SELECT owner_id FROM pets WHERE uuid = ?', [uuid], (err, results) => {
-          if (err) {
-              console.error('Error checking pet ownership: ', err);
-              return res.status(500).json({ message: 'Error checking pet ownership' });
-          }
+    conn = await db.getConnection();
+    await conn.beginTransaction();
 
-          if (results.length === 0) {
-              return res.status(404).json({ message: 'Pet not found' });
-          }
+    const [rows] = await conn.query(
+      'SELECT id FROM pets WHERE uuid = ? AND owner_id = ? LIMIT 1',
+      [uuid, userId]
+    );
+    if (!rows.length) {
+      await conn.rollback();
+      return res.status(404).json({ message: 'Pet not found' });
+    }
+    const petId = rows[0].id;
 
-          const petOwnerId = results[0].owner_id;
+    await conn.query(
+      'UPDATE inventory SET is_equipped = 0, equipped_pet_id = NULL WHERE equipped_pet_id = ? AND player_id = ?',
+      [petId, userId]
+    );
+    await conn.query(
+      'UPDATE user_spirits SET is_equipped = 0, equipped_pet_id = NULL WHERE equipped_pet_id = ? AND user_id = ?',
+      [petId, userId]
+    );
 
-          if (petOwnerId !== userId) {
-              return res.status(403).json({ message: 'You do not own this pet' });
-          }
+    const [delResult] = await conn.query(
+      'DELETE FROM pets WHERE id = ? AND owner_id = ?',
+      [petId, userId]
+    );
+    if (!delResult || delResult.affectedRows === 0) {
+      await conn.rollback();
+      return res.status(404).json({ message: 'Pet not found (during deletion)' });
+    }
 
-          // Nếu là chủ sở hữu, tiến hành xóa (phóng thích)
-          pool.query('DELETE FROM pets WHERE uuid = ?', [uuid], async (deleteErr, deleteResults) => {
-              if (deleteErr) {
-                  console.error('Error releasing pet: ', deleteErr);
-                  return res.status(500).json({ message: 'Error releasing pet' });
-              } else if (deleteResults.affectedRows > 0) {
-                  // Check if user still has any pets after releasing this one
-                  try {
-                      const [remainingPets] = await pool.promise().query(
-                          'SELECT COUNT(*) as count FROM pets WHERE owner_id = ?',
-                          [userId]
-                      );
-                      
-                      // Update hasPet status to FALSE if user has no pets left
-                      if (remainingPets[0].count === 0) {
-                          await pool.promise().query(
-                              'UPDATE users SET hasPet = FALSE WHERE id = ?',
-                              [userId]
-                          );
-                      }
-                  } catch (updateErr) {
-                      console.error('Error updating hasPet status:', updateErr);
-                      // Don't fail the release operation if hasPet update fails
-                  }
-                  
-                  res.json({ message: 'Pet released successfully' });
-              } else {
-                  res.status(404).json({ message: 'Pet not found (during deletion)' }); // Trường hợp hiếm
-              }
-          });
-      });
+    const [remaining] = await conn.query(
+      'SELECT COUNT(*) AS cnt FROM pets WHERE owner_id = ?',
+      [userId]
+    );
+    if (Number(remaining[0]?.cnt ?? 0) === 0) {
+      await conn.query('UPDATE users SET hasPet = FALSE WHERE id = ?', [userId]);
+    }
+
+    await conn.commit();
+    res.json({ message: 'Pet released successfully' });
   } catch (err) {
-      console.error('Error verifying token: ', err);
+    if (conn) await conn.rollback();
+    console.error('Error releasing pet:', err);
+    if (err instanceof jwt.JsonWebTokenError) {
       return res.status(401).json({ message: 'Invalid token' });
+    }
+    return res.status(500).json({ message: 'Error releasing pet' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// Xóa toàn bộ thú của user — dùng khi muốn “reset pet” và nhận lại pet mới
+app.post('/api/pets/release-all', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ message: 'Unauthorized' });
+
+  const confirm =
+    req.body?.confirm === true ||
+    req.body?.confirm === 'true' ||
+    req.body?.confirm === 1;
+  if (!confirm) {
+    return res.status(400).json({
+      message: 'Gửi JSON { "confirm": true } để xác nhận xóa hết thú cưng của tài khoản.',
+    });
+  }
+
+  let conn;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const [petRows] = await conn.query('SELECT id FROM pets WHERE owner_id = ?', [userId]);
+    const ids = (petRows || []).map((p) => p.id).filter((id) => id != null);
+    if (ids.length === 0) {
+      await conn.query('UPDATE users SET hasPet = FALSE WHERE id = ?', [userId]);
+      await conn.commit();
+      return res.json({ success: true, message: 'Bạn không còn thú cưng nào.', removed: 0 });
+    }
+
+    const ph = ids.map(() => '?').join(',');
+    await conn.query(
+      `UPDATE inventory SET is_equipped = 0, equipped_pet_id = NULL WHERE player_id = ? AND equipped_pet_id IN (${ph})`,
+      [userId, ...ids]
+    );
+    await conn.query(
+      `UPDATE user_spirits SET is_equipped = 0, equipped_pet_id = NULL WHERE user_id = ? AND equipped_pet_id IN (${ph})`,
+      [userId, ...ids]
+    );
+    await conn.query('DELETE FROM pets WHERE owner_id = ?', [userId]);
+    await conn.query('UPDATE users SET hasPet = FALSE WHERE id = ?', [userId]);
+
+    await conn.commit();
+    res.json({
+      success: true,
+      message: `Đã phóng thích ${ids.length} thú cưng.`,
+      removed: ids.length,
+    });
+  } catch (err) {
+    if (conn) await conn.rollback();
+    console.error('Error release-all pets:', err);
+    if (err instanceof jwt.JsonWebTokenError) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    return res.status(500).json({ message: 'Lỗi khi xóa toàn bộ thú cưng' });
+  } finally {
+    if (conn) conn.release();
   }
 });
 
@@ -5092,13 +7252,13 @@ app.post('/api/adopt-pet', async (req, res) => {
     await pool.promise().query(
       `INSERT INTO pets (
         uuid, name, hp, str, def, intelligence, spd, mp,
-        owner_id, pet_species_id, level, max_hp, max_mp,
+        owner_id, pet_species_id, level, max_hp, current_hp, max_mp,
         created_date, final_stats,
         iv_hp, iv_mp, iv_str, iv_def, iv_intelligence, iv_spd
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         petUuid, petName, hp, str, def, intelligence, spd, mp,
-        owner_id, pet_species_id, level, max_hp, max_mp,
+        owner_id, pet_species_id, level, max_hp, hp, max_mp,
         createdDate, JSON.stringify(finalStats),
         iv_hp, iv_mp, iv_str, iv_def, iv_intelligence, iv_spd
       ]
@@ -6874,9 +9034,13 @@ app.post('/api/pets/:petId/equip-item', async (req, res) => {
   const { inventory_id } = req.body;
   const maxItemsCanEquip = 4 ;
 
+  let conn;
   try {
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
     // 1. Kiểm tra inventory item (phải chưa trang bị, không hỏng, còn bền)
-    const [invRows] = await pool.promise().query(
+    const [invRows] = await conn.query(
       `SELECT i.*, it.type, i.player_id FROM inventory i
        JOIN items it ON i.item_id = it.id
        WHERE i.id = ? AND i.is_equipped = 0`,
@@ -6884,74 +9048,97 @@ app.post('/api/pets/:petId/equip-item', async (req, res) => {
     );
 
     if (invRows.length === 0) {
+      await conn.rollback();
       return res.status(400).json({ message: 'Item không tồn tại hoặc đã được trang bị' });
     }
 
     const item = invRows[0];
     if (item.type !== 'equipment') {
+      await conn.rollback();
       return res.status(400).json({ message: 'Chỉ có thể trang bị item loại equipment' });
     }
     if (item.is_broken === 1 || item.is_broken === true) {
+      await conn.rollback();
       return res.status(400).json({ message: 'Vật phẩm đã hỏng, không thể trang bị. Hãy sửa chữa trước.' });
     }
     const dur = item.durability_left != null ? parseInt(item.durability_left, 10) : 1;
     if (dur <= 0) {
+      await conn.rollback();
       return res.status(400).json({ message: 'Vật phẩm đã hết độ bền, không thể trang bị. Hãy sửa chữa trước.' });
     }
 
     // 2. Kiểm tra pet tồn tại và thuộc cùng user
-    const [petRows] = await pool.promise().query(
+    const [petRows] = await conn.query(
       'SELECT * FROM pets WHERE id = ? AND owner_id = ?',
       [petId, item.player_id]
     );
 
     if (petRows.length === 0) {
+      await conn.rollback();
       return res.status(400).json({ message: 'Pet không tồn tại hoặc không thuộc user' });
     }
 
     // Pet hết máu thì không cho trang bị (tránh các ràng buộc/trigger liên quan current_hp)
     if ((petRows[0].current_hp ?? 0) <= 0) {
+      await conn.rollback();
       return res.status(400).json({ message: 'Thú cưng quá mệt mỏi (HP = 0). Hãy cho ăn/nghỉ ngơi để hồi phục trước khi trang bị.' });
     }
 
     // 3. Kiểm tra số item đã được gắn (kể cả broken — broken vẫn chiếm slot đến khi gỡ)
-    const [equippedCount] = await pool.promise().query(
+    const [equippedCount] = await conn.query(
       'SELECT COUNT(*) AS count FROM inventory WHERE equipped_pet_id = ? AND is_equipped = 1',
       [petId]
     );
 
     if (equippedCount[0].count >= maxItemsCanEquip) {
+      await conn.rollback();
       return res.status(400).json({ message: 'Pet đã trang bị tối đa 4 item' });
     }
 
-    // 3.5. Chuẩn hóa current_hp của pet (tránh vi phạm chk_current_hp_valid khi trigger/constraint kiểm tra)
-    const pet = petRows[0];
-    let maxHp = pet.max_hp != null ? Number(pet.max_hp) : null;
-    if (pet.final_stats) {
-      try {
-        const fs = typeof pet.final_stats === 'string' ? JSON.parse(pet.final_stats) : pet.final_stats;
-        if (fs && fs.hp != null) maxHp = Number(fs.hp);
-      } catch (_) {}
-    }
-    const maxHpVal = maxHp != null && maxHp > 0 ? maxHp : 1;
-    const curHp = pet.current_hp != null ? Number(pet.current_hp) : maxHpVal;
-    const validHp = Math.max(0, Math.min(curHp, maxHpVal));
-    await pool.promise().query(
-      'UPDATE pets SET current_hp = ? WHERE id = ?',
-      [validHp, petId]
-    );
+    // 3.5. Chuẩn hóa current_hp trước khi trang bị (giảm rủi ro vi phạm constraint)
+    // Lưu HP hiện tại để restore sau khi trigger/recalc chạy.
+    const prevHp = Math.max(0, Number(petRows[0].current_hp ?? 0) || 0);
+    await normalizePetCurrentHp(conn, petId);
+
+    // CHECK trong DB dùng final_stats->hp. Nếu final_stats.hp đang NULL/missing, mọi current_hp != NULL sẽ fail.
+    // Set current_hp = NULL trước khi UPDATE inventory để bypass CHECK trong giai đoạn trigger chạy.
+    await conn.query('UPDATE pets SET current_hp = NULL WHERE id = ?', [petId]);
 
     // 4. Cập nhật inventory
-    await pool.promise().query(
+    await conn.query(
       'UPDATE inventory SET is_equipped = 1, equipped_pet_id = ? WHERE id = ?',
       [petId, inventory_id]
     );
 
+    // 5. Recalculate stats theo equipment rồi clamp current_hp theo max mới
+    try {
+      await conn.query('CALL recalculate_pet_stats(?)', [petId]);
+    } catch (e) {
+      // Nếu DB chưa có procedure thì vẫn tiếp tục (equip không nên chết toàn bộ).
+      // Nhưng nếu có và fail thì rollback để tránh trạng thái dở dang.
+      await conn.rollback();
+      return res.status(500).json({ message: 'Không thể cập nhật chỉ số pet sau khi trang bị' });
+    }
+    // Restore HP hợp lệ theo trần mới sau recalc (ưu tiên CHECK theo final_stats.hp)
+    const fsHpAfter = await getFinalStatsHp(conn, petId);
+    if (fsHpAfter == null) {
+      // Nếu final_stats.hp vẫn NULL => CHECK bắt current_hp phải NULL
+      await conn.query('UPDATE pets SET current_hp = NULL WHERE id = ?', [petId]);
+    } else {
+      const restored = Math.max(0, Math.min(prevHp, fsHpAfter));
+      await conn.query('UPDATE pets SET current_hp = ? WHERE id = ?', [restored, petId]);
+    }
+    await normalizePetCurrentHp(conn, petId);
+
+    await conn.commit();
     res.json({ message: 'Trang bị thành công' });
 
   } catch (err) {
+    if (conn) await conn.rollback();
     console.error('Lỗi khi trang bị item:', err);
     res.status(500).json({ message: 'Lỗi server khi trang bị item' });
+  } finally {
+    if (conn) conn.release();
   }
 });
 
@@ -6987,27 +9174,50 @@ app.post('/api/pets/:petId/unequip-broken', async (req, res) => {
 app.post('/api/inventory/:id/unequip', async (req, res) => {
   const { id } = req.params;
 
+  let conn;
   try {
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
     // Kiểm tra item tồn tại và đang được trang bị
-    const [rows] = await db.query(
+    const [rows] = await conn.query(
       'SELECT * FROM inventory WHERE id = ? AND is_equipped = 1',
       [id]
     );
 
     if (rows.length === 0) {
+      await conn.rollback();
       return res.status(404).json({ message: 'Item không tồn tại hoặc chưa được trang bị' });
     }
 
+    const petId = rows[0].equipped_pet_id;
+
     // Cập nhật trạng thái: tháo khỏi pet
-    await db.query(
+    await conn.query(
       'UPDATE inventory SET is_equipped = 0, equipped_pet_id = NULL WHERE id = ?',
       [id]
     );
 
+    // Cập nhật lại stats pet (nếu có) và clamp current_hp theo max mới
+    if (petId != null) {
+      await normalizePetCurrentHp(conn, petId);
+      try {
+        await conn.query('CALL recalculate_pet_stats(?)', [petId]);
+      } catch (e) {
+        await conn.rollback();
+        return res.status(500).json({ message: 'Không thể cập nhật chỉ số pet sau khi gỡ trang bị' });
+      }
+      await normalizePetCurrentHp(conn, petId);
+    }
+
+    await conn.commit();
     res.json({ message: 'Đã gỡ item khỏi pet thành công' });
   } catch (err) {
+    if (conn) await conn.rollback();
     console.error('Lỗi khi gỡ item:', err);
     res.status(500).json({ message: 'Lỗi server khi gỡ item' });
+  } finally {
+    if (conn) conn.release();
   }
 });
 
@@ -8490,21 +10700,31 @@ app.post('/api/arena/match/terminate', async (req, res) => {
   const redis = getRedis();
   if (!redis) return res.status(503).json({ message: 'Match service temporarily unavailable' });
 
+  let conn;
   try {
     const key = REDIS_MATCH_PREFIX + userId;
     const data = await redis.get(key);
     if (!data) return res.status(404).json({ message: 'No active match' });
     const matchState = JSON.parse(data);
     const playerHp = Math.max(0, matchState.player?.current_hp ?? 0);
-    await db.query(
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    await conn.query(
       'UPDATE pets SET current_hp = ?, battles_lost = COALESCE(battles_lost, 0) + 1 WHERE id = ?',
       [playerHp, matchState.pet_id]
     );
+    await normalizePetCurrentHp(conn, matchState.pet_id);
+
+    await conn.commit();
     await redis.del(key);
     res.json({ forceLoss: true, message: 'Trận đấu đã kết thúc (rời đi).' });
   } catch (err) {
+    if (conn) await conn.rollback();
     console.error('Error arena match terminate:', err);
     res.status(500).json({ message: 'Lỗi kết thúc trận đấu' });
+  } finally {
+    if (conn) conn.release();
   }
 });
 
@@ -10016,25 +12236,15 @@ app.post('/api/spirits/unequip', async (req, res) => {
 
     const petId = userSpiritCheck[0].equipped_pet_id;
 
-    // Chuẩn hóa current_hp để tránh vi phạm chk_current_hp_valid khi hệ thống recalculation/trigger chạy
     if (petId != null) {
-      const [petRows] = await db.query('SELECT id, current_hp, max_hp, final_stats FROM pets WHERE id = ?', [petId]);
-      if (petRows.length > 0) {
-        const pet = petRows[0];
-        let maxHp = pet.max_hp != null ? Number(pet.max_hp) : null;
-        if (pet.final_stats) {
-          try {
-            const fs = typeof pet.final_stats === 'string' ? JSON.parse(pet.final_stats) : pet.final_stats;
-            if (fs && fs.hp != null) maxHp = Number(fs.hp);
-          } catch (_) {}
-        }
-        const maxHpVal = maxHp != null && maxHp > 0 ? maxHp : 1;
-        const curHp = pet.current_hp != null ? Number(pet.current_hp) : maxHpVal;
-        const validHp = Math.max(0, Math.min(curHp, maxHpVal));
-        await db.query('UPDATE pets SET current_hp = ? WHERE id = ?', [validHp, petId]);
+      const c = await db.getConnection();
+      try {
+        await normalizePetCurrentHp(c, petId);
+      } finally {
+        c.release();
       }
     }
-    
+
     // Tháo spirit
     await db.query(`
       UPDATE user_spirits 
@@ -10044,6 +12254,15 @@ app.post('/api/spirits/unequip', async (req, res) => {
 
     // ✅ Cập nhật pet stats sau khi unequip spirit
     await db.query('CALL recalculate_pet_stats(?)', [petId]);
+
+    if (petId != null) {
+      const c2 = await db.getConnection();
+      try {
+        await normalizePetCurrentHp(c2, petId);
+      } finally {
+        c2.release();
+      }
+    }
 
     res.json({ 
       success: true, 

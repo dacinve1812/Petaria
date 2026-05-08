@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  useCallback,
+} from 'react';
 import { getDisplayName } from './utils/userDisplay';
 import {
   initializeRealtimeSocket,
@@ -110,7 +116,15 @@ export function UserProvider({ children }) {
             isAdmin: userProfile.isAdmin,
             token,
             role: userProfile.role,
-            hasPet
+            hasPet,
+            peta:
+              userProfile.peta !== undefined && userProfile.peta !== null
+                ? Number(userProfile.peta)
+                : undefined,
+            petagold:
+              userProfile.petagold !== undefined && userProfile.petagold !== null
+                ? Number(userProfile.petagold)
+                : undefined,
           };
           dispatch({ type: USER_ACTIONS.SET_USER, payload: userData });
         } else {
@@ -216,7 +230,15 @@ export function UserProvider({ children }) {
             isAdmin: userProfile.isAdmin,
             token,
             role: userProfile.role,
-            hasPet: userProfile.hasPet
+            hasPet: userProfile.hasPet,
+            peta:
+              userProfile.peta !== undefined && userProfile.peta !== null
+                ? Number(userProfile.peta)
+                : undefined,
+            petagold:
+              userProfile.petagold !== undefined && userProfile.petagold !== null
+                ? Number(userProfile.petagold)
+                : undefined,
           };
           
           dispatch({ type: USER_ACTIONS.SET_USER, payload: userData });
@@ -290,10 +312,9 @@ export function UserProvider({ children }) {
     };
   }, [state.user?.token, state.isAuthenticated]);
 
-  // Update user data function
-  const updateUserData = (newData) => {
+  const updateUserData = useCallback((newData) => {
     dispatch({ type: USER_ACTIONS.UPDATE_USER_DATA, payload: newData });
-  };
+  }, []);
 
   // Check if token is still valid (useful for API calls)
   const isTokenValid = () => {

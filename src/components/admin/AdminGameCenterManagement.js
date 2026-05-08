@@ -36,6 +36,7 @@ function AdminGameCenterManagement() {
   const [inventoryItems, setInventoryItems] = useState([]);
   const [inventoryErr, setInventoryErr] = useState('');
   const [pickerSegmentIdx, setPickerSegmentIdx] = useState(null);
+  const [pickerSlotIconIdx, setPickerSlotIconIdx] = useState(null);
   const [pickerSearch, setPickerSearch] = useState('');
 
   useEffect(() => {
@@ -708,10 +709,11 @@ function AdminGameCenterManagement() {
               <input
                 type="number"
                 min={0}
-                value={draft.scratchLottery?.ticketPrice3 ?? 0}
+                value={draft.scratchLottery?.ticket3?.pricePeta ?? draft.scratchLottery?.ticketPrice3 ?? 0}
                 onChange={(e) =>
                   patch((d) => {
-                    d.scratchLottery.ticketPrice3 = Number(e.target.value);
+                    if (!d.scratchLottery.ticket3) d.scratchLottery.ticket3 = {};
+                    d.scratchLottery.ticket3.pricePeta = Number(e.target.value);
                   })
                 }
               />
@@ -721,43 +723,224 @@ function AdminGameCenterManagement() {
               <input
                 type="number"
                 min={0}
-                value={draft.scratchLottery?.ticketPrice5 ?? 0}
+                value={draft.scratchLottery?.ticket5?.pricePeta ?? draft.scratchLottery?.ticketPrice5 ?? 0}
                 onChange={(e) =>
                   patch((d) => {
-                    d.scratchLottery.ticketPrice5 = Number(e.target.value);
+                    if (!d.scratchLottery.ticket5) d.scratchLottery.ticket5 = {};
+                    d.scratchLottery.ticket5.pricePeta = Number(e.target.value);
                   })
                 }
               />
             </label>
             <label>
-              Cần trùng (vé 3 ô)
+              Lượt mua/ngày (vé 3 ô)
               <input
                 type="number"
                 min={1}
-                max={3}
-                value={draft.scratchLottery?.matchCountToWin3 ?? 3}
+                value={draft.scratchLottery?.ticket3?.dailyBuyLimit ?? 0}
                 onChange={(e) =>
                   patch((d) => {
-                    d.scratchLottery.matchCountToWin3 = Number(e.target.value);
+                    if (!d.scratchLottery.ticket3) d.scratchLottery.ticket3 = {};
+                    d.scratchLottery.ticket3.dailyBuyLimit = Number(e.target.value);
                   })
                 }
               />
             </label>
             <label>
-              Cần trùng (vé 5 ô)
+              Lượt mua/ngày (vé 5 ô)
               <input
                 type="number"
                 min={1}
-                max={5}
-                value={draft.scratchLottery?.matchCountToWin5 ?? 3}
+                value={draft.scratchLottery?.ticket5?.dailyBuyLimit ?? 0}
                 onChange={(e) =>
                   patch((d) => {
-                    d.scratchLottery.matchCountToWin5 = Number(e.target.value);
+                    if (!d.scratchLottery.ticket5) d.scratchLottery.ticket5 = {};
+                    d.scratchLottery.ticket5.dailyBuyLimit = Number(e.target.value);
                   })
                 }
               />
             </label>
           </div>
+
+          <h3>Vé cào 3 ô — phần thưởng + tỉ lệ (luôn trúng 2 icon)</h3>
+          <p className="gc-admin__help">
+            Mỗi lượt sẽ chọn <code>symbolId</code> theo <code>weight</code>, rồi sinh vé có đúng 2 icon trùng.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>symbolId</th>
+                <th>Thưởng (Peta)</th>
+                <th>Weight %</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {(draft.scratchLottery?.ticket3?.rewards || []).map((r, idx) => (
+                <tr key={`${r.symbolId || ''}_${idx}`}>
+                  <td>
+                    <select
+                      value={r.symbolId || ''}
+                      onChange={(e) =>
+                        patch((d) => {
+                          if (!d.scratchLottery.ticket3) d.scratchLottery.ticket3 = {};
+                          if (!d.scratchLottery.ticket3.rewards) d.scratchLottery.ticket3.rewards = [];
+                          d.scratchLottery.ticket3.rewards[idx].symbolId = e.target.value;
+                        })
+                      }
+                    >
+                      <option value="">(chọn)</option>
+                      {(draft.scratchLottery?.symbols || []).map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.id} — {s.label || ''}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min={0}
+                      value={r.rewardPeta ?? 0}
+                      onChange={(e) =>
+                        patch((d) => {
+                          d.scratchLottery.ticket3.rewards[idx].rewardPeta = Number(e.target.value);
+                        })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min={0}
+                      value={r.weight ?? 0}
+                      onChange={(e) =>
+                        patch((d) => {
+                          d.scratchLottery.ticket3.rewards[idx].weight = Number(e.target.value);
+                        })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="gc-admin__btn gc-admin__btn--danger"
+                      onClick={() =>
+                        patch((d) => {
+                          d.scratchLottery.ticket3.rewards.splice(idx, 1);
+                        })
+                      }
+                    >
+                      Xóa
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button
+            type="button"
+            className="gc-admin__btn gc-admin__btn--ghost"
+            onClick={() =>
+              patch((d) => {
+                if (!d.scratchLottery.ticket3) d.scratchLottery.ticket3 = {};
+                if (!d.scratchLottery.ticket3.rewards) d.scratchLottery.ticket3.rewards = [];
+                d.scratchLottery.ticket3.rewards.push({ symbolId: '', rewardPeta: 0, weight: 10 });
+              })
+            }
+          >
+            + Dòng thưởng (vé 3)
+          </button>
+
+          <h3 style={{ marginTop: 18 }}>Vé cào 5 ô — phần thưởng + tỉ lệ (luôn trúng 3 icon)</h3>
+          <p className="gc-admin__help">
+            Mỗi lượt sẽ chọn <code>symbolId</code> theo <code>weight</code>, rồi sinh vé có đúng 3 icon trùng.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>symbolId</th>
+                <th>Thưởng (Peta)</th>
+                <th>Weight %</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {(draft.scratchLottery?.ticket5?.rewards || []).map((r, idx) => (
+                <tr key={`${r.symbolId || ''}_${idx}`}>
+                  <td>
+                    <select
+                      value={r.symbolId || ''}
+                      onChange={(e) =>
+                        patch((d) => {
+                          if (!d.scratchLottery.ticket5) d.scratchLottery.ticket5 = {};
+                          if (!d.scratchLottery.ticket5.rewards) d.scratchLottery.ticket5.rewards = [];
+                          d.scratchLottery.ticket5.rewards[idx].symbolId = e.target.value;
+                        })
+                      }
+                    >
+                      <option value="">(chọn)</option>
+                      {(draft.scratchLottery?.symbols || []).map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.id} — {s.label || ''}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min={0}
+                      value={r.rewardPeta ?? 0}
+                      onChange={(e) =>
+                        patch((d) => {
+                          d.scratchLottery.ticket5.rewards[idx].rewardPeta = Number(e.target.value);
+                        })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min={0}
+                      value={r.weight ?? 0}
+                      onChange={(e) =>
+                        patch((d) => {
+                          d.scratchLottery.ticket5.rewards[idx].weight = Number(e.target.value);
+                        })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="gc-admin__btn gc-admin__btn--danger"
+                      onClick={() =>
+                        patch((d) => {
+                          d.scratchLottery.ticket5.rewards.splice(idx, 1);
+                        })
+                      }
+                    >
+                      Xóa
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button
+            type="button"
+            className="gc-admin__btn gc-admin__btn--ghost"
+            onClick={() =>
+              patch((d) => {
+                if (!d.scratchLottery.ticket5) d.scratchLottery.ticket5 = {};
+                if (!d.scratchLottery.ticket5.rewards) d.scratchLottery.ticket5.rewards = [];
+                d.scratchLottery.ticket5.rewards.push({ symbolId: '', rewardPeta: 0, weight: 10 });
+              })
+            }
+          >
+            + Dòng thưởng (vé 5)
+          </button>
 
           <h3>Biểu tượng vé</h3>
           <p className="gc-admin__help">Emoji hoặc để trống emoji và dùng ảnh URL. ID dùng để so khớp khi cào.</p>
@@ -871,70 +1054,45 @@ function AdminGameCenterManagement() {
 
       {tab === 'mystery' && (
         <div className="gc-admin__panel">
-          <h3>Hộp bí ẩn — tỉ lệ phần thưởng (weight)</h3>
+          <h3>Hộp bí ẩn — tỉ lệ theo rarity</h3>
+          <p className="gc-admin__help">
+            Rarity khớp cột <code>items.rarity</code> (common / rare / epic / legendary). Weight là tỉ lệ{' '}
+            <strong>tương đối</strong>: quay rarity → random <strong>một</strong> item bất kỳ trong catalog có đúng rarity đó.
+          </p>
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Nhãn</th>
                 <th>Rarity</th>
-                <th>Weight %</th>
-                <th>itemId (optional)</th>
+                <th>Weight (tương đối)</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {(draft.mysteryBox?.outcomes || []).map((o, idx) => (
-                <tr key={o.id || idx}>
+              {(draft.mysteryBox?.rarityWeights || []).map((o, idx) => (
+                <tr key={`${o.rarity}-${idx}`}>
                   <td>
-                    <input
-                      value={o.id || ''}
+                    <select
+                      value={o.rarity || 'common'}
                       onChange={(e) =>
                         patch((d) => {
-                          d.mysteryBox.outcomes[idx].id = e.target.value;
+                          d.mysteryBox.rarityWeights[idx].rarity = e.target.value;
                         })
                       }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      value={o.label || ''}
-                      onChange={(e) =>
-                        patch((d) => {
-                          d.mysteryBox.outcomes[idx].label = e.target.value;
-                        })
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      value={o.rarity || ''}
-                      onChange={(e) =>
-                        patch((d) => {
-                          d.mysteryBox.outcomes[idx].rarity = e.target.value;
-                        })
-                      }
-                    />
+                    >
+                      <option value="common">common</option>
+                      <option value="rare">rare</option>
+                      <option value="epic">epic</option>
+                      <option value="legendary">legendary</option>
+                    </select>
                   </td>
                   <td>
                     <input
                       type="number"
-                      min={1}
-                      value={o.weight ?? 1}
+                      min={0}
+                      value={o.weight ?? 0}
                       onChange={(e) =>
                         patch((d) => {
-                          d.mysteryBox.outcomes[idx].weight = Number(e.target.value);
-                        })
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      value={o.itemId ?? ''}
-                      onChange={(e) =>
-                        patch((d) => {
-                          const v = e.target.value.trim();
-                          d.mysteryBox.outcomes[idx].itemId = v === '' ? null : Number(v) || v;
+                          d.mysteryBox.rarityWeights[idx].weight = Math.max(0, Number(e.target.value) || 0);
                         })
                       }
                     />
@@ -945,7 +1103,7 @@ function AdminGameCenterManagement() {
                       className="gc-admin__btn gc-admin__btn--danger"
                       onClick={() =>
                         patch((d) => {
-                          d.mysteryBox.outcomes.splice(idx, 1);
+                          d.mysteryBox.rarityWeights.splice(idx, 1);
                         })
                       }
                     >
@@ -961,17 +1119,15 @@ function AdminGameCenterManagement() {
             className="gc-admin__btn gc-admin__btn--ghost"
             onClick={() =>
               patch((d) => {
-                d.mysteryBox.outcomes.push({
-                  id: genId(),
-                  label: 'Phần thưởng',
-                  rarity: 'Thường',
+                if (!d.mysteryBox.rarityWeights) d.mysteryBox.rarityWeights = [];
+                d.mysteryBox.rarityWeights.push({
+                  rarity: 'common',
                   weight: 10,
-                  itemId: null,
                 });
               })
             }
           >
-            + Dòng
+            + Dòng rarity
           </button>
         </div>
       )}
@@ -1023,70 +1179,81 @@ function AdminGameCenterManagement() {
 
       {tab === 'daily' && (
         <div className="gc-admin__panel">
-          <h3>Vật phẩm miễn phí — weight = tỉ lệ quay mỗi ngày (tương đối)</h3>
+          <h3>Vật phẩm miễn phí — 1 lần / kỳ (global_reset_time)</h3>
+          <p className="gc-admin__help">
+            Mỗi lần nhận: random số lượng trong [min, max]; mỗi món quay rarity rồi chọn ngẫu nhiên một item trong catalog đúng rarity (tối thiểu common).
+          </p>
+          <div className="gc-admin__row">
+            <label>
+              Min số item / lần nhận
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={draft.dailyFree?.minItemsPerClaim ?? 1}
+                onChange={(e) =>
+                  patch((d) => {
+                    d.dailyFree.minItemsPerClaim = Math.max(
+                      1,
+                      Math.min(20, parseInt(e.target.value, 10) || 1),
+                    );
+                  })
+                }
+              />
+            </label>
+            <label>
+              Max số item / lần nhận
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={draft.dailyFree?.maxItemsPerClaim ?? 3}
+                onChange={(e) =>
+                  patch((d) => {
+                    d.dailyFree.maxItemsPerClaim = Math.max(
+                      1,
+                      Math.min(20, parseInt(e.target.value, 10) || 1),
+                    );
+                  })
+                }
+              />
+            </label>
+          </div>
+          <h4 style={{ marginTop: '1rem' }}>Tỉ lệ rarity (mỗi món — weight tương đối)</h4>
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Bậc</th>
-                <th>Tên hiển thị</th>
-                <th>itemId</th>
+                <th>Rarity</th>
                 <th>Weight</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {(draft.dailyFree?.tiers || []).map((t, idx) => (
-                <tr key={t.id || idx}>
+              {(draft.dailyFree?.rarityWeights || []).map((row, idx) => (
+                <tr key={`${row.rarity}-${idx}`}>
                   <td>
-                    <input
-                      value={t.id || ''}
+                    <select
+                      value={row.rarity || 'common'}
                       onChange={(e) =>
                         patch((d) => {
-                          d.dailyFree.tiers[idx].id = e.target.value;
+                          d.dailyFree.rarityWeights[idx].rarity = e.target.value;
                         })
                       }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      value={t.tierLabel || ''}
-                      onChange={(e) =>
-                        patch((d) => {
-                          d.dailyFree.tiers[idx].tierLabel = e.target.value;
-                        })
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      value={t.itemLabel || ''}
-                      onChange={(e) =>
-                        patch((d) => {
-                          d.dailyFree.tiers[idx].itemLabel = e.target.value;
-                        })
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      value={t.itemId ?? ''}
-                      onChange={(e) =>
-                        patch((d) => {
-                          const v = e.target.value.trim();
-                          d.dailyFree.tiers[idx].itemId = v === '' ? null : Number(v) || v;
-                        })
-                      }
-                    />
+                    >
+                      <option value="common">common</option>
+                      <option value="rare">rare</option>
+                      <option value="epic">epic</option>
+                      <option value="legendary">legendary</option>
+                    </select>
                   </td>
                   <td>
                     <input
                       type="number"
-                      min={1}
-                      value={t.dailyWeight ?? 1}
+                      min={0}
+                      value={row.weight ?? 0}
                       onChange={(e) =>
                         patch((d) => {
-                          d.dailyFree.tiers[idx].dailyWeight = Number(e.target.value);
+                          d.dailyFree.rarityWeights[idx].weight = Math.max(0, Number(e.target.value) || 0);
                         })
                       }
                     />
@@ -1097,7 +1264,7 @@ function AdminGameCenterManagement() {
                       className="gc-admin__btn gc-admin__btn--danger"
                       onClick={() =>
                         patch((d) => {
-                          d.dailyFree.tiers.splice(idx, 1);
+                          d.dailyFree.rarityWeights.splice(idx, 1);
                         })
                       }
                     >
@@ -1113,17 +1280,12 @@ function AdminGameCenterManagement() {
             className="gc-admin__btn gc-admin__btn--ghost"
             onClick={() =>
               patch((d) => {
-                d.dailyFree.tiers.push({
-                  id: genId(),
-                  tierLabel: 'Mới',
-                  itemLabel: 'Quà',
-                  itemId: null,
-                  dailyWeight: 10,
-                });
+                if (!d.dailyFree.rarityWeights) d.dailyFree.rarityWeights = [];
+                d.dailyFree.rarityWeights.push({ rarity: 'common', weight: 10 });
               })
             }
           >
-            + Dòng
+            + Dòng rarity
           </button>
         </div>
       )}
@@ -1131,6 +1293,10 @@ function AdminGameCenterManagement() {
       {tab === 'booth' && (
         <div className="gc-admin__panel">
           <h3>Lucky booth / Xổ số</h3>
+          <p className="gc-admin__help">
+            Mỗi người 1 vé / kỳ (theo <code>global_reset_time</code>). Cuối kỳ hệ thống quay ngẫu nhiên 4 chữ số; vé trùng
+            nhận <strong>jackpot chia đều</strong>. Trúng giải: Peta cộng ngay + thư trong hộp thư.
+          </p>
           <div className="gc-admin__row">
             <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <input
@@ -1142,14 +1308,14 @@ function AdminGameCenterManagement() {
                   })
                 }
               />
-              Reset vé mỗi ngày (giao diện / logic sau)
+              Hiển thị “reset mỗi kỳ” (UI)
             </label>
             <label>
               Giá vé (Peta)
               <input
                 type="number"
                 min={0}
-                value={draft.luckyBooth?.ticketPrice ?? 1}
+                value={draft.luckyBooth?.ticketPrice ?? 10}
                 onChange={(e) =>
                   patch((d) => {
                     d.luckyBooth.ticketPrice = Number(e.target.value);
@@ -1158,11 +1324,11 @@ function AdminGameCenterManagement() {
               />
             </label>
             <label>
-              Jackpot hiển thị (Peta)
+              Jackpot tổng (Peta — chia đều nếu nhiều người trùng)
               <input
                 type="number"
                 min={0}
-                value={draft.luckyBooth?.jackpotPeta ?? 10000}
+                value={draft.luckyBooth?.jackpotPeta ?? 1000000}
                 onChange={(e) =>
                   patch((d) => {
                     d.luckyBooth.jackpotPeta = Number(e.target.value);
@@ -1176,7 +1342,54 @@ function AdminGameCenterManagement() {
 
       {tab === 'slot' && (
         <div className="gc-admin__panel">
-          <h3>Icon guồng</h3>
+          <h3>Máy đánh bạc</h3>
+          <div className="gc-admin__row">
+            <label>
+              Giá quay (Peta)
+              <input
+                type="number"
+                min={0}
+                value={draft.slotMachine?.spinPricePeta ?? 50000}
+                onChange={(e) =>
+                  patch((d) => {
+                    d.slotMachine.spinPricePeta = Math.max(0, Number(e.target.value) || 0);
+                  })
+                }
+              />
+            </label>
+            <label>
+              Lượt tối đa / kỳ
+              <input
+                type="number"
+                min={1}
+                max={500}
+                value={draft.slotMachine?.maxPlaysPerDay ?? 10}
+                onChange={(e) =>
+                  patch((d) => {
+                    d.slotMachine.maxPlaysPerDay = Math.max(
+                      1,
+                      Math.min(500, parseInt(e.target.value, 10) || 1),
+                    );
+                  })
+                }
+              />
+            </label>
+            <label>
+              Thưởng pair (Peta)
+              <input
+                type="number"
+                min={0}
+                value={draft.slotMachine?.pairRewardPeta ?? 20000}
+                onChange={(e) =>
+                  patch((d) => {
+                    d.slotMachine.pairRewardPeta = Math.max(0, Number(e.target.value) || 0);
+                  })
+                }
+              />
+            </label>
+          </div>
+
+          <h3 style={{ marginTop: 16 }}>Icon guồng</h3>
           <table>
             <thead>
               <tr>
@@ -1184,6 +1397,7 @@ function AdminGameCenterManagement() {
                 <th>Nhãn</th>
                 <th>Emoji</th>
                 <th>Ảnh URL</th>
+                <th>Phần thưởng</th>
                 <th />
               </tr>
             </thead>
@@ -1249,6 +1463,73 @@ function AdminGameCenterManagement() {
                       }}
                     />
                   </td>
+                  <td className="gc-admin__reward-cell">
+                    <select
+                      value={ic.reward?.kind || 'placeholder'}
+                      onChange={(e) =>
+                        patch((d) => {
+                          const k = e.target.value;
+                          if (!d.slotMachine.reelIcons[idx].reward) {
+                            d.slotMachine.reelIcons[idx].reward = { kind: 'placeholder', itemId: null, spiritId: null };
+                          }
+                          d.slotMachine.reelIcons[idx].reward.kind = k;
+                          if (k !== 'item') d.slotMachine.reelIcons[idx].reward.itemId = null;
+                          if (k !== 'spirit') d.slotMachine.reelIcons[idx].reward.spiritId = null;
+                        })
+                      }
+                    >
+                      <option value="placeholder">Placeholder (theo icon)</option>
+                      <option value="item">Item</option>
+                      <option value="spirit">Spirit</option>
+                    </select>
+
+                    {String(ic.reward?.kind || 'placeholder') === 'item' && (
+                      <div className="gc-admin__reward-row">
+                        <button
+                          type="button"
+                          className="gc-admin__btn gc-admin__btn--ghost"
+                          onClick={() => {
+                            setPickerSlotIconIdx(idx);
+                            setPickerSearch('');
+                          }}
+                        >
+                          {ic.reward?.itemId != null ? `Item #${ic.reward.itemId}` : 'Chọn item'}
+                        </button>
+                        {ic.reward?.itemId != null && (
+                          <button
+                            type="button"
+                            className="gc-admin__btn gc-admin__btn--danger"
+                            onClick={() =>
+                              patch((d) => {
+                                if (!d.slotMachine.reelIcons[idx].reward) return;
+                                d.slotMachine.reelIcons[idx].reward.itemId = null;
+                              })
+                            }
+                          >
+                            Xóa
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {String(ic.reward?.kind || '') === 'spirit' && (
+                      <div className="gc-admin__reward-row">
+                        <input
+                          placeholder="spiritId"
+                          value={ic.reward?.spiritId ?? ''}
+                          onChange={(e) =>
+                            patch((d) => {
+                              if (!d.slotMachine.reelIcons[idx].reward) {
+                                d.slotMachine.reelIcons[idx].reward = { kind: 'spirit', itemId: null, spiritId: null };
+                              }
+                              const v = e.target.value.trim();
+                              d.slotMachine.reelIcons[idx].reward.spiritId = v === '' ? null : Number(v) || v;
+                            })
+                          }
+                        />
+                      </div>
+                    )}
+                  </td>
                   <td>
                     <button
                       type="button"
@@ -1276,6 +1557,7 @@ function AdminGameCenterManagement() {
                   label: 'Icon',
                   emoji: '⭐',
                   imageUrl: '',
+                  reward: { kind: 'placeholder', itemId: null, spiritId: null },
                 });
               })
             }
@@ -1422,6 +1704,51 @@ function AdminGameCenterManagement() {
               />
             </label>
           </div>
+          <div className="gc-admin__row">
+            <label>
+              Thưởng đoán đúng (Peta)
+              <input
+                type="number"
+                min={0}
+                value={draft.guessNumber?.rewardPetaWin ?? 10000}
+                onChange={(e) =>
+                  patch((d) => {
+                    d.guessNumber.rewardPetaWin = Math.max(0, Number(e.target.value) || 0);
+                  })
+                }
+              />
+            </label>
+            <label>
+              Trừ khi đoán sai (Peta)
+              <input
+                type="number"
+                min={0}
+                value={draft.guessNumber?.penaltyPetaLose ?? 5000}
+                onChange={(e) =>
+                  patch((d) => {
+                    d.guessNumber.penaltyPetaLose = Math.max(0, Number(e.target.value) || 0);
+                  })
+                }
+              />
+            </label>
+            <label>
+              Lượt tối đa / kỳ (theo giờ reset)
+              <input
+                type="number"
+                min={1}
+                max={500}
+                value={draft.guessNumber?.maxPlaysPerDay ?? 10}
+                onChange={(e) =>
+                  patch((d) => {
+                    d.guessNumber.maxPlaysPerDay = Math.max(
+                      1,
+                      Math.min(500, parseInt(e.target.value, 10) || 1),
+                    );
+                  })
+                }
+              />
+            </label>
+          </div>
         </div>
       )}
 
@@ -1497,6 +1824,81 @@ function AdminGameCenterManagement() {
             </ul>
             {!pickerFilteredItems.length && (
               <p style={{ padding: 16, color: '#64748b' }}>Không có item khớp tìm kiếm.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {pickerSlotIconIdx != null && (
+        <div
+          className="gc-item-picker-overlay"
+          role="presentation"
+          onClick={() => setPickerSlotIconIdx(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setPickerSlotIconIdx(null);
+          }}
+        >
+          <div
+            className="gc-item-picker-modal"
+            role="dialog"
+            aria-labelledby="gc-slot-reward-picker-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="gc-item-picker-head">
+              <h2 id="gc-slot-reward-picker-title">Chọn item thưởng cho icon</h2>
+              <button type="button" className="gc-item-picker-close" onClick={() => setPickerSlotIconIdx(null)}>
+                ×
+              </button>
+            </div>
+            <input
+              type="search"
+              className="gc-item-picker-search"
+              placeholder="Tìm theo tên hoặc id..."
+              value={pickerSearch}
+              onChange={(e) => setPickerSearch(e.target.value)}
+              autoFocus
+            />
+            <p className="gc-admin__help">
+              Hiển thị tối đa 150 kết quả. Chọn 1 item để gán phần thưởng cho icon (máy đánh bạc).
+            </p>
+            <ul className="gc-item-picker-list">
+              {pickerFilteredItems.map((it) => (
+                <li key={it.id}>
+                  <button
+                    type="button"
+                    className="gc-item-picker-row"
+                    onClick={() => {
+                      const iconIdx = pickerSlotIconIdx;
+                      patch((d) => {
+                        const ic = d.slotMachine.reelIcons[iconIdx];
+                        if (!ic.reward) ic.reward = { kind: 'item', itemId: null, spiritId: null };
+                        ic.reward.kind = 'item';
+                        ic.reward.itemId = it.id != null ? Number(it.id) : null;
+                      });
+                      setPickerSlotIconIdx(null);
+                      setPickerSearch('');
+                    }}
+                  >
+                    {it.image_url ? (
+                      <img src={equipImageSrc(it.image_url)} alt="" className="gc-item-picker-thumb" />
+                    ) : (
+                      <span className="gc-item-picker-thumb gc-item-picker-thumb--empty">?</span>
+                    )}
+                    <span className="gc-item-picker-meta">
+                      <strong>#{it.id}</strong> {it.name}
+                      <small>
+                        {' '}
+                        · {String(it.type || '')} · {mapItemRarityToWheel(it.rarity)}
+                      </small>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {!pickerFilteredItems.length && (
+              <p className="gc-admin__help" style={{ marginTop: 10 }}>
+                Không có kết quả.
+              </p>
             )}
           </div>
         </div>

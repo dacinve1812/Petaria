@@ -12,21 +12,13 @@ function EntertainmentCenterPage() {
     <TemplatePage showSearch={false} showTabs={false}>
       <GameCenterConfigProvider>
       <div className="entertainment-center">
-        <div className="ec-header">
-          {!onHub && (
+        {!onHub && (
+          <div className="ec-header">
             <Link to="/game-center" className="ec-back">
               ← Trở lại Trung tâm giải trí
             </Link>
-          )}
-          <div className="ec-title-block">
-            <h1 className="ec-title">Trung tâm giải trí</h1>
-            {onHub && (
-              <p className="ec-subtitle">
-                Mini-game, xổ số và phần thưởng — giao diện sẵn sàng; API sẽ được nối sau.
-              </p>
-            )}
           </div>
-        </div>
+        )}
         <Outlet />
       </div>
       </GameCenterConfigProvider>
