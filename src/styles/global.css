@@ -1920,6 +1920,100 @@ h1.peta-sectiontitle {
   padding: 7px 0;
 }
 
+/* Wrapper: khối pet-profile + hàng nút bên dưới */
+.pet-profile-wrap {
+  width: min(700px, 95%);
+  margin: auto;
+  margin-top: 0;
+}
+
+.pet-profile-wrap .pet-profile {
+  width: 100%;
+  margin: 0;
+}
+
+.pet-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 8px 16px;
+}
+
+.pet-profile-evolve-btn {
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid #8b7355;
+  background: linear-gradient(180deg, #ffecc8 0%, #f0d9a8 100%);
+  color: #4a3728;
+  cursor: pointer;
+}
+
+.pet-profile-evolve-btn:hover {
+  filter: brightness(1.03);
+}
+
+.pet-profile-rename-btn {
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid #64748b;
+  background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
+  color: #334155;
+  cursor: pointer;
+}
+
+.pet-profile-rename-btn:hover {
+  filter: brightness(1.03);
+}
+
+/* Modal đổi tên */
+.pet-rename-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 12000;
+  padding: 16px;
+}
+
+.pet-rename-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px 22px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.2);
+}
+
+.pet-rename-modal h3 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+  color: #334155;
+}
+
+.pet-rename-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 1rem;
+  margin-bottom: 16px;
+}
+
+.pet-rename-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .pet-details{
   grid-area: pet-details;
   text-align: left;
@@ -2055,6 +2149,10 @@ progress {
 }
 
 @media (max-width: 480px) {
+  .pet-profile-wrap {
+    width: 98%;
+  }
+
   .pet-profile {
     width: 98%;
   }

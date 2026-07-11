@@ -18,6 +18,11 @@ function isHuntingMapPath(pathname) {
   return /\/hunting-world\/map\//.test(pathname || '');
 }
 
+/** Cho phép rời map săn vào trận Arena (boss encounter) mà không hỏi “kết thúc đi săn”. */
+function isBattlePath(pathname) {
+  return /^\/battle(\/|$)/.test(pathname || '');
+}
+
 function emitCamera(action) {
   window.dispatchEvent(new CustomEvent('petaria-hunting-camera', { detail: { action } }));
 }
@@ -93,6 +98,8 @@ function HuntingMap() {
     if (allowLeaveRef.current) return false;
     if (!isHuntingMapPath(currentLocation.pathname)) return false;
     if (isHuntingMapPath(nextLocation.pathname)) return false;
+    // Boss encounter → ArenaBattle: không block (tránh match Redis orphan + không vào được trận)
+    if (isBattlePath(nextLocation.pathname)) return false;
     return true;
   });
 
@@ -107,6 +114,27 @@ function HuntingMap() {
     window.addEventListener('petaria-hunting-steps-exhausted', onExhausted);
     return () => window.removeEventListener('petaria-hunting-steps-exhausted', onExhausted);
   }, []);
+
+  // Canvas ~100dvh: scroll mượt xuống cuối để thấy hết vùng chơi khi mới vào map.
+  useEffect(() => {
+    const scrollToCanvas = () => {
+      const area = gameAreaRef.current;
+      if (area) {
+        area.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        return;
+      }
+      const top =
+        Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) -
+        window.innerHeight;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    };
+    const raf = requestAnimationFrame(scrollToCanvas);
+    const t = window.setTimeout(scrollToCanvas, 180);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(t);
+    };
+  }, [id]);
 
   useEffect(() => {
     const lid = String(id || 'forest').toLowerCase();
@@ -237,6 +265,10 @@ function HuntingMap() {
       const next = readGameSize(area);
       if (next.width >= 64 && next.height >= 64) {
         gameRef.current.scale.resize(next.width, next.height);
+        // Auto zoom lại để map lấp đầy canvas sau khi đổi kích thước.
+        window.dispatchEvent(
+          new CustomEvent('petaria-hunting-camera', { detail: { action: 'zoomFit' } })
+        );
       }
     });
     ro.observe(area);

@@ -1,24 +1,73 @@
 import React, { useState } from 'react';
 import './EncounterModal.css';
 import ConfirmFleeModal from './ConfirmFleeModal';
+import GameModalButton from './ui/GameModalButton';
 
-function EncounterModal({ wildPet, onClose, onCatch, onBattle }) {
+function resolveImageSrc(src, fallback) {
+  if (!src) return fallback;
+  if (src.startsWith('http') || src.startsWith('/')) return src;
+  return fallback.includes('equipments')
+    ? `/images/equipments/${src}`
+    : `/images/pets/${src}`;
+}
+
+/**
+ * Modal gặp gỡ thống nhất: pet / boss / item.
+ * @param {{
+ *   type: 'species'|'boss'|'item',
+ *   data: object,
+ *   onClose: () => void,
+ *   onCatch?: (data: object) => void,
+ *   onBattle?: (data: object) => void,
+ *   onClaimItem?: (data: object) => void | Promise<void>,
+ *   claimingItem?: boolean,
+ * }} props
+ */
+function EncounterModal({
+  type = 'species',
+  data,
+  onClose,
+  onCatch,
+  onBattle,
+  onClaimItem,
+  claimingItem = false,
+}) {
   const [showConfirmFlee, setShowConfirmFlee] = useState(false);
 
-  if (!wildPet) return null;
+  if (!data) return null;
+
+  const isItem = type === 'item';
+  const isBoss = type === 'boss';
+
+  const title = isItem
+    ? 'Chúc mừng, bạn đã tìm được vật phẩm'
+    : isBoss
+      ? 'Bạn gặp một Boss!'
+      : 'Bạn gặp một thú cưng hoang dã!';
+
+  const name = data.name || (isItem ? 'Vật phẩm' : isBoss ? 'Boss' : 'Pet');
+  const level =
+    data.level != null && data.level !== ''
+      ? Number(data.level)
+      : data.min_level != null
+        ? Number(data.min_level)
+        : null;
+
+  const imageSrc = isItem
+    ? resolveImageSrc(data.image_url, '/images/equipments/placeholder.png')
+    : resolveImageSrc(data.image || data.sprite, '/images/pets/default.png');
+
+  const fallbackImg = isItem
+    ? '/images/equipments/placeholder.png'
+    : '/images/pets/default.png';
 
   const handleCatch = () => {
-    if (onCatch) {
-      onCatch(wildPet);
-    }
-    onClose();
+    if (onCatch) onCatch(data);
   };
 
   const handleBattle = () => {
-    if (onBattle) {
-      onBattle(wildPet);
-    }
-    onClose();
+    if (onBattle) onBattle(data);
+    if (!isBoss) onClose();
   };
 
   const handleFlee = () => {
@@ -26,100 +75,98 @@ function EncounterModal({ wildPet, onClose, onCatch, onBattle }) {
   };
 
   const handleCloseClick = () => {
+    if (isItem) return;
     setShowConfirmFlee(true);
   };
 
-  const handleConfirmFlee = () => {
-    setShowConfirmFlee(false);
-    handleFlee();
-  };
-
-  const handleCancelFlee = () => {
-    setShowConfirmFlee(false);
+  const handleClaimItem = () => {
+    if (claimingItem) return;
+    if (onClaimItem) onClaimItem(data);
+    else onClose();
   };
 
   return (
     <>
       <div className="encounter-modal-overlay">
         <div className="encounter-modal-content" onClick={(e) => e.stopPropagation()}>
-          <button className="encounter-modal-close" onClick={handleCloseClick}>✕</button>
-          
+          {!isItem && (
+            <button type="button" className="encounter-modal-close" onClick={handleCloseClick}>
+              ✕
+            </button>
+          )}
+
           <div className="encounter-header">
-            <h2 className="encounter-title">🎯 WILD PET ENCOUNTER!</h2>
-            <div className="encounter-rarity-badge">{wildPet.rarity}</div>
+            <h2 className="encounter-title">{title}</h2>
           </div>
 
           <div className="encounter-pet-info">
-            <div className="pet-sprite-placeholder">
-              {wildPet.image ? (
-                <img
-                  src={`/images/pets/${wildPet.image}`}
-                  alt=""
-                  className="encounter-species-img"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = '/images/pets/default.png';
-                  }}
-                />
-              ) : (
-                <div className="pet-sprite-icon">🐾</div>
-              )}
+            <div>
+              <img
+                src={imageSrc}
+                alt=""
+                className={isItem ? 'hmap-item-enc-img' : 'encounter-species-img'}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = fallbackImg;
+                }}
+              />
             </div>
-            
-            <div className="pet-details">
-              <h3 className="pet-name">{wildPet.name}</h3>
-              <p className="pet-description">{wildPet.description}</p>
-              
-              <div className="pet-stats">
-                <div className="stat-item">
-                  <span className="stat-label">Rarity:</span>
-                  <span className={`stat-value rarity-${wildPet.rarity.toLowerCase()}`}>
-                    {wildPet.rarity}
-                  </span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">Type:</span>
-                  <span className="stat-value">Wild Pet</span>
-                </div>
-              </div>
-            </div>
+
+            <h3 className="encounter-pet-name">{name}</h3>
+            {isItem ? (
+              <p className="encounter-level">×{data.qty ?? 1}</p>
+            ) : (
+              <p className="encounter-level">
+                Lv. {Number.isFinite(level) ? level : '—'}
+              </p>
+            )}
           </div>
 
           <div className="encounter-actions">
-            <button 
-              className="action-button catch-button"
-              onClick={handleCatch}
-            >
-              🎣 Catch Pet
-            </button>
-            
-            <button 
-              className="action-button battle-button"
-              onClick={handleBattle}
-            >
-              ⚔️ Battle
-            </button>
-            
-            <button 
-              className="action-button flee-button"
-              onClick={handleFlee}
-            >
-              🏃‍♂️ Flee
-            </button>
-          </div>
-
-          <div className="encounter-tip">
-            <p>💡 Tip: Higher rarity pets are harder to catch but more valuable!</p>
+            {isItem ? (
+              <GameModalButton
+                variant="cancel"
+                showIcon={false}
+                className="encounter-claim-btn"
+                onClick={handleClaimItem}
+                disabled={claimingItem}
+              >
+                {claimingItem ? 'Đang nhận…' : 'Xác nhận'}
+              </GameModalButton>
+            ) : isBoss ? (
+              <>
+                <button type="button" className="action-button primary" onClick={handleBattle}>
+                  Chiến Đấu
+                </button>
+                <button type="button" className="action-button ghost" onClick={handleFlee}>
+                  Bỏ chạy
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className="action-button primary" onClick={handleCatch}>
+                  Bắt
+                </button>
+                <button type="button" className="action-button secondary" onClick={handleBattle}>
+                  Chiến Đấu
+                </button>
+                <button type="button" className="action-button ghost" onClick={handleFlee}>
+                  Bỏ chạy
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Confirmation Modal for Flee */}
       {showConfirmFlee && (
         <ConfirmFleeModal
-          petName={wildPet.name}
-          onConfirm={handleConfirmFlee}
-          onCancel={handleCancelFlee}
+          petName={name}
+          onConfirm={() => {
+            setShowConfirmFlee(false);
+            handleFlee();
+          }}
+          onCancel={() => setShowConfirmFlee(false)}
         />
       )}
     </>

@@ -18,7 +18,7 @@ function ItemEncounterModal({ item, onClose }) {
           ✕
         </button>
         <div className="encounter-header">
-          <h2 className="encounter-title">📦 Tìm thấy vật phẩm</h2>
+          <h2 className="encounter-title">📦 Bạn nhận được vật phẩm</h2>
         </div>
         <div className="encounter-pet-info">
           <div className="pet-sprite-placeholder">

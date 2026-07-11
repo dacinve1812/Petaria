@@ -14,7 +14,11 @@ const STORAGE_KEY = 'petaria_hunting_maps_v1';
  * @property {{x:number,y:number}} start
  * @property {{background:string, foreground?:string}} assets
  * @property {number[]} tiles
- * @property {Array<{kind:'species'|'item', species_id?: number, item_id?: number, name?: string, image?: string, image_url?: string, rarity?: string, description?: string, rate: number, min_qty?: number, max_qty?: number}>} [encounterPool]
+ * @property {boolean} [isHidden]
+ * @property {number} [requireMinLevel]
+ * @property {number} [encounterLevelMin]
+ * @property {number} [encounterLevelMax]
+ * @property {Array<{kind:'species'|'item'|'boss', species_id?: number, item_id?: number, boss_id?: number, name?: string, image?: string, image_url?: string, rarity?: string, description?: string, rate: number, min_qty?: number, max_qty?: number}>} [encounterPool]
  */
 
 /** @returns {Record<string, HuntingMapRecord>} */

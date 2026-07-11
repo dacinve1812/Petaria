@@ -39,6 +39,10 @@ async function run() {
         tiles_json LONGTEXT NOT NULL COMMENT 'JSON array số (0..255) length width*height',
         encounter_pool_json JSON NULL COMMENT 'mảng encounter pool',
         sort_order INT NOT NULL DEFAULT 0,
+        is_hidden TINYINT(1) NOT NULL DEFAULT 0,
+        require_min_level INT NOT NULL DEFAULT 0 COMMENT 'Cần ít nhất 1 pet >= level này (0 = không yêu cầu)',
+        encounter_level_min INT NOT NULL DEFAULT 1,
+        encounter_level_max INT NOT NULL DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci

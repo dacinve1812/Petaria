@@ -10,7 +10,8 @@ const {
   simulateBossTurn,
 } = require('./battleEngine');
 
-const { generateIVStats, calculateFinalStats } = require('./utils/petStats');
+const { generateIVStats, calculateFinalStats, calculateBossFinalStats, rawBossFinalStats } = require('./utils/petStats');
+const huntingCatch = require('./utils/huntingCatch');
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
 
@@ -166,6 +167,65 @@ const {
 ensureBoosterStatsColumn(db).catch((err) => {
   console.error('ensureBoosterStatsColumn:', err);
 });
+
+async function ensureHuntingMapsHiddenColumn(database) {
+  try {
+    await database.query(
+      'ALTER TABLE hunting_maps ADD COLUMN is_hidden TINYINT(1) NOT NULL DEFAULT 0'
+    );
+    console.log('[db] hunting_maps.is_hidden column added');
+  } catch (e) {
+    const msg = String(e && e.message ? e.message : e);
+    if (!/Duplicate column/i.test(msg)) {
+      console.error('ensureHuntingMapsHiddenColumn:', e);
+    }
+  }
+}
+
+async function ensurePetSpeciesEvolutionColumns() {
+  try {
+    await db.query(
+      'ALTER TABLE pet_species ADD COLUMN evolve_min_level INT NOT NULL DEFAULT 1'
+    );
+  } catch (err) {
+    const msg = String((err && err.message) || '');
+    if (!msg.includes('Duplicate column')) {
+      console.error('ensurePetSpeciesEvolutionColumns evolve_min_level:', err);
+    }
+  }
+  try {
+    await db.query(
+      'ALTER TABLE pet_species ADD COLUMN evolve_item_id INT NULL'
+    );
+  } catch (err) {
+    const msg = String((err && err.message) || '');
+    if (!msg.includes('Duplicate column')) {
+      console.error('ensurePetSpeciesEvolutionColumns evolve_item_id:', err);
+    }
+  }
+}
+
+ensurePetSpeciesEvolutionColumns().catch((err) => {
+  console.error('ensurePetSpeciesEvolutionColumns:', err);
+});
+
+function parseSpeciesEvolveTo(raw) {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) {
+    return raw.map((x) => parseInt(x, 10)).filter((n) => Number.isFinite(n) && n > 0);
+  }
+  if (typeof raw === 'string') {
+    try {
+      const j = JSON.parse(raw);
+      if (Array.isArray(j)) {
+        return j.map((x) => parseInt(x, 10)).filter((n) => Number.isFinite(n) && n > 0);
+      }
+    } catch (_) {
+      return [];
+    }
+  }
+  return [];
+}
 
 async function ensurePetBattleStatsColumns() {
   try {
@@ -4094,6 +4154,16 @@ function huntingMapRowToFullClient(row) {
     encounterPool = [];
   }
   const fg = row.foreground_url && String(row.foreground_url).trim() ? String(row.foreground_url).trim() : null;
+  const hid = row.is_hidden;
+  const isHidden = hid === 1 || hid === true || hid === '1';
+  const requireMinLevel = Math.max(0, parseInt(row.require_min_level, 10) || 0);
+  let encounterLevelMin = Math.max(1, parseInt(row.encounter_level_min, 10) || 1);
+  let encounterLevelMax = Math.max(1, parseInt(row.encounter_level_max, 10) || 1);
+  if (encounterLevelMax < encounterLevelMin) {
+    const t = encounterLevelMin;
+    encounterLevelMin = encounterLevelMax;
+    encounterLevelMax = t;
+  }
   return {
     id: row.id,
     name: row.name,
@@ -4111,10 +4181,24 @@ function huntingMapRowToFullClient(row) {
     },
     tiles,
     encounterPool,
+    isHidden,
+    requireMinLevel,
+    encounterLevelMin,
+    encounterLevelMax,
   };
 }
 
 function huntingMapRowToListClient(row) {
+  const hid = row.is_hidden;
+  const isHidden = hid === 1 || hid === true || hid === '1';
+  const requireMinLevel = Math.max(0, parseInt(row.require_min_level, 10) || 0);
+  let encounterLevelMin = Math.max(1, parseInt(row.encounter_level_min, 10) || 1);
+  let encounterLevelMax = Math.max(1, parseInt(row.encounter_level_max, 10) || 1);
+  if (encounterLevelMax < encounterLevelMin) {
+    const t = encounterLevelMin;
+    encounterLevelMin = encounterLevelMax;
+    encounterLevelMax = t;
+  }
   return {
     id: row.id,
     name: row.name,
@@ -4127,14 +4211,21 @@ function huntingMapRowToListClient(row) {
     tileSize: row.tile_size,
     sort_order: row.sort_order,
     updated_at: row.updated_at,
+    isHidden,
+    requireMinLevel,
+    encounterLevelMin,
+    encounterLevelMax,
   };
 }
 
 app.get('/api/hunting/maps', async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT id, name, entry_fee, currency, max_steps, thumb, width, height, tile_size, sort_order, updated_at
-       FROM hunting_maps ORDER BY sort_order ASC, id ASC`
+      `SELECT id, name, entry_fee, currency, max_steps, thumb, width, height, tile_size, sort_order, updated_at, is_hidden,
+              require_min_level, encounter_level_min, encounter_level_max
+       FROM hunting_maps
+       WHERE (is_hidden IS NULL OR is_hidden = 0)
+       ORDER BY sort_order ASC, id ASC`
     );
     res.json(rows.map(huntingMapRowToListClient));
   } catch (err) {
@@ -4149,12 +4240,453 @@ app.get('/api/hunting/maps/:id', async (req, res) => {
     return res.status(404).json({ message: 'Map forest là built-in (client)' });
   }
   try {
-    const [rows] = await db.query('SELECT * FROM hunting_maps WHERE id = ?', [id]);
+    const [rows] = await db.query(
+      `SELECT * FROM hunting_maps WHERE id = ? AND (is_hidden IS NULL OR is_hidden = 0)`,
+      [id]
+    );
     if (!rows.length) return res.status(404).json({ message: 'Không tìm thấy map' });
     res.json(huntingMapRowToFullClient(rows[0]));
   } catch (err) {
     console.error('GET /api/hunting/maps/:id', err);
     res.status(500).json({ message: 'Lỗi tải map' });
+  }
+});
+
+/**
+ * Hunting catch — session + feed + ném lưới.
+ * Stat pet chỉ tính khi bắt thành công.
+ */
+function authUserIdFromReq(req) {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return null;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    return decoded.userId;
+  } catch {
+    return null;
+  }
+}
+
+/** Bắt đầu / reset phiên bắt cho encounter hiện tại */
+app.post('/api/hunting/catch/session', async (req, res) => {
+  const uid = authUserIdFromReq(req);
+  if (!uid) return res.status(401).json({ message: 'Unauthorized' });
+
+  const speciesId = parseInt(req.body.speciesId ?? req.body.species_id, 10);
+  const level = Math.max(1, Math.min(100, parseInt(req.body.level, 10) || 1));
+  const name = req.body.name != null ? String(req.body.name).trim() : '';
+
+  if (!Number.isFinite(speciesId) || speciesId <= 0) {
+    return res.status(400).json({ message: 'Thiếu speciesId' });
+  }
+
+  try {
+    await huntingCatch.loadCatchConfig(db);
+  } catch (e) {
+    console.error('loadCatchConfig', e);
+  }
+  const cfg = huntingCatch.getCatchConfigSync();
+
+  let petRarity = 'common';
+  try {
+    const [spRows] = await db.query('SELECT rarity, name FROM pet_species WHERE id = ?', [speciesId]);
+    if (spRows.length) {
+      petRarity = String(spRows[0].rarity || 'common').toLowerCase();
+      if (!name && spRows[0].name) {
+        // keep request name if provided
+      }
+    }
+  } catch (e) {
+    console.error('catch session species lookup', e);
+  }
+
+  const catchPenalty = huntingCatch.catchPenaltyPercent(petRarity, cfg);
+
+  huntingCatch.setCatchSession(uid, {
+    speciesId,
+    level,
+    name,
+    petRarity,
+    feedCount: 0,
+    foodBonus: 0,
+    failCount: 0,
+  });
+
+  res.json({
+    ok: true,
+    feedCount: 0,
+    foodBonus: 0,
+    failCount: 0,
+    petRarity,
+    catchPenalty,
+    netRates: huntingCatch.getNetRatesMap(cfg),
+    maxCatchChance: cfg.maxCatchChance,
+  });
+});
+
+/** Cho ăn — cộng bonus theo rarity; roll chạy thoát theo feed + failCount */
+app.post('/api/hunting/catch/feed', async (req, res) => {
+  const uid = authUserIdFromReq(req);
+  if (!uid) return res.status(401).json({ message: 'Unauthorized' });
+
+  const inventoryId = parseInt(req.body.inventoryId ?? req.body.foodInventoryId, 10);
+  if (!Number.isFinite(inventoryId) || inventoryId <= 0) {
+    return res.status(400).json({ message: 'Thiếu inventoryId thức ăn' });
+  }
+
+  let session = huntingCatch.getCatchSession(uid);
+  if (!session) {
+    return res.status(400).json({ message: 'Chưa có phiên bắt — mở lại màn hình bắt.' });
+  }
+
+  const cfg = huntingCatch.getCatchConfigSync();
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [invRows] = await conn.query(
+      `SELECT i.id, i.quantity, i.player_id, i.item_id,
+              it.name, it.type, it.category, it.rarity, it.image_url
+       FROM inventory i
+       JOIN items it ON it.id = i.item_id
+       WHERE i.id = ? AND i.player_id = ?
+       FOR UPDATE`,
+      [inventoryId, uid]
+    );
+    if (!invRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy item trong túi' });
+    }
+    const inv = invRows[0];
+    if (!huntingCatch.isFoodItem(inv)) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'Item này không phải thức ăn' });
+    }
+    const qty = Number(inv.quantity) || 0;
+    if (qty < 1) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'Hết thức ăn' });
+    }
+
+    if (qty <= 1) {
+      await conn.query('DELETE FROM inventory WHERE id = ?', [inventoryId]);
+    } else {
+      await conn.query('UPDATE inventory SET quantity = quantity - 1 WHERE id = ?', [inventoryId]);
+    }
+
+    const addBonus = huntingCatch.foodBonusPercent(inv.rarity, cfg);
+    const feedCount = (session.feedCount || 0) + 1;
+    const foodBonus = Math.round(((session.foodBonus || 0) + addBonus) * 10) / 10;
+    const failCount = session.failCount || 0;
+    const fleeRate = huntingCatch.fleeRatePercent(feedCount, failCount, cfg);
+    const fled = Math.random() * 100 < fleeRate;
+
+    await conn.commit();
+
+    if (fled) {
+      huntingCatch.clearCatchSession(uid);
+      return res.json({
+        fled: true,
+        message: 'Pet hoảng sợ và chạy mất!',
+        feedCount,
+        foodBonus,
+      });
+    }
+
+    huntingCatch.setCatchSession(uid, {
+      ...session,
+      feedCount,
+      foodBonus,
+      failCount,
+    });
+
+    const petName = session.name || 'Pet';
+    res.json({
+      fled: false,
+      feedCount,
+      foodBonus,
+      message: huntingCatch.pickFeedMessage(petName, cfg),
+    });
+  } catch (err) {
+    await conn.rollback();
+    console.error('POST /api/hunting/catch/feed', err);
+    res.status(500).json({ message: 'Lỗi khi cho ăn' });
+  } finally {
+    conn.release();
+  }
+});
+
+/**
+ * Ném lưới bắt.
+ * Body: { netInventoryId, speciesId?, level?, name? }
+ * Stat chỉ tạo khi success.
+ */
+app.post('/api/hunting/catch', async (req, res) => {
+  const uid = authUserIdFromReq(req);
+  if (!uid) return res.status(401).json({ message: 'Unauthorized' });
+
+  const netInventoryId = parseInt(req.body.netInventoryId ?? req.body.inventoryId, 10);
+  if (!Number.isFinite(netInventoryId) || netInventoryId <= 0) {
+    return res.status(400).json({ message: 'Chọn một lưới để bắt' });
+  }
+
+  let session = huntingCatch.getCatchSession(uid);
+  const speciesId = parseInt(
+    req.body.speciesId ?? req.body.species_id ?? session?.speciesId,
+    10
+  );
+  const level = Math.max(
+    1,
+    Math.min(100, parseInt(req.body.level ?? session?.level, 10) || 1)
+  );
+  const petNameRaw =
+    req.body.name != null ? String(req.body.name).trim() : session?.name || '';
+
+  if (!Number.isFinite(speciesId) || speciesId <= 0) {
+    return res.status(400).json({ message: 'Thiếu speciesId' });
+  }
+
+  if (!session || session.speciesId !== speciesId) {
+    huntingCatch.setCatchSession(uid, {
+      speciesId,
+      level,
+      name: petNameRaw,
+      feedCount: 0,
+      foodBonus: 0,
+      failCount: 0,
+    });
+    session = huntingCatch.getCatchSession(uid);
+  }
+
+  const cfg = huntingCatch.getCatchConfigSync();
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [invRows] = await conn.query(
+      `SELECT i.id, i.quantity, i.player_id, i.item_id,
+              it.name, it.type, it.category, it.subtype, it.rarity, it.item_code, it.image_url
+       FROM inventory i
+       JOIN items it ON it.id = i.item_id
+       WHERE i.id = ? AND i.player_id = ?
+       FOR UPDATE`,
+      [netInventoryId, uid]
+    );
+    if (!invRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy lưới trong túi' });
+    }
+    const inv = invRows[0];
+    const netMeta = huntingCatch.resolveNetMeta(inv, cfg);
+    if (!netMeta) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'Item này không phải lưới bắt' });
+    }
+    const qty = Number(inv.quantity) || 0;
+    if (qty < 1) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'Hết lưới' });
+    }
+
+    const [speciesRows] = await conn.query(
+      `SELECT id, name, image, type, rarity,
+              base_hp, base_mp, base_str, base_def, base_intelligence, base_spd
+       FROM pet_species WHERE id = ?`,
+      [speciesId]
+    );
+    if (!speciesRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy species' });
+    }
+    const species = speciesRows[0];
+
+    if (qty <= 1) {
+      await conn.query('DELETE FROM inventory WHERE id = ?', [netInventoryId]);
+    } else {
+      await conn.query('UPDATE inventory SET quantity = quantity - 1 WHERE id = ?', [netInventoryId]);
+    }
+
+    const foodBonus = Number(session.foodBonus) || 0;
+    const petRarity = String(species.rarity || 'common').toLowerCase();
+    const successChance = huntingCatch.clampCatchChance(
+      netMeta.successRate,
+      foodBonus,
+      cfg,
+      petRarity
+    );
+    const roll = Math.random() * 100;
+    const success = roll < successChance;
+    const displayNameHint = petNameRaw || species.name || 'Pet';
+
+    if (!success) {
+      await conn.commit();
+      const failCount = (session.failCount || 0) + 1;
+      huntingCatch.setCatchSession(uid, {
+        ...session,
+        failCount,
+      });
+      const failMessage = huntingCatch.pickFailMessage(displayNameHint, cfg);
+      return res.json({
+        success: false,
+        fled: false,
+        message: failMessage,
+        foodBonus,
+        failCount,
+      });
+    }
+
+    const base = {
+      hp: parseInt(species.base_hp, 10) || 10,
+      mp: parseInt(species.base_mp, 10) || 10,
+      str: parseInt(species.base_str, 10) || 10,
+      def: parseInt(species.base_def, 10) || 10,
+      intelligence: parseInt(species.base_intelligence, 10) || 10,
+      spd: parseInt(species.base_spd, 10) || 10,
+    };
+    const iv = generateIVStats();
+    const finalStats = calculateFinalStats(base, iv, level);
+    const petUuid = uuidv4();
+    const displayName = petNameRaw || species.name;
+    const createdDate = new Date();
+
+    await conn.query(
+      `INSERT INTO pets (
+        uuid, name, hp, str, def, intelligence, spd, mp,
+        owner_id, pet_species_id, level, max_hp, current_hp, max_mp,
+        created_date, final_stats,
+        iv_hp, iv_mp, iv_str, iv_def, iv_intelligence, iv_spd,
+        current_exp, exp_to_next_level
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        petUuid,
+        displayName,
+        finalStats.hp,
+        finalStats.str,
+        finalStats.def,
+        finalStats.intelligence,
+        finalStats.spd,
+        finalStats.mp,
+        uid,
+        species.id,
+        level,
+        finalStats.hp,
+        finalStats.hp,
+        finalStats.mp,
+        createdDate,
+        JSON.stringify(finalStats),
+        iv.iv_hp,
+        iv.iv_mp,
+        iv.iv_str,
+        iv.iv_def,
+        iv.iv_intelligence,
+        iv.iv_spd,
+        0,
+        100,
+      ]
+    );
+    await conn.query('UPDATE users SET hasPet = TRUE WHERE id = ? AND hasPet = FALSE', [uid]);
+    await conn.commit();
+
+    huntingCatch.clearCatchSession(uid);
+    try {
+      await titleService.recordPetCatch(db, uid, 1);
+    } catch (e) {
+      console.error('titleService.recordPetCatch (hunting):', e);
+    }
+
+    return res.status(201).json({
+      success: true,
+      fled: false,
+      message: 'Bắt thành công',
+      uuid: petUuid,
+      name: displayName,
+      level,
+      species_id: species.id,
+      final_stats: finalStats,
+      image: species.image,
+      successChance,
+      net: netMeta,
+      foodBonus,
+    });
+  } catch (err) {
+    await conn.rollback();
+    console.error('POST /api/hunting/catch', err);
+    return res.status(500).json({ message: 'Lỗi khi ném lưới' });
+  } finally {
+    conn.release();
+  }
+});
+
+app.post('/api/hunting/catch/cancel', async (req, res) => {
+  const uid = authUserIdFromReq(req);
+  if (!uid) return res.status(401).json({ message: 'Unauthorized' });
+  huntingCatch.clearCatchSession(uid);
+  res.json({ ok: true });
+});
+
+/**
+ * Nhận vật phẩm từ encounter săn → kho (reuse grantMailItemsToInventory: stack / equipment).
+ * Body: { itemId, quantity?, mapId? }
+ */
+app.post('/api/hunting/claim-item', async (req, res) => {
+  const uid = authUserIdFromReq(req);
+  if (!uid) return res.status(401).json({ message: 'Unauthorized' });
+
+  const itemId = parseInt(req.body.itemId ?? req.body.item_id, 10);
+  const quantity = Math.max(1, Math.min(99, parseInt(req.body.quantity ?? req.body.qty, 10) || 1));
+  const mapId =
+    req.body.mapId != null || req.body.map_id != null
+      ? String(req.body.mapId ?? req.body.map_id).trim()
+      : '';
+
+  if (!Number.isFinite(itemId) || itemId <= 0) {
+    return res.status(400).json({ message: 'Thiếu itemId' });
+  }
+
+  try {
+    const [itemRows] = await db.query('SELECT id, name FROM items WHERE id = ?', [itemId]);
+    if (!itemRows.length) {
+      return res.status(404).json({ message: 'Vật phẩm không tồn tại' });
+    }
+
+    if (mapId) {
+      const [mapRows] = await db.query(
+        'SELECT encounter_pool_json FROM hunting_maps WHERE id = ? LIMIT 1',
+        [mapId]
+      );
+      if (mapRows.length) {
+        let pool = mapRows[0].encounter_pool_json;
+        if (typeof pool === 'string') {
+          try {
+            pool = JSON.parse(pool);
+          } catch {
+            pool = [];
+          }
+        }
+        const allowed =
+          Array.isArray(pool) &&
+          pool.some(
+            (row) =>
+              row &&
+              String(row.kind || '').toLowerCase() === 'item' &&
+              Number(row.item_id ?? row.itemId) === itemId
+          );
+        if (!allowed) {
+          return res.status(400).json({ message: 'Vật phẩm không thuộc bản đồ săn này' });
+        }
+      }
+    }
+
+    await grantMailItemsToInventory(db, uid, itemId, quantity);
+    res.json({
+      ok: true,
+      itemId,
+      quantity,
+      name: itemRows[0].name,
+      message: `Đã nhận ${itemRows[0].name} ×${quantity} vào túi đồ.`,
+    });
+  } catch (err) {
+    console.error('POST /api/hunting/claim-item', err);
+    res.status(500).json({ message: 'Lỗi khi nhận vật phẩm' });
   }
 });
 
@@ -6808,20 +7340,34 @@ app.post('/api/admin/pet-species', (req, res) => {
   const {
     name, image, type, description, rarity,
     base_hp, base_mp, base_str, base_def, base_intelligence, base_spd,
-    evolve_to
+    evolve_to,
+    evolve_min_level,
+    evolve_item_id,
   } = req.body;
 
   const sql = `
     INSERT INTO pet_species
     (name, image, type, description, rarity,
-     base_hp, base_mp, base_str, base_def, base_intelligence, base_spd, evolve_to)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     base_hp, base_mp, base_str, base_def, base_intelligence, base_spd, evolve_to,
+     evolve_min_level, evolve_item_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
+
+  const eml =
+    evolve_min_level != null && evolve_min_level !== ''
+      ? Math.max(1, parseInt(evolve_min_level, 10) || 1)
+      : 1;
+  const eItem =
+    evolve_item_id != null && evolve_item_id !== ''
+      ? parseInt(evolve_item_id, 10)
+      : null;
 
   const values = [
     name, image, type, description, rarity,
     base_hp, base_mp, base_str, base_def, base_intelligence, base_spd,
-    evolve_to ? JSON.stringify(evolve_to) : null
+    evolve_to ? JSON.stringify(evolve_to) : null,
+    eml,
+    Number.isFinite(eItem) && eItem > 0 ? eItem : null,
   ];
 
   pool.query(sql, values, (err, results) => {
@@ -6866,21 +7412,35 @@ app.put('/api/admin/pet-species/:id', (req, res) => {
   const {
     name, image, type, description, rarity,
     base_hp, base_mp, base_str, base_def, base_intelligence, base_spd,
-    evolve_to
+    evolve_to,
+    evolve_min_level,
+    evolve_item_id,
   } = req.body;
 
   const sql = `
     UPDATE pet_species SET
       name = ?, image = ?, type = ?, description = ?, rarity = ?,
       base_hp = ?, base_mp = ?, base_str = ?, base_def = ?, base_intelligence = ?, base_spd = ?,
-      evolve_to = ?
+      evolve_to = ?,
+      evolve_min_level = ?, evolve_item_id = ?
     WHERE id = ?
   `;
+
+  const eml =
+    evolve_min_level != null && evolve_min_level !== ''
+      ? Math.max(1, parseInt(evolve_min_level, 10) || 1)
+      : 1;
+  const eItem =
+    evolve_item_id != null && evolve_item_id !== ''
+      ? parseInt(evolve_item_id, 10)
+      : null;
 
   const values = [
     name, image, type, description, rarity,
     base_hp, base_mp, base_str, base_def, base_intelligence, base_spd,
     evolve_to ? JSON.stringify(evolve_to) : null,
+    eml,
+    Number.isFinite(eItem) && eItem > 0 ? eItem : null,
     id
   ];
 
@@ -6989,6 +7549,202 @@ app.post('/api/admin/pet-species/csv', uploadMemory.single('file'), (req, res) =
   next(0);
 });
 
+// Tiến hóa — phải đăng ký trước GET /api/pets/:uuid để không bị nuốt path
+app.get('/api/pets/:uuid/evolution-info', async (req, res) => {
+  const uuid = req.params.uuid;
+  const userId = getUserIdFromToken(req);
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+  try {
+    const [rows] = await db.query(
+      `SELECT p.id AS pet_id, p.uuid, p.name AS pet_name, p.level, p.owner_id, p.pet_species_id,
+              p.evolution_stage,
+              ps.name AS species_name, ps.image AS species_image, ps.type AS species_type,
+              ps.evolve_to, ps.evolve_min_level, ps.evolve_item_id
+       FROM pets p
+       JOIN pet_species ps ON ps.id = p.pet_species_id
+       WHERE p.uuid = ? AND p.owner_id = ?
+       LIMIT 1`,
+      [uuid, userId]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ message: 'Pet not found' });
+    }
+    const row = rows[0];
+    const targetIds = parseSpeciesEvolveTo(row.evolve_to);
+    const minLevel = Math.max(1, parseInt(row.evolve_min_level, 10) || 1);
+    const itemId = row.evolve_item_id != null ? parseInt(row.evolve_item_id, 10) : null;
+    const petLevel = parseInt(row.level, 10) || 1;
+    const meetsLevel = petLevel >= minLevel;
+
+    let itemRow = null;
+    let inventoryQty = 0;
+    if (itemId && Number.isFinite(itemId)) {
+      const [it] = await db.query(
+        'SELECT id, name, image_url, type FROM items WHERE id = ? LIMIT 1',
+        [itemId]
+      );
+      itemRow = it[0] || null;
+      const [invSum] = await db.query(
+        'SELECT COALESCE(SUM(quantity), 0) AS qty FROM inventory WHERE player_id = ? AND item_id = ?',
+        [userId, itemId]
+      );
+      inventoryQty = Number(invSum[0]?.qty || 0);
+    }
+
+    const targets = [];
+    for (const tid of targetIds) {
+      const [tRows] = await db.query(
+        'SELECT id, name, image, type FROM pet_species WHERE id = ? LIMIT 1',
+        [tid]
+      );
+      if (tRows.length) {
+        targets.push({
+          species_id: tRows[0].id,
+          name: tRows[0].name,
+          image: tRows[0].image,
+          type: tRows[0].type,
+        });
+      }
+    }
+
+    const needsItem = itemId != null && Number.isFinite(itemId) && itemId > 0;
+    const hasItem = !needsItem || inventoryQty > 0;
+    const canEvolve =
+      targetIds.length > 0 &&
+      meetsLevel &&
+      hasItem &&
+      targets.length > 0;
+
+    let reason = null;
+    if (targetIds.length === 0 || targets.length === 0) {
+      reason = 'Loài này không có nhánh tiến hóa (evolve_to trống).';
+    } else if (!meetsLevel) {
+      reason = `Cần đạt cấp ${minLevel} (hiện ${petLevel}).`;
+    } else if (!hasItem && needsItem) {
+      reason = 'Thiếu vật phẩm tiến hóa trong túi đồ.';
+    }
+
+    res.json({
+      pet_id: row.pet_id,
+      uuid: row.uuid,
+      pet_name: row.pet_name,
+      pet_level: petLevel,
+      evolution_stage: row.evolution_stage,
+      current: {
+        species_id: row.pet_species_id,
+        name: row.species_name,
+        image: row.species_image,
+        type: row.species_type,
+      },
+      requirements: {
+        min_level: minLevel,
+        meets_level: meetsLevel,
+        item_id: needsItem ? itemId : null,
+        item: itemRow
+          ? {
+              id: itemRow.id,
+              name: itemRow.name,
+              image_url: itemRow.image_url,
+              type: itemRow.type,
+            }
+          : null,
+        inventory_quantity: inventoryQty,
+        needs_item: needsItem,
+      },
+      targets,
+      can_evolve: canEvolve,
+      reason,
+    });
+  } catch (err) {
+    console.error('GET /api/pets/:uuid/evolution-info:', err);
+    res.status(500).json({ message: 'Lỗi tải thông tin tiến hóa' });
+  }
+});
+
+app.post('/api/pets/:uuid/evolve', async (req, res) => {
+  const uuid = req.params.uuid;
+  const userId = getUserIdFromToken(req);
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+  const targetSpeciesId = parseInt(req.body?.targetSpeciesId ?? req.body?.target_species_id, 10);
+  if (!Number.isFinite(targetSpeciesId) || targetSpeciesId <= 0) {
+    return res.status(400).json({ message: 'Thiếu targetSpeciesId hợp lệ' });
+  }
+
+  let conn;
+  try {
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const [pRows] = await conn.query(
+      `SELECT p.*, ps.evolve_to, ps.evolve_min_level, ps.evolve_item_id
+       FROM pets p
+       JOIN pet_species ps ON ps.id = p.pet_species_id
+       WHERE p.uuid = ? AND p.owner_id = ?
+       LIMIT 1 FOR UPDATE`,
+      [uuid, userId]
+    );
+    if (!pRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ message: 'Pet not found' });
+    }
+    const pet = pRows[0];
+    const petId = pet.id;
+    const allowed = parseSpeciesEvolveTo(pet.evolve_to);
+    if (!allowed.includes(targetSpeciesId)) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'Loài đích không nằm trong evolve_to của loài hiện tại.' });
+    }
+
+    const minLevel = Math.max(1, parseInt(pet.evolve_min_level, 10) || 1);
+    const petLevel = parseInt(pet.level, 10) || 1;
+    if (petLevel < minLevel) {
+      await conn.rollback();
+      return res.status(400).json({ message: `Cần đạt cấp ${minLevel} để tiến hóa.` });
+    }
+
+    const itemReq = pet.evolve_item_id != null ? parseInt(pet.evolve_item_id, 10) : null;
+    if (itemReq != null && Number.isFinite(itemReq) && itemReq > 0) {
+      const [invRows] = await conn.query(
+        'SELECT id, quantity FROM inventory WHERE player_id = ? AND item_id = ? AND quantity >= 1 ORDER BY id ASC LIMIT 1 FOR UPDATE',
+        [userId, itemReq]
+      );
+      if (!invRows.length) {
+        await conn.rollback();
+        return res.status(400).json({ message: 'Không có vật phẩm tiến hóa trong túi đồ.' });
+      }
+      const invId = invRows[0].id;
+      const q = parseInt(invRows[0].quantity, 10) || 0;
+      await conn.query('UPDATE inventory SET quantity = ? WHERE id = ?', [Math.max(0, q - 1), invId]);
+      if (q - 1 <= 0) {
+        await conn.query('DELETE FROM inventory WHERE id = ?', [invId]);
+      }
+    }
+
+    await conn.query(
+      'UPDATE pets SET pet_species_id = ?, evolution_stage = COALESCE(evolution_stage, 0) + 1 WHERE id = ?',
+      [targetSpeciesId, petId]
+    );
+    await refreshPetIntrinsicStats(conn, petId);
+    await normalizePetCurrentHp(conn, petId);
+    try {
+      await titleService.recordPetEvolution(conn, userId, 1);
+    } catch (e) {
+      console.error('titleService.recordPetEvolution:', e);
+    }
+
+    await conn.commit();
+    res.json({ message: 'Tiến hóa thành công!', target_species_id: targetSpeciesId });
+  } catch (err) {
+    if (conn) await conn.rollback();
+    console.error('POST /api/pets/:uuid/evolve:', err);
+    res.status(500).json({ message: 'Lỗi khi tiến hóa' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 // API Lấy Thông Tin Chi Tiết Thú Cưng Theo ID/UUID
 app.get('/api/pets/:uuid', (req, res) => {
   const uuid = req.params.uuid;
@@ -7009,6 +7765,42 @@ app.get('/api/pets/:uuid', (req, res) => {
           }
       }
   });
+});
+
+// Đổi tên thú cưng (chủ sở hữu)
+app.patch('/api/pets/:uuid', async (req, res) => {
+  const uuid = req.params.uuid;
+  const userId = getUserIdFromToken(req);
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+  const rawName = req.body?.name ?? req.body?.pet_name;
+  const name = typeof rawName === 'string' ? rawName.trim() : '';
+  if (!name || name.length > 100) {
+    return res.status(400).json({ message: 'Tên không hợp lệ (1–100 ký tự).' });
+  }
+
+  try {
+    const [rows] = await db.query(
+      'SELECT id FROM pets WHERE uuid = ? AND owner_id = ? LIMIT 1',
+      [uuid, userId]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ message: 'Pet not found' });
+    }
+    await db.query('UPDATE pets SET name = ? WHERE uuid = ? AND owner_id = ?', [name, uuid, userId]);
+    const [updated] = await db.query(
+      `SELECT p.*, pt.name AS pet_types_name, pt.image
+       FROM pets p
+       JOIN pet_species pt ON p.pet_species_id = pt.id
+       WHERE p.uuid = ?
+       LIMIT 1`,
+      [uuid]
+    );
+    res.json(updated[0] || { message: 'Đã đổi tên', name });
+  } catch (err) {
+    console.error('PATCH /api/pets/:uuid:', err);
+    res.status(500).json({ message: 'Lỗi khi đổi tên thú cưng' });
+  }
 });
 
 // API Delete Pet
@@ -8648,7 +9440,7 @@ app.get('/api/users/:userId/inventory', async (req, res) => {
   try {
     const [rows] = await db.query(`
         SELECT i.*, it.name, it.description, it.image_url, it.type, it.category AS item_category,
-               it.subtype AS item_subtype, it.rarity, 
+               it.subtype AS item_subtype, it.rarity, it.item_code,
                it.sell_price, it.buy_price, it.price_currency,
                it.magic_value AS items_magic_value,
                p.name AS pet_name, p.level AS pet_level,
@@ -9320,13 +10112,13 @@ app.post('/api/admin/arena-pet', async (req, res) => {
 });
 
 
-// API: Lấy danh sách Boss/NPC làm đối thủ Arena (từ bảng boss_templates; location_id = 1 = Arena)
+// API: Lấy danh sách Boss Arena (location_id = 0 = Arena; NULL = legacy hiển thị Arena)
 app.get('/api/arena/enemies', async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT id, name, level, image_url AS image
       FROM boss_templates
-      WHERE location_id = 1 OR location_id IS NULL
+      WHERE location_id = 0 OR location_id IS NULL
       ORDER BY level ASC
     `);
     const list = (rows || []).map((r) => ({ ...r, isBoss: true }));
@@ -9337,7 +10129,9 @@ app.get('/api/arena/enemies', async (req, res) => {
   }
 });
 
-// API: Chi tiết Boss (dùng cho Arena battle – trả về final_stats tương thích Pet, current_hp = max hp)
+// API: Chi tiết Boss
+// - Không có ?level= → Arena / mặc định: base_* dùng trực tiếp (không công thức)
+// - Có ?level=N → map săn: tính stat theo công thức (base L1 × level)
 app.get('/api/bosses/:id', async (req, res) => {
   try {
     const bossId = parseInt(req.params.id, 10);
@@ -9352,16 +10146,13 @@ app.get('/api/bosses/:id', async (req, res) => {
     }
     const row = bossRows[0];
 
-    // Stat Boss cố định do admin/DB nhập, không tính công thức, không IV, không lên level
-    const finalStats = {
-      hp: parseInt(row.base_hp, 10) || 10,
-      mp: parseInt(row.base_mp, 10) || 10,
-      str: parseInt(row.base_str, 10) || 10,
-      def: parseInt(row.base_def, 10) || 10,
-      intelligence: parseInt(row.base_intelligence, 10) || 10,
-      spd: parseInt(row.base_spd, 10) || 10,
-    };
-    const level = parseInt(row.level, 10) || 1;
+    const templateLevel = parseInt(row.level, 10) || 1;
+    const qLevel = parseInt(req.query.level, 10);
+    const useFormula = Number.isFinite(qLevel) && qLevel > 0;
+    const level = useFormula ? qLevel : templateLevel;
+    const finalStats = useFormula
+      ? calculateBossFinalStats(row, level)
+      : rawBossFinalStats(row);
 
     const [skillRows] = await db.query(
       `SELECT s.id, s.name, s.description, s.type, s.power_min, s.power_max, s.accuracy, s.mana_cost, bs.sort_order
@@ -9399,6 +10190,7 @@ app.get('/api/bosses/:id', async (req, res) => {
       skills,
       action_pattern: Array.isArray(action_pattern) ? action_pattern : null,
       isBoss: true,
+      statsScaled: useFormula,
     };
     res.json(boss);
   } catch (err) {
@@ -9463,6 +10255,31 @@ function parseHuntingMapBody(body, opts = {}) {
     ? body.encounterPool ?? body.encounter_pool
     : [];
   const sortOrder = parseInt(body.sort_order ?? body.sortOrder ?? 0, 10) || 0;
+  const hiddenRaw = body.is_hidden ?? body.isHidden;
+  const is_hidden =
+    hiddenRaw === true ||
+    hiddenRaw === 1 ||
+    hiddenRaw === '1' ||
+    String(hiddenRaw || '').toLowerCase() === 'true'
+      ? 1
+      : 0;
+  const require_min_level = Math.max(
+    0,
+    parseInt(body.requireMinLevel ?? body.require_min_level ?? 0, 10) || 0
+  );
+  let encounter_level_min = Math.max(
+    1,
+    parseInt(body.encounterLevelMin ?? body.encounter_level_min ?? 1, 10) || 1
+  );
+  let encounter_level_max = Math.max(
+    1,
+    parseInt(body.encounterLevelMax ?? body.encounter_level_max ?? 1, 10) || 1
+  );
+  if (encounter_level_max < encounter_level_min) {
+    const t = encounter_level_min;
+    encounter_level_min = encounter_level_max;
+    encounter_level_max = t;
+  }
   return {
     value: {
       id,
@@ -9481,6 +10298,10 @@ function parseHuntingMapBody(body, opts = {}) {
       tiles_json: JSON.stringify(tiles),
       encounter_pool_json: JSON.stringify(encounterPool),
       sort_order: sortOrder,
+      is_hidden,
+      require_min_level,
+      encounter_level_min,
+      encounter_level_max,
     },
   };
 }
@@ -9517,8 +10338,9 @@ app.post('/api/admin/hunting-maps', checkAdminRoleNpc, async (req, res) => {
     await db.query(
       `INSERT INTO hunting_maps (
         id, name, entry_fee, currency, max_steps, thumb, width, height, tile_size,
-        start_x, start_y, background_url, foreground_url, tiles_json, encounter_pool_json, sort_order
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        start_x, start_y, background_url, foreground_url, tiles_json, encounter_pool_json, sort_order, is_hidden,
+        require_min_level, encounter_level_min, encounter_level_max
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         v.id,
         v.name,
@@ -9536,6 +10358,10 @@ app.post('/api/admin/hunting-maps', checkAdminRoleNpc, async (req, res) => {
         v.tiles_json,
         v.encounter_pool_json,
         v.sort_order,
+        v.is_hidden,
+        v.require_min_level,
+        v.encounter_level_min,
+        v.encounter_level_max,
       ]
     );
     const [rows] = await db.query('SELECT * FROM hunting_maps WHERE id = ?', [v.id]);
@@ -9559,7 +10385,8 @@ app.put('/api/admin/hunting-maps/:id', checkAdminRoleNpc, async (req, res) => {
     await db.query(
       `UPDATE hunting_maps SET
         name=?, entry_fee=?, currency=?, max_steps=?, thumb=?, width=?, height=?, tile_size=?,
-        start_x=?, start_y=?, background_url=?, foreground_url=?, tiles_json=?, encounter_pool_json=?, sort_order=?
+        start_x=?, start_y=?, background_url=?, foreground_url=?, tiles_json=?, encounter_pool_json=?, sort_order=?,
+        is_hidden=?, require_min_level=?, encounter_level_min=?, encounter_level_max=?
       WHERE id=?`,
       [
         v.name,
@@ -9577,6 +10404,10 @@ app.put('/api/admin/hunting-maps/:id', checkAdminRoleNpc, async (req, res) => {
         v.tiles_json,
         v.encounter_pool_json,
         v.sort_order,
+        v.is_hidden,
+        v.require_min_level,
+        v.encounter_level_min,
+        v.encounter_level_max,
         paramId,
       ]
     );
@@ -9598,6 +10429,37 @@ app.delete('/api/admin/hunting-maps/:id', checkAdminRoleNpc, async (req, res) =>
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+// ---------- Admin: hunting catch rates config ----------
+app.get('/api/admin/hunting-catch-config', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const cfg = await huntingCatch.loadCatchConfig(db);
+    res.json(cfg);
+  } catch (err) {
+    console.error('GET /api/admin/hunting-catch-config', err);
+    res.status(500).json({ message: 'Lỗi tải cấu hình bắt pet' });
+  }
+});
+
+app.put('/api/admin/hunting-catch-config', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const cfg = await huntingCatch.saveCatchConfig(db, req.body || {});
+    res.json(cfg);
+  } catch (err) {
+    console.error('PUT /api/admin/hunting-catch-config', err);
+    res.status(500).json({ message: 'Lỗi lưu cấu hình bắt pet' });
+  }
+});
+
+app.post('/api/admin/hunting-catch-config/reset', checkAdminRoleNpc, async (req, res) => {
+  try {
+    const cfg = await huntingCatch.saveCatchConfig(db, huntingCatch.DEFAULT_CONFIG);
+    res.json(cfg);
+  } catch (err) {
+    console.error('POST /api/admin/hunting-catch-config/reset', err);
+    res.status(500).json({ message: 'Lỗi reset cấu hình' });
   }
 });
 
@@ -10542,7 +11404,7 @@ app.post('/api/arena/match/start', async (req, res) => {
   const redis = getRedis();
   if (!redis) return res.status(503).json({ message: 'Match service temporarily unavailable' });
 
-  const { petId, bossId } = req.body;
+  const { petId, bossId, bossLevel, battleSource, returnPath, huntingMapId } = req.body;
   if (!petId || !bossId) return res.status(400).json({ message: 'Thiếu petId hoặc bossId' });
 
   try {
@@ -10583,14 +11445,14 @@ app.post('/api/arena/match/start', async (req, res) => {
     const [bossRows] = await db.query('SELECT * FROM boss_templates WHERE id = ?', [bossId]);
     if (!bossRows.length) return res.status(404).json({ message: 'Boss not found' });
     const row = bossRows[0];
-    const bossFinalStats = {
-      hp: parseInt(row.base_hp, 10) || 10,
-      mp: parseInt(row.base_mp, 10) || 10,
-      str: parseInt(row.base_str, 10) || 10,
-      def: parseInt(row.base_def, 10) || 10,
-      intelligence: parseInt(row.base_intelligence, 10) || 10,
-      spd: parseInt(row.base_spd, 10) || 10,
-    };
+    const templateLevel = parseInt(row.level, 10) || 1;
+    const overrideLevel = parseInt(bossLevel, 10);
+    // Hunting truyền bossLevel → công thức; Arena không truyền → base_* thô
+    const useFormula = Number.isFinite(overrideLevel) && overrideLevel > 0;
+    const combatLevel = useFormula ? overrideLevel : templateLevel;
+    const bossFinalStats = useFormula
+      ? calculateBossFinalStats(row, combatLevel)
+      : rawBossFinalStats(row);
     const [skillRows] = await db.query(
       `SELECT s.id, s.name, s.type, s.power_min, s.power_max, s.accuracy, s.mana_cost FROM boss_skills bs JOIN skills s ON bs.skill_id = s.id WHERE bs.boss_template_id = ? ORDER BY bs.sort_order ASC`,
       [bossId]
@@ -10608,7 +11470,7 @@ app.post('/api/arena/match/start', async (req, res) => {
     const enemy = {
       id: row.id,
       name: row.name,
-      level: parseInt(row.level, 10) || 1,
+      level: combatLevel,
       image: row.image_url,
       final_stats: bossFinalStats,
       current_hp: bossFinalStats.hp,
@@ -10617,6 +11479,8 @@ app.post('/api/arena/match/start', async (req, res) => {
       skills,
       action_pattern: Array.isArray(action_pattern) ? action_pattern : null,
       isBoss: true,
+      statsScaled: useFormula,
+      location_id: row.location_id,
     };
 
     let finalStats = pet.final_stats;
@@ -10655,10 +11519,34 @@ app.post('/api/arena/match/start', async (req, res) => {
       is_permanent_durability: (e.durability_mode || '').toLowerCase() === 'unbreakable' || (e.durability_max != null && parseInt(e.durability_max, 10) >= 999999),
     }));
 
+    const source =
+      battleSource === 'hunting' || (useFormula && battleSource !== 'arena')
+        ? 'hunting'
+        : 'arena';
+    const mapIdStr =
+      huntingMapId != null && String(huntingMapId).trim() !== ''
+        ? String(huntingMapId).trim()
+        : null;
+    let resolvedReturn =
+      returnPath != null && String(returnPath).trim() !== ''
+        ? String(returnPath).trim()
+        : null;
+    if (!resolvedReturn) {
+      resolvedReturn =
+        source === 'hunting' && mapIdStr
+          ? `/hunting-world/map/${encodeURIComponent(mapIdStr)}`
+          : '/battle/arena';
+    }
+
     const matchState = {
       userId,
       pet_id: parseInt(petId, 10),
       boss_id: parseInt(bossId, 10),
+      boss_level: combatLevel,
+      stats_scaled: useFormula,
+      battleSource: source,
+      huntingMapId: mapIdStr,
+      returnPath: resolvedReturn,
       player,
       enemy,
       equipment,
@@ -14137,6 +15025,13 @@ app.post('/api/restaurant/feed', async (req, res) => {
 (async () => {
   await resetOnlineStatusOnStartup();
   await initRedis();
+  await ensureHuntingMapsHiddenColumn(db);
+  try {
+    await huntingCatch.loadCatchConfig(db);
+    console.log('[db] hunting_catch_config loaded');
+  } catch (e) {
+    console.error('loadCatchConfig on startup:', e);
+  }
   httpServer.listen(port, () => {
     console.log(`Server is running on port ${port}`);
   });

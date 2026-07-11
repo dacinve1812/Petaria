@@ -53,7 +53,7 @@ async function run() {
         base_intelligence INT NOT NULL DEFAULT 10,
         base_spd INT NOT NULL DEFAULT 10,
         accuracy INT NOT NULL DEFAULT 100 COMMENT '0-100%',
-        location_id INT DEFAULT NULL COMMENT 'Khu vực xuất hiện (1=Arena, ...)',
+        location_id INT DEFAULT NULL COMMENT '0=Arena, >=1=map săn (map id), NULL=legacy Arena',
         drop_table JSON DEFAULT NULL COMMENT '[{item_id, chance_percent}, ...]',
         respawn_minutes INT DEFAULT NULL COMMENT 'Thời gian hồi sinh (phút)',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

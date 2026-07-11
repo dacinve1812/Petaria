@@ -1,5 +1,5 @@
 // ArenaBattlePage.js - Trang chiến đấu PvE
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { UserContext } from '../../UserContext';
@@ -7,16 +7,116 @@ import TemplatePage from '../template/TemplatePage';
 import GameModalButton from '../ui/GameModalButton';
 import { BattleBannerOverlay, BattleResultDimOverlay } from './BattleOverlays';
 import { getDisplayName } from '../../utils/userDisplay';
+import { getActiveHuntingMap } from '../../utils/huntingSessionStorage';
 import '../css/BattlePage.css';
 import '../css/ArenaBattlePage.css';
 import expTable from '../../data/exp_table_petaria.json';
+
+const BATTLE_RETURN_KEY = 'petaria-arena-battle-return';
+
+function readStoredBattleReturn() {
+  try {
+    const raw = sessionStorage.getItem(BATTLE_RETURN_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object') return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function clearStoredBattleReturn() {
+  try {
+    sessionStorage.removeItem(BATTLE_RETURN_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 function ArenaBattlePage() {
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useContext(UserContext) || {};
-    const { playerPet, enemyPet, matchState: initialMatchState, useRedisMatch: useRedisMatchFromState } = location.state || {};
+    const {
+      playerPet,
+      enemyPet,
+      matchState: initialMatchState,
+      useRedisMatch: useRedisMatchFromState,
+      fromHunting: fromHuntingState,
+      battleSource: battleSourceState,
+      returnPath: returnPathState,
+      huntingMapId: huntingMapIdState,
+    } = location.state || {};
     const fromMatch = !!initialMatchState && !!useRedisMatchFromState;
+
+    const returnMeta = useMemo(() => {
+      const match = initialMatchState;
+      const enemy = match?.enemy || enemyPet;
+      const locId = Number(enemy?.location_id);
+      const activeMapId = getActiveHuntingMap()?.mapId || null;
+      const stored = readStoredBattleReturn();
+
+      // Ưu tiên nguồn từ LẦN navigate hiện tại / sessionStorage, không để match Redis cũ (arena) ghi đè
+      let isHunting = false;
+      if (
+        battleSourceState === 'hunting' ||
+        fromHuntingState === true ||
+        stored?.battleSource === 'hunting'
+      ) {
+        isHunting = true;
+      } else if (battleSourceState === 'arena' || stored?.battleSource === 'arena') {
+        isHunting = false;
+      } else if (match?.battleSource === 'hunting') {
+        isHunting = true;
+      } else if (match?.battleSource === 'arena') {
+        isHunting = false;
+      } else {
+        isHunting =
+          match?.stats_scaled === true ||
+          enemy?.statsScaled === true ||
+          (Number.isFinite(locId) && locId > 0) ||
+          Boolean(huntingMapIdState || match?.huntingMapId || stored?.huntingMapId);
+      }
+
+      const mapId =
+        huntingMapIdState ||
+        match?.huntingMapId ||
+        stored?.huntingMapId ||
+        (isHunting ? activeMapId : null) ||
+        null;
+
+      let path =
+        (isHunting
+          ? returnPathState || match?.returnPath || stored?.returnPath
+          : returnPathState || stored?.returnPath || match?.returnPath) || null;
+
+      // Nếu đang săn mà path vẫn trỏ arena → ép về map săn
+      if (isHunting && (!path || String(path).startsWith('/battle'))) {
+        path = mapId
+          ? `/hunting-world/map/${encodeURIComponent(String(mapId))}`
+          : '/hunting-world';
+      }
+      if (!path) path = isHunting ? '/hunting-world' : '/battle/arena';
+
+      return {
+        battleSource: isHunting ? 'hunting' : 'arena',
+        returnPath: path,
+        returnLabel: isHunting ? 'Về đi săn' : 'Về Đấu trường',
+      };
+    }, [
+      battleSourceState,
+      fromHuntingState,
+      returnPathState,
+      huntingMapIdState,
+      initialMatchState,
+      enemyPet,
+    ]);
+
+    const goBackAfterBattle = useCallback(() => {
+      clearStoredBattleReturn();
+      navigate(returnMeta.returnPath || '/battle/arena');
+    }, [navigate, returnMeta.returnPath]);
 
     const [player, setPlayer] = useState(() => {
       if (fromMatch && initialMatchState?.player) return { ...initialMatchState.player, current_def_dmg: initialMatchState.player.current_def_dmg ?? 0 };
@@ -35,23 +135,30 @@ function ArenaBattlePage() {
 
     // Đảm bảo Boss có đủ action_pattern + skills (nếu vào trận với enemy thiếu dữ liệu)
     useEffect(() => {
-      if (!enemyPet?.id || !enemyPet?.isBoss) return;
-      const hasPattern = Array.isArray(enemyPet.action_pattern) && enemyPet.action_pattern.length > 0;
-      const hasSkills = Array.isArray(enemyPet.skills) && enemyPet.skills.length > 0;
+      const bossSrc =
+        fromMatch && initialMatchState?.enemy ? initialMatchState.enemy : enemyPet;
+      if (!bossSrc?.id || !bossSrc?.isBoss) return;
+      const hasPattern = Array.isArray(bossSrc.action_pattern) && bossSrc.action_pattern.length > 0;
+      const hasSkills = Array.isArray(bossSrc.skills) && bossSrc.skills.length > 0;
       if (hasPattern && hasSkills) return;
-      fetch(`${process.env.REACT_APP_API_BASE_URL || ''}/api/bosses/${enemyPet.id}`)
+      const lv = Math.max(1, Number(bossSrc.level) || 0);
+      const qs = lv > 0 ? `?level=${lv}` : '';
+      fetch(`${process.env.REACT_APP_API_BASE_URL || ''}/api/bosses/${bossSrc.id}${qs}`)
         .then((r) => r.json())
         .then((boss) => {
           setEnemy((prev) => ({
             ...prev,
-            ...boss,
-            current_hp: prev.current_hp ?? boss.current_hp ?? boss.final_stats?.hp,
-            action_pattern: boss.action_pattern ?? prev.action_pattern,
-            skills: boss.skills ?? prev.skills,
+            skills: Array.isArray(boss.skills) && boss.skills.length ? boss.skills : prev.skills,
+            action_pattern:
+              Array.isArray(boss.action_pattern) && boss.action_pattern.length
+                ? boss.action_pattern
+                : prev.action_pattern,
+            // Giữ HP/stats đã scale từ match Redis; chỉ bổ sung AI data
+            isBoss: true,
           }));
         })
         .catch((err) => console.error('Load full boss for action_pattern:', err));
-    }, [enemyPet?.id, enemyPet?.isBoss]);
+    }, [enemyPet?.id, enemyPet?.isBoss, fromMatch, initialMatchState?.enemy]);
     const [log, setLog] = useState(() => (fromMatch && Array.isArray(initialMatchState?.history) ? initialMatchState.history : []));
     const [autoMode, setAutoMode] = useState(false);
     const [isBlitzMode, setIsBlitzMode] = useState(false);
@@ -555,6 +662,18 @@ function ArenaBattlePage() {
           if (Array.isArray(data.equipment)) {
             setEquippedItems(data.equipment.map((e) => ({ ...e, image_url: e.image_url || '' })));
           }
+          try {
+            sessionStorage.setItem(
+              BATTLE_RETURN_KEY,
+              JSON.stringify({
+                battleSource: data.battleSource || 'arena',
+                returnPath: data.returnPath || '/battle/arena',
+                huntingMapId: data.huntingMapId || null,
+              })
+            );
+          } catch {
+            /* ignore */
+          }
           setRedisMatchRestored(true);
           setIsRedisMatch(true);
         }
@@ -757,7 +876,8 @@ function ArenaBattlePage() {
         } catch (err) {
           console.error('Terminate match:', err);
         }
-        navigate('/battle/arena');
+        navigate(returnMeta.returnPath || '/battle/arena');
+        clearStoredBattleReturn();
       };
 
       useEffect(() => {
@@ -849,8 +969,8 @@ function ArenaBattlePage() {
           levelUp={!!battleReward.levelUp}
           newLevel={battleReward.newLevel}
           footer={
-            <GameModalButton type="button" variant="primary" showIcon={false} onClick={() => navigate('/battle/arena')}>
-              Về Đấu trường
+            <GameModalButton type="button" variant="primary" showIcon={false} onClick={goBackAfterBattle}>
+              {returnMeta.returnLabel || 'Trở lại'}
             </GameModalButton>
           }
         />

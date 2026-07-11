@@ -44,6 +44,9 @@ export function buildForestMap() {
     tileSize,
     /** null = không giới hạn bước (UI có thể hiển thị ∞) */
     maxSteps: null,
+    requireMinLevel: 0,
+    encounterLevelMin: 1,
+    encounterLevelMax: 1,
     start: { x: 10, y: 10 },
     assets: {
       background: '/hunting/maps/forest-map.png',

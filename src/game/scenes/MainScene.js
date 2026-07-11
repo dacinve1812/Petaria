@@ -248,16 +248,25 @@ export default class MainScene extends Phaser.Scene {
     this.encounterManager = new EncounterManager(this, {
       isEncounterTile: (tx, ty) => this.isEncounterTile(tx, ty),
       encounterPool: map.encounterPool,
+      encounterLevelMin: map.encounterLevelMin,
+      encounterLevelMax: map.encounterLevelMax,
     });
 
     this.encounterManager.setEncounterCallback((result) => {
       this.isEncounterModalOpen = true;
+      const mapId = this.huntingMap?.id || this.mapData?.id || null;
       window.dispatchEvent(
         new CustomEvent('wildPetEncounter', {
           detail: {
             encounterType: result.encounterType,
             wildPet: result.wildPet,
-            itemEncounter: result.item,
+            itemEncounter: result.item
+              ? { ...result.item, mapId: result.item.mapId ?? mapId }
+              : null,
+            bossEncounter: result.boss
+              ? { ...result.boss, mapId: result.boss.mapId ?? mapId }
+              : null,
+            mapId,
           },
         })
       );
@@ -303,6 +312,7 @@ export default class MainScene extends Phaser.Scene {
         this.cameraZoom = this.defaultCameraZoom;
       } else if (action === 'zoomFit') {
         this.cameraZoom = this.getFitZoom();
+        this.defaultCameraZoom = this.cameraZoom;
       } else {
         return;
       }

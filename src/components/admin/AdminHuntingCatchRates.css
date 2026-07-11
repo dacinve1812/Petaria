@@ -1,0 +1,135 @@
+.hcatch-admin {
+  padding: 1.5rem;
+  color: #1a1a1a;
+  background-color: white;}
+
+.hcatch-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  height: 90px;
+}
+
+.hcatch-header h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.hcatch-nav a {
+  margin-right: 0.75rem;
+  color: #333;
+}
+
+.hcatch-msg {
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  background: #f5f5f5;
+}
+
+.hcatch-msg.success {
+  background: #e8f5e9;
+}
+
+.hcatch-msg.error {
+  background: #fdecea;
+  color: #8a1f11;
+}
+
+.hcatch-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.hcatch-section h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.hcatch-hint {
+  font-size: 0.85rem;
+  color: #666;
+  margin: 0 0 0.75rem;
+}
+
+.hcatch-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0.75rem;
+}
+
+.hcatch-table th,
+.hcatch-table td {
+  border-bottom: 1px solid #eee;
+  padding: 0.4rem 0.35rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.hcatch-table input {
+  width: 100%;
+  max-width: 160px;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.hcatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.hcatch-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.hcatch-grid input {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.hcatch-textarea {
+  width: 100%;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.hcatch-btn {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  margin-right: 0.5rem;
+}
+
+.hcatch-btn.primary {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+
+.hcatch-btn.danger {
+  color: #a33;
+  border-color: #e0b4b4;
+}
+
+.hcatch-actions {
+  margin-top: 0.5rem;
+  margin-bottom: 2rem;
+}

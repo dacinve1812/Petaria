@@ -2,7 +2,6 @@ import React from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { UserProvider } from './UserContext';
 import MainLayout from './components/MainLayout';
-import EncounterModalContainer from './components/EncounterModalContainer';
 import HomePage from './components/HomePage';
 import Auth from './components/Auth';
 import Orphanage from './components/Orphanage';
@@ -12,8 +11,10 @@ import AdminMailTest from './components/admin/AdminMailTest';
 import UserProfile from './components/UserProfile';
 import EditProfile from './components/EditProfile';
 import PetProfile from './components/PetProfile';
+import PetEvolutionPage from './components/PetEvolutionPage';
 import Inventory from './components/items/Inventory';
 import EditPetTypes from './components/admin/EditPetTypes';
+import AdminPetEvolutionManagement from './components/admin/AdminPetEvolutionManagement';
 import EditItems from './components/admin/EditItems';
 import EditEquipmentStats from './components/admin/EditEquipmentStats';
 import EditItemEffects from './components/admin/EditItemEffects';
@@ -27,6 +28,7 @@ import AdminSpiritEditor from './components/admin/AdminSpiritEditor';
 import SiteManagement from './components/admin/SiteManagement';
 import AdminSiteAuctionMailPage from './components/admin/AdminSiteAuctionMailPage';
 import AdminHuntingMapManagement from './components/admin/AdminHuntingMapManagement';
+import AdminHuntingCatchRates from './components/admin/AdminHuntingCatchRates';
 import HomePageVer2 from './components/HomePageVer2';
 import HuntingMap from './components/HuntingMap';
 import WorldMapPage from './components/WorldMapPage';
@@ -111,8 +113,10 @@ const router = createBrowserRouter([
       { path: 'profile', element: <UserProfile /> },
       { path: 'profile/edit', element: <EditProfile /> },
       { path: 'pet/:uuid', element: <PetProfile /> },
+      { path: 'pet/:uuid/evolve', element: <PetEvolutionPage /> },
       { path: 'inventory', element: <Inventory /> },
       { path: 'admin/edit-pet-types', element: <EditPetTypes /> },
+      { path: 'admin/pet-evolution', element: <AdminPetEvolutionManagement /> },
       { path: 'admin/edit-items', element: <EditItems /> },
       { path: 'admin/edit-equipment-stats', element: <EditEquipmentStats /> },
       { path: 'admin/edit-item-effects', element: <EditItemEffects /> },
@@ -127,6 +131,7 @@ const router = createBrowserRouter([
       { path: 'admin/game-center', element: <AdminGameCenterManagement /> },
       { path: 'admin/site/auction-mail', element: <AdminSiteAuctionMailPage /> },
       { path: 'admin/hunting-maps', element: <AdminHuntingMapManagement /> },
+      { path: 'admin/hunting-catch-rates', element: <AdminHuntingCatchRates /> },
       { path: 'management', element: <MyStuffManagement /> },
       { path: 'title', element: <TitleMyPage /> },
       { path: 'exhibition', element: <ExhibitionRoom /> },
@@ -190,7 +195,6 @@ function App() {
   return (
     <UserProvider>
       <div className="App">
-        <EncounterModalContainer />
         <RouterProvider router={router} />
       </div>
     </UserProvider>

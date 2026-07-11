@@ -112,6 +112,10 @@
   color: #c9a227;
 }
 
+.hmap-badge--hidden {
+  color: #e89888;
+}
+
 .hmap-server-error {
   margin: 0.5rem 0 0;
   font-size: 0.85rem;
@@ -540,6 +544,11 @@
   color: #d0d8ff;
 }
 
+.hmap-enc-badge.bs {
+  background: rgba(200, 100, 90, 0.38);
+  color: #ffd8d4;
+}
+
 .hmap-enc-name {
   font-weight: 600;
   color: #e8ebff;
@@ -607,7 +616,7 @@
   background: #151a2a;
   border: 1px solid #2a3148;
   border-radius: 12px;
-  max-width: min(720px, 96vw);
+  width: min(540px, 100vw);
   max-height: 85vh;
   overflow: hidden;
   display: flex;
@@ -660,6 +669,7 @@
   cursor: pointer;
   font-size: 0.75rem;
   text-align: center;
+  height: 90px;
 }
 
 .hmap-enc-pick-card:hover {

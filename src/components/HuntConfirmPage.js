@@ -98,12 +98,16 @@ function HuntConfirmPage() {
         const remote = await fetchPublicHuntingMapList();
         const local = loadAllCustomMaps();
         if (!cancelled) {
-          setCatalog(mergeRemoteAndLocalHuntingCatalog(remote, local).filter((m) => !m.builtIn));
+          setCatalog(
+            mergeRemoteAndLocalHuntingCatalog(remote, local).filter((m) => !m.builtIn && !m.isHidden)
+          );
         }
       } catch {
         const local = loadAllCustomMaps();
         if (!cancelled) {
-          setCatalog(mergeRemoteAndLocalHuntingCatalog([], local).filter((m) => !m.builtIn));
+          setCatalog(
+            mergeRemoteAndLocalHuntingCatalog([], local).filter((m) => !m.builtIn && !m.isHidden)
+          );
         }
       } finally {
         if (!cancelled) setCatalogLoading(false);

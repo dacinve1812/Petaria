@@ -116,12 +116,27 @@ function ArenaPage() {
 
   const goToResumeBattle = () => {
     if (!resumeMatch?.player) return;
+    try {
+      sessionStorage.setItem(
+        'petaria-arena-battle-return',
+        JSON.stringify({
+          battleSource: resumeMatch.battleSource || 'arena',
+          returnPath: resumeMatch.returnPath || '/battle/arena',
+          huntingMapId: resumeMatch.huntingMapId || null,
+        })
+      );
+    } catch {
+      /* ignore */
+    }
     navigate('/battle/arena/arenabattle', {
       state: {
         matchState: resumeMatch,
         playerPet: resumeMatch.player,
         enemyPet: resumeMatch.enemy,
         useRedisMatch: true,
+        battleSource: resumeMatch.battleSource || 'arena',
+        returnPath: resumeMatch.returnPath || '/battle/arena',
+        fromHunting: resumeMatch.battleSource === 'hunting',
       },
     });
   };
@@ -134,18 +149,62 @@ function ArenaPage() {
       const res = await fetch(`${API_BASE_URL}/api/arena/match/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
-        body: JSON.stringify({ petId: pet.id, bossId: enemy.id }),
+        body: JSON.stringify({
+          petId: pet.id,
+          bossId: enemy.id,
+          battleSource: 'arena',
+          returnPath: '/battle/arena',
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
+        try {
+          sessionStorage.setItem(
+            'petaria-arena-battle-return',
+            JSON.stringify({
+              battleSource: 'arena',
+              returnPath: '/battle/arena',
+              huntingMapId: null,
+            })
+          );
+        } catch {
+          /* ignore */
+        }
         navigate('/battle/arena/arenabattle', {
-          state: { matchState: data, playerPet: data.player, enemyPet: data.enemy, useRedisMatch: true },
+          state: {
+            matchState: data,
+            playerPet: data.player,
+            enemyPet: data.enemy,
+            useRedisMatch: true,
+            battleSource: 'arena',
+            returnPath: '/battle/arena',
+          },
         });
         return;
       }
       if (res.status === 400 && data.code === 'ACTIVE_MATCH' && data.match) {
+        try {
+          sessionStorage.setItem(
+            'petaria-arena-battle-return',
+            JSON.stringify({
+              battleSource: data.match.battleSource || 'arena',
+              returnPath: data.match.returnPath || '/battle/arena',
+              huntingMapId: data.match.huntingMapId || null,
+            })
+          );
+        } catch {
+          /* ignore */
+        }
         navigate('/battle/arena/arenabattle', {
-          state: { matchState: data.match, playerPet: data.match.player, enemyPet: data.match.enemy, useRedisMatch: true },
+          state: {
+            matchState: data.match,
+            playerPet: data.match.player,
+            enemyPet: data.match.enemy,
+            useRedisMatch: true,
+            battleSource: data.match.battleSource || 'arena',
+            returnPath: data.match.returnPath || '/battle/arena',
+            fromHunting: data.match.battleSource === 'hunting',
+          },
         });
         return;
       }

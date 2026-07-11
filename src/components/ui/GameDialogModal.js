@@ -8,7 +8,7 @@ function GameDialogModal({
   onClose,
   title,
   children,
-  /** 'default' | 'info' | 'warning' | 'error' — ảnh hưởng accent nhẹ */
+  /** 'default' | 'info' | 'warning' | 'error' | 'success' — ảnh hưởng accent nhẹ */
   tone = 'default',
   mode = 'confirm',
   closeOnOverlayClick = true,
@@ -20,6 +20,7 @@ function GameDialogModal({
   /** { amount: number | string, prefix?: node } hoặc React node tùy chỉnh */
   costPill = null,
   className = '',
+  overlayClassName = '',
   contentClassName = '',
   footerClassName = '',
   /** Ghi đè toàn bộ footer (vd. nút tùy chỉnh) */
@@ -63,7 +64,7 @@ function GameDialogModal({
 
   return (
     <div
-      className="game-dialog-overlay"
+      className={`game-dialog-overlay ${overlayClassName}`.trim()}
       onClick={handleOverlay}
       role="presentation"
     >

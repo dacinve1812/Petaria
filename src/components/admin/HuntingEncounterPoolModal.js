@@ -15,7 +15,12 @@ function itemImageSrc(imageUrl) {
 
 function speciesImageSrc(imageFile) {
   if (!imageFile) return '/images/pets/default.png';
+  if (imageFile.startsWith('http') || imageFile.startsWith('/')) return imageFile;
   return `/images/pets/${imageFile}`;
+}
+
+function bossImageSrc(imageFile) {
+  return speciesImageSrc(imageFile);
 }
 
 /**
@@ -31,6 +36,7 @@ export default function HuntingEncounterPoolModal({ open, currentJson, onClose, 
   const [jsonText, setJsonText] = useState('[]');
   const [speciesList, setSpeciesList] = useState([]);
   const [itemsList, setItemsList] = useState([]);
+  const [bossList, setBossList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [picker, setPicker] = useState(null);
   const [searchPick, setSearchPick] = useState('');
@@ -55,14 +61,17 @@ export default function HuntingEncounterPoolModal({ open, currentJson, onClose, 
     Promise.all([
       fetch(`${API_BASE}/api/admin/pet-species`, { headers: authHeaders(token) }).then((r) => r.json()),
       fetch(`${API_BASE}/api/admin/items`, { headers: authHeaders(token) }).then((r) => r.json()),
+      fetch(`${API_BASE}/api/admin/boss-templates`, { headers: authHeaders(token) }).then((r) => r.json()),
     ])
-      .then(([sp, it]) => {
+      .then(([sp, it, bosses]) => {
         setSpeciesList(Array.isArray(sp) ? sp : []);
         setItemsList(Array.isArray(it) ? it : []);
+        setBossList(Array.isArray(bosses) ? bosses : []);
       })
       .catch(() => {
         setSpeciesList([]);
         setItemsList([]);
+        setBossList([]);
       })
       .finally(() => setLoading(false));
   }, [open, token]);
@@ -85,6 +94,14 @@ export default function HuntingEncounterPoolModal({ open, currentJson, onClose, 
       (it) => String(it.name || '').toLowerCase().includes(q) || String(it.id).includes(q)
     );
   }, [itemsList, searchPick]);
+
+  const filteredBosses = useMemo(() => {
+    const q = searchPick.trim().toLowerCase();
+    if (!q) return bossList;
+    return bossList.filter(
+      (b) => String(b.name || '').toLowerCase().includes(q) || String(b.id).includes(q)
+    );
+  }, [bossList, searchPick]);
 
   const updateRow = (index, field, value) => {
     setRows((prev) => {
@@ -130,6 +147,20 @@ export default function HuntingEncounterPoolModal({ open, currentJson, onClose, 
     setPicker(null);
   };
 
+  const addBoss = (b) => {
+    setRows((prev) => [
+      ...prev,
+      {
+        kind: 'boss',
+        boss_id: b.id,
+        name: b.name || `Boss ${b.id}`,
+        image: b.image_url || '',
+        rate: 10,
+      },
+    ]);
+    setPicker(null);
+  };
+
   const handleJsonSyncToRows = () => {
     try {
       setRows(normalizeEncounterPool(jsonText));
@@ -149,9 +180,10 @@ export default function HuntingEncounterPoolModal({ open, currentJson, onClose, 
   return (
     <div className="modal-overlay hmap-enc-overlay" onClick={onClose}>
       <div className="modal-box hmap-enc-modal" onClick={(e) => e.stopPropagation()}>
-        <h4>Bảng gặp gỡ (ô *) — Species &amp; Item</h4>
+        <h4>Bảng gặp gỡ (ô *) — Pet / Item / Boss</h4>
         <p className="hmap-enc-hint">
-          Rate: trọng số tương đối (giống drop Boss). Mảng rỗng <code>[]</code> → game dùng encounter mặc định zone forest.
+          Rate: trọng số tương đối (giống tỉ lệ gặp pet). Boss lấy từ Quản lý NPC/Boss — vào trận Arena khi gặp. Mảng rỗng{' '}
+          <code>[]</code> → game dùng encounter mặc định zone forest.
         </p>
 
         <div className="hmap-enc-toolbar">
@@ -160,6 +192,9 @@ export default function HuntingEncounterPoolModal({ open, currentJson, onClose, 
           </button>
           <button type="button" className="hmap-btn primary sm" onClick={() => setPicker('item')} disabled={loading}>
             + Thêm item
+          </button>
+          <button type="button" className="hmap-btn primary sm" onClick={() => setPicker('boss')} disabled={loading}>
+            + Thêm Boss
           </button>
           <button type="button" className="hmap-btn success sm" onClick={handleApply}>
             Áp dụng → JSON
@@ -196,25 +231,39 @@ export default function HuntingEncounterPoolModal({ open, currentJson, onClose, 
                     <td>
                       {r.kind === 'species' ? (
                         <span className="hmap-enc-badge sp">Pet</span>
+                      ) : r.kind === 'boss' ? (
+                        <span className="hmap-enc-badge bs">Boss</span>
                       ) : (
                         <span className="hmap-enc-badge it">Item</span>
                       )}
                     </td>
                     <td>
                       <img
-                        src={r.kind === 'species' ? speciesImageSrc(r.image) : itemImageSrc(r.image_url)}
+                        src={
+                          r.kind === 'species'
+                            ? speciesImageSrc(r.image)
+                            : r.kind === 'boss'
+                              ? bossImageSrc(r.image)
+                              : itemImageSrc(r.image_url)
+                        }
                         alt=""
                         className="hmap-enc-thumb"
                         onError={(e) => {
                           e.target.src =
-                            r.kind === 'species' ? '/images/pets/default.png' : '/images/equipments/placeholder.png';
+                            r.kind === 'species' || r.kind === 'boss'
+                              ? '/images/pets/default.png'
+                              : '/images/equipments/placeholder.png';
                         }}
                       />
                     </td>
                     <td>
                       <div className="hmap-enc-name">{r.name}</div>
                       <div className="hmap-enc-id">
-                        {r.kind === 'species' ? `species_id ${r.species_id}` : `item_id ${r.item_id}`}
+                        {r.kind === 'species'
+                          ? `species_id ${r.species_id}`
+                          : r.kind === 'boss'
+                            ? `boss_id ${r.boss_id}`
+                            : `item_id ${r.item_id}`}
                       </div>
                     </td>
                     <td>
@@ -280,7 +329,13 @@ export default function HuntingEncounterPoolModal({ open, currentJson, onClose, 
           <div className="hmap-enc-picker-overlay" onClick={() => setPicker(null)}>
             <div className="hmap-enc-picker" onClick={(ev) => ev.stopPropagation()}>
               <div className="hmap-enc-picker-head">
-                <h5>{picker === 'species' ? 'Chọn Pet Species' : 'Chọn Item'}</h5>
+                <h5>
+                  {picker === 'species'
+                    ? 'Chọn Pet Species'
+                    : picker === 'boss'
+                      ? 'Chọn Boss (NPC/Boss)'
+                      : 'Chọn Item'}
+                </h5>
                 <input
                   type="search"
                   placeholder="Tìm…"
@@ -307,13 +362,27 @@ export default function HuntingEncounterPoolModal({ open, currentJson, onClose, 
                         <small>#{s.id}</small>
                       </button>
                     ))
-                  : filteredItems.map((it) => (
-                      <button key={it.id} type="button" className="hmap-enc-pick-card" onClick={() => addItem(it)}>
-                        <img src={itemImageSrc(it.image_url)} alt="" />
-                        <span>{it.name}</span>
-                        <small>#{it.id}</small>
-                      </button>
-                    ))}
+                  : picker === 'boss'
+                    ? filteredBosses.map((b) => (
+                        <button key={b.id} type="button" className="hmap-enc-pick-card" onClick={() => addBoss(b)}>
+                          <img
+                            src={bossImageSrc(b.image_url)}
+                            alt=""
+                            onError={(e) => {
+                              e.target.src = '/images/pets/default.png';
+                            }}
+                          />
+                          <span>{b.name}</span>
+                          <small>#{b.id}</small>
+                        </button>
+                      ))
+                    : filteredItems.map((it) => (
+                        <button key={it.id} type="button" className="hmap-enc-pick-card" onClick={() => addItem(it)}>
+                          <img src={itemImageSrc(it.image_url)} alt="" />
+                          <span>{it.name}</span>
+                          <small>#{it.id}</small>
+                        </button>
+                      ))}
               </div>
             </div>
           </div>

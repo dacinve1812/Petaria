@@ -7,6 +7,7 @@ import Footer from './Footer';
 import TopNavigation from './navbar/TopNavigation';
 import NavigationMenu from './navbar/NavigationMenu';
 import GlobalChatBox from './GlobalChatBox';
+import EncounterModalContainer from './EncounterModalContainer';
 import { Outlet } from 'react-router-dom';
 import '../styles/global.css';
 import { resolveAssetPath } from '../utils/pathUtils';
@@ -163,6 +164,7 @@ function MainLayout() {
             onCurrencyUpdate={handleCurrencyUpdate}
         />
         <GlobalChatBox />
+        <EncounterModalContainer />
         <Footer />
         </>
     );

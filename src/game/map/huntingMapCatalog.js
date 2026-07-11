@@ -9,7 +9,22 @@ export const BUILTIN_FOREST_ENTRY = {
   maxSteps: null,
   thumb: '/hunting/maps/forest-map.png',
   builtIn: true,
+  requireMinLevel: 0,
+  encounterLevelMin: 1,
+  encounterLevelMax: 1,
 };
+
+function catalogLevelFields(m) {
+  const requireMinLevel = Math.max(0, Number(m.requireMinLevel) || 0);
+  let encounterLevelMin = Math.max(1, Number(m.encounterLevelMin) || 1);
+  let encounterLevelMax = Math.max(1, Number(m.encounterLevelMax) || 1);
+  if (encounterLevelMax < encounterLevelMin) {
+    const t = encounterLevelMin;
+    encounterLevelMin = encounterLevelMax;
+    encounterLevelMax = t;
+  }
+  return { requireMinLevel, encounterLevelMin, encounterLevelMax };
+}
 
 /**
  * Gộp danh sách từ API (ưu tiên) với map chỉ có trong localStorage.
@@ -25,6 +40,8 @@ export function mergeRemoteAndLocalHuntingCatalog(remoteRows, localOnly = {}) {
     maxSteps: m.maxSteps == null ? null : Number(m.maxSteps),
     thumb: m.thumb || '',
     builtIn: false,
+    isHidden: Boolean(m.isHidden),
+    ...catalogLevelFields(m),
   }));
   const remoteIds = new Set(fromRemote.map((r) => r.id));
   const fromLocal = Object.values(localOnly || {}).filter((m) => m && m.id && !remoteIds.has(m.id));
@@ -37,13 +54,14 @@ export function mergeRemoteAndLocalHuntingCatalog(remoteRows, localOnly = {}) {
     thumb: m.thumb || m.assets?.background || '',
     builtIn: false,
     _localOnly: true,
+    isHidden: Boolean(m.isHidden),
+    ...catalogLevelFields(m),
   }));
   return [BUILTIN_FOREST_ENTRY, ...fromRemote, ...localEntries];
 }
 
 /**
  * Chỉ localStorage + forest (offline).
- * @returns {Array<{id:string,name:string,entryFee:number,currency:string,maxSteps:number|null,thumb:string,builtIn:boolean}>}
  */
 export function getHuntingMapCatalog() {
   const custom = loadAllCustomMaps();
@@ -55,6 +73,8 @@ export function getHuntingMapCatalog() {
     maxSteps: m.maxSteps == null ? null : Number(m.maxSteps),
     thumb: m.thumb || m.assets?.background || '',
     builtIn: false,
+    isHidden: Boolean(m.isHidden),
+    ...catalogLevelFields(m),
   }));
   return [BUILTIN_FOREST_ENTRY, ...list];
 }

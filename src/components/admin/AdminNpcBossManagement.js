@@ -589,7 +589,7 @@ function ModalEdit({ modal, onClose, onSave, token }) {
                 <input type="number" placeholder="base_spd" value={form.base_spd} onChange={e => update('base_spd', e.target.value)} style={{ width: '70px' }} />
               </div>
               <div className="form-row"><label>accuracy (0-100)</label><input type="number" min="0" max="100" value={form.accuracy} onChange={e => update('accuracy', e.target.value)} /></div>
-              <div className="form-row"><label>location_id (1=Arena, trống=null)</label><input type="number" value={form.location_id} onChange={e => update('location_id', e.target.value)} /></div>
+              <div className="form-row"><label>location_id (0=Arena, ≥1=map săn, trống=null)</label><input type="number" value={form.location_id} onChange={e => update('location_id', e.target.value)} /></div>
               <div className="form-row">
                 <label>drop_table (JSON)</label>
                 <div className="drop-table-row">

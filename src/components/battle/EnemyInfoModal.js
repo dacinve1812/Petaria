@@ -13,9 +13,22 @@ function EnemyInfoModal({ enemy, onClose, onSelectPet, matchStarting }) {
   useEffect(() => {
     const fetchEnemyDetail = async () => {
       try {
-        // Boss: GET /api/bosses/:id
+        // Boss: GET /api/bosses/:id — Arena = base thô; map săn = ?level= để tính công thức
         if (enemy?.isBoss && enemy?.id) {
-          const res = await fetch(`${API_BASE_URL}/api/bosses/${enemy.id}`);
+          // Đã có final_stats scaled từ hunting → dùng luôn, tránh refetch mất scale
+          if (enemy.statsScaled && enemy.final_stats) {
+            setEnemyDetail(enemy);
+            return;
+          }
+          const encounterLv = Number(enemy.level);
+          const scaleByLevel =
+            enemy.statsScaled === true ||
+            (Number(enemy.location_id) > 0 && Number.isFinite(encounterLv) && encounterLv > 0);
+          const qs =
+            scaleByLevel && Number.isFinite(encounterLv) && encounterLv > 0
+              ? `?level=${encounterLv}`
+              : '';
+          const res = await fetch(`${API_BASE_URL}/api/bosses/${enemy.id}${qs}`);
           if (res.ok) {
             const data = await res.json();
             setEnemyDetail(data);
@@ -35,7 +48,7 @@ function EnemyInfoModal({ enemy, onClose, onSelectPet, matchStarting }) {
     };
 
     if (enemy?.id || enemy?.uuid) fetchEnemyDetail();
-  }, [enemy]);
+  }, [enemy, API_BASE_URL]);
 
   useEffect(() => {
     if (selectedPet && petRefs.current[selectedPet.uuid]) {

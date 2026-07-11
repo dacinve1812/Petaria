@@ -409,7 +409,7 @@ Chi tiết migrate CSV, `item_code`, và **mapping menu “dùng cho pet”** tr
 - [ ] PvP battles
 
 ### Phase 4: Content Expansion
-- [ ] Hunting system
+- [x] Hunting system — xem `docs/HUNTING_AND_CATCH_GUIDE.md` (logic + hướng dẫn người mới)
 - [ ] World map exploration
 - [ ] Mini-games
 

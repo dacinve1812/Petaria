@@ -146,7 +146,9 @@ function getBossAction(boss, turnNumber, allSkills) {
   if (hasPattern) {
     const skillId = pattern[(turnNumber - 1) % pattern.length];
     const id = typeof skillId === 'number' ? skillId : parseInt(skillId, 10);
-    return skills.find((s) => (s.id === id) || (s.id === skillId)) || null;
+    const found = skills.find((s) => s.id === id || s.id === skillId);
+    // Pattern lệch id → random thay vì đứng im (không attack/defend)
+    if (found) return found;
   }
   return skills[Math.floor(Math.random() * skills.length)];
 }

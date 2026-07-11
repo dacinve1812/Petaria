@@ -59,6 +59,11 @@ function AdminHuntingMapManagement() {
   const [editorCurrency, setEditorCurrency] = useState('peta');
   const [editorMaxSteps, setEditorMaxSteps] = useState(100);
   const [editorThumb, setEditorThumb] = useState('');
+  /** Ẩn map khỏi danh sách người chơi (vẫn sửa trong admin) */
+  const [editorMapHidden, setEditorMapHidden] = useState(false);
+  const [editorRequireMinLevel, setEditorRequireMinLevel] = useState(0);
+  const [editorEncounterLevelMin, setEditorEncounterLevelMin] = useState(1);
+  const [editorEncounterLevelMax, setEditorEncounterLevelMax] = useState(1);
   const [editorBg, setEditorBg] = useState('/hunting/maps/forest-map.png');
   const [editorFg, setEditorFg] = useState('');
   const [editorTileSize, setEditorTileSize] = useState(DEFAULT_TILE);
@@ -196,6 +201,10 @@ function AdminHuntingMapManagement() {
       rec.maxSteps == null || rec.maxSteps === '' ? 0 : Number(rec.maxSteps) || 100
     );
     setEditorThumb(rec.thumb || '');
+    setEditorMapHidden(Boolean(rec.isHidden));
+    setEditorRequireMinLevel(Math.max(0, Number(rec.requireMinLevel) || 0));
+    setEditorEncounterLevelMin(Math.max(1, Number(rec.encounterLevelMin) || 1));
+    setEditorEncounterLevelMax(Math.max(1, Number(rec.encounterLevelMax) || 1));
     setEditorBg(rec.assets?.background || '');
     setEditorFg(rec.assets?.foreground || '');
     setEditorTileSize(Number(rec.tileSize) || DEFAULT_TILE);
@@ -299,7 +308,18 @@ function AdminHuntingMapManagement() {
       assets: data.assets,
       tiles: data.tiles,
       encounterPool: encounterPoolSave,
+      isHidden: Boolean(editorMapHidden),
+      requireMinLevel: Math.max(0, Number(editorRequireMinLevel) || 0),
+      encounterLevelMin: Math.max(1, Number(editorEncounterLevelMin) || 1),
+      encounterLevelMax: Math.max(1, Number(editorEncounterLevelMax) || 1),
     };
+    if (rec.encounterLevelMax < rec.encounterLevelMin) {
+      const t = rec.encounterLevelMin;
+      rec.encounterLevelMin = rec.encounterLevelMax;
+      rec.encounterLevelMax = t;
+      setEditorEncounterLevelMin(rec.encounterLevelMin);
+      setEditorEncounterLevelMax(rec.encounterLevelMax);
+    }
     if (!rec.assets?.background) {
       showMsg('Thiếu URL ảnh nền (assets.background).', 'error');
       return;
@@ -386,6 +406,10 @@ function AdminHuntingMapManagement() {
       assets: { background: '/hunting/maps/forest-map.png' },
       tiles: Array.from(parsed.tiles),
       encounterPool: [],
+      isHidden: false,
+      requireMinLevel: 0,
+      encounterLevelMin: 1,
+      encounterLevelMax: 10,
     };
     const token = user?.token;
     if (token) {
@@ -497,6 +521,7 @@ function AdminHuntingMapManagement() {
       ...JSON.parse(JSON.stringify(src)),
       id: nid,
       name: (src.name || src.id) + ' (copy)',
+      isHidden: Boolean(src.isHidden),
     };
     const token = user?.token;
     if (token) {
@@ -650,6 +675,9 @@ function AdminHuntingMapManagement() {
                 <th>Tên</th>
                 <th>Vé vào</th>
                 <th>Max steps</th>
+                <th>Req. Lv</th>
+                <th>Lv range</th>
+                <th>Ẩn</th>
                 <th>Thao tác</th>
               </tr>
             </thead>
@@ -667,6 +695,25 @@ function AdminHuntingMapManagement() {
                   </td>
                   <td>
                     {row.builtIn ? '—' : row.maxSteps == null ? '∞' : row.maxSteps}
+                  </td>
+                  <td>
+                    {row.builtIn
+                      ? '—'
+                      : row.requireMinLevel > 0
+                        ? `≥${row.requireMinLevel}`
+                        : '—'}
+                  </td>
+                  <td>
+                    {row.builtIn
+                      ? '—'
+                      : `${row.encounterLevelMin ?? 1}–${row.encounterLevelMax ?? 1}`}
+                  </td>
+                  <td>
+                    {!row.builtIn && row.isHidden ? (
+                      <span className="hmap-badge hmap-badge--hidden">đã ẩn</span>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td>
                     <button type="button" className="hmap-btn sm" onClick={() => handleSelectForEdit(row.id)}>
@@ -735,6 +782,41 @@ function AdminHuntingMapManagement() {
                     value={editorMaxSteps}
                     onChange={(e) => setEditorMaxSteps(Number(e.target.value))}
                   />
+                </label>
+                <label>
+                  Req. level (cần ≥1 pet đạt level này; 0 = không yêu cầu)
+                  <input
+                    type="number"
+                    min={0}
+                    value={editorRequireMinLevel}
+                    onChange={(e) => setEditorRequireMinLevel(Number(e.target.value))}
+                  />
+                </label>
+                <label>
+                  Encounter Lv min (pet/boss)
+                  <input
+                    type="number"
+                    min={1}
+                    value={editorEncounterLevelMin}
+                    onChange={(e) => setEditorEncounterLevelMin(Number(e.target.value))}
+                  />
+                </label>
+                <label>
+                  Encounter Lv max (pet/boss)
+                  <input
+                    type="number"
+                    min={1}
+                    value={editorEncounterLevelMax}
+                    onChange={(e) => setEditorEncounterLevelMax(Number(e.target.value))}
+                  />
+                </label>
+                <label className="hmap-checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={editorMapHidden}
+                    onChange={(e) => setEditorMapHidden(e.target.checked)}
+                  />{' '}
+                  Ẩn map săn (không hiện trong &quot;Thế giới săn&quot; cho người chơi)
                 </label>
                 <label>
                   thumb (tùy chọn, preview)

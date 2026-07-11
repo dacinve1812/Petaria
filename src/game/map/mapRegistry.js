@@ -20,6 +20,14 @@ export function normalizeHuntingMapRecord(rec) {
     rawMax != null && rawMax !== '' && Number.isFinite(Number(rawMax)) && Number(rawMax) > 0
       ? Math.floor(Number(rawMax))
       : null;
+  const requireMinLevel = Math.max(0, Math.floor(Number(rec.requireMinLevel)) || 0);
+  let encounterLevelMin = Math.max(1, Math.floor(Number(rec.encounterLevelMin)) || 1);
+  let encounterLevelMax = Math.max(1, Math.floor(Number(rec.encounterLevelMax)) || 1);
+  if (encounterLevelMax < encounterLevelMin) {
+    const t = encounterLevelMin;
+    encounterLevelMin = encounterLevelMax;
+    encounterLevelMax = t;
+  }
   const sx = Number(rec.start?.x);
   const sy = Number(rec.start?.y);
   return {
@@ -28,6 +36,9 @@ export function normalizeHuntingMapRecord(rec) {
     height: Math.floor(Number(rec.height)) || 1,
     tileSize: Math.floor(Number(rec.tileSize)) || 16,
     maxSteps,
+    requireMinLevel,
+    encounterLevelMin,
+    encounterLevelMax,
     start: {
       x: Number.isFinite(sx) ? Math.floor(sx) : 0,
       y: Number.isFinite(sy) ? Math.floor(sy) : 0,

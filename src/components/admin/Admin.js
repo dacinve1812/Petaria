@@ -43,6 +43,7 @@ function Admin() {
           <h2>Quản lý Thú cưng</h2>
           <ul>
             <li><Link to="/admin/edit-pet-types">Quản lý Pet Species</Link></li>
+            <li><Link to="/admin/pet-evolution">Quản lý tiến hóa</Link></li>
             <li><Link to="/admin/create-pet">Tạo Pet (Admin)</Link></li>
             <li><Link to="/admin/npc-boss-management">Quản lý NPC/Boss</Link></li>
           </ul>
@@ -97,6 +98,7 @@ function Admin() {
             <li><Link to="/admin/game-center">Quản lý Game center</Link></li>
             <li><Link to="/admin/site/auction-mail">Quản lý Thư đấu giá</Link></li>
             <li><Link to="/admin/hunting-maps">Quản lý Map săn</Link></li>
+            <li><Link to="/admin/hunting-catch-rates">Quản lý tỉ lệ bắt pet</Link></li>
             <li><Link to="/map-tool">Map tool</Link></li>
           </ul>
         </div>

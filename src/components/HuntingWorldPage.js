@@ -23,7 +23,7 @@ function HuntingWorldPage() {
       setMaps(mergeRemoteAndLocalHuntingCatalog(remote, local));
       setLoadError(false);
     } catch {
-      setMaps(getHuntingMapCatalog());
+      setMaps(getHuntingMapCatalog().filter((m) => !m.isHidden));
       setLoadError(true);
     }
   }, []);
@@ -44,7 +44,7 @@ function HuntingWorldPage() {
   }, [maps]);
 
   const visibleMaps = useMemo(
-    () => maps.filter((m) => !m.builtIn && m.id !== 'forest'),
+    () => maps.filter((m) => !m.builtIn && m.id !== 'forest' && !m.isHidden),
     [maps]
   );
 

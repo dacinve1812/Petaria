@@ -17,7 +17,24 @@ export class EncounterManager {
     this.encounterPool =
       Array.isArray(options.encounterPool) && options.encounterPool.length > 0 ? options.encounterPool : null;
 
+    let levelMin = Math.max(1, Math.floor(Number(options.encounterLevelMin)) || 1);
+    let levelMax = Math.max(1, Math.floor(Number(options.encounterLevelMax)) || 1);
+    if (levelMax < levelMin) {
+      const t = levelMin;
+      levelMin = levelMax;
+      levelMax = t;
+    }
+    this.encounterLevelMin = levelMin;
+    this.encounterLevelMax = levelMax;
+
     this.onEncounterCallback = null;
+  }
+
+  /** Random level trong range map (pet & boss). */
+  rollEncounterLevel() {
+    const lo = this.encounterLevelMin;
+    const hi = this.encounterLevelMax;
+    return lo + Math.floor(Math.random() * (hi - lo + 1));
   }
 
   setEncounterCallback(callback) {
@@ -54,7 +71,7 @@ export class EncounterManager {
   }
 
   /**
-   * @returns {{ encounterType: 'species', wildPet: object } | { encounterType: 'item', item: object }}
+   * @returns {{ encounterType: 'species', wildPet: object } | { encounterType: 'item', item: object } | { encounterType: 'boss', boss: object }}
    */
   selectRandomEncounterResult() {
     if (this.encounterPool && this.encounterPool.length > 0) {
@@ -72,6 +89,17 @@ export class EncounterManager {
           },
         };
       }
+      if (row.kind === 'boss') {
+        return {
+          encounterType: 'boss',
+          boss: {
+            id: row.boss_id,
+            name: row.name,
+            image: row.image,
+            level: this.rollEncounterLevel(),
+          },
+        };
+      }
       return {
         encounterType: 'species',
         wildPet: {
@@ -83,6 +111,7 @@ export class EncounterManager {
           sprite: row.image,
           image: row.image,
           species_id: row.species_id,
+          level: this.rollEncounterLevel(),
         },
       };
     }
@@ -90,7 +119,11 @@ export class EncounterManager {
   }
 
   legacyPetResult() {
-    return { encounterType: 'species', wildPet: this.selectRandomPet() };
+    const pet = this.selectRandomPet();
+    return {
+      encounterType: 'species',
+      wildPet: { ...pet, level: pet.level ?? this.rollEncounterLevel() },
+    };
   }
 
   selectRandomPet() {

@@ -112,12 +112,24 @@
 }
 
 .game-dialog-modal__body {
-  padding: 8px 22px 20px;
-  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  padding: 0px 22px 20px;
+  min-height: 100px;
   color: #3d3d3d;
   /* font-size: 0.95rem; */
   line-height: 1.45;
   text-align: center;
+}
+
+.game-dialog-modal__body > p {
+  margin: 0;
+}
+
+.game-dialog-modal__body > p + p {
+  margin-top: 8px;
 }
 
 .game-dialog-modal__body .pet-selection-modal-instruction {
@@ -202,6 +214,10 @@
 
 .game-dialog-modal--tone-error .game-dialog-modal__title {
   color: #a33;
+}
+
+.game-dialog-modal--tone-success .game-dialog-modal__title {
+  color: #2a7a3a;
 }
 
 .game-dialog-modal--tone-info .game-dialog-modal__title {
@@ -349,6 +365,7 @@
 /* Single-button footer (alert / info) */
 .game-dialog-modal__footer--single {
   justify-content: center;
+  padding: 10px;
 }
 
 .game-dialog-modal__footer--single .game-modal-btn {
@@ -404,7 +421,6 @@
   /* Nội dung dài: cuộn trong body, header/footer cố định */
   .game-dialog-modal__body {
     flex: 1 1 auto;
-    min-height: 0;
     max-height: none;
     padding: 6px 14px 14px;
     /* font-size:; */
@@ -414,6 +430,7 @@
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     text-align: center;
+    justify-content: center;
   }
 
   .game-dialog-modal__body .pet-selection-modal-qty-btn {
@@ -513,7 +530,7 @@
     flex: 0 1 auto !important;
     width: auto !important;
     max-width: min(92%, 260px) !important;
-    min-width: 0;
+    min-width: 200px;
   }
   .game-modal-btn{
     min-height: 38px !important;

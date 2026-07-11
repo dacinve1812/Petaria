@@ -64,6 +64,9 @@ function PetProfile() {
   const [showItemDetail, setShowItemDetail] = useState(false);
   const [selectedSpirit, setSelectedSpirit] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameDraft, setRenameDraft] = useState('');
+  const [renameSaving, setRenameSaving] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -251,6 +254,45 @@ function PetProfile() {
     <BackButton onClick={handleBack} />
   );
 
+  const isPetOwner =
+    currentUserId != null && pet?.owner_id != null && Number(currentUserId) === Number(pet.owner_id);
+
+  const openRenameModal = () => {
+    setRenameDraft(pet?.name || '');
+    setShowRenameModal(true);
+  };
+
+  const submitRename = async () => {
+    const name = String(renameDraft || '').trim();
+    if (!name || name.length > 100) {
+      alert('Tên phải từ 1 đến 100 ký tự.');
+      return;
+    }
+    setRenameSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/pets/${uuid}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.message || 'Không đổi được tên.');
+        return;
+      }
+      setPet(data);
+      setShowRenameModal(false);
+    } catch (e) {
+      alert(e.message || 'Lỗi mạng');
+    } finally {
+      setRenameSaving(false);
+    }
+  };
+
   return (
     <>
       <TemplatePage
@@ -259,8 +301,9 @@ function PetProfile() {
         additionalControls={additionalControls}
         currentTab={0}
       >
+        <div className="pet-profile-wrap">
         <div className="pet-profile">
-          <div className='pet-header'>Xem thông tin thú cưng</div>
+          <div className="pet-header">Xem thông tin thú cưng</div>
           <div className="pet-details">
             <p className="pet-detail-name">Tên: {pet.name}</p>
             <p className="pet-detail-evolved"><span className='extra-stats'>{isEvolved ? 'Đã tiến hóa' : 'Chưa tiến hóa'}</span></p>
@@ -353,6 +396,22 @@ function PetProfile() {
           </div>
         </div>
 
+        {isPetOwner && (
+          <div className="pet-profile-actions">
+            <button
+              type="button"
+              className="pet-profile-evolve-btn"
+              onClick={() => navigate(`/pet/${uuid}/evolve`)}
+            >
+              Tiến hóa
+            </button>
+            <button type="button" className="pet-profile-rename-btn" onClick={openRenameModal}>
+              Đổi tên
+            </button>
+          </div>
+        )}
+        </div>
+
       </TemplatePage>
 
       {showSpiritDetail && selectedSpirit && (
@@ -389,6 +448,39 @@ function PetProfile() {
             refreshPetDetails();
           }}
         />
+      )}
+
+      {showRenameModal && (
+        <div
+          className="pet-rename-modal-overlay"
+          role="presentation"
+          onClick={() => !renameSaving && setShowRenameModal(false)}
+        >
+          <div
+            className="pet-rename-modal"
+            role="dialog"
+            aria-labelledby="pet-rename-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="pet-rename-title">Đổi tên thú cưng</h3>
+            <input
+              type="text"
+              className="pet-rename-input"
+              maxLength={100}
+              value={renameDraft}
+              onChange={(e) => setRenameDraft(e.target.value)}
+              autoFocus
+            />
+            <div className="pet-rename-actions">
+              <GameModalButton type="button" variant="cancel" onClick={() => setShowRenameModal(false)} disabled={renameSaving}>
+                Hủy
+              </GameModalButton>
+              <GameModalButton type="button" variant="confirm" onClick={submitRename} disabled={renameSaving}>
+                {renameSaving ? 'Đang lưu…' : 'Lưu'}
+              </GameModalButton>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

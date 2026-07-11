@@ -18,14 +18,17 @@
   align-items: stretch;
   height: calc(100dvh - 88px);
   min-height: calc(100dvh - 88px);
+  max-height: calc(100dvh - 88px);
   padding: 8px 10px 12px;
   background: var(--hunting-bg);
+  overflow: hidden;
 }
 
 @media (max-width: 600px) {
   .hunting-map-wrapper {
     height: calc(100dvh - 72px);
     min-height: calc(100dvh - 72px);
+    max-height: calc(100dvh - 72px);
     padding: 4px 6px 8px;
   }
 }
@@ -153,7 +156,6 @@
   width: 100%;
   min-height: 0;
   height: 100%;
-  /* border-radius: 10px; */
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -183,8 +185,8 @@
   display: block;
   width: 100% !important;
   height: 100% !important;
-  /* auto: trình duyệt scale canvas (sau resolution/DPR) mượt hơn; pixelated dễ làm ảnh HD nhìn “thô”. Sprite vẫn NEAREST trong WebGL. */
   image-rendering: auto;
+  touch-action: none;
 }
 
 .hunting-dpad {

@@ -1,11 +1,11 @@
 /**
  * Bảng gặp gỡ trên ô encounter (*) — lưu trong từng hunting map (localStorage).
- * kind: species = pet_species DB; item = vật phẩm (rơi / nhặt).
+ * kind: species = pet_species DB; item = vật phẩm (rơi / nhặt); boss = boss_templates (Arena).
  */
 
 /**
  * @param {unknown} raw
- * @returns {Array<{ kind: 'species'|'item', species_id?: number, item_id?: number, name: string, image?: string, image_url?: string, rarity?: string, description?: string, rate: number, min_qty?: number, max_qty?: number }>}
+ * @returns {Array<{ kind: 'species'|'item'|'boss', species_id?: number, item_id?: number, boss_id?: number, name: string, image?: string, image_url?: string, rarity?: string, description?: string, rate: number, min_qty?: number, max_qty?: number }>}
  */
 export function normalizeEncounterPool(raw) {
   if (raw == null) return [];
@@ -23,7 +23,8 @@ export function normalizeEncounterPool(raw) {
 
 function normalizeEncounterRow(e) {
   if (!e || typeof e !== 'object') return null;
-  const kind = e.kind === 'item' ? 'item' : 'species';
+  const kind =
+    e.kind === 'item' ? 'item' : e.kind === 'boss' ? 'boss' : 'species';
   const rate = Math.max(0, Number(e.rate) || 0);
 
   if (kind === 'item') {
@@ -39,6 +40,18 @@ function normalizeEncounterRow(e) {
       rate,
       min_qty,
       max_qty,
+    };
+  }
+
+  if (kind === 'boss') {
+    const boss_id = Number(e.boss_id ?? e.id);
+    if (!Number.isFinite(boss_id)) return null;
+    return {
+      kind: 'boss',
+      boss_id,
+      name: String(e.name || `Boss ${boss_id}`),
+      image: String(e.image || ''),
+      rate,
     };
   }
 

@@ -288,6 +288,8 @@ function ModalPetSpecies({ modal, onClose, onSave }) {
     base_intelligence: row.base_intelligence ?? 0,
     base_spd: row.base_spd ?? 0,
     evolve_to: row.evolve_to != null ? (typeof row.evolve_to === 'string' ? row.evolve_to : JSON.stringify(row.evolve_to)) : '',
+    evolve_min_level: row.evolve_min_level ?? 1,
+    evolve_item_id: row.evolve_item_id != null ? String(row.evolve_item_id) : '',
   }));
 
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -295,6 +297,11 @@ function ModalPetSpecies({ modal, onClose, onSave }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     const payload = { ...form, id: row.id };
+    payload.evolve_min_level = parseInt(form.evolve_min_level, 10) || 1;
+    payload.evolve_item_id =
+      form.evolve_item_id != null && String(form.evolve_item_id).trim() !== ''
+        ? parseInt(form.evolve_item_id, 10)
+        : null;
     if (payload.evolve_to !== undefined && payload.evolve_to !== null && payload.evolve_to !== '') {
       try {
         JSON.parse(payload.evolve_to);
@@ -329,6 +336,8 @@ function ModalPetSpecies({ modal, onClose, onSave }) {
             <input type="number" placeholder="base_spd" value={form.base_spd} onChange={(e) => update('base_spd', e.target.value)} style={{ width: '70px' }} />
           </div>
           <div className="form-row"><label>evolve_to (JSON array, VD: [2,3])</label><input value={form.evolve_to} onChange={(e) => update('evolve_to', e.target.value)} placeholder="[2, 3]" /></div>
+          <div className="form-row"><label>evolve_min_level</label><input type="number" min={1} value={form.evolve_min_level} onChange={(e) => update('evolve_min_level', e.target.value)} /></div>
+          <div className="form-row"><label>evolve_item_id (id vật phẩm, để trống = không bắt buộc)</label><input value={form.evolve_item_id} onChange={(e) => update('evolve_item_id', e.target.value)} placeholder="VD: 101" /></div>
           <div className="form-actions">
             <button type="submit" className="btn-save">Lưu</button>
             <button type="button" className="btn-cancel" onClick={onClose}>Hủy</button>
