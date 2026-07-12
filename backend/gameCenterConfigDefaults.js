@@ -30,7 +30,7 @@ function getDefaultGameCenterConfig() {
         id: 'beggar-king',
         path: 'beggar-king',
         title: 'Vua ăn mày',
-        description: 'Ông nhà giàu cho 100–5000 Peta, mỗi 6 giờ một lần.',
+        description: 'Ghé Làng Phú Gia xin lì xì từ trưởng làng Richies — mỗi 12 giờ một lần.',
         imgSrc: '/images/entertainment/game-tile-placeholder.svg',
       },
       {
@@ -153,7 +153,31 @@ function getDefaultGameCenterConfig() {
     beggarKing: {
       minPeta: 100,
       maxPeta: 5000,
-      cooldownHours: 6,
+      cooldownHours: 12,
+      /**
+       * Script hội thoại — admin sửa trong Game center → Vua ăn mày.
+       * Token: {minPeta} {maxPeta} {cooldownHours} {remaining} {amount} {playerName}
+       */
+      narrative: {
+        title: 'Làng Phú Gia',
+        speaker: 'Richies',
+        portraitSrc: '/images/character/richies.jpg',
+        /** false = không dùng ảnh nền (transparent stage) */
+        useBackground: false,
+        backgroundSrc: '',
+        typingMsPerChar: 26,
+        claimLabel: 'Xin lì xì',
+        lines: [
+          'Chào ngươi! Ta là Richies — trưởng làng Phú Gia trên Đảo ngọc trai, giữa Biển địa đàng.',
+          'Làng ta rất giàu có, và ta vốn thích lì xì cho khách ghé thăm. Mỗi lần khoảng {minPeta}–{maxPeta} Peta đấy!',
+          'Chỉ có điều… khách quá đông, nên mỗi người chỉ được gặp ta một lần mỗi {cooldownHours} giờ thôi nhé.',
+        ],
+        cooldownLines: [
+          'À, lại là ngươi à? Tiếc quá — túi lì xì dành cho ngươi hôm nay đã hết chỗ rồi.',
+          'Quay lại sau {remaining} nữa nhé. Ta vẫn ở đây chờ!',
+        ],
+        rewardLine: 'Ha ha! Cầm lấy {amount} Peta lì xì đi — đừng khách khí với ta!',
+      },
     },
     dailyFree: {
       /** Số vật phẩm nhận mỗi lần (random trong [min, max]) */
@@ -329,7 +353,26 @@ function mergeGameCenterConfig(stored) {
   }
 
   if (stored.beggarKing && isPlainObject(stored.beggarKing)) {
-    out.beggarKing = { ...defaults.beggarKing, ...stored.beggarKing };
+    const sb = stored.beggarKing;
+    const db = defaults.beggarKing;
+    const sn = isPlainObject(sb.narrative) ? sb.narrative : {};
+    const dn = db.narrative || {};
+    out.beggarKing = {
+      ...db,
+      ...sb,
+      narrative: {
+        ...dn,
+        ...sn,
+        lines:
+          Array.isArray(sn.lines) && sn.lines.length > 0
+            ? sn.lines
+            : dn.lines,
+        cooldownLines:
+          Array.isArray(sn.cooldownLines) && sn.cooldownLines.length > 0
+            ? sn.cooldownLines
+            : dn.cooldownLines,
+      },
+    };
   }
 
   if (stored.dailyFree && isPlainObject(stored.dailyFree)) {

@@ -147,9 +147,6 @@ function EncounterModal({
                 <button type="button" className="action-button primary" onClick={handleCatch}>
                   Bắt
                 </button>
-                <button type="button" className="action-button secondary" onClick={handleBattle}>
-                  Chiến Đấu
-                </button>
                 <button type="button" className="action-button ghost" onClick={handleFlee}>
                   Bỏ chạy
                 </button>

@@ -12,7 +12,8 @@ function AdminAddShopModal({ parentCategory, onClose, onShopAdded }) {
     description: '',
     type_filter: 'all',
     currency_type: 'peta',
-    sort_order: 1
+    sort_order: 1,
+    image_url: '',
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -62,7 +63,7 @@ function AdminAddShopModal({ parentCategory, onClose, onShopAdded }) {
         },
         body: JSON.stringify({
           ...formData,
-          parent_category: parentCategory
+          parent_category: parentCategory || 'general',
         })
       });
 
@@ -85,7 +86,7 @@ function AdminAddShopModal({ parentCategory, onClose, onShopAdded }) {
     <div className="modal-overlay">
       <div className="modal-content admin-modal">
         <div className="modal-header">
-          <h2>Thêm Shop mới vào {parentCategory}</h2>
+          <h2>Thêm Shop mới vào {parentCategory || 'general'}</h2>
           <button className="close-btn" onClick={onClose}>×</button>
         </div>
 
@@ -124,6 +125,29 @@ function AdminAddShopModal({ parentCategory, onClose, onShopAdded }) {
               placeholder="Mô tả về shop này..."
               rows="3"
             />
+          </div>
+
+          <div className="form-group">
+            <label>Đường dẫn ảnh (image_url):</label>
+            <input
+              type="text"
+              name="image_url"
+              value={formData.image_url}
+              onChange={handleInputChange}
+              placeholder="/images/shops/ten-shop.png hoặc https://..."
+            />
+            <small>Path trong public hoặc URL ảnh đầy đủ</small>
+            {formData.image_url ? (
+              <div className="shop-image-preview">
+                <img
+                  src={formData.image_url}
+                  alt="preview"
+                  onError={(e) => {
+                    e.currentTarget.style.opacity = '0.3';
+                  }}
+                />
+              </div>
+            ) : null}
           </div>
 
           <div className="form-group">

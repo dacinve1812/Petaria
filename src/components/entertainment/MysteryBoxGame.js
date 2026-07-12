@@ -74,7 +74,7 @@ function MysteryBoxGame() {
         setInvErr(typeof data.error === 'string' ? data.error : 'Không tải kho');
         return;
       }
-      setInventory(Array.isArray(data) ? data : []);
+      setInventory(Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []);
     } catch (e) {
       setInventory([]);
       setInvErr(e.message || 'Lỗi mạng');

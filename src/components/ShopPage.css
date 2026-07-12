@@ -1,0 +1,216 @@
+/* ShopPage — keep light; grid reuse MyStuffManagement.css */
+
+.shop-page-container {
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.shop-general-picker {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.shop-grid-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e8e4dc;
+  color: #5a554c;
+  font-size: 2rem;
+  font-weight: 700;
+  border-radius: 10px;
+}
+
+.shop-admin-grid-item {
+  position: relative;
+}
+
+.shop-edit-fab {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  z-index: 2;
+}
+
+.shop-sub-nav-item-wrap {
+  display: inline-flex;
+  align-items: stretch;
+  position: relative;
+  gap: 0;
+}
+
+.shop-sub-nav-item-wrap .shop-sub-nav-item {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.shop-sub-tab-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  padding: 0 8px;
+  border: 1px solid rgba(80, 70, 50, 0.2);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.shop-sub-tab-delete:hover {
+  background: #ffe8e8;
+  box-shadow: none;
+  transform: none;
+}
+
+.shop-sub-nav-item-wrap.active .shop-sub-tab-delete {
+  border-color: rgba(80, 70, 50, 0.35);
+  background: #f7f4ee;
+}
+
+.shop-delete-fab {
+  position: absolute;
+  top: 8px;
+  right: 44px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  z-index: 2;
+}
+
+.shop-delete-fab:hover {
+  background: #ffe8e8;
+}
+
+.form-actions--shop-edit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.form-actions-right {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.btn-danger {
+  border: 1px solid #c0392b;
+  background: #e74c3c;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #c0392b;
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.shop-admin-add-tile .shop-add-tile-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 2px dashed rgba(80, 70, 50, 0.28);
+  background: rgba(255, 255, 255, 0.55);
+  color: #5a554c;
+}
+
+.shop-admin-add-tile .shop-add-tile-inner span {
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 600;
+}
+
+.shop-admin-add-tile .shop-add-tile-inner small {
+  font-size: 0.8rem;
+}
+
+.shop-image-preview {
+  margin-top: 10px;
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.shop-image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.general-shop-banner {
+  padding: 12px 16px 4px;
+}
+
+.general-shop-banner h2 {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+  color: #2c2a26;
+}
+
+.general-shop-banner p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #6a655c;
+}
+
+.general-shop-banner--admin {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.edit-shop-btn {
+  flex-shrink: 0;
+  border: 1px solid rgba(80, 70, 50, 0.25);
+  background: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.edit-shop-btn:hover {
+  background: #f7f4ee;
+}
+
+.shop-loading {
+  padding: 24px;
+  color: #6a655c;
+}

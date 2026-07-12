@@ -25,7 +25,7 @@ export const ENTERTAINMENT_GAMES = [
     id: 'beggar-king',
     path: 'beggar-king',
     title: 'Vua ăn mày',
-    description: 'Ông nhà giàu cho 100–5000 Peta, mỗi 6 giờ một lần.',
+    description: 'Ghé Làng Phú Gia xin lì xì từ trưởng làng Richies — mỗi 12 giờ một lần.',
     imgSrc: '/images/entertainment/game-tile-placeholder.svg',
   },
   {

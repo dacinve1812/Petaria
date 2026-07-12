@@ -14,7 +14,7 @@ function AdminEditItemModal({ item, onClose, onItemUpdated }) {
   const [formData, setFormData] = useState({
     custom_price: item.custom_price || item.price || '',
     currency_type: item.currency_type || 'peta',
-    stock_limit: item.stock_limit && item.stock_limit !== 9999 ? item.stock_limit : '', // Show empty if unlimited
+    stock_limit: item.stock_limit != null && item.stock_limit !== '' ? item.stock_limit : '',
     restock_interval: item.restock_interval || 'none',
     available_from: item.available_from ? item.available_from.slice(0, 16) : '',
     available_until: item.available_until ? item.available_until.slice(0, 16) : ''
@@ -173,16 +173,19 @@ function AdminEditItemModal({ item, onClose, onItemUpdated }) {
           </div>
 
           <div className="form-group">
-            <label>Stock limit:</label>
+            <label>Stock limit (mức đổ đầy khi restock):</label>
             <input
               type="number"
               name="stock_limit"
               value={formData.stock_limit}
               onChange={handleInputChange}
-              placeholder="Để trống để không giới hạn"
+              placeholder="Để trống = không giới hạn stock"
               min="0"
               max="999999"
             />
+            <small style={{ display: 'block', marginTop: 4, color: '#666' }}>
+              Khi restock (daily/weekly/monthly), kho sẽ được đổ lại về số này. Để trống = không giới hạn.
+            </small>
           </div>
 
           <div className="form-group">

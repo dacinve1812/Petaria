@@ -6,12 +6,17 @@ import GlobalBanner from './GlobalBanner';
 import SpiritDetailModal from './spirit/SpiritDetailModal';
 import GameModalButton from './ui/GameModalButton';
 import { resolveAssetPath } from '../utils/pathUtils';
+import { asOwnedList, normalizeOwnedCapacity } from '../utils/inventoryApi';
 
 
 function MyHome({isLoggedIn, onLogoutSuccess }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
   const [userPets, setUserPets] = useState([]);
+  const [petSlotCount, setPetSlotCount] = useState(0);
+  const [petMaxSlots, setPetMaxSlots] = useState(1000);
   const [userSpirits, setUserSpirits] = useState([]);
+  const [spiritSlotCount, setSpiritSlotCount] = useState(0);
+  const [spiritMaxSlots, setSpiritMaxSlots] = useState(500);
   const [availableSpirits, setAvailableSpirits] = useState([]);
   const [spiritUserPets, setSpiritUserPets] = useState([]);
   const [userId, setUserId] = useState(null);
@@ -85,16 +90,19 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
           
           if (response.ok) {
             const data = await response.json();
+            const normalized = normalizeOwnedCapacity(data, 'pets', 1000);
             // Sort pets: deployed pets first, then by level descending
-            const sortedPets = data.sort((a, b) => {
+            const sortedPets = [...normalized.list].sort((a, b) => {
               if (a.is_deployed && !b.is_deployed) return -1;
               if (!a.is_deployed && b.is_deployed) return 1;
               return (b.level || 0) - (a.level || 0);
             });
             setUserPets(sortedPets);
+            setPetSlotCount(normalized.slotCount);
+            setPetMaxSlots(normalized.maxSlots);
             
             // Update localStorage hasPet status based on whether user has pets
-            localStorage.setItem('hasPet', String(data.length > 0));
+            localStorage.setItem('hasPet', String(normalized.list.length > 0));
             
             // Preload first few images for better UX
             const firstFewPets = sortedPets.slice(0, 6);
@@ -138,12 +146,15 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
           });
           if (response.ok) {
             const data = await response.json();
-            const processedData = data.map(spirit => ({
+            const normalized = normalizeOwnedCapacity(data, 'spirits', 500);
+            const processedData = normalized.list.map(spirit => ({
               ...spirit,
               is_equipped: Boolean(spirit.is_equipped),
               equipped_pet_name: spirit.equipped_pet_name || null
             }));
             setUserSpirits(processedData);
+            setSpiritSlotCount(normalized.slotCount);
+            setSpiritMaxSlots(normalized.maxSlots);
           } else if (response.status === 401) {
             // Handle token expiration
             localStorage.removeItem('token');
@@ -185,7 +196,7 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
           });
           if (response.ok) {
             const data = await response.json();
-            setSpiritUserPets(data);
+            setSpiritUserPets(asOwnedList(data, 'pets'));
           } else if (response.status === 401) {
             // Handle token expiration
             localStorage.removeItem('token');
@@ -249,6 +260,8 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
           {currentTab === 0 ? (
             <PetManagement 
               userPets={userPets}
+              slotCount={petSlotCount}
+              maxSlots={petMaxSlots}
               isLoading={isLoading}
               imageLoadErrors={imageLoadErrors}
               setImageLoadErrors={setImageLoadErrors}
@@ -257,6 +270,8 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
           ) : (
             <SpiritManagement 
               userSpirits={userSpirits}
+              slotCount={spiritSlotCount}
+              maxSlots={spiritMaxSlots}
               spiritUserPets={spiritUserPets}
               isLoading={spiritLoading}
               searchTerm={spiritSearchTerm}
@@ -272,12 +287,15 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
                     });
                     if (response.ok) {
                       const data = await response.json();
-                      const processedData = data.map(spirit => ({
+                      const normalized = normalizeOwnedCapacity(data, 'spirits', 500);
+                      const processedData = normalized.list.map(spirit => ({
                         ...spirit,
                         is_equipped: Boolean(spirit.is_equipped),
                         equipped_pet_name: spirit.equipped_pet_name || null
                       }));
                       setUserSpirits(processedData);
+                      setSpiritSlotCount(normalized.slotCount);
+                      setSpiritMaxSlots(normalized.maxSlots);
                     } else if (response.status === 401) {
                       // Handle token expiration
                       localStorage.removeItem('token');
@@ -301,7 +319,7 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
 }
 
 // Pet Management Component
-function PetManagement({ userPets, isLoading, imageLoadErrors, setImageLoadErrors, searchTerm }) {
+function PetManagement({ userPets, slotCount = 0, maxSlots = 1000, isLoading, imageLoadErrors, setImageLoadErrors, searchTerm }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortOption, setSortOption] = useState('level');
   const pageSize = 20;
@@ -330,7 +348,14 @@ function PetManagement({ userPets, isLoading, imageLoadErrors, setImageLoadError
       {/* Pet Container */}
       
         <div className="pet-list-info">
-          <h3>Pet của bạn ({userPets.length})</h3>
+          <div
+            className={`collection-slot-usage${slotCount >= maxSlots ? ' collection-slot-usage--full' : ''}`}
+            title="Số pet đang sở hữu / tối đa"
+          >
+            <span className="collection-slot-usage__value">
+              {slotCount}/{maxSlots}
+            </span>
+          </div>
           <div className="pet-controls">
             <div className="sort-controls">
               <select
@@ -420,7 +445,7 @@ function PetManagement({ userPets, isLoading, imageLoadErrors, setImageLoadError
 }
 
 // Spirit Management Component
-function SpiritManagement({ userSpirits, spiritUserPets, isLoading, searchTerm, onRefreshSpirits }) {
+function SpiritManagement({ userSpirits, slotCount = 0, maxSlots = 500, spiritUserPets, isLoading, searchTerm, onRefreshSpirits }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const [filterRarity, setFilterRarity] = useState('all');
   const [sortOption, setSortOption] = useState('rarity');
@@ -568,7 +593,14 @@ function SpiritManagement({ userSpirits, spiritUserPets, isLoading, searchTerm, 
       {/* Spirit Container */}
       <div className="spirit-container">
         <div className="spirit-header">
-          <h3>Linh Thú Của Bạn ({filteredSpirits.length})</h3>
+          <div
+            className={`collection-slot-usage${slotCount >= maxSlots ? ' collection-slot-usage--full' : ''}`}
+            title="Số linh thú đang sở hữu / tối đa"
+          >
+            <span className="collection-slot-usage__value">
+              {slotCount}/{maxSlots}
+            </span>
+          </div>
           <div className="spirit-controls">
             <div className="spirit-filter-controls">
               <label className="filter-label">Lọc theo:</label>

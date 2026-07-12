@@ -85,6 +85,7 @@ import LuckyBoothGame from './components/entertainment/LuckyBoothGame';
 import SlotMachineGame from './components/entertainment/SlotMachineGame';
 import GuessNumberGame from './components/entertainment/GuessNumberGame';
 import AdminGameCenterManagement from './components/admin/AdminGameCenterManagement';
+import AdminRegionMapsManagement from './components/admin/AdminRegionMapsManagement';
 
 const router = createBrowserRouter([
   { path: '/login', element: <Auth /> },
@@ -121,7 +122,11 @@ const router = createBrowserRouter([
       { path: 'admin/edit-equipment-stats', element: <EditEquipmentStats /> },
       { path: 'admin/edit-item-effects', element: <EditItemEffects /> },
       { path: 'shop', element: <ShopPage /> },
+      { path: 'shop/:category', element: <ShopPage /> },
+      { path: 'shop/:category/:shopCode', element: <ShopPage /> },
       { path: 'admin/edit-shop-items', element: <EditShopItems /> },
+      { path: 'admin/edit-shop-items/:category', element: <EditShopItems /> },
+      { path: 'admin/edit-shop-items/:category/:shopCode', element: <EditShopItems /> },
       { path: 'admin/create-pet', element: <AdminCreatePet /> },
       { path: 'battle', element: <PveSelectPage /> },
       { path: 'battle/arena', element: <ArenaPage /> },
@@ -129,6 +134,7 @@ const router = createBrowserRouter([
       { path: 'admin/spirits', element: <AdminSpiritEditor /> },
       { path: 'admin/site-management', element: <SiteManagement /> },
       { path: 'admin/game-center', element: <AdminGameCenterManagement /> },
+      { path: 'admin/region-maps', element: <AdminRegionMapsManagement /> },
       { path: 'admin/site/auction-mail', element: <AdminSiteAuctionMailPage /> },
       { path: 'admin/hunting-maps', element: <AdminHuntingMapManagement /> },
       { path: 'admin/hunting-catch-rates', element: <AdminHuntingCatchRates /> },

@@ -18,7 +18,11 @@ function EntertainmentHub() {
       <ul className="ec-hub-grid">
         {hubGames.map((game) => (
           <li key={game.id}>
-            <Link to={game.path} className="ec-hub-card">
+            <Link
+              to={game.path}
+              state={{ from: 'game-center' }}
+              className="ec-hub-card"
+            >
               <span className="ec-hub-card__img-wrap">
                 <img src={game.imgSrc} alt="" className="ec-hub-card__img" width={120} height={120} />
               </span>

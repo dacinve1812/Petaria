@@ -6,13 +6,16 @@ import './EntertainmentCenter.css';
 
 function EntertainmentCenterPage() {
   const location = useLocation();
-  const onHub = location.pathname.replace(/\/$/, '') === '/game-center';
+  const path = location.pathname.replace(/\/$/, '');
+  const onHub = path === '/game-center';
+  /** beggar-king tự có nút back trong narrative actions */
+  const hideTopBack = onHub || path === '/game-center/beggar-king';
 
   return (
     <TemplatePage showSearch={false} showTabs={false}>
       <GameCenterConfigProvider>
       <div className="entertainment-center">
-        {!onHub && (
+        {!hideTopBack && (
           <div className="ec-header">
             <Link to="/game-center" className="ec-back">
               ← Trở lại Trung tâm giải trí

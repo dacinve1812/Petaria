@@ -256,7 +256,11 @@ function EncounterModalContainer() {
           }),
         ]);
         const petsJson = petsRes.ok ? await petsRes.json() : [];
-        const pets = Array.isArray(petsJson) ? petsJson : [];
+        const pets = Array.isArray(petsJson)
+          ? petsJson
+          : Array.isArray(petsJson?.pets)
+            ? petsJson.pets
+            : [];
         let boss;
         if (bossRes.ok) {
           boss = await bossRes.json();
@@ -325,6 +329,18 @@ function EncounterModalContainer() {
             setShowCatchUi(false);
             const name = result?.name || payload?.name || 'Pet';
             const level = result?.level ?? payload?.level ?? '?';
+            if (result?.destination === 'mail') {
+              showAlert(
+                result?.message ||
+                  `Kho pet đã đầy. ${name} đã được gửi vào hộp thư.`,
+                {
+                  title: 'Bắt thành công',
+                  tone: 'success',
+                  afterClose: handleClose,
+                }
+              );
+              return;
+            }
             showAlert(`Chúc mừng bạn đã bắt thành công ${name} level ${level} !`, {
               title: 'Bắt thành công',
               tone: 'success',

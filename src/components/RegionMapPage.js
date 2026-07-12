@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import regionMapsData from '../config/region-maps.json';
+import { useRegionMapsConfig } from '../hooks/useRegionMapsConfig';
 import './RegionMapPage.css';
 
 function buildButtons(mapConfig) {
@@ -17,6 +17,7 @@ function buildButtons(mapConfig) {
         y: Math.round((coords[1] + coords[3]) / 2),
         path: area.path || '',
         label: area.buttonLabel || area.name || `Go ${idx + 1}`,
+        huntingMapId: area.huntingMapId,
       };
     }
   );
@@ -27,10 +28,11 @@ function RegionMapPage() {
   const navigate = useNavigate();
   const scrollRef = useRef(null);
   const imageRef = useRef(null);
+  const { regions, loading: mapsLoading } = useRegionMapsConfig();
 
   const regionConfig = useMemo(
-    () => (regionMapsData.regions || []).find((item) => item.id === regionId) || null,
-    [regionId]
+    () => (regions || []).find((item) => item.id === regionId) || null,
+    [regionId, regions]
   );
 
   const [loadedNaturalSize, setLoadedNaturalSize] = useState({ width: 0, height: 0 });
@@ -100,11 +102,15 @@ function RegionMapPage() {
   if (!regionConfig) {
     return (
       <div className="regionmap-not-found">
-        <h2>Khong tim thay khu vuc</h2>
-        <p>Vui long kiem tra lai id khu vuc hoac cap nhat file region config.</p>
-        <button type="button" onClick={() => navigate('/world-map')}>
-          Quay lai World Map
-        </button>
+        <h2>{mapsLoading ? 'Đang tải khu vực…' : 'Khong tim thay khu vuc'}</h2>
+        {!mapsLoading ? (
+          <>
+            <p>Vui long kiem tra lai id khu vuc hoac cap nhat file region config.</p>
+            <button type="button" onClick={() => navigate('/world-map')}>
+              Quay lai World Map
+            </button>
+          </>
+        ) : null}
       </div>
     );
   }
@@ -115,7 +121,13 @@ function RegionMapPage() {
     const directMapId = directMapMatch?.[1] ? decodeURIComponent(directMapMatch[1]) : '';
 
     if (rawPath && rawPath !== '/' && !directMapId) {
-      navigate(rawPath);
+      navigate(rawPath, {
+        state: {
+          from: 'region',
+          regionId: regionId || null,
+          regionName: regionConfig?.name || null,
+        },
+      });
       return;
     }
 

@@ -15,6 +15,25 @@ const huntingCatch = require('./utils/huntingCatch');
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
 
+/** Giới hạn ô túi đồ — đọc từ petaria/.env (INVENTORY_MAX_SLOTS). Restart backend sau khi đổi. */
+const INVENTORY_MAX_SLOTS = Math.max(
+  1,
+  Math.min(5000, parseInt(process.env.INVENTORY_MAX_SLOTS, 10) || 100)
+);
+/** Giới hạn số pet sở hữu — PET_MAX_SLOTS (mặc định 1000). */
+const PET_MAX_SLOTS = Math.max(
+  1,
+  Math.min(20000, parseInt(process.env.PET_MAX_SLOTS, 10) || 1000)
+);
+/** Giới hạn số linh thú sở hữu — SPIRIT_MAX_SLOTS (mặc định 500). */
+const SPIRIT_MAX_SLOTS = Math.max(
+  1,
+  Math.min(20000, parseInt(process.env.SPIRIT_MAX_SLOTS, 10) || 500)
+);
+console.log(
+  `[config] INVENTORY_MAX_SLOTS=${INVENTORY_MAX_SLOTS} PET_MAX_SLOTS=${PET_MAX_SLOTS} SPIRIT_MAX_SLOTS=${SPIRIT_MAX_SLOTS}`
+);
+
 const petVitals = require('./petVitals');
 const titleService = require('./titleService');
 
@@ -35,6 +54,10 @@ const {
   mergeGameCenterConfig,
   buildLuckyWheelSegments,
 } = require('./gameCenterConfigDefaults');
+const {
+  getDefaultRegionMapsConfig,
+  mergeRegionMapsConfig,
+} = require('./regionMapsConfigDefaults');
 const {
   buildScratchTicketFromConfig,
   parsePending,
@@ -1198,6 +1221,22 @@ async function ensureSiteGameCenterTable() {
 
 ensureSiteGameCenterTable();
 
+async function ensureSiteRegionMapsTable() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS site_region_maps_config (
+        id INT PRIMARY KEY,
+        config JSON NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+  } catch (error) {
+    console.error('ensureSiteRegionMapsTable:', error);
+  }
+}
+
+ensureSiteRegionMapsTable();
+
 function getForumUploadDir() {
   // Static hosting via CRA `public/` → served as `/images/forum/threads/*`
   return path.resolve(__dirname, '..', 'public', 'images', 'forum', 'threads');
@@ -1249,7 +1288,7 @@ const gcStorage = multer.diskStorage({
 
 const gcUpload = multer({
   storage: gcStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 15 * 1024 * 1024 },
 });
 
 function requireAuthUserId(req, res) {
@@ -1902,7 +1941,15 @@ async function luckyWheelGrantReward(conn, userId, seg) {
     err.code = 'ITEM_NOT_CONFIGURED';
     throw err;
   }
-  await grantMailItemsToInventory(conn, userId, itemId, 1);
+  await grantMailItemsToInventory(conn, userId, itemId, 1, {
+    overflowToMail: true,
+    mailMeta: {
+      subject: 'Túi đồ đầy — phần thưởng Vòng quay',
+      message:
+        'Túi đồ đã đầy nên phần thưởng Vòng quay được gửi vào thư. Dọn túi rồi nhận đính kèm.',
+      senderName: 'Vòng quay may mắn',
+    },
+  });
   const [nameRows] = await conn.query('SELECT name FROM items WHERE id = ?', [itemId]);
   const itemName = nameRows.length ? nameRows[0].name : `Item #${itemId}`;
   return { kind: 'item', itemId, quantity: 1, itemName };
@@ -1947,6 +1994,33 @@ app.get('/api/game-center/config', async (req, res) => {
   } catch (error) {
     console.error('GET /api/game-center/config', error);
     res.json(getDefaultGameCenterConfig());
+  }
+});
+
+function parseStoredJsonConfig(raw) {
+  if (raw == null) return null;
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof raw === 'object') return raw;
+  return null;
+}
+
+// ---------- Region maps (spot path / huntingMapId) ----------
+app.get('/api/region-maps/config', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT config FROM site_region_maps_config WHERE id = 1 LIMIT 1'
+    );
+    const stored = rows.length ? parseStoredJsonConfig(rows[0].config) : null;
+    res.json(mergeRegionMapsConfig(stored));
+  } catch (error) {
+    console.error('GET /api/region-maps/config', error);
+    res.json(getDefaultRegionMapsConfig());
   }
 });
 
@@ -3041,39 +3115,19 @@ function mysteryBoxPickRandomItemId(poolIds) {
 }
 
 async function mysteryBoxGrantItemToInventory(conn, playerId, itemId) {
-  const [itemRows] = await conn.query(`SELECT it.id, it.type FROM items it WHERE it.id = ? LIMIT 1`, [
-    itemId,
-  ]);
-  if (!itemRows.length) return { ok: false, error: 'Phần thưởng không tồn tại trong catalog' };
-  const it = itemRows[0];
-  const typeLower = String(it.type || '').toLowerCase();
-  if (typeLower === 'equipment') {
-    const [equipInfo] = await conn.query('SELECT durability_max FROM equipment_data WHERE item_id = ?', [
-      itemId,
-    ]);
-    const durability =
-      equipInfo.length > 0 ? Number(equipInfo[0].durability_max ?? 1) : 1;
-    await conn.query(
-      `INSERT INTO inventory (player_id, item_id, quantity, is_equipped, durability_left)
-       VALUES (?, ?, 1, 0, ?)`,
-      [playerId, itemId, durability],
-    );
-    return { ok: true };
+  const result = await grantMailItemsToInventory(conn, playerId, itemId, 1, {
+    overflowToMail: true,
+    mailMeta: {
+      subject: 'Túi đồ đầy — phần thưởng Hộp bí ẩn',
+      message:
+        'Túi đồ đã đầy nên phần thưởng Hộp bí ẩn được gửi vào thư. Dọn túi rồi nhận đính kèm.',
+      senderName: 'Hộp bí ẩn',
+    },
+  });
+  if (result.destination === 'none') {
+    return { ok: false, error: 'Phần thưởng không tồn tại trong catalog' };
   }
-  const [invRows] = await conn.query(
-    `SELECT id, quantity FROM inventory
-     WHERE player_id = ? AND item_id = ? AND is_equipped = 0`,
-    [playerId, itemId],
-  );
-  if (invRows.length > 0) {
-    await conn.query(`UPDATE inventory SET quantity = quantity + 1 WHERE id = ?`, [invRows[0].id]);
-  } else {
-    await conn.query(`INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, 1)`, [
-      playerId,
-      itemId,
-    ]);
-  }
-  return { ok: true };
+  return { ok: true, destination: result.destination, mailed: result.mailed };
 }
 
 function mysteryBoxLoadGc(conn) {
@@ -3869,12 +3923,34 @@ async function grantSlotSpiritToUser(conn, userId, spiritId) {
   if (!Number.isFinite(sid) || sid <= 0) return { ok: false, error: 'spiritId không hợp lệ' };
   const [rows] = await conn.query('SELECT id, name, image FROM spirits WHERE id = ? LIMIT 1', [sid]);
   if (!rows.length) return { ok: false, error: 'Spirit không tồn tại' };
+  const cap = await getSpiritCapacity(conn, userId);
+  if (cap.freeSlots < 1) {
+    await sendSystemRewardMail(
+      conn,
+      userId,
+      { spirits: [{ spirit_id: sid, quantity: 1 }] },
+      {
+        senderName: 'Máy đánh bạc',
+        subject: 'Kho linh thú đầy — phần thưởng gửi vào thư',
+        message: `Bạn đã đạt giới hạn linh thú (${cap.maxSlots}). Linh thú được đính kèm thư — dọn kho rồi nhận.`,
+      }
+    );
+    return {
+      ok: true,
+      destination: 'mail',
+      spirit: { spiritId: sid, name: rows[0].name, image: rows[0].image },
+    };
+  }
   await conn.query(
     `INSERT INTO user_spirits (user_id, spirit_id, is_equipped, equipped_pet_id)
      VALUES (?, ?, FALSE, NULL)`,
     [userId, sid],
   );
-  return { ok: true, spirit: { spiritId: sid, name: rows[0].name, image: rows[0].image } };
+  return {
+    ok: true,
+    destination: 'inventory',
+    spirit: { spiritId: sid, name: rows[0].name, image: rows[0].image },
+  };
 }
 
 /**
@@ -4068,7 +4144,15 @@ app.post('/api/game-center/slot-machine/spin', async (req, res) => {
       const rewardKind = String(icon?.reward?.kind || 'placeholder');
       if (rewardKind === 'item' && icon?.reward?.itemId != null) {
         const itemId = Number(icon.reward.itemId);
-        await grantMailItemsToInventory(conn, userId, itemId, 1);
+        await grantMailItemsToInventory(conn, userId, itemId, 1, {
+          overflowToMail: true,
+          mailMeta: {
+            subject: 'Túi đồ đầy — phần thưởng Máy đánh bạc',
+            message:
+              'Túi đồ đã đầy nên phần thưởng Máy đánh bạc được gửi vào thư. Dọn túi rồi nhận đính kèm.',
+            senderName: 'Máy đánh bạc',
+          },
+        });
         const [[it]] = await conn.query(
           `SELECT id, name, image_url, rarity, type FROM items WHERE id = ? LIMIT 1`,
           [itemId],
@@ -4548,7 +4632,10 @@ app.post('/api/hunting/catch', async (req, res) => {
     const displayName = petNameRaw || species.name;
     const createdDate = new Date();
 
-    await conn.query(
+    const petCap = await getPetCapacity(conn, uid);
+    const petFull = petCap.freeSlots < 1;
+
+    const [insPet] = await conn.query(
       `INSERT INTO pets (
         uuid, name, hp, str, def, intelligence, spd, mp,
         owner_id, pet_species_id, level, max_hp, current_hp, max_mp,
@@ -4565,7 +4652,7 @@ app.post('/api/hunting/catch', async (req, res) => {
         finalStats.intelligence,
         finalStats.spd,
         finalStats.mp,
-        uid,
+        petFull ? null : uid,
         species.id,
         level,
         finalStats.hp,
@@ -4583,20 +4670,38 @@ app.post('/api/hunting/catch', async (req, res) => {
         100,
       ]
     );
-    await conn.query('UPDATE users SET hasPet = TRUE WHERE id = ? AND hasPet = FALSE', [uid]);
+    const newPetId = insPet?.insertId;
+    if (petFull && newPetId) {
+      await sendSystemRewardMail(
+        conn,
+        uid,
+        { auction_transfer_pet_ids: [newPetId] },
+        {
+          senderName: 'Đi săn',
+          subject: 'Kho pet đầy — thú bắt được gửi vào thư',
+          message: `Bạn đã đạt giới hạn pet (${petCap.maxSlots}). ${displayName} (Lv.${level}) được đính kèm thư — dọn kho rồi nhận.`,
+        }
+      );
+    } else {
+      await conn.query('UPDATE users SET hasPet = TRUE WHERE id = ? AND hasPet = FALSE', [uid]);
+    }
     await conn.commit();
 
     huntingCatch.clearCatchSession(uid);
-    try {
-      await titleService.recordPetCatch(db, uid, 1);
-    } catch (e) {
-      console.error('titleService.recordPetCatch (hunting):', e);
+    if (!petFull) {
+      try {
+        await titleService.recordPetCatch(db, uid, 1);
+      } catch (e) {
+        console.error('titleService.recordPetCatch (hunting):', e);
+      }
     }
 
     return res.status(201).json({
       success: true,
       fled: false,
-      message: 'Bắt thành công',
+      message: petFull
+        ? `Kho pet đã đầy. ${displayName} đã được gửi vào hộp thư.`
+        : 'Bắt thành công',
       uuid: petUuid,
       name: displayName,
       level,
@@ -4606,6 +4711,7 @@ app.post('/api/hunting/catch', async (req, res) => {
       successChance,
       net: netMeta,
       foodBonus,
+      destination: petFull ? 'mail' : 'pets',
     });
   } catch (err) {
     await conn.rollback();
@@ -4676,13 +4782,34 @@ app.post('/api/hunting/claim-item', async (req, res) => {
       }
     }
 
-    await grantMailItemsToInventory(db, uid, itemId, quantity);
+    const grantResult = await grantMailItemsToInventory(db, uid, itemId, quantity, {
+      overflowToMail: true,
+      mailMeta: {
+        subject: 'Túi đồ đầy — vật phẩm đi săn',
+        message:
+          'Túi đồ đã đầy nên vật phẩm nhặt khi đi săn được gửi vào thư. Dọn túi rồi nhận đính kèm.',
+        senderName: 'Đi săn',
+      },
+    });
+    const viaMail = grantResult.mailed > 0;
+    const viaInv = grantResult.granted > 0;
+    let message;
+    if (viaMail && !viaInv) {
+      message = `Túi đồ đã đầy. ${itemRows[0].name} ×${quantity} đã được gửi vào hộp thư.`;
+    } else if (viaMail && viaInv) {
+      message = `Đã nhận ${itemRows[0].name} ×${grantResult.granted} vào túi; ×${grantResult.mailed} gửi vào hộp thư (túi gần đầy).`;
+    } else {
+      message = `Đã nhận ${itemRows[0].name} ×${quantity} vào túi đồ.`;
+    }
     res.json({
       ok: true,
       itemId,
       quantity,
       name: itemRows[0].name,
-      message: `Đã nhận ${itemRows[0].name} ×${quantity} vào túi đồ.`,
+      destination: grantResult.destination,
+      granted: grantResult.granted,
+      mailed: grantResult.mailed,
+      message,
     });
   } catch (err) {
     console.error('POST /api/hunting/claim-item', err);
@@ -7291,12 +7418,31 @@ app.get('/users/:userId/pets', (req, res) => {
         WHERE p.owner_id = ?
         ${hideListedSql}
         ${auctionEligibleExtraSql}
-      `, [userId], (err, results) => {
+      `, [userId], async (err, results) => {
         if (err) {
           console.error('Error fetching user pets: ', err);
           res.status(500).json({ message: 'Error fetching user pets' });
         } else {
-          res.json(results);
+          try {
+            const [cntRows] = await pool.promise().query(
+              'SELECT COUNT(*) AS c FROM pets WHERE owner_id = ?',
+              [userId]
+            );
+            const slotCount = Number(cntRows[0]?.c) || results.length;
+            res.json({
+              pets: results,
+              slotCount,
+              maxSlots: PET_MAX_SLOTS,
+              freeSlots: Math.max(0, PET_MAX_SLOTS - slotCount),
+            });
+          } catch (e) {
+            res.json({
+              pets: results,
+              slotCount: results.length,
+              maxSlots: PET_MAX_SLOTS,
+              freeSlots: Math.max(0, PET_MAX_SLOTS - results.length),
+            });
+          }
         }
       });
   } catch (err) {
@@ -8017,6 +8163,15 @@ app.post('/api/adopt-pet', async (req, res) => {
       const tempPet = orphanagePets.find(pet => pet.tempId === tempId);
       if (!tempPet) return res.status(400).json({ message: 'Invalid temporary pet ID' });
 
+      const adoptCap = await getPetCapacity(db, tokenUserId);
+      if (adoptCap.freeSlots < 1) {
+        return res.status(400).json({
+          message: `Kho pet đã đầy (${adoptCap.slotCount}/${adoptCap.maxSlots}).`,
+          slotCount: adoptCap.slotCount,
+          maxSlots: adoptCap.maxSlots,
+        });
+      }
+
   const {
     pet_species_id, iv_hp, iv_mp, iv_str, iv_def,
     iv_intelligence, iv_spd, hp, mp, str, def, intelligence, spd
@@ -8691,10 +8846,31 @@ app.put('/api/admin/game-center/config', checkAdminRoleItems, async (req, res) =
   }
 });
 
+app.put('/api/admin/region-maps/config', checkAdminRoleItems, async (req, res) => {
+  try {
+    if (!req.body || typeof req.body !== 'object') {
+      return res.status(400).json({ error: 'Invalid config' });
+    }
+    const normalized = mergeRegionMapsConfig(req.body);
+    await db.query(
+      `INSERT INTO site_region_maps_config (id, config) VALUES (1, ?)
+       ON DUPLICATE KEY UPDATE config = VALUES(config), updated_at = CURRENT_TIMESTAMP`,
+      [JSON.stringify(normalized)]
+    );
+    res.json({ success: true, config: normalized });
+  } catch (error) {
+    console.error('PUT /api/admin/region-maps/config', error);
+    res.status(500).json({ error: 'Failed to save region maps config' });
+  }
+});
+
 app.post('/api/admin/game-center/upload', checkAdminRoleItems, (req, res) => {
   gcUpload.single('file')(req, res, (err) => {
     if (err) {
       console.error('game-center upload:', err);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'File quá lớn (tối đa 15MB)' });
+      }
       return res.status(400).json({ error: 'Upload thất bại' });
     }
     if (!req.file) return res.status(400).json({ error: 'Thiếu file' });
@@ -9161,16 +9337,284 @@ app.put('/api/admin/item-effects/:id', checkAdminRoleItems, (req, res) => {
 
 /************************************* SHOP ********************************************** */
 
+let shopRestockColumnsReady = false;
+
+async function ensureShopRestockColumns(dbConn = db) {
+  if (shopRestockColumnsReady) return;
+  try {
+    const [cols] = await dbConn.query(
+      `SELECT COLUMN_NAME AS c FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'shop_items'
+         AND COLUMN_NAME IN ('max_stock', 'last_restock_period_key')`
+    );
+    const have = new Set((cols || []).map((r) => r.c));
+    if (!have.has('max_stock')) {
+      await dbConn.query('ALTER TABLE shop_items ADD COLUMN max_stock INT NULL AFTER stock_limit');
+    }
+    if (!have.has('last_restock_period_key')) {
+      await dbConn.query(
+        'ALTER TABLE shop_items ADD COLUMN last_restock_period_key VARCHAR(64) NULL AFTER restock_interval'
+      );
+    }
+    await dbConn.query(
+      `UPDATE shop_items SET max_stock = stock_limit
+       WHERE stock_limit IS NOT NULL AND max_stock IS NULL`
+    );
+    shopRestockColumnsReady = true;
+  } catch (e) {
+    console.error('ensureShopRestockColumns:', e.message || e);
+    // Vẫn đánh dấu để tránh spam ALTER lỗi lặp; restock sẽ no-op nếu thiếu cột
+    shopRestockColumnsReady = true;
+  }
+}
+
+/** Khóa kỳ restock theo global_reset_time (daily / weekly / monthly). */
+function shopRestockPeriodKey(now, resetHm, interval) {
+  const cycle = String(interval || 'none').toLowerCase();
+  if (cycle === 'none' || !cycle) return null;
+  const [rh, rm] = String(resetHm || '06:00')
+    .trim()
+    .split(':')
+    .map((x) => parseInt(x, 10) || 0);
+  const t = new Date(now.getTime());
+
+  if (cycle === 'daily') {
+    return luckyWheelDailyPeriodKey(t, resetHm);
+  }
+
+  if (cycle === 'weekly') {
+    // Kỳ = Chủ nhật gần nhất tại giờ reset (hoặc tuần trước nếu chưa tới)
+    const day = t.getDay(); // 0 = CN
+    const anchorDate = new Date(t.getFullYear(), t.getMonth(), t.getDate() - day, rh, rm, 0, 0);
+    if (t.getTime() < anchorDate.getTime()) {
+      anchorDate.setDate(anchorDate.getDate() - 7);
+    }
+    return `w:${anchorDate.getTime()}`;
+  }
+
+  if (cycle === 'monthly') {
+    let anchor = new Date(t.getFullYear(), t.getMonth(), 1, rh, rm, 0, 0);
+    if (t.getTime() < anchor.getTime()) {
+      anchor = new Date(t.getFullYear(), t.getMonth() - 1, 1, rh, rm, 0, 0);
+    }
+    return `m:${anchor.getFullYear()}-${anchor.getMonth() + 1}`;
+  }
+
+  return null;
+}
+
+/**
+ * Restock lazy: nếu sang kỳ mới thì đổ stock_limit = max_stock cho item có restock_interval.
+ * Shop-level shop_restock_interval dùng làm fallback khi item.restock_interval = none.
+ */
+async function ensureShopItemsRestocked(dbConn, shopId) {
+  await ensureShopRestockColumns(dbConn);
+  const resetHm = await luckyWheelFetchGlobalResetHm(dbConn);
+  const now = new Date();
+
+  const [shopRows] = await dbConn.query(
+    'SELECT id, shop_restock_interval FROM shop_definitions WHERE id = ? LIMIT 1',
+    [shopId]
+  );
+  if (!shopRows.length) return { restocked: 0 };
+  const shopInterval = String(shopRows[0].shop_restock_interval || 'none').toLowerCase();
+
+  let items;
+  try {
+    const [rows] = await dbConn.query(
+      `SELECT id, stock_limit, max_stock, restock_interval, last_restock_period_key
+       FROM shop_items WHERE shop_id = ?`,
+      [shopId]
+    );
+    items = rows;
+  } catch (e) {
+    console.error('ensureShopItemsRestocked select:', e.message || e);
+    return { restocked: 0 };
+  }
+
+  let restocked = 0;
+  for (const item of items) {
+    const interval = String(item.restock_interval || 'none').toLowerCase();
+    if (interval === 'none' || !interval) continue;
+
+    const maxStock =
+      item.max_stock != null && item.max_stock !== ''
+        ? Number(item.max_stock)
+        : item.stock_limit != null
+          ? Number(item.stock_limit)
+          : null;
+    if (maxStock == null || !Number.isFinite(maxStock)) continue; // unlimited
+
+    const periodKey = shopRestockPeriodKey(now, resetHm, interval);
+    if (!periodKey) continue;
+    if (String(item.last_restock_period_key || '') === periodKey) continue;
+
+    await dbConn.query(
+      `UPDATE shop_items
+       SET stock_limit = ?, max_stock = COALESCE(max_stock, ?), last_restock_period_key = ?
+       WHERE id = ?`,
+      [maxStock, maxStock, periodKey, item.id]
+    );
+    restocked += 1;
+  }
+
+  if (restocked > 0) {
+    try {
+      await dbConn.query('UPDATE shop_definitions SET last_restock_time = NOW() WHERE id = ?', [shopId]);
+    } catch (_) {
+      /* cột có thể chưa có trên DB cũ */
+    }
+  }
+  return { restocked };
+}
+
+function normalizeShopStockLimit(raw) {
+  if (raw === null || raw === undefined || raw === '') return null;
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
+}
+
+const GENERAL_SHOP_SEEDS = [
+  { code: 'food', name: 'Cửa Hàng Thực Phẩm', description: 'Bà béo Oishi: Bán thức ăn, đồ uống', type_filter: 'food', currency_type: 'peta', sort_order: 10, image_url: '/images/shops/food.png', parent_category: 'general' },
+  { code: 'pharmacy', name: 'Cửa Hàng Dược Phẩm', description: 'Đại phu Amorph: Bán các loại thuốc và độc dược', type_filter: 'consumable', currency_type: 'peta', sort_order: 20, image_url: '/images/shops/pharmacy.png', parent_category: 'general' },
+  { code: 'grocery', name: 'Cửa Hàng Tạp Hóa', description: 'Lái buôn Raaki: Bán các vật phẩm linh tinh', type_filter: 'misc', currency_type: 'peta', sort_order: 30, image_url: '/images/shops/grocery.png', parent_category: 'general' },
+  { code: 'armory', name: 'Cửa Hàng Binh Khí', description: 'Thợ rèn Zicha: Bán vũ khí, giáp trụ', type_filter: 'equipment', currency_type: 'peta', sort_order: 40, image_url: '/images/shops/armory.png', parent_category: 'general' },
+  { code: 'mystic', name: 'Cửa Hàng Thần Bí', description: 'Phù thủy Merlin: Bán vật phẩm hiếm VIP', type_filter: 'misc', currency_type: 'peta', sort_order: 50, image_url: '/images/shops/mystic.png', parent_category: 'general' },
+  { code: 'golden', name: 'Cửa Hàng Hoàng Kim', description: 'Công tước Chrono: Kỳ trân dị bảo, petaGold', type_filter: 'all', currency_type: 'petagold', sort_order: 60, image_url: '/images/shops/golden.png', parent_category: 'general' },
+  { code: 'flea', name: 'Chợ Trời', description: 'Các cửa hàng của cư dân Petaria', type_filter: 'all', currency_type: 'peta', sort_order: 70, image_url: '/images/shops/flea.png', parent_category: 'general' },
+];
+
+const EXCHANGE_SHOP_SEEDS = [
+  { code: 'peta', name: 'Peta', description: 'Đổi thưởng bằng Peta', type_filter: 'all', currency_type: 'peta', sort_order: 10, parent_category: 'exchange' },
+  { code: 'petagold', name: 'PetaGold', description: 'Đổi thưởng bằng PetaGold', type_filter: 'all', currency_type: 'petagold', sort_order: 20, parent_category: 'exchange' },
+  { code: 'arena', name: 'Arena', description: 'Đổi thưởng Arena Points', type_filter: 'all', currency_type: 'arena', sort_order: 30, parent_category: 'exchange' },
+  { code: 'honor', name: 'Honor', description: 'Đổi thưởng Honor Points', type_filter: 'all', currency_type: 'honor', sort_order: 40, parent_category: 'exchange' },
+  { code: 'guild', name: 'Guild', description: 'Đổi thưởng Guild Points', type_filter: 'all', currency_type: 'guild', sort_order: 50, parent_category: 'exchange' },
+  { code: 'guildwar', name: 'Guild War', description: 'Đổi thưởng Guild War Points', type_filter: 'all', currency_type: 'guildwar', sort_order: 60, parent_category: 'exchange' },
+];
+
+const PREMIUM_SHOP_SEEDS = [
+  { code: 'monthly', name: 'Gói tháng', description: 'Shop cao cấp gói tháng', type_filter: 'all', currency_type: 'petagold', sort_order: 10, parent_category: 'premium' },
+  { code: 'special', name: 'Đặc biệt', description: 'Shop cao cấp đặc biệt', type_filter: 'all', currency_type: 'petagold', sort_order: 20, parent_category: 'premium' },
+  { code: 'limited', name: 'Giới hạn', description: 'Shop cao cấp giới hạn', type_filter: 'all', currency_type: 'petagold', sort_order: 30, parent_category: 'premium' },
+  { code: 'daily', name: 'Hàng ngày', description: 'Shop cao cấp hàng ngày', type_filter: 'all', currency_type: 'petagold', sort_order: 40, parent_category: 'premium' },
+];
+
+const ALL_SHOP_SEEDS = [...GENERAL_SHOP_SEEDS, ...EXCHANGE_SHOP_SEEDS, ...PREMIUM_SHOP_SEEDS];
+
+let generalShopsSeeded = false;
+
+async function ensureGeneralShopsSeeded(dbConn = db) {
+  if (generalShopsSeeded) return;
+  try {
+    // Cột phụ nếu thiếu (DB cũ)
+    const [cols] = await dbConn.query(
+      `SELECT COLUMN_NAME AS c FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'shop_definitions'`
+    );
+    const have = new Set((cols || []).map((r) => String(r.c || '').toLowerCase()));
+    if (!have.has('parent_category')) {
+      await dbConn.query(
+        `ALTER TABLE shop_definitions ADD COLUMN parent_category VARCHAR(32) NULL DEFAULT NULL`
+      );
+    }
+    if (!have.has('currency_type')) {
+      await dbConn.query(
+        `ALTER TABLE shop_definitions ADD COLUMN currency_type VARCHAR(32) NULL DEFAULT 'peta'`
+      );
+    }
+    if (!have.has('sort_order')) {
+      await dbConn.query(
+        `ALTER TABLE shop_definitions ADD COLUMN sort_order INT NULL DEFAULT 0`
+      );
+    }
+    if (!have.has('image_url')) {
+      await dbConn.query(
+        `ALTER TABLE shop_definitions ADD COLUMN image_url VARCHAR(512) NULL DEFAULT NULL`
+      );
+    }
+    if (!have.has('is_active')) {
+      await dbConn.query(
+        `ALTER TABLE shop_definitions ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1`
+      );
+    }
+
+    for (const s of ALL_SHOP_SEEDS) {
+      const parent = s.parent_category || 'general';
+      const [ex] = await dbConn.query(
+        'SELECT id, image_url, is_active, parent_category FROM shop_definitions WHERE code = ? LIMIT 1',
+        [s.code]
+      );
+      if (ex.length) {
+        // Shop đã xóa mềm: không seed lại / không ghi đè
+        if (Number(ex[0].is_active) === 0) continue;
+        const keepImage = String(ex[0].image_url || '').trim();
+        const imageUrl = keepImage || s.image_url || null;
+        // Giữ parent_category nếu đã gán; chỉ điền khi đang trống
+        const existingParent = String(ex[0].parent_category || '').trim();
+        const nextParent = existingParent || parent;
+        await dbConn.query(
+          `UPDATE shop_definitions
+           SET name = ?, description = ?, type_filter = ?, currency_type = ?, parent_category = ?, sort_order = ?,
+               image_url = ?
+           WHERE code = ? AND COALESCE(is_active, 1) = 1`,
+          [
+            s.name,
+            s.description,
+            s.type_filter,
+            s.currency_type,
+            nextParent,
+            s.sort_order,
+            imageUrl,
+            s.code,
+          ]
+        );
+      } else {
+        await dbConn.query(
+          `INSERT INTO shop_definitions (code, name, description, type_filter, currency_type, parent_category, sort_order, image_url, is_active)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+          [
+            s.code,
+            s.name,
+            s.description,
+            s.type_filter,
+            s.currency_type,
+            parent,
+            s.sort_order,
+            s.image_url || null,
+          ]
+        );
+      }
+    }
+    generalShopsSeeded = true;
+  } catch (e) {
+    console.error('ensureGeneralShopsSeeded:', e.message || e);
+    generalShopsSeeded = true;
+  }
+}
+
 // 1. API: Lấy danh sách cửa hàng: 
 // Dành cho người chơi hoặc admin để hiện danh sách các shop.
 
 app.get('/api/shops', async (req, res) => {
   try {
-    const [shops] = await db.query('SELECT * FROM shop_definitions');
-    res.json(shops); // shops là mảng kết quả thực tế
+    await ensureGeneralShopsSeeded(db);
+    const [shops] = await db.query(
+      `SELECT * FROM shop_definitions
+       WHERE COALESCE(is_active, 1) = 1
+       ORDER BY sort_order ASC, id ASC`
+    );
+    res.json(shops);
   } catch (err) {
     console.error('Lỗi khi query shop_definitions:', err);
-    res.status(500).json({ error: 'Lỗi khi lấy danh sách cửa hàng' });
+    // Fallback nếu thiếu cột sort_order / is_active
+    try {
+      const [shops] = await db.query('SELECT * FROM shop_definitions');
+      res.json(shops);
+    } catch (e2) {
+      res.status(500).json({ error: 'Lỗi khi lấy danh sách cửa hàng' });
+    }
   }
 });
 
@@ -9190,6 +9634,7 @@ app.get('/api/shop/:shop_code', async (req, res) => {
     }
 
     const shop = shopRows[0];
+    await ensureShopItemsRestocked(db, shop.id);
 
     const [items] = await db.query(`
       SELECT 
@@ -9199,6 +9644,7 @@ app.get('/api/shop/:shop_code', async (req, res) => {
         si.custom_price,
         si.currency_type,
         si.stock_limit,
+        si.max_stock,
         si.restock_interval,
         si.available_from,
         si.available_until,
@@ -9266,9 +9712,12 @@ app.post('/api/shop/buy', async (req, res) => {
     if (!shopRows.length) return res.status(404).json({ error: 'Shop không tồn tại' });
     const shop = shopRows[0];
 
+    // Restock lazy trước khi đọc/trừ stock
+    await ensureShopItemsRestocked(db, shop.id);
+
     // 2. Lấy thông tin item trong shop
     const [itemRows] = await db.query(`
-    SELECT i.*, si.custom_price, si.currency_type, si.stock_limit
+    SELECT i.*, si.custom_price, si.currency_type, si.stock_limit, si.max_stock, si.restock_interval
     FROM shop_items si
     JOIN items i ON si.item_id = i.id
     WHERE si.item_id = ? AND si.shop_id = ?
@@ -9297,6 +9746,20 @@ app.post('/api/shop/buy', async (req, res) => {
     
     if (!currency || !['peta', 'petagold'].includes(currency)) {
       return res.status(400).json({ error: 'Loại tiền không hợp lệ' });
+    }
+
+    // Túi đầy: chặn mua (không trừ tiền) — trừ khi chỉ cộng vào stack có sẵn
+    const slotsNeeded = await estimateNewSlotsForGrant(db, user_id, item_id, quantity);
+    if (slotsNeeded > 0) {
+      const cap = await getInventoryCapacity(db, user_id);
+      if (slotsNeeded > cap.freeSlots) {
+        return res.status(400).json({
+          error: 'Túi đồ đã đầy',
+          message: `Túi đồ đã đầy (${cap.slotCount}/${cap.maxSlots}). Hãy dọn bớt vật phẩm rồi mua lại.`,
+          slotCount: cap.slotCount,
+          maxSlots: cap.maxSlots,
+        });
+      }
     }
 
     // 4. Lấy thông tin người dùng (mysql2: [rows, fields] — phải lấy rows[0])
@@ -9377,33 +9840,53 @@ app.post('/api/shop/buy', async (req, res) => {
 
 
 // Admin - Cập nhật item trong shop (Edit)
-app.put('/api/admin/shop-items/:shop_id/:item_id', async (req, res) => {
+app.put('/api/admin/shop-items/:shop_id/:item_id', checkAdminRoleItems, async (req, res) => {
   const { shop_id, item_id } = req.params;
-  let { custom_price, stock_limit, restock_interval, available_from, available_until } = req.body;
+  let {
+    custom_price,
+    currency_type,
+    stock_limit,
+    restock_interval,
+    available_from,
+    available_until,
+  } = req.body;
 
   try {
+    await ensureShopRestockColumns(db);
+
     // Nếu có ngày giờ, thì mặc định restock = none
     if (available_from || available_until) {
       restock_interval = 'none';
     }
 
+    const stockVal = normalizeShopStockLimit(stock_limit);
+    // NULL = không giới hạn; số = cả stock hiện tại lẫn max để restock
     const sql = `
       UPDATE shop_items
-      SET custom_price = ?, stock_limit = ?, restock_interval = ?, available_from = ?, available_until = ?
+      SET custom_price = ?,
+          currency_type = COALESCE(?, currency_type),
+          stock_limit = ?,
+          max_stock = ?,
+          restock_interval = ?,
+          available_from = ?,
+          available_until = ?,
+          last_restock_period_key = NULL
       WHERE shop_id = ? AND item_id = ?
     `;
 
     await db.query(sql, [
-      custom_price || null,
-      stock_limit || null,
+      custom_price != null && custom_price !== '' ? Number(custom_price) : null,
+      currency_type || null,
+      stockVal,
+      stockVal,
       restock_interval || 'none',
       available_from || null,
       available_until || null,
       shop_id,
-      item_id
+      item_id,
     ]);
 
-    res.json({ success: true });
+    res.json({ success: true, message: 'Item updated successfully' });
   } catch (err) {
     console.error('Lỗi khi cập nhật shop item:', err);
     res.status(500).json({ error: 'Lỗi server khi cập nhật item trong shop' });
@@ -9452,7 +9935,13 @@ app.get('/api/users/:userId/inventory', async (req, res) => {
         WHERE i.player_id = ?
     `, [userId]);
 
-    res.json(rows);
+    const slotCount = rows.length;
+    res.json({
+      items: rows,
+      slotCount,
+      maxSlots: INVENTORY_MAX_SLOTS,
+      freeSlots: Math.max(0, INVENTORY_MAX_SLOTS - slotCount),
+    });
   } catch (err) {
     console.error('Lỗi khi lấy inventory:', err);
     res.status(500).json({ error: 'Không thể lấy dữ liệu inventory' });
@@ -12285,41 +12774,276 @@ app.get('/api/mails/:mailId/preview-assets', async (req, res) => {
   }
 });
 
-/** Thêm vật phẩm vào inventory khi nhận mail (đồng bộ trang bị / độ bền với đấu giá). */
-async function grantMailItemsToInventory(dbConn, playerId, itemId, quantity) {
+async function countInventorySlots(dbConn, playerId) {
+  const [rows] = await dbConn.query(
+    'SELECT COUNT(*) AS c FROM inventory WHERE player_id = ?',
+    [playerId]
+  );
+  return Number(rows[0]?.c) || 0;
+}
+
+async function getInventoryCapacity(dbConn, playerId) {
+  const slotCount = await countInventorySlots(dbConn, playerId);
+  return {
+    slotCount,
+    maxSlots: INVENTORY_MAX_SLOTS,
+    freeSlots: Math.max(0, INVENTORY_MAX_SLOTS - slotCount),
+    isFull: slotCount >= INVENTORY_MAX_SLOTS,
+  };
+}
+
+function makeInventoryFullError(slotCount, maxSlots = INVENTORY_MAX_SLOTS) {
+  const err = new Error('INVENTORY_FULL');
+  err.code = 'INVENTORY_FULL';
+  err.slotCount = slotCount;
+  err.maxSlots = maxSlots;
+  return err;
+}
+
+async function countOwnedPets(dbConn, userId) {
+  const [rows] = await dbConn.query('SELECT COUNT(*) AS c FROM pets WHERE owner_id = ?', [userId]);
+  return Number(rows[0]?.c) || 0;
+}
+
+async function getPetCapacity(dbConn, userId) {
+  const slotCount = await countOwnedPets(dbConn, userId);
+  return {
+    slotCount,
+    maxSlots: PET_MAX_SLOTS,
+    freeSlots: Math.max(0, PET_MAX_SLOTS - slotCount),
+    isFull: slotCount >= PET_MAX_SLOTS,
+  };
+}
+
+function makePetFullError(slotCount, maxSlots = PET_MAX_SLOTS) {
+  const err = new Error('PET_FULL');
+  err.code = 'PET_FULL';
+  err.slotCount = slotCount;
+  err.maxSlots = maxSlots;
+  return err;
+}
+
+async function countOwnedSpirits(dbConn, userId) {
+  const [rows] = await dbConn.query('SELECT COUNT(*) AS c FROM user_spirits WHERE user_id = ?', [
+    userId,
+  ]);
+  return Number(rows[0]?.c) || 0;
+}
+
+async function getSpiritCapacity(dbConn, userId) {
+  const slotCount = await countOwnedSpirits(dbConn, userId);
+  return {
+    slotCount,
+    maxSlots: SPIRIT_MAX_SLOTS,
+    freeSlots: Math.max(0, SPIRIT_MAX_SLOTS - slotCount),
+    isFull: slotCount >= SPIRIT_MAX_SLOTS,
+  };
+}
+
+function makeSpiritFullError(slotCount, maxSlots = SPIRIT_MAX_SLOTS) {
+  const err = new Error('SPIRIT_FULL');
+  err.code = 'SPIRIT_FULL';
+  err.slotCount = slotCount;
+  err.maxSlots = maxSlots;
+  return err;
+}
+
+/** Gửi thư hệ thống với attached_rewards tùy ý (items / pets / spirits / transfer ids). */
+async function sendSystemRewardMail(dbConn, playerId, attachedRewards, meta = {}) {
+  if (!attachedRewards || typeof attachedRewards !== 'object') return null;
+  const expireAt = new Date();
+  expireAt.setDate(expireAt.getDate() + 30);
+  const [result] = await dbConn.query(
+    `INSERT INTO mails (user_id, sender_type, sender_name, subject, message, attached_rewards, expire_at)
+     VALUES (?, 'admin', ?, ?, ?, ?, ?)`,
+    [
+      playerId,
+      meta.senderName || 'Hệ thống',
+      meta.subject || 'Kho đã đầy — phần thưởng gửi vào thư',
+      meta.message ||
+        'Kho của bạn đã đạt giới hạn. Phần thưởng được đính kèm trong thư này. Hãy dọn bớt rồi nhận.',
+      JSON.stringify(attachedRewards),
+      expireAt,
+    ]
+  );
+  return result?.insertId ?? null;
+}
+
+/** Số ô mới cần tạo khi thêm item (stack có sẵn = 0). */
+async function estimateNewSlotsForGrant(dbConn, playerId, itemId, quantity) {
   const qty = Math.max(0, parseInt(quantity, 10) || 0);
-  if (!qty || !itemId) return;
+  if (!qty || !itemId) return 0;
   const [itemRows] = await dbConn.query('SELECT id, type, stackable FROM items WHERE id = ?', [itemId]);
-  if (!itemRows.length) return;
+  if (!itemRows.length) return 0;
   const itemRow = itemRows[0];
   const isEquipment = String(itemRow.type || '').toLowerCase() === 'equipment';
-  if (isEquipment) {
-    const [equipInfo] = await dbConn.query('SELECT durability_max FROM equipment_data WHERE item_id = ?', [itemId]);
-    const durability = equipInfo.length > 0 ? (equipInfo[0].durability_max ?? 1) : 1;
-    for (let i = 0; i < qty; i++) {
-      await dbConn.query(
-        `INSERT INTO inventory (player_id, item_id, quantity, is_equipped, durability_left) VALUES (?, ?, 1, 0, ?)`,
-        [playerId, itemId, durability]
-      );
-    }
-    return;
-  }
+  if (isEquipment) return qty;
   const stackable = itemRow.stackable === 1 || itemRow.stackable === true;
   if (stackable) {
     const [invRows] = await dbConn.query(
-      `SELECT id, quantity FROM inventory WHERE player_id = ? AND item_id = ? AND (is_equipped = 0 OR is_equipped IS NULL)`,
+      `SELECT id FROM inventory WHERE player_id = ? AND item_id = ? AND (is_equipped = 0 OR is_equipped IS NULL) LIMIT 1`,
       [playerId, itemId]
     );
-    if (invRows.length > 0) {
-      await dbConn.query(`UPDATE inventory SET quantity = quantity + ? WHERE id = ?`, [qty, invRows[0].id]);
-    } else {
-      await dbConn.query(`INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, ?)`, [playerId, itemId, qty]);
+    return invRows.length > 0 ? 0 : 1;
+  }
+  return qty;
+}
+
+/** Ước lượng tổng ô mới cho danh sách item (có tính stack trong cùng batch). */
+async function estimateNewSlotsForItemList(dbConn, playerId, items) {
+  const pendingNewStacks = new Set();
+  let needed = 0;
+  for (const raw of items || []) {
+    const itemId = Number(raw.item_id ?? raw.itemId);
+    const qty = Math.max(0, parseInt(raw.quantity ?? raw.qty, 10) || 0);
+    if (!itemId || !qty) continue;
+    const [itemRows] = await dbConn.query('SELECT id, type, stackable FROM items WHERE id = ?', [itemId]);
+    if (!itemRows.length) continue;
+    const itemRow = itemRows[0];
+    const isEquipment = String(itemRow.type || '').toLowerCase() === 'equipment';
+    if (isEquipment) {
+      needed += qty;
+      continue;
     }
-  } else {
-    for (let i = 0; i < qty; i++) {
-      await dbConn.query(`INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, 1)`, [playerId, itemId]);
+    const stackable = itemRow.stackable === 1 || itemRow.stackable === true;
+    if (stackable) {
+      if (pendingNewStacks.has(itemId)) continue;
+      const [invRows] = await dbConn.query(
+        `SELECT id FROM inventory WHERE player_id = ? AND item_id = ? AND (is_equipped = 0 OR is_equipped IS NULL) LIMIT 1`,
+        [playerId, itemId]
+      );
+      if (invRows.length > 0) continue;
+      pendingNewStacks.add(itemId);
+      needed += 1;
+      continue;
+    }
+    needed += qty;
+  }
+  return needed;
+}
+
+async function sendInventoryOverflowMail(dbConn, playerId, items, meta = {}) {
+  const list = (items || [])
+    .map((it) => ({
+      item_id: Number(it.item_id ?? it.itemId),
+      quantity: Math.max(1, parseInt(it.quantity ?? it.qty, 10) || 1),
+    }))
+    .filter((it) => it.item_id > 0);
+  if (!list.length) return null;
+  return sendSystemRewardMail(
+    dbConn,
+    playerId,
+    { items: list },
+    {
+      senderName: meta.senderName || 'Hệ thống',
+      subject: meta.subject || 'Túi đồ đã đầy — vật phẩm gửi vào thư',
+      message:
+        meta.message ||
+        `Túi đồ của bạn đã đạt giới hạn (${INVENTORY_MAX_SLOTS} ô). Vật phẩm được đính kèm trong thư này. Hãy dọn bớt túi rồi nhấn nhận phần thưởng.`,
+    }
+  );
+}
+
+/**
+ * Thêm vật phẩm vào inventory (stack / equipment).
+ * @param {{ overflowToMail?: boolean, mailMeta?: object }} opts
+ *   - overflowToMail: nếu không đủ ô → gửi phần không nhận được vào thư hệ thống
+ *   - không bật: ném INVENTORY_FULL nếu không đủ chỗ (dùng khi claim mail)
+ * @returns {Promise<{ granted: number, mailed: number, destination: string }>}
+ */
+async function grantMailItemsToInventory(dbConn, playerId, itemId, quantity, opts = {}) {
+  const qty = Math.max(0, parseInt(quantity, 10) || 0);
+  if (!qty || !itemId) return { granted: 0, mailed: 0, destination: 'none' };
+
+  const overflowToMail = opts.overflowToMail === true;
+  const [itemRows] = await dbConn.query('SELECT id, type, stackable FROM items WHERE id = ?', [itemId]);
+  if (!itemRows.length) return { granted: 0, mailed: 0, destination: 'none' };
+  const itemRow = itemRows[0];
+  const isEquipment = String(itemRow.type || '').toLowerCase() === 'equipment';
+  const stackable = itemRow.stackable === 1 || itemRow.stackable === true;
+
+  const cap = await getInventoryCapacity(dbConn, playerId);
+  const needed = await estimateNewSlotsForGrant(dbConn, playerId, itemId, qty);
+
+  let grantQty = qty;
+  let mailQty = 0;
+
+  if (needed > cap.freeSlots) {
+    if (!overflowToMail) {
+      throw makeInventoryFullError(cap.slotCount, cap.maxSlots);
+    }
+    if (isEquipment || !stackable) {
+      grantQty = Math.max(0, cap.freeSlots);
+      mailQty = qty - grantQty;
+    } else if (needed > 0 && cap.freeSlots <= 0) {
+      grantQty = 0;
+      mailQty = qty;
+    } else {
+      // stackable cần 1 ô mới nhưng không còn chỗ
+      grantQty = 0;
+      mailQty = qty;
     }
   }
+
+  if (grantQty > 0) {
+    if (isEquipment) {
+      const [equipInfo] = await dbConn.query('SELECT durability_max FROM equipment_data WHERE item_id = ?', [
+        itemId,
+      ]);
+      const durability = equipInfo.length > 0 ? (equipInfo[0].durability_max ?? 1) : 1;
+      for (let i = 0; i < grantQty; i++) {
+        await dbConn.query(
+          `INSERT INTO inventory (player_id, item_id, quantity, is_equipped, durability_left) VALUES (?, ?, 1, 0, ?)`,
+          [playerId, itemId, durability]
+        );
+      }
+    } else if (stackable) {
+      const [invRows] = await dbConn.query(
+        `SELECT id, quantity FROM inventory WHERE player_id = ? AND item_id = ? AND (is_equipped = 0 OR is_equipped IS NULL)`,
+        [playerId, itemId]
+      );
+      if (invRows.length > 0) {
+        await dbConn.query(`UPDATE inventory SET quantity = quantity + ? WHERE id = ?`, [
+          grantQty,
+          invRows[0].id,
+        ]);
+      } else {
+        await dbConn.query(`INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, ?)`, [
+          playerId,
+          itemId,
+          grantQty,
+        ]);
+      }
+    } else {
+      for (let i = 0; i < grantQty; i++) {
+        await dbConn.query(`INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, 1)`, [
+          playerId,
+          itemId,
+        ]);
+      }
+    }
+  }
+
+  if (mailQty > 0) {
+    await sendInventoryOverflowMail(
+      dbConn,
+      playerId,
+      [{ item_id: itemId, quantity: mailQty }],
+      opts.mailMeta || {}
+    );
+  }
+
+  const destination =
+    mailQty > 0 && grantQty > 0 ? 'split' : mailQty > 0 ? 'mail' : grantQty > 0 ? 'inventory' : 'none';
+  return { granted: grantQty, mailed: mailQty, destination };
+}
+
+/** @deprecated alias — giữ tên cũ cho chỗ gọi overflow */
+async function grantItemsToInventoryOrMail(dbConn, playerId, itemId, quantity, mailMeta) {
+  return grantMailItemsToInventory(dbConn, playerId, itemId, quantity, {
+    overflowToMail: true,
+    mailMeta,
+  });
 }
 
 async function petHasActiveArenaMatch(userId, petId) {
@@ -12382,12 +13106,29 @@ async function applyMailAttachedRewards(mailRow, recipientUserId) {
   }
 
   if (rewards.items && rewards.items.length > 0) {
+    const needed = await estimateNewSlotsForItemList(db, recipientUserId, rewards.items);
+    const cap = await getInventoryCapacity(db, recipientUserId);
+    if (needed > cap.freeSlots) {
+      throw makeInventoryFullError(cap.slotCount, cap.maxSlots);
+    }
     for (const item of rewards.items) {
       await grantMailItemsToInventory(db, recipientUserId, item.item_id, item.quantity);
     }
   }
 
   if (rewards.spirits && rewards.spirits.length > 0) {
+    let spiritNeeded = 0;
+    for (const spirit of rewards.spirits) {
+      if (isUserMail && spirit.user_spirit_id) {
+        spiritNeeded += 1;
+      } else {
+        spiritNeeded += Math.max(1, parseInt(spirit.quantity, 10) || 1);
+      }
+    }
+    const spiritCap = await getSpiritCapacity(db, recipientUserId);
+    if (spiritNeeded > spiritCap.freeSlots) {
+      throw makeSpiritFullError(spiritCap.slotCount, spiritCap.maxSlots);
+    }
     for (const spirit of rewards.spirits) {
       const qty = Math.max(1, parseInt(spirit.quantity, 10) || 1);
       if (isUserMail && spirit.user_spirit_id) {
@@ -12409,6 +13150,15 @@ async function applyMailAttachedRewards(mailRow, recipientUserId) {
   }
 
   if (rewards.pets && rewards.pets.length > 0) {
+    let petNeeded = 0;
+    for (const pet of rewards.pets) {
+      if (isUserMail && pet.pet_id) petNeeded += 1;
+      else petNeeded += Math.max(1, parseInt(pet.quantity, 10) || 1);
+    }
+    const petCap = await getPetCapacity(db, recipientUserId);
+    if (petNeeded > petCap.freeSlots) {
+      throw makePetFullError(petCap.slotCount, petCap.maxSlots);
+    }
     for (const pet of rewards.pets) {
       const qty = Math.max(1, parseInt(pet.quantity, 10) || 1);
       if (isUserMail && pet.pet_id) {
@@ -12480,12 +13230,27 @@ async function applyMailAttachedRewards(mailRow, recipientUserId) {
     }
   }
 
-  /** Đấu giá: pet/spirit đã chuyển owner khi kết phiên — claim thư chỉ idempotent (đồng bộ is_listed). */
+  /** Đấu giá / overflow: chuyển pet/spirit đã tạo sẵn về người nhận. */
   if (
     Array.isArray(rewards.auction_transfer_pet_ids) &&
     rewards.auction_transfer_pet_ids.length > 0 &&
     !isUserMail
   ) {
+    let transferPetNeeded = 0;
+    for (const rawId of rewards.auction_transfer_pet_ids) {
+      const pid = parseInt(rawId, 10);
+      if (!Number.isFinite(pid)) continue;
+      const [prows] = await db.query('SELECT owner_id FROM pets WHERE id = ?', [pid]);
+      if (!prows.length) continue;
+      if (Number(prows[0].owner_id) === Number(recipientUserId)) continue;
+      transferPetNeeded += 1;
+    }
+    if (transferPetNeeded > 0) {
+      const petCap = await getPetCapacity(db, recipientUserId);
+      if (transferPetNeeded > petCap.freeSlots) {
+        throw makePetFullError(petCap.slotCount, petCap.maxSlots);
+      }
+    }
     for (const rawId of rewards.auction_transfer_pet_ids) {
       const pid = parseInt(rawId, 10);
       if (!Number.isFinite(pid)) continue;
@@ -12500,6 +13265,21 @@ async function applyMailAttachedRewards(mailRow, recipientUserId) {
     rewards.auction_transfer_spirit_ids.length > 0 &&
     !isUserMail
   ) {
+    let transferSpiritNeeded = 0;
+    for (const rawId of rewards.auction_transfer_spirit_ids) {
+      const sid = parseInt(rawId, 10);
+      if (!Number.isFinite(sid)) continue;
+      const [srows] = await db.query('SELECT user_id FROM user_spirits WHERE id = ?', [sid]);
+      if (!srows.length) continue;
+      if (Number(srows[0].user_id) === Number(recipientUserId)) continue;
+      transferSpiritNeeded += 1;
+    }
+    if (transferSpiritNeeded > 0) {
+      const spiritCap = await getSpiritCapacity(db, recipientUserId);
+      if (transferSpiritNeeded > spiritCap.freeSlots) {
+        throw makeSpiritFullError(spiritCap.slotCount, spiritCap.maxSlots);
+      }
+    }
     for (const rawId of rewards.auction_transfer_spirit_ids) {
       const sid = parseInt(rawId, 10);
       if (!Number.isFinite(sid)) continue;
@@ -12734,6 +13514,30 @@ app.post('/api/mails/claim/:mailId', async (req, res) => {
 
   } catch (err) {
     console.error('Lỗi khi claim mail:', err);
+    if (err.code === 'INVENTORY_FULL') {
+      return res.status(400).json({
+        error: 'Túi đồ đã đầy',
+        message: `Túi đồ đã đầy (${err.slotCount}/${err.maxSlots}). Hãy dọn bớt vật phẩm rồi nhận thư.`,
+        slotCount: err.slotCount,
+        maxSlots: err.maxSlots,
+      });
+    }
+    if (err.code === 'PET_FULL') {
+      return res.status(400).json({
+        error: 'Kho pet đã đầy',
+        message: `Kho pet đã đầy (${err.slotCount}/${err.maxSlots}). Hãy dọn bớt pet rồi nhận thư.`,
+        slotCount: err.slotCount,
+        maxSlots: err.maxSlots,
+      });
+    }
+    if (err.code === 'SPIRIT_FULL') {
+      return res.status(400).json({
+        error: 'Kho linh thú đã đầy',
+        message: `Kho linh thú đã đầy (${err.slotCount}/${err.maxSlots}). Hãy dọn bớt linh thú rồi nhận thư.`,
+        slotCount: err.slotCount,
+        maxSlots: err.maxSlots,
+      });
+    }
     res.status(500).json({ error: 'Lỗi khi claim mail' });
   }
 });
@@ -12783,11 +13587,8 @@ app.post('/api/mails/claim-all/:userId', async (req, res) => {
       if (rewards.auction_transfer_spirit_ids?.length) spiritGrantCount += rewards.auction_transfer_spirit_ids.length;
 
       await applyMailAttachedRewards(mail, targetUserId);
+      await db.query(`UPDATE mails SET is_claimed = TRUE WHERE id = ?`, [mail.id]);
     }
-
-    await db.query(`
-      UPDATE mails SET is_claimed = TRUE WHERE user_id = ? AND is_claimed = FALSE
-    `, [targetUserId]);
 
     res.json({
       success: true,
@@ -12801,6 +13602,30 @@ app.post('/api/mails/claim-all/:userId', async (req, res) => {
 
   } catch (err) {
     console.error('Lỗi khi claim all mail:', err);
+    if (err.code === 'INVENTORY_FULL') {
+      return res.status(400).json({
+        error: 'Túi đồ đã đầy',
+        message: `Túi đồ đã đầy (${err.slotCount}/${err.maxSlots}). Hãy dọn bớt vật phẩm rồi nhận thư.`,
+        slotCount: err.slotCount,
+        maxSlots: err.maxSlots,
+      });
+    }
+    if (err.code === 'PET_FULL') {
+      return res.status(400).json({
+        error: 'Kho pet đã đầy',
+        message: `Kho pet đã đầy (${err.slotCount}/${err.maxSlots}). Hãy dọn bớt pet rồi nhận thư.`,
+        slotCount: err.slotCount,
+        maxSlots: err.maxSlots,
+      });
+    }
+    if (err.code === 'SPIRIT_FULL') {
+      return res.status(400).json({
+        error: 'Kho linh thú đã đầy',
+        message: `Kho linh thú đã đầy (${err.slotCount}/${err.maxSlots}). Hãy dọn bớt linh thú rồi nhận thư.`,
+        slotCount: err.slotCount,
+        maxSlots: err.maxSlots,
+      });
+    }
     res.status(500).json({ error: 'Lỗi khi claim tất cả mail' });
   }
 });
@@ -13010,7 +13835,18 @@ app.get('/api/users/:userId/spirits', async (req, res) => {
       userSpirit.stats = stats;
     }
 
-    res.json(userSpirits);
+    const [cntRows] = await db.query(
+      'SELECT COUNT(*) AS c FROM user_spirits WHERE user_id = ?',
+      [userId]
+    );
+    const slotCount = Number(cntRows[0]?.c) || userSpirits.length;
+
+    res.json({
+      spirits: userSpirits,
+      slotCount,
+      maxSlots: SPIRIT_MAX_SLOTS,
+      freeSlots: Math.max(0, SPIRIT_MAX_SLOTS - slotCount),
+    });
   } catch (err) {
     console.error('Lỗi khi lấy spirits của user:', err);
     res.status(500).json({ error: 'Lỗi khi lấy spirits của user' });
@@ -13184,6 +14020,16 @@ app.post('/api/spirits/claim', async (req, res) => {
 
     if (existingSpirit.length > 0) {
       return res.status(400).json({ error: 'Bạn đã sở hữu Linh Thú này rồi' });
+    }
+
+    const spiritCap = await getSpiritCapacity(db, userId);
+    if (spiritCap.freeSlots < 1) {
+      return res.status(400).json({
+        error: 'Kho linh thú đã đầy',
+        message: `Kho linh thú đã đầy (${spiritCap.slotCount}/${spiritCap.maxSlots}).`,
+        slotCount: spiritCap.slotCount,
+        maxSlots: spiritCap.maxSlots,
+      });
     }
 
     // Thêm spirit cho user
@@ -14342,37 +15188,177 @@ app.put('/api/admin/users/:userId/vip', checkAdminRole, async (req, res) => {
 // GET /api/admin/shops - Lấy danh sách shops cho admin
 app.get('/api/admin/shops', checkAdminRole, async (req, res) => {
   try {
+    await ensureGeneralShopsSeeded(db);
     const [shops] = await db.query(`
-      SELECT * FROM shop_definitions 
+      SELECT * FROM shop_definitions
+      WHERE COALESCE(is_active, 1) = 1
       ORDER BY parent_category, sort_order
     `);
     res.json(shops);
   } catch (error) {
     console.error('Error fetching shops:', error);
-    res.status(500).json({ error: 'Failed to fetch shops' });
+    try {
+      const [shops] = await db.query('SELECT * FROM shop_definitions');
+      res.json(shops);
+    } catch (e2) {
+      res.status(500).json({ error: 'Failed to fetch shops' });
+    }
   }
 });
 
 // POST /api/admin/shops/add - Thêm shop mới
 app.post('/api/admin/shops/add', checkAdminRole, async (req, res) => {
-  const { name, code, description, type_filter, currency_type, parent_category, sort_order } = req.body;
+  const {
+    name,
+    code,
+    description,
+    type_filter,
+    currency_type,
+    parent_category,
+    sort_order,
+    image_url,
+  } = req.body;
 
   try {
-    // Check if code already exists
-    const [existing] = await db.query('SELECT id FROM shop_definitions WHERE code = ?', [code]);
-    if (existing.length > 0) {
-      return res.status(400).json({ error: 'Shop code already exists' });
+    await ensureGeneralShopsSeeded(db);
+
+    const shopCode = String(code || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '_');
+    if (!name || !shopCode) {
+      return res.status(400).json({ error: 'Thiếu name hoặc code' });
     }
 
-    await db.query(`
-      INSERT INTO shop_definitions (name, code, description, type_filter, currency_type, parent_category, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [name, code, description, type_filter, currency_type, parent_category, sort_order]);
+    const [existing] = await db.query(
+      'SELECT id, is_active FROM shop_definitions WHERE code = ? LIMIT 1',
+      [shopCode]
+    );
+    if (existing.length > 0) {
+      if (Number(existing[0].is_active) !== 0) {
+        return res.status(400).json({ error: 'Shop code already exists' });
+      }
+      // Khôi phục shop đã xóa mềm với cùng code
+      await db.query(
+        `
+        UPDATE shop_definitions
+        SET name = ?, description = ?, type_filter = ?, currency_type = ?, parent_category = ?,
+            sort_order = ?, image_url = ?, is_active = 1
+        WHERE id = ?
+      `,
+        [
+          name,
+          description || null,
+          type_filter || 'all',
+          currency_type || 'peta',
+          parent_category || 'general',
+          sort_order ?? 100,
+          image_url ? String(image_url).trim() : null,
+          existing[0].id,
+        ]
+      );
+      return res.json({ message: 'Shop restored successfully', code: shopCode, id: existing[0].id });
+    }
 
-    res.json({ message: 'Shop added successfully' });
+    await db.query(
+      `
+      INSERT INTO shop_definitions (name, code, description, type_filter, currency_type, parent_category, sort_order, image_url, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+    `,
+      [
+        name,
+        shopCode,
+        description || null,
+        type_filter || 'all',
+        currency_type || 'peta',
+        parent_category || 'general',
+        sort_order ?? 100,
+        image_url ? String(image_url).trim() : null,
+      ]
+    );
+
+    res.json({ message: 'Shop added successfully', code: shopCode });
   } catch (error) {
     console.error('Error adding shop:', error);
     res.status(500).json({ error: 'Failed to add shop' });
+  }
+});
+
+// PUT /api/admin/shops/:shop_id - Cập nhật shop (ảnh, mô tả, …)
+app.put('/api/admin/shops/:shop_id', checkAdminRole, async (req, res) => {
+  const { shop_id } = req.params;
+  const { name, description, type_filter, currency_type, sort_order, image_url, parent_category } =
+    req.body;
+
+  try {
+    await ensureGeneralShopsSeeded(db);
+
+    const [rows] = await db.query('SELECT id FROM shop_definitions WHERE id = ? LIMIT 1', [shop_id]);
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Shop not found' });
+    }
+
+    await db.query(
+      `
+      UPDATE shop_definitions
+      SET name = COALESCE(?, name),
+          description = COALESCE(?, description),
+          type_filter = COALESCE(?, type_filter),
+          currency_type = COALESCE(?, currency_type),
+          sort_order = COALESCE(?, sort_order),
+          image_url = ?,
+          parent_category = COALESCE(?, parent_category)
+      WHERE id = ?
+    `,
+      [
+        name ?? null,
+        description ?? null,
+        type_filter ?? null,
+        currency_type ?? null,
+        sort_order ?? null,
+        image_url === undefined || image_url === null ? null : String(image_url).trim() || null,
+        parent_category ?? null,
+        shop_id,
+      ]
+    );
+
+    res.json({ message: 'Shop updated successfully' });
+  } catch (error) {
+    console.error('Error updating shop:', error);
+    res.status(500).json({ error: 'Failed to update shop' });
+  }
+});
+
+// DELETE /api/admin/shops/:shop_id - Xóa cửa hàng (mềm) + xóa shop_items
+app.delete('/api/admin/shops/:shop_id', checkAdminRole, async (req, res) => {
+  const { shop_id } = req.params;
+
+  try {
+    await ensureGeneralShopsSeeded(db);
+
+    const [rows] = await db.query(
+      'SELECT id, code, parent_category, is_active FROM shop_definitions WHERE id = ? LIMIT 1',
+      [shop_id]
+    );
+    if (!rows.length || Number(rows[0].is_active) === 0) {
+      return res.status(404).json({ error: 'Shop not found' });
+    }
+
+    const shop = rows[0];
+    const cat = String(shop.parent_category || '').toLowerCase();
+    if (!['general', 'exchange', 'premium'].includes(cat)) {
+      return res.status(400).json({
+        error: 'Chỉ được xóa cửa hàng thuộc Chung / Đổi thưởng / Cao cấp',
+      });
+    }
+
+    await db.query('DELETE FROM shop_items WHERE shop_id = ?', [shop_id]);
+    await db.query('UPDATE shop_definitions SET is_active = 0 WHERE id = ?', [shop_id]);
+
+    res.json({ message: 'Shop deleted successfully', code: shop.code, parent_category: cat });
+  } catch (error) {
+    console.error('Error deleting shop:', error);
+    res.status(500).json({ error: 'Failed to delete shop' });
   }
 });
 
@@ -14391,6 +15377,7 @@ app.get('/api/admin/shop/:shop_code', checkAdminRole, async (req, res) => {
     }
 
     const shop = shopRows[0];
+    await ensureShopItemsRestocked(db, shop.id);
 
     const [items] = await db.query(`
       SELECT 
@@ -14421,6 +15408,8 @@ app.post('/api/admin/shop-items/add', checkAdminRole, async (req, res) => {
   const { shop_code, item_id, custom_price, currency_type, stock_limit, restock_interval, available_from, available_until } = req.body;
 
   try {
+    await ensureShopRestockColumns(db);
+
     // Get shop ID
     const [shopRows] = await db.query('SELECT id FROM shop_definitions WHERE code = ?', [shop_code]);
     if (!shopRows.length) {
@@ -14434,10 +15423,22 @@ app.post('/api/admin/shop-items/add', checkAdminRole, async (req, res) => {
       return res.status(400).json({ error: 'Item already exists in this shop' });
     }
 
+    const stockVal = normalizeShopStockLimit(stock_limit);
+
     await db.query(`
-      INSERT INTO shop_items (shop_id, item_id, custom_price, currency_type, stock_limit, restock_interval, available_from, available_until)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `, [shopId, item_id, custom_price, currency_type, stock_limit || 9999, restock_interval, available_from, available_until]);
+      INSERT INTO shop_items (shop_id, item_id, custom_price, currency_type, stock_limit, max_stock, restock_interval, available_from, available_until)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      shopId,
+      item_id,
+      custom_price != null && custom_price !== '' ? Number(custom_price) : null,
+      currency_type || 'peta',
+      stockVal,
+      stockVal,
+      restock_interval || 'none',
+      available_from || null,
+      available_until || null,
+    ]);
 
     res.json({ message: 'Item added to shop successfully' });
   } catch (error) {
@@ -14446,24 +15447,7 @@ app.post('/api/admin/shop-items/add', checkAdminRole, async (req, res) => {
   }
 });
 
-// PUT /api/admin/shop-items/:shop_id/:item_id - Cập nhật item trong shop
-app.put('/api/admin/shop-items/:shop_id/:item_id', checkAdminRole, async (req, res) => {
-  const { shop_id, item_id } = req.params;
-  const { custom_price, currency_type, stock_limit, restock_interval, available_from, available_until } = req.body;
-
-  try {
-    await db.query(`
-      UPDATE shop_items 
-      SET custom_price = ?, currency_type = ?, stock_limit = ?, restock_interval = ?, available_from = ?, available_until = ?
-      WHERE shop_id = ? AND item_id = ?
-    `, [custom_price, currency_type, stock_limit || 9999, restock_interval, available_from, available_until, shop_id, item_id]);
-
-    res.json({ message: 'Item updated successfully' });
-  } catch (error) {
-    console.error('Error updating item:', error);
-    res.status(500).json({ error: 'Failed to update item' });
-  }
-});
+// PUT /api/admin/shop-items/:shop_id/:item_id — đã đăng ký ở khối SHOP phía trên (có checkAdminRole + max_stock)
 
 // DELETE /api/admin/shop-items/:shop_id/:item_id - Xóa item khỏi shop
 app.delete('/api/admin/shop-items/:shop_id/:item_id', checkAdminRole, async (req, res) => {

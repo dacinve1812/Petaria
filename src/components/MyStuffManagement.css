@@ -1,6 +1,6 @@
 /* MyStuffManagement.css */
 .my-stuff-management {
-  min-height: 65dvh;
+  min-height: 50dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -102,14 +102,20 @@
 
 .management-item:hover {
   transform: translateY(-2px);
+  box-shadow: none;
+}
+
+.management-item:hover .management-item-image {
+  box-shadow: none;
 }
 
 .management-item-image {
   width: 100%;
   aspect-ratio: 1 / 1;
   object-fit: contain;
-  border-radius: 10px;
+  /* border-radius: 10px; */
   display: block;
+  box-shadow: none;
   /* background: #f7f7f7; */
 }
 

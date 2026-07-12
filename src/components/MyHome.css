@@ -9,6 +9,36 @@
   margin: 0 auto;
 }
 
+.pet-list-info,
+.spirit-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.collection-slot-usage {
+  display: inline-flex;
+  align-items: baseline;
+  font-size: 0.95rem;
+  color: #2d3748;
+  white-space: nowrap;
+}
+
+.collection-slot-usage__value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.collection-slot-usage--full .collection-slot-usage__value {
+  color: #c53030;
+}
+
 /* Pets Grid */
 .pets-grid {
   display: grid;

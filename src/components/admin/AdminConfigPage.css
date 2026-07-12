@@ -1,0 +1,68 @@
+/* Admin config page chrome — header + white page (giống NPC/Boss, Linh thú) */
+
+.admin-config-page {
+  padding: 20px;
+  background: white;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.admin-config-page .admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #eef1f4;
+}
+
+.admin-config-page .header-text h1 {
+  color: #2c3e50;
+  margin: 0 0 8px;
+  font-size: 1.6rem;
+}
+
+.admin-config-page .header-text p {
+  color: #7f8c8d;
+  font-size: 15px;
+  margin: 0;
+  line-height: 1.45;
+  max-width: 52rem;
+}
+
+.admin-config-page .back-admin-btn {
+  padding: 10px 20px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.admin-config-page .back-admin-btn:hover {
+  background: #2980b9;
+}
+
+.admin-config-page .section-card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  border: 1px solid #eef1f4;
+}
+
+.admin-config-page .admin-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}

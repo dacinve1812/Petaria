@@ -2,6 +2,8 @@
 
 Tài liệu này mô tả **dữ liệu map**, **cách thêm/sửa map**, và **trang Admin UI** (`/admin/hunting-maps`). Game Phaser đọc map qua `getHuntingMap(mapId)` trong `src/game/map/mapRegistry.js`.
 
+Gắn spot trên bản đồ vùng (World/Region) với `huntingMapId` hoặc path feature: xem [`REGION_MAPS_SETUP.md`](./REGION_MAPS_SETUP.md).
+
 ---
 
 ## 1. Hai nguồn map

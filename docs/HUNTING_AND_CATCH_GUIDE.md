@@ -19,7 +19,7 @@ Người chơi vào **Thế giới săn bắt** → chọn map → đi trên lư
 
 | Loại gặp | Người chơi làm gì |
 |----------|-------------------|
-| **Pet hoang** | Bắt (màn lưới + thức ăn), hoặc bỏ chạy. Nút chiến đấu với pet hoang hiện chưa mở trận thật. |
+| **Pet hoang** | Chỉ **Bắt** hoặc **Bỏ chạy** (chiến đấu với pet hoang tạm ẩn, làm sau). |
 | **Vật phẩm** | Xác nhận nhận vào túi (bắt buộc nhận, không bỏ qua bằng nút đóng). |
 | **Boss** | Chiến đấu (chọn pet → vào trận giống Đấu trường) hoặc bỏ chạy. |
 
@@ -88,7 +88,8 @@ Sau mỗi lần gặp: bật cooldown → trong vài giây tiếp theo **không 
 - Hiện tên, ảnh, level.
 - **Bắt** → mở màn bắt (xem A5).
 - **Bỏ chạy** → hỏi xác nhận → đóng, tiếp tục đi map.
-- **Chiến đấu** với pet hoang: hiện mới là chỗ giữ chỗ / thông báo sẽ bổ sung — **chưa** tạo trận thật như boss.
+- Nút **Chiến đấu** với pet hoang: **đã ẩn** trên UI (tính năng để sau).
+
 
 ### Vật phẩm
 
@@ -280,7 +281,7 @@ Logic mặc định nằm ở `backend/utils/huntingCatch.js`.
 
 ## A8. Việc chưa làm / cần lưu ý khi mở rộng
 
-- Chiến đấu với **pet hoang** (không phải boss): chưa vào trận thật.
+- Chiến đấu với **pet hoang**: nút đã ẩn trên UI; làm sau.
 - Trừ **vé vào map** phía server: đối chiếu lại trước khi coi là đã thu phí.
 - Cân bằng: tăng tỉ lệ lưới / giảm penalty / tăng bonus ăn sẽ làm bắt dễ hơn rõ; tăng flee theo số lần ăn / theo hụt sẽ phạt kiểu “spam ăn”.
 - Người chơi **không** được thấy % chính xác — giữ nguyên nếu muốn tránh min-max cứng; chỉ admin thấy số trong trang cấu hình.
@@ -375,7 +376,7 @@ Bạn có thể **hủy** màn bắt để quay lại hộp thoại gặp pet (b
 - **Hụt lưới ≠ pet chạy mất.** Hụt chỉ mất lưới và làm lần cho ăn sau rủi ro hơn.
 - **Cho ăn không đảm bảo bắt được** — chỉ tăng cơ hội; vẫn có thể chạy khi đang cho ăn.
 - **Không có bắt 100%** — luôn có trần tối đa (thường dưới 100%).
-- **Chiến đấu pet hoang** có thể chưa dùng được; gặp Boss mới vào trận thật.
+- **Không có nút chiến đấu** khi gặp pet hoang — chỉ bắt hoặc bỏ chạy. Gặp Boss mới vào trận thật.
 
 ---
 

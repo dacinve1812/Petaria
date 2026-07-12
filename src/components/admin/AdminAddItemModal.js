@@ -1,5 +1,5 @@
 // File: AdminAddItemModal.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useUser } from '../../UserContext';
 
 function AdminAddItemModal({ shopCode, shopName, onClose, onItemAdded }) {
@@ -16,15 +16,19 @@ function AdminAddItemModal({ shopCode, shopName, onClose, onItemAdded }) {
   const [availableUntil, setAvailableUntil] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Currency options based on shop type
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterRarity, setFilterRarity] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
+
   const currencyOptions = {
-    'peta': 'Peta',
-    'petagold': 'PetaGold',
-    'arena': 'Arena Points',
-    'honor': 'Honor Points',
-    'guild': 'Guild Points',
-    'guildwar': 'Guild War Points',
-    'ruby': 'Ruby'
+    peta: 'Peta',
+    petagold: 'PetaGold',
+    arena: 'Arena Points',
+    honor: 'Honor Points',
+    guild: 'Guild Points',
+    guildwar: 'Guild War Points',
+    ruby: 'Ruby',
   };
 
   useEffect(() => {
@@ -34,14 +38,65 @@ function AdminAddItemModal({ shopCode, shopName, onClose, onItemAdded }) {
   const loadAvailableItems = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/items`, {
-        headers: { 'Authorization': `Bearer ${user.token}` }
+        headers: { Authorization: `Bearer ${user.token}` },
       });
       const data = await response.json();
-      setAvailableItems(data);
+      setAvailableItems(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading available items:', error);
+      setAvailableItems([]);
     }
   };
+
+  const typeOptions = useMemo(() => {
+    const set = new Set();
+    availableItems.forEach((item) => {
+      const t = String(item.type || '').trim();
+      if (t) set.add(t);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [availableItems]);
+
+  const rarityOptions = useMemo(() => {
+    const set = new Set();
+    availableItems.forEach((item) => {
+      const r = String(item.rarity || '').trim();
+      if (r) set.add(r);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [availableItems]);
+
+  const categoryOptions = useMemo(() => {
+    const set = new Set();
+    availableItems.forEach((item) => {
+      const c = String(item.category || '').trim();
+      if (c) set.add(c);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [availableItems]);
+
+  const filteredItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return availableItems.filter((item) => {
+      if (filterType !== 'all' && String(item.type || '') !== filterType) return false;
+      if (filterRarity !== 'all' && String(item.rarity || '') !== filterRarity) return false;
+      if (filterCategory !== 'all' && String(item.category || '') !== filterCategory) return false;
+      if (!q) return true;
+      const hay = [
+        item.name,
+        item.id,
+        item.item_code,
+        item.type,
+        item.category,
+        item.subtype,
+        item.rarity,
+      ]
+        .filter((v) => v != null && v !== '')
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [availableItems, searchQuery, filterType, filterRarity, filterCategory]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,14 +105,12 @@ function AdminAddItemModal({ shopCode, shopName, onClose, onItemAdded }) {
       return;
     }
 
-    // Validate custom price
-    if (customPrice && (parseInt(customPrice) < 0 || parseInt(customPrice) > 999999)) {
+    if (customPrice && (parseInt(customPrice, 10) < 0 || parseInt(customPrice, 10) > 999999)) {
       alert('Giá tùy chỉnh phải từ 0 đến 999,999');
       return;
     }
 
-    // Validate stock limit
-    if (stockLimit && (parseInt(stockLimit) < 0 || parseInt(stockLimit) > 999999)) {
+    if (stockLimit && (parseInt(stockLimit, 10) < 0 || parseInt(stockLimit, 10) > 999999)) {
       alert('Stock limit phải từ 0 đến 999,999');
       return;
     }
@@ -68,18 +121,18 @@ function AdminAddItemModal({ shopCode, shopName, onClose, onItemAdded }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}`
+          Authorization: `Bearer ${user.token}`,
         },
         body: JSON.stringify({
           shop_code: shopCode,
           item_id: selectedItemId,
-          custom_price: customPrice ? parseInt(customPrice) : null,
+          custom_price: customPrice ? parseInt(customPrice, 10) : null,
           currency_type: currencyType,
-          stock_limit: stockLimit ? parseInt(stockLimit) : null, // Send null for unlimited, backend will handle it
+          stock_limit: stockLimit ? parseInt(stockLimit, 10) : null,
           restock_interval: restockInterval,
           available_from: availableFrom || null,
-          available_until: availableUntil || null
-        })
+          available_until: availableUntil || null,
+        }),
       });
 
       if (response.ok) {
@@ -87,7 +140,7 @@ function AdminAddItemModal({ shopCode, shopName, onClose, onItemAdded }) {
         onItemAdded();
       } else {
         const error = await response.json();
-        alert(`Lỗi: ${error.message || 'Không thể thêm item'}`);
+        alert(`Lỗi: ${error.message || error.error || 'Không thể thêm item'}`);
       }
     } catch (error) {
       console.error('Error adding item:', error);
@@ -97,37 +150,110 @@ function AdminAddItemModal({ shopCode, shopName, onClose, onItemAdded }) {
     }
   };
 
-  const selectedItem = availableItems.find(item => item.id === selectedItemId);
+  const selectedItem = availableItems.find((item) => item.id === selectedItemId);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setFilterType('all');
+    setFilterRarity('all');
+    setFilterCategory('all');
+  };
 
   return (
     <div className="admin-modal-overlay">
       <div className="admin-modal">
         <div className="admin-modal-header">
           <h2>Thêm Item vào {shopName}</h2>
-          <button className="admin-close-btn" onClick={onClose}>×</button>
+          <button type="button" className="admin-close-btn" onClick={onClose}>
+            ×
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="admin-form">
           <div className="admin-form-group">
             <label>Chọn Item:</label>
+
+            <div className="admin-item-filter-bar">
+              <input
+                type="search"
+                className="admin-item-filter-search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm theo tên, id, mã item…"
+                autoComplete="off"
+              />
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                aria-label="Lọc theo loại"
+              >
+                <option value="all">Tất cả loại</option>
+                {typeOptions.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                aria-label="Lọc theo category"
+              >
+                <option value="all">Tất cả category</option>
+                {categoryOptions.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filterRarity}
+                onChange={(e) => setFilterRarity(e.target.value)}
+                aria-label="Lọc theo độ hiếm"
+              >
+                <option value="all">Tất cả rarity</option>
+                {rarityOptions.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="admin-item-filter-clear" onClick={clearFilters}>
+                Xóa lọc
+              </button>
+            </div>
+
+            <div className="admin-item-filter-meta">
+              Hiển thị {filteredItems.length}/{availableItems.length} item
+            </div>
+
             <div className="admin-item-selection-grid">
-              {availableItems.map(item => (
-                <div
-                  key={item.id}
-                  className={`admin-item-selection-card ${selectedItemId === item.id ? 'admin-selected' : ''}`}
-                  onClick={() => setSelectedItemId(item.id)}
-                >
-                  <img 
-                    src={`/images/equipments/${item.image_url}`} 
-                    alt={item.name}
-                    onError={(e) => {
-                      e.target.src = '/images/placeholder.png';
+              {filteredItems.length === 0 ? (
+                <div className="admin-item-filter-empty">Không tìm thấy item phù hợp</div>
+              ) : (
+                filteredItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`admin-item-selection-card ${selectedItemId === item.id ? 'admin-selected' : ''}`}
+                    onClick={() => setSelectedItemId(item.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') setSelectedItemId(item.id);
                     }}
-                  />
-                  <div className="admin-item-name">{item.name}</div>
-                  <div className="admin-item-price">Giá gốc: {item.sell_price}</div>
-                </div>
-              ))}
+                  >
+                    <img
+                      src={`/images/equipments/${item.image_url}`}
+                      alt={item.name}
+                      onError={(e) => {
+                        e.target.src = '/images/placeholder.png';
+                      }}
+                    />
+                    <div className="admin-item-name">{item.name}</div>
+                    <div className="admin-item-price">Giá gốc: {item.sell_price}</div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -143,12 +269,11 @@ function AdminAddItemModal({ shopCode, shopName, onClose, onItemAdded }) {
 
           <div className="admin-form-group">
             <label>Loại tiền tệ:</label>
-            <select 
-              value={currencyType} 
-              onChange={(e) => setCurrencyType(e.target.value)}
-            >
+            <select value={currencyType} onChange={(e) => setCurrencyType(e.target.value)}>
               {Object.entries(currencyOptions).map(([key, value]) => (
-                <option key={key} value={key}>{value}</option>
+                <option key={key} value={key}>
+                  {value}
+                </option>
               ))}
             </select>
           </div>
@@ -166,12 +291,12 @@ function AdminAddItemModal({ shopCode, shopName, onClose, onItemAdded }) {
           </div>
 
           <div className="admin-form-group">
-            <label>Stock limit:</label>
+            <label>Stock limit (mức đổ đầy khi restock):</label>
             <input
               type="number"
               value={stockLimit}
               onChange={(e) => setStockLimit(e.target.value)}
-              placeholder="Để trống để không giới hạn"
+              placeholder="Để trống = không giới hạn"
               min="0"
               max="999999"
             />
@@ -179,10 +304,7 @@ function AdminAddItemModal({ shopCode, shopName, onClose, onItemAdded }) {
 
           <div className="admin-form-group">
             <label>Restock interval:</label>
-            <select 
-              value={restockInterval} 
-              onChange={(e) => setRestockInterval(e.target.value)}
-            >
+            <select value={restockInterval} onChange={(e) => setRestockInterval(e.target.value)}>
               <option value="none">Không tự động</option>
               <option value="daily">Hàng ngày</option>
               <option value="weekly">Hàng tuần</option>

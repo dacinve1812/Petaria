@@ -90,6 +90,9 @@ function MainLayout() {
         if (pathname.startsWith('/tasks')) {
             return 'NHIỆM VỤ';
         }
+        if (pathname.startsWith('/shop') || pathname.startsWith('/admin/edit-shop-items')) {
+            return 'CỬA HÀNG';
+        }
 
         const titleMap = {
             '/': 'PETARIA',

@@ -6,6 +6,7 @@ import ItemDetailModal from './ItemDetailModal';
 import GlobalBanner from '../GlobalBanner';
 import TemplatePage from '../template/TemplatePage';
 import { resolveAssetPath } from '../../utils/pathUtils';
+import { normalizeInventoryResponse } from '../../utils/inventoryApi';
 
 function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -14,6 +15,8 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const [error, setError] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [inventoryItems, setInventoryItems] = useState([]);
+  const [slotCount, setSlotCount] = useState(0);
+  const [maxSlots, setMaxSlots] = useState(100);
   const [filterType, setFilterType] = useState('all');
   const [sortOption, setSortOption] = useState('name');
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,7 +50,10 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
     })
       .then(res => res.json())
       .then(data => {
-        setInventoryItems(data);
+        const normalized = normalizeInventoryResponse(data);
+        setInventoryItems(normalized.items);
+        setSlotCount(normalized.slotCount);
+        setMaxSlots(normalized.maxSlots);
       })
       .catch(err => {
         console.error('Lỗi khi fetch inventory:', err);
@@ -105,12 +111,16 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const updateSingleItemInState = (updatedItem) => {
     if (updatedItem === null) {
       // Item was removed (quantity = 0), remove it from state
-      setInventoryItems(prev => prev.filter(it => it.id !== selectedItem.id));
+      setInventoryItems((prev) => {
+        const next = prev.filter((it) => it.id !== selectedItem.id);
+        setSlotCount(next.length);
+        return next;
+      });
       setSelectedItem(null);
     } else {
       // Update item in state
-      setInventoryItems(prev =>
-        prev.map(it => it.id === updatedItem.id ? updatedItem : it)
+      setInventoryItems((prev) =>
+        prev.map((it) => (it.id === updatedItem.id ? updatedItem : it))
       );
     }
   };
@@ -138,8 +148,16 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
       >
               {/* Controls section - moved outside of inventory-main */}
               <div className="inventory-controls">
-          {/* Row 1: Sort */}
+          {/* Row 1: Slot usage + Sort */}
           <div className="inventory-controls-row inventory-controls-row-1">
+            <div
+              className={`inventory-slot-usage${slotCount >= maxSlots ? ' inventory-slot-usage--full' : ''}`}
+              title="Số ô túi đồ đang dùng / tối đa"
+            >
+              <span className="inventory-slot-usage__value">
+                {slotCount}/{maxSlots}
+              </span>
+            </div>
             <div className="inventory-sort-controls">
               <label className="inventory-sort-label">Sắp xếp theo:</label>
               <select

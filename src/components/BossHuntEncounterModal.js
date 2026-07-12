@@ -38,7 +38,11 @@ function BossHuntEncounterModal({ bossPreview, onClose }) {
         ]);
         if (cancelled) return;
         const petsJson = petsRes.ok ? await petsRes.json() : [];
-        const pets = Array.isArray(petsJson) ? petsJson : [];
+        const pets = Array.isArray(petsJson)
+          ? petsJson
+          : Array.isArray(petsJson?.pets)
+            ? petsJson.pets
+            : [];
         if (!bossRes.ok) {
           setEnemyForModal({
             id: bossPreview.id,

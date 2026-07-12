@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUser } from '../UserContext';
 import TemplatePage from './template/TemplatePage';
 import { getDisplayName } from '../utils/userDisplay';
+import { asOwnedList } from '../utils/inventoryApi';
 import './MailComposePage.css';
 
 function isMiscInventoryRow(row) {
@@ -80,21 +81,21 @@ function MailComposePage() {
 
       if (invRes.ok) {
         const invData = await invRes.json();
-        setInventory(Array.isArray(invData) ? invData : []);
+        setInventory(Array.isArray(invData) ? invData : Array.isArray(invData?.items) ? invData.items : []);
       } else {
         setInventory([]);
       }
 
       if (petRes.ok) {
         const pData = await petRes.json();
-        setPets(Array.isArray(pData) ? pData : []);
+        setPets(asOwnedList(pData, 'pets'));
       } else {
         setPets([]);
       }
 
       if (spRes.ok) {
         const sData = await spRes.json();
-        setSpirits(Array.isArray(sData) ? sData : []);
+        setSpirits(asOwnedList(sData, 'spirits'));
       } else {
         setSpirits([]);
       }

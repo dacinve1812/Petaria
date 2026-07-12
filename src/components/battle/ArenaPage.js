@@ -79,7 +79,12 @@ function ArenaPage() {
       const userPetsResponse = await fetch(`${API_BASE_URL}/users/${user.userId}/pets`, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
-      const userPets = await userPetsResponse.json();
+      const userPetsJson = await userPetsResponse.json();
+      const userPets = Array.isArray(userPetsJson)
+        ? userPetsJson
+        : Array.isArray(userPetsJson?.pets)
+          ? userPetsJson.pets
+          : [];
       setUserPets(userPets);
 
       setSelectedEnemy({ ...enemyDetail, userPets });

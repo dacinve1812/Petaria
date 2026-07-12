@@ -151,7 +151,7 @@ function CatchWildPetModal({ wildPet, token, userId, apiBase, onClose, onCaught,
     });
     if (!res.ok) throw new Error('Không tải được túi đồ');
     const rows = await res.json();
-    const list = Array.isArray(rows) ? rows : [];
+    const list = Array.isArray(rows) ? rows : Array.isArray(rows?.items) ? rows.items : [];
     const netList = list.filter((r) => isNetRow(r));
     const foodList = list.filter((r) => Number(r.quantity) > 0 && isFoodRow(r));
     setInvNets(netList);

@@ -5,6 +5,8 @@ Style nằm trong **`src/styles/global.css`**; biến màu trong **`src/styles/v
 
 Liên quan: **[GLOBAL_ITEM_MODAL_CSS.md](./GLOBAL_ITEM_MODAL_CSS.md)** — modal vật phẩm (`inventory-item-modal-*`) và **chuẩn dùng `GameDialogModal` kèm item** (bán, chọn pet, placeholder).
 
+Hội thoại NPC / chữ chạy (khác modal): **[NARRATIVE_DIALOG_GUIDE.md](./NARRATIVE_DIALOG_GUIDE.md)** — `NarrativeScene` (Vua ăn mày / Richies).
+
 ---
 
 ## 1. `GameDialogModal` & `GameModalButton` (UI dialog kiểu game)

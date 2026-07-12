@@ -1,0 +1,416 @@
+/* Narrative scene — visual-novel style (desktop + mobile) */
+
+.narrative-scene {
+  --ns-text: #ffffff;
+  --ns-text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 10px rgba(0, 0, 0, 0.4);
+  --ns-gold: #c9a45a;
+  --ns-gold-soft: rgba(201, 164, 90, 0.75);
+  --ns-name-bg: rgba(18, 16, 14, 0.72);
+  --ns-muted: #9ca3af;
+  --ns-dialog-h: clamp(120px, 22vh, 168px);
+  --ns-edge-fade: 48px;
+  position: relative;
+  width: 100%;
+  max-width: 100% !important;
+  margin: 0 auto;
+}
+
+.narrative-scene__stage {
+  position: relative;
+  min-height: min(62vh, 560px);
+  border-radius: 0;
+  overflow: hidden;
+  background-color: transparent;
+  background-size: cover;
+  background-position: center;
+  isolation: isolate;
+}
+
+/* Fade viền ngoài → hòa vào nền trang (không còn cảm giác hộp cứng) */
+.narrative-scene__stage--has-bg {
+  background-color: #1a1520;
+  box-shadow: none;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0, #000 var(--ns-edge-fade), #000 calc(100% - var(--ns-edge-fade)), transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 var(--ns-edge-fade), #000 calc(100% - var(--ns-edge-fade)), transparent 100%);
+  mask-image:
+    linear-gradient(to right, transparent 0, #000 var(--ns-edge-fade), #000 calc(100% - var(--ns-edge-fade)), transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 var(--ns-edge-fade), #000 calc(100% - var(--ns-edge-fade)), transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.narrative-scene__stage--no-bg {
+  background-color: transparent;
+  background-image: none !important;
+  box-shadow: none;
+}
+
+.narrative-scene__title {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 4;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 4px 12px;
+  font-family: 'Segoe UI', 'Trebuchet MS', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 248, 230, 0.88);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Nhân vật sát đáy, nằm sau vùng dialog gradient */
+.narrative-scene__cast {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: 8%;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 0 6% 0 3%;
+  pointer-events: none;
+}
+
+.narrative-scene--align-right .narrative-scene__cast {
+  justify-content: flex-end;
+  padding: 0 3% 0 6%;
+}
+
+.narrative-scene--align-center .narrative-scene__cast {
+  justify-content: center;
+  padding: 0 4%;
+}
+
+.narrative-scene__portrait-wrap {
+  position: relative;
+  max-height: 100%;
+  animation: ns-enter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes ns-enter {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.narrative-scene__portrait {
+  display: block;
+  height: min(52vh, 440px);
+  width: auto;
+  max-width: min(58vw, 320px);
+  object-fit: contain;
+  object-position: bottom center;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.45));
+  user-select: none;
+}
+
+/* Dialog: gradient tối full-bleed đáy + click toàn vùng = next */
+.narrative-scene__dialog {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  min-height: var(--ns-dialog-h);
+  height: var(--ns-dialog-h);
+  display: grid;
+  grid-template-rows: 1fr auto;
+  padding: 0;
+  border: none;
+  background: radial-gradient(
+    circle,
+    rgba(0, 0, 0, 0.5) 0%,
+    rgba(0, 0, 0, 0.5) 0%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  animation: ns-dialog-in 0.4s ease-out both;
+}
+
+@keyframes ns-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Full-size hit target = toàn dialog */
+.narrative-scene__text {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 44px 72px 36px 18px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.narrative-scene__text-inner {
+  display: block;
+  max-width: 42rem;
+  margin: 0 auto;
+  font-family: 'Segoe UI', 'Trebuchet MS', sans-serif;
+  font-size: clamp(0.95rem, 2.5vw, 1.12rem);
+  line-height: 1.55;
+  font-weight: 600;
+  color: var(--ns-text);
+  text-shadow: var(--ns-text-shadow);
+  text-align: center;
+}
+
+/* Thanh tên + đường kẻ vàng nằm phía trên vùng chữ */
+.narrative-scene__rule {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: 14px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  pointer-events: none;
+}
+
+.narrative-scene__rule-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--ns-gold-soft),
+    var(--ns-gold),
+    var(--ns-gold-soft),
+    transparent
+  );
+  opacity: 0.9;
+}
+
+.narrative-scene__nameplate {
+  position: relative;
+  flex: 0 1 auto;
+  max-width: min(70%, 280px);
+  margin: 0 10px;
+  padding: 4px 22px 5px;
+  background: var(--ns-name-bg);
+  border: 1px solid var(--ns-gold-soft);
+  clip-path: polygon(8% 0, 92% 0, 100% 50%, 92% 100%, 8% 100%, 0 50%);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.narrative-scene__nameplate-gem {
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translateX(-50%) rotate(45deg);
+  background: linear-gradient(135deg, #f0d78c, #b8860b);
+  box-shadow: 0 0 6px rgba(240, 215, 140, 0.55);
+}
+
+.narrative-scene__nameplate-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Segoe UI', 'Trebuchet MS', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #f5f0e6;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.narrative-scene__nav {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 4;
+  display: flex;
+  gap: 6px;
+}
+
+.narrative-scene__nav-btn {
+  min-width: 36px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid rgba(201, 164, 90, 0.55);
+  border-radius: 4px;
+  background: rgba(12, 10, 8, 0.72);
+  color: #f0d78c;
+  font-family: 'Consolas', 'Segoe UI', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+}
+
+.narrative-scene__nav-btn:hover:not(:disabled) {
+  background: rgba(40, 32, 18, 0.9);
+  border-color: #e0c070;
+}
+
+.narrative-scene__nav-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.narrative-scene__nav-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.narrative-scene__nav-btn.is-ready {
+  animation: ns-pulse 1.2s ease-in-out infinite;
+}
+
+.narrative-scene__nav-btn--skip {
+  letter-spacing: -0.04em;
+  font-size: 0.78rem;
+}
+
+@keyframes ns-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.narrative-scene__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+  min-height: 44px;
+}
+
+/* Giữ chỗ từ đầu — ẩn nội dung để không xê dịch stage/dialog khi reveal */
+.narrative-scene__actions.is-pending {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.narrative-scene__actions.is-revealed {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.narrative-scene__actions .ec-btn,
+.narrative-scene__action-btn {
+  min-width: 160px;
+}
+
+.narrative-scene__status {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--ns-muted);
+  font-weight: 600;
+}
+
+.narrative-scene__status--warn {
+  color: #b45309;
+}
+
+.narrative-scene__status--err {
+  color: #b91c1c;
+}
+
+@media (max-width: 640px) {
+  .narrative-scene {
+    --ns-dialog-h: clamp(132px, 28vh, 130px);
+    --ns-edge-fade: 28px;
+    max-width: 100%;
+  }
+
+  .narrative-scene__stage {
+    min-height: min(68vh, 520px);
+    border-radius: 0;
+  }
+
+  .narrative-scene__portrait {
+    height: min(48vh, 360px);
+    max-width: min(78vw, 260px);
+  }
+
+  .narrative-scene__text {
+    padding: 0 24px;
+  }
+
+  .narrative-scene__text-inner {
+    font-size: clamp(0.9rem, 3.6vw, 1.02rem);
+  }
+
+  .narrative-scene__nameplate {
+    padding: 4px 16px 5px;
+    max-width: min(62%, 200px);
+  }
+
+  .narrative-scene__nameplate-label {
+    font-size: 0.74rem;
+  }
+
+  .narrative-scene__nav {
+    right: 8px;
+    bottom: 8px;
+  }
+
+  .narrative-scene__nav-btn {
+    min-width: 34px;
+    height: 30px;
+  }
+
+  .narrative-scene__title {
+    font-size: 0.64rem;
+    letter-spacing: 0.1em;
+  }
+}
+
+@media (min-width: 900px) {
+  .narrative-scene__stage {
+    min-height: min(58vh, 580px);
+  }
+
+  .narrative-scene__portrait {
+    height: min(54vh, 460px);
+    max-width: 340px;
+  }
+}

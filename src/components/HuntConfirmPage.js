@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext';
-import regionMapsData from '../config/region-maps.json';
+import { useRegionMapsConfig } from '../hooks/useRegionMapsConfig';
 import { fetchPublicHuntingMapList } from '../api/huntingMapsApi';
 import { loadAllCustomMaps } from '../utils/huntingMapsStorage';
 import { mergeRemoteAndLocalHuntingCatalog } from '../game/map/huntingMapCatalog';
@@ -56,6 +56,7 @@ function HuntConfirmPage() {
   const [balance, setBalance] = useState({ peta: 0, petagold: 0 });
   const [balanceLoading, setBalanceLoading] = useState(true);
   const [activeMapId, setActiveMapId] = useState('');
+  const { regions } = useRegionMapsConfig();
 
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const regionId = searchParams.get('regionId') || '';
@@ -64,8 +65,8 @@ function HuntConfirmPage() {
   const mapIdFromQuery = searchParams.get('mapId') || '';
 
   const region = useMemo(
-    () => (regionMapsData.regions || []).find((item) => item.id === regionId) || null,
-    [regionId]
+    () => (regions || []).find((item) => item.id === regionId) || null,
+    [regionId, regions]
   );
 
   const spot = useMemo(() => {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
+import './AdminConfigPage.css';
 import './AdminGameCenterManagement.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
@@ -148,8 +149,16 @@ function AdminGameCenterManagement() {
 
   if (isLoading || loading || !draft) {
     return (
-      <div className="gc-admin">
-        <p>{isLoading || loading ? 'Đang tải...' : 'Không có dữ liệu.'}</p>
+      <div className="admin-config-page gc-admin">
+        <div className="admin-header">
+          <div className="header-text">
+            <h1>Quản lý Game center</h1>
+            <p>{isLoading || loading ? 'Đang tải...' : 'Không có dữ liệu.'}</p>
+          </div>
+          <button type="button" className="back-admin-btn" onClick={() => navigate('/admin')}>
+            ← Quay lại Admin
+          </button>
+        </div>
         {err && <p style={{ color: 'coral' }}>{err}</p>}
       </div>
     );
@@ -176,18 +185,24 @@ function AdminGameCenterManagement() {
   };
 
   return (
-    <div className="gc-admin">
-      <div className="gc-admin__header">
-        <div>
-          <Link to="/admin/site-management">← Quản lý Site</Link>
-          <h1 style={{ margin: '8px 0 0' }}>Quản lý Game center</h1>
-          <p className="gc-admin__help">
-            Chỉnh ảnh nút (upload hoặc dán path như <code>/images/entertainment/...</code>), tỉ lệ, giá vé,
-            biểu tượng và điều kiện thắng. Lưu để áp dụng cho người chơi (GET{' '}
-            <code>/api/game-center/config</code>).
+    <div className="admin-config-page gc-admin">
+      <div className="admin-header">
+        <div className="header-text">
+          <h1>Quản lý Game center</h1>
+          <p>
+            Chỉnh ảnh nút (upload hoặc dán path như /images/entertainment/...), tỉ lệ, giá vé, biểu
+            tượng và điều kiện thắng. Lưu để áp dụng cho người chơi (GET /api/game-center/config).
           </p>
         </div>
-        <div className="gc-admin__actions">
+        <div className="admin-header-actions">
+          <button type="button" className="back-admin-btn" onClick={() => navigate('/admin')}>
+            ← Quay lại Admin
+          </button>
+        </div>
+      </div>
+
+      <div className="section-card">
+        <div className="gc-admin__actions" style={{ marginTop: 0, marginBottom: 12 }}>
           <button type="button" className="gc-admin__btn gc-admin__btn--ghost" onClick={load}>
             Tải lại
           </button>
@@ -195,7 +210,6 @@ function AdminGameCenterManagement() {
             {saving ? 'Đang lưu...' : 'Lưu cấu hình'}
           </button>
         </div>
-      </div>
 
       {err && (
         <p style={{ color: '#b91c1c', marginBottom: 12 }} role="alert">
@@ -1134,7 +1148,7 @@ function AdminGameCenterManagement() {
 
       {tab === 'beggar' && (
         <div className="gc-admin__panel">
-          <h3>Vua ăn mày</h3>
+          <h3>Vua ăn mày / Làng Phú Gia</h3>
           <div className="gc-admin__row">
             <label>
               Min Peta
@@ -1165,10 +1179,250 @@ function AdminGameCenterManagement() {
               <input
                 type="number"
                 min={1}
-                value={draft.beggarKing?.cooldownHours ?? 6}
+                value={draft.beggarKing?.cooldownHours ?? 12}
                 onChange={(e) =>
                   patch((d) => {
                     d.beggarKing.cooldownHours = Number(e.target.value);
+                  })
+                }
+              />
+            </label>
+          </div>
+
+          <h3 style={{ marginTop: 20 }}>Hội thoại (Narrative)</h3>
+          <p className="gc-admin__help">
+            Script hiện trên trang game với nhân vật + chữ chạy. Token hỗ trợ:{' '}
+            <code>{'{minPeta}'}</code> <code>{'{maxPeta}'}</code>{' '}
+            <code>{'{cooldownHours}'}</code> <code>{'{remaining}'}</code>{' '}
+            <code>{'{amount}'}</code> <code>{'{playerName}'}</code>. Mỗi dòng script
+            = một câu thoại (Enter xuống dòng).
+          </p>
+          <div className="gc-admin__row">
+            <label>
+              Tiêu đề scene
+              <input
+                type="text"
+                value={draft.beggarKing?.narrative?.title ?? ''}
+                onChange={(e) =>
+                  patch((d) => {
+                    if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                    d.beggarKing.narrative.title = e.target.value;
+                  })
+                }
+              />
+            </label>
+            <label>
+              Tên nhân vật
+              <input
+                type="text"
+                value={draft.beggarKing?.narrative?.speaker ?? ''}
+                onChange={(e) =>
+                  patch((d) => {
+                    if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                    d.beggarKing.narrative.speaker = e.target.value;
+                  })
+                }
+              />
+            </label>
+            <label>
+              Nhãn nút nhận
+              <input
+                type="text"
+                value={draft.beggarKing?.narrative?.claimLabel ?? ''}
+                onChange={(e) =>
+                  patch((d) => {
+                    if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                    d.beggarKing.narrative.claimLabel = e.target.value;
+                  })
+                }
+              />
+            </label>
+            <label>
+              Tốc độ chữ (ms/ký tự)
+              <input
+                type="number"
+                min={8}
+                max={120}
+                value={draft.beggarKing?.narrative?.typingMsPerChar ?? 26}
+                onChange={(e) =>
+                  patch((d) => {
+                    if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                    d.beggarKing.narrative.typingMsPerChar = Number(e.target.value);
+                  })
+                }
+              />
+            </label>
+          </div>
+
+          <div className="gc-admin__row" style={{ alignItems: 'start' }}>
+            <label style={{ gridColumn: '1 / -1' }}>
+              Ảnh nhân vật (portrait)
+              <div className="gc-admin__reward-row">
+                {draft.beggarKing?.narrative?.portraitSrc ? (
+                  <img
+                    src={draft.beggarKing.narrative.portraitSrc}
+                    alt=""
+                    className="gc-admin__thumb"
+                  />
+                ) : (
+                  <span className="gc-admin__thumb-placeholder">?</span>
+                )}
+                <input
+                  type="text"
+                  style={{ flex: 1 }}
+                  placeholder="/images/character/richies.jpg"
+                  value={draft.beggarKing?.narrative?.portraitSrc ?? ''}
+                  onChange={(e) =>
+                    patch((d) => {
+                      if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                      d.beggarKing.narrative.portraitSrc = e.target.value;
+                    })
+                  }
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!f) return;
+                    try {
+                      await uploadFile(f, (url) => {
+                        patch((d) => {
+                          if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                          d.beggarKing.narrative.portraitSrc = url;
+                        });
+                      });
+                    } catch (err) {
+                      setErr(err.message || 'Upload thất bại');
+                    }
+                  }}
+                />
+              </div>
+            </label>
+            <label style={{ gridColumn: '1 / -1' }}>
+              Nền scene (background)
+              <div className="gc-admin__reward-row" style={{ marginBottom: 8 }}>
+                <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={draft.beggarKing?.narrative?.useBackground !== false}
+                    onChange={(e) =>
+                      patch((d) => {
+                        if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                        d.beggarKing.narrative.useBackground = e.target.checked;
+                      })
+                    }
+                  />
+                  Dùng ảnh nền
+                </label>
+                <span className="gc-admin__help" style={{ margin: 0 }}>
+                  Tắt = không nền (bạn sẽ tách nền nhân vật sau). Bật + để trống path = nền tối trơn.
+                </span>
+              </div>
+              <div className="gc-admin__reward-row">
+                {draft.beggarKing?.narrative?.backgroundSrc ? (
+                  <img
+                    src={draft.beggarKing.narrative.backgroundSrc}
+                    alt=""
+                    className="gc-admin__thumb"
+                  />
+                ) : (
+                  <span className="gc-admin__thumb-placeholder">—</span>
+                )}
+                <input
+                  type="text"
+                  style={{ flex: 1 }}
+                  disabled={draft.beggarKing?.narrative?.useBackground === false}
+                  placeholder="/images/… hoặc upload"
+                  value={draft.beggarKing?.narrative?.backgroundSrc ?? ''}
+                  onChange={(e) =>
+                    patch((d) => {
+                      if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                      d.beggarKing.narrative.backgroundSrc = e.target.value;
+                    })
+                  }
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={draft.beggarKing?.narrative?.useBackground === false}
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!f) return;
+                    try {
+                      await uploadFile(f, (url) => {
+                        patch((d) => {
+                          if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                          d.beggarKing.narrative.backgroundSrc = url;
+                          d.beggarKing.narrative.useBackground = true;
+                        });
+                      });
+                    } catch (err) {
+                      setErr(err.message || 'Upload thất bại');
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="gc-admin__btn gc-admin__btn--ghost"
+                  disabled={!draft.beggarKing?.narrative?.backgroundSrc}
+                  onClick={() =>
+                    patch((d) => {
+                      if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                      d.beggarKing.narrative.backgroundSrc = '';
+                    })
+                  }
+                >
+                  Xóa nền
+                </button>
+              </div>
+            </label>
+          </div>
+
+          <div className="gc-admin__row" style={{ gridTemplateColumns: '1fr' }}>
+            <label>
+              Script giới thiệu (mỗi dòng = 1 câu)
+              <textarea
+                rows={5}
+                value={(draft.beggarKing?.narrative?.lines || []).join('\n')}
+                onChange={(e) =>
+                  patch((d) => {
+                    if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                    d.beggarKing.narrative.lines = e.target.value
+                      .split('\n')
+                      .map((s) => s.trimEnd())
+                      .filter((s) => s.trim().length > 0);
+                  })
+                }
+              />
+            </label>
+            <label>
+              Script khi đang cooldown
+              <textarea
+                rows={3}
+                value={(draft.beggarKing?.narrative?.cooldownLines || []).join('\n')}
+                onChange={(e) =>
+                  patch((d) => {
+                    if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                    d.beggarKing.narrative.cooldownLines = e.target.value
+                      .split('\n')
+                      .map((s) => s.trimEnd())
+                      .filter((s) => s.trim().length > 0);
+                  })
+                }
+              />
+            </label>
+            <label>
+              Câu khi nhận lì xì (1 dòng, dùng {'{amount}'})
+              <input
+                type="text"
+                value={draft.beggarKing?.narrative?.rewardLine ?? ''}
+                onChange={(e) =>
+                  patch((d) => {
+                    if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                    d.beggarKing.narrative.rewardLine = e.target.value;
                   })
                 }
               />
@@ -1751,6 +2005,8 @@ function AdminGameCenterManagement() {
           </div>
         </div>
       )}
+
+      </div>
 
       {pickerSegmentIdx != null && (
         <div

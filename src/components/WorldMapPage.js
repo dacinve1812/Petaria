@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './WorldMapPage.css';
 import zonePointsData from '../config/worldmap-zone-points.json';
-import regionMapsData from '../config/region-maps.json';
+import { useRegionMapsConfig } from '../hooks/useRegionMapsConfig';
 
 function getOverlayPath(area) {
   return `/worldmap/${area.row}-${area.col}.png`;
@@ -13,16 +13,17 @@ function WorldMapPage() {
   const MAP_WIDTH = zonePointsData.width || 2100;
   const MAP_HEIGHT = zonePointsData.height || 1399;
   const mapAspect = MAP_WIDTH / MAP_HEIGHT;
+  const { regions } = useRegionMapsConfig();
   const zoneMeta = useMemo(() => {
     const map = {};
-    (regionMapsData.regions || []).forEach((region) => {
+    (regions || []).forEach((region) => {
       map[region.id] = {
         name: region.name || `Zone ${region.id}`,
         to: `/region/${region.id}`,
       };
     });
     return map;
-  }, []);
+  }, [regions]);
 
   const areas = useMemo(
     () =>

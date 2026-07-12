@@ -100,6 +100,26 @@
   box-shadow: none;
 }
 
+.ec-game--beggar {
+  padding-top: 4px;
+  background-image: url('../../../public/images/background/langphugia.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.ec-game--beggar .ec-beggar-narrative {
+  max-width: 860px;
+}
+
+.ec-game--beggar .narrative-scene__action-btn.ec-btn,
+.ec-game--beggar a.narrative-scene__action-btn.ec-btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .ec-game__lead {
   margin: 0 0 16px;
   color: #475569;

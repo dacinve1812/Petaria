@@ -139,7 +139,12 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
       });
       
       if (response.ok) {
-        const inventory = await response.json();
+        const inventoryRaw = await response.json();
+        const inventory = Array.isArray(inventoryRaw)
+          ? inventoryRaw
+          : Array.isArray(inventoryRaw?.items)
+            ? inventoryRaw.items
+            : [];
         console.log('Full inventory:', inventory);
         console.log('Looking for item_id:', itemId);
         
@@ -697,7 +702,7 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   };
 
   // Check if item is sold out
-  const isSoldOut = item.stock_limit === 0 || item.stock_limit === null;
+  const isSoldOut = item.stock_limit === 0;
 
   if (!item) return null;
 

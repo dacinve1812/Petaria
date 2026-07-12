@@ -2319,7 +2319,7 @@ progress {
   display: flex;
   /* flex-direction: column; */
   flex-wrap: wrap;
-  justify-content: right;
+  justify-content: space-between;
   align-items: center;
   gap: 5px;
   padding: 10px 20px;
@@ -2329,10 +2329,36 @@ progress {
   display: flex;
   align-items: center;
   gap: 15px;
+  width: 100%;
 }
 
 .inventory-controls-row-1 {
   justify-content: space-between;
+}
+
+.inventory-slot-usage {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #4a5568;
+  white-space: nowrap;
+}
+
+.inventory-slot-usage__label {
+  font-weight: 500;
+  color: #718096;
+}
+
+.inventory-slot-usage__value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #2d3748;
+  letter-spacing: 0.02em;
+}
+
+.inventory-slot-usage--full .inventory-slot-usage__value {
+  color: #c53030;
 }
 
 .inventory-controls-row-2 {
@@ -3639,6 +3665,54 @@ progress {
 }
 
 /* Admin Item Selection Grid */
+.admin-item-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)) auto;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.admin-item-filter-bar select,
+.admin-item-filter-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: #fff;
+}
+
+.admin-item-filter-clear {
+  white-space: nowrap;
+  padding: 8px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  background: #f8f9fa;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.admin-item-filter-clear:hover {
+  background: #eef1f4;
+  box-shadow: none;
+  transform: none;
+}
+
+.admin-item-filter-meta {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.admin-item-filter-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 24px 12px;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
 .admin-item-selection-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -3649,6 +3723,16 @@ progress {
   border: 2px dashed #ddd;
   border-radius: 8px;
   background: #f9f9f9;
+}
+
+@media (max-width: 720px) {
+  .admin-item-filter-bar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-item-filter-search {
+    grid-column: 1 / -1;
+  }
 }
 
 .admin-item-selection-card {

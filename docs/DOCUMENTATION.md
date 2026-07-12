@@ -441,7 +441,12 @@ Chi tiết migrate CSV, `item_code`, và **mapping menu “dùng cho pet”** tr
 - `scripts/setup_vip_bank_system.js`: setup cột VIP trong `users` + bảng `bank_interest_rates`
 - `scripts/generate_worldmap_zone_points.js`: generate polygon points cho World Map từ các ảnh vùng PNG
 
-### World Map Zone Workflow
+### World Map & Region Maps
+
+**Hướng dẫn đầy đủ (admin + dev):** [`REGION_MAPS_SETUP.md`](./REGION_MAPS_SETUP.md)  
+— World Map → Region → Spot; đổi path (vd. Làng Phú Gia → `/game-center/beggar-king`) trên Admin; schema JSON; API/DB.
+
+#### World Map Zone Workflow (overlay polygons)
 
 World map hiện dùng cơ chế:
 - **Base map**: `public/worldmap/worldmap.png`
@@ -460,9 +465,24 @@ Lệnh này sẽ:
 3. Simplify polygon points
 4. Ghi kết quả ra:
    - `scripts/worldmap-zone-points.json` (file debug/reference)
-   - `src/config/worldmap-zone-points.json` (file frontend sử dụng trực tiếp)
+   - `src/config/worldmap-zone-points.json` (file frontend sử dụng)
 
-`WorldMapPage` import trực tiếp `src/config/worldmap-zone-points.json`, nên sau khi chạy script, trang World Map cập nhật theo dữ liệu mới mà không cần chỉnh tay points.
+`WorldMapPage` lấy **tên / link region** từ `GET /api/region-maps/config` (fallback `src/config/region-maps.json`). Polygon click vẫn từ `worldmap-zone-points.json` sau khi chạy script.
+
+#### Region spot path / huntingMapId (Admin)
+
+- UI: `/admin/region-maps` (Admin → Quản lý Region maps)
+- Public: `GET /api/region-maps/config`
+- Admin save: `PUT /api/admin/region-maps/config`
+- Defaults: `src/config/region-maps.json` · Merge: `backend/regionMapsConfigDefaults.js` · DB: `site_region_maps_config`
+
+Chi tiết field, checklist Làng Phú Gia, troubleshooting: xem `REGION_MAPS_SETUP.md`.
+
+### Narrative Dialog (NPC / chữ chạy)
+
+Hội thoại kiểu visual-novel (Vua ăn mày / Richies): component `NarrativeScene`, admin sửa script trong Game center.
+
+**Hướng dẫn đầy đủ (admin + dev + prompt mẫu):** [`NARRATIVE_DIALOG_GUIDE.md`](./NARRATIVE_DIALOG_GUIDE.md)
 
 ### HomePage Castle Map Workflow (JSON preset)
 
