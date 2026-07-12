@@ -87,7 +87,14 @@ Preset có sẵn trên admin; vẫn có thể gõ path bất kỳ (phải là ro
 4. (Tuỳ chọn) Hunting map ID vẫn để `lang_phu_gia`
 5. **Lưu** → mở `/region/3-2` → click Làng Phú Gia → phải vào beggar-king
 
-### 2.5 Việc Admin **không** làm trên trang Region maps (hiện tại)
+### 2.5 Checklist — Làng Nhân Ái → Quà miễn phí
+
+1. Region `3-1` (Cánh Đồng Vạn Hoa) → spot **Làng Nhân Ái** (id `2`)
+2. Path = `/game-center/daily-free` (đã set trong defaults JSON)
+3. Nếu DB Region maps đã lưu path cũ `/`: vào Admin Region maps đổi lại rồi **Lưu**
+4. Mở `/region/3-1` → click Làng Nhân Ái → `/game-center/daily-free`
+
+### 2.6 Việc Admin **không** làm trên trang Region maps (hiện tại)
 
 | Việc | Làm ở đâu |
 |------|-----------|

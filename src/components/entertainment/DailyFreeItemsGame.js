@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import GameDialogModal from '../ui/GameDialogModal';
+import NarrativeScene, { applyNarrativeVars } from '../ui/NarrativeScene';
 import { useGameCenterConfig } from './GameCenterConfigContext';
+import { useFeatureBackNav } from './useFeatureBackNav';
 import { useUser } from '../../UserContext';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
@@ -27,14 +29,19 @@ const RARITY_LABEL = {
 };
 
 function DailyFreeItemsGame() {
-  const { loading } = useGameCenterConfig();
+  const { config, loading } = useGameCenterConfig();
   const { user } = useUser();
+  const backNav = useFeatureBackNav();
+  const df = config?.dailyFree || {};
+  const narrative = df.narrative || {};
 
   const [srv, setSrv] = useState(null);
   const [statusErr, setStatusErr] = useState('');
   const [claiming, setClaiming] = useState(false);
   const [claimErr, setClaimErr] = useState('');
   const [resultDlg, setResultDlg] = useState(null);
+  const [phase, setPhase] = useState('intro'); // intro | cooldown | reward
+  const [lastItemCount, setLastItemCount] = useState(null);
 
   const fetchStatus = useCallback(async () => {
     setStatusErr('');
@@ -59,8 +66,58 @@ function DailyFreeItemsGame() {
     fetchStatus();
   }, [fetchStatus]);
 
+  const minN = srv?.minItemsPerClaim ?? df.minItemsPerClaim ?? 1;
+  const maxN = srv?.maxItemsPerClaim ?? df.maxItemsPerClaim ?? 3;
+  const canClaim = !!user?.token && srv?.canClaim === true;
+  const alreadyClaimed = !!user?.token && srv?.canClaim === false;
+
+  useEffect(() => {
+    if (phase === 'reward') return;
+    setPhase(alreadyClaimed ? 'cooldown' : 'intro');
+  }, [alreadyClaimed, phase]);
+
+  const vars = useMemo(
+    () => ({
+      minItems: String(minN),
+      maxItems: String(maxN),
+      itemCount: lastItemCount != null ? String(lastItemCount) : '…',
+      playerName: user?.username || user?.name || 'bạn',
+    }),
+    [minN, maxN, lastItemCount, user?.username, user?.name],
+  );
+
+  const speaker = narrative.speaker || 'Cư dân làng';
+  const portraitSrc = narrative.portraitSrc || '/images/character/char2.jpg';
+  const backgroundSrc = narrative.backgroundSrc || '';
+  const useBackground = narrative.useBackground === true;
+  const title = narrative.title || 'Làng Nhân Ái';
+  const typingMsPerChar = narrative.typingMsPerChar ?? 26;
+  const claimLabel = narrative.claimLabel || 'Nhận quà hôm nay';
+
+  const lines = useMemo(() => {
+    if (phase === 'reward') {
+      const tpl =
+        narrative.rewardLine ||
+        'Đây là phần quà làng gửi tặng — {itemCount} vật phẩm. Chúc ngươi bình an!';
+      return [applyNarrativeVars(tpl, vars)];
+    }
+    if (phase === 'cooldown') {
+      const cd = Array.isArray(narrative.cooldownLines) ? narrative.cooldownLines : [];
+      return cd.length
+        ? cd
+        : ['Hôm nay ngươi đã nhận phần quà rồi. Hãy quay lại sau kỳ reset tiếp theo nhé!'];
+    }
+    const intro = Array.isArray(narrative.lines) ? narrative.lines : [];
+    return intro.length
+      ? intro
+      : [
+          'Chào ngươi! Đây là Làng nhân ái — nơi chia sẻ vật phẩm miễn phí mỗi ngày.',
+          'Mỗi ngày chỉ nhận một lần, khoảng {minItems}–{maxItems} món.',
+        ];
+  }, [phase, narrative, vars]);
+
   const handleClaim = async () => {
-    if (!user?.token || !srv?.canClaim || claiming) return;
+    if (!user?.token || !canClaim || claiming) return;
     setClaiming(true);
     setClaimErr('');
     try {
@@ -74,12 +131,16 @@ function DailyFreeItemsGame() {
       const data = await r.json().catch(() => ({}));
       if (r.status === 429) {
         setClaimErr(data.error || 'Đã nhận trong kỳ này');
+        setPhase('cooldown');
         await fetchStatus();
         return;
       }
       if (!r.ok) throw new Error(data.error || 'Không nhận được quà');
+      const count = Number(data.itemCount) || 0;
+      setLastItemCount(count);
+      setPhase('reward');
       setResultDlg({
-        itemCount: data.itemCount,
+        itemCount: count,
         rewards: Array.isArray(data.rewards) ? data.rewards : [],
       });
       await fetchStatus();
@@ -90,6 +151,26 @@ function DailyFreeItemsGame() {
     }
   };
 
+  const finishReward = () => {
+    setLastItemCount(null);
+    setPhase(alreadyClaimed || !canClaim ? 'cooldown' : 'intro');
+  };
+
+  const backButton =
+    backNav.kind === 'link' ? (
+      <Link to={backNav.to} className="ec-btn ec-btn--ghost narrative-scene__action-btn">
+        {backNav.label}
+      </Link>
+    ) : (
+      <button
+        type="button"
+        className="ec-btn ec-btn--ghost narrative-scene__action-btn"
+        onClick={backNav.go}
+      >
+        {backNav.label}
+      </button>
+    );
+
   if (loading) {
     return (
       <div className="ec-game ec-game--daily-free">
@@ -98,68 +179,74 @@ function DailyFreeItemsGame() {
     );
   }
 
-  const minN = srv?.minItemsPerClaim ?? 1;
-  const maxN = srv?.maxItemsPerClaim ?? 3;
-  const canClaim = !!user?.token && srv?.canClaim === true;
+  const actions = (
+    <>
+      {statusErr ? (
+        <p className="narrative-scene__status narrative-scene__status--err" role="alert">
+          {statusErr}
+        </p>
+      ) : null}
+      {claimErr ? (
+        <p className="narrative-scene__status narrative-scene__status--warn" role="alert">
+          {claimErr}
+        </p>
+      ) : null}
+
+      {!user?.token ? (
+        <>
+          <p className="narrative-scene__status">
+            <Link to="/login">Đăng nhập</Link> để nhận quà vào kho.
+          </p>
+          <Link to="/login" className="ec-btn narrative-scene__action-btn">
+            Đăng nhập để nhận quà
+          </Link>
+        </>
+      ) : null}
+
+      {user?.token && phase === 'cooldown' ? (
+        <p className="narrative-scene__status narrative-scene__status--warn">
+          Đã nhận trong kỳ này — quay lại sau giờ reset server.
+        </p>
+      ) : null}
+
+      {user?.token && phase === 'intro' ? (
+        <button
+          type="button"
+          className="ec-btn narrative-scene__action-btn"
+          onClick={() => void handleClaim()}
+          disabled={!canClaim || claiming || !!statusErr}
+        >
+          {claiming ? 'Đang nhận…' : claimLabel}
+        </button>
+      ) : null}
+
+      {user?.token && phase === 'reward' ? (
+        <button type="button" className="ec-btn narrative-scene__action-btn" onClick={finishReward}>
+          Cảm ơn làng!
+        </button>
+      ) : null}
+
+      {backButton}
+    </>
+  );
 
   return (
     <div className="ec-game ec-game--daily-free">
-      <p className="ec-game__lead">
-        <strong>Một lần mỗi kỳ</strong> (theo giờ reset server). Mỗi lần nhận ngẫu nhiên{' '}
-        <strong>
-          {minN}–{maxN}
-        </strong>{' '}
-        vật phẩm; mỗi món quay rarity rồi random trong catalog (tối thiểu common).
-      </p>
-
-      {!user?.token && (
-        <p className="ec-note">
-          <Link to="/login">Đăng nhập</Link> để nhận quà vào kho.
-        </p>
-      )}
-
-      {statusErr && (
-        <p className="ec-guess-alert ec-guess-alert--error" role="alert">
-          {statusErr}
-        </p>
-      )}
-
-      {srv && (
-        <div className="ec-daily-rates" aria-label="Tỉ lệ rarity">
-          {(srv.rarityWeights || []).map((rw) => (
-            <span key={rw.rarity} className="ec-daily-rate-pill">
-              <span className="ec-daily-rate-pill__r">{RARITY_LABEL[rw.rarity] || rw.rarity}</span>
-              <span className="ec-daily-rate-pill__p">{rw.percent != null ? `${rw.percent}%` : '—'}</span>
-              <span className="ec-daily-rate-pill__c">({srv.poolCounts?.[rw.rarity] ?? 0} trong DB)</span>
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className="ec-btn-row">
-        <button
-          type="button"
-          className="ec-btn"
-          onClick={() => void handleClaim()}
-          disabled={!user?.token || !canClaim || claiming || !!statusErr}
-        >
-          {!user?.token
-            ? 'Đăng nhập để nhận'
-            : claiming
-              ? 'Đang nhận…'
-              : srv?.canClaim === false
-                ? 'Đã nhận trong kỳ này'
-                : 'Nhận quà'}
-        </button>
-      </div>
-
-      {claimErr && (
-        <p className="ec-guess-alert ec-guess-alert--warn" role="alert">
-          {claimErr}
-        </p>
-      )}
-
-      <p className="ec-note">Min/max số item và tỉ lệ rarity chỉnh trong Admin → Game center → Vật phẩm miễn phí.</p>
+      <NarrativeScene
+        className="ec-daily-narrative"
+        title={title}
+        speaker={speaker}
+        portraitSrc={portraitSrc}
+        backgroundSrc={backgroundSrc}
+        useBackground={useBackground}
+        lines={lines}
+        vars={vars}
+        typingMsPerChar={typingMsPerChar}
+        scriptKey={`${phase}-${lastItemCount ?? 'x'}-${alreadyClaimed ? 'cd' : 'ok'}`}
+        showActions="end"
+        actions={actions}
+        portraitFallback="/images/character/knight_warrior.jpg"
+      />
 
       <GameDialogModal
         isOpen={!!resultDlg}

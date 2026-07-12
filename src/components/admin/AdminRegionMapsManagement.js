@@ -10,6 +10,9 @@ const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:500
 const PATH_PRESETS = [
   { value: '/', label: '/ — Confirm săn (mặc định)' },
   { value: '/game-center/beggar-king', label: '/game-center/beggar-king — Làng Phú Gia / Vua ăn mày' },
+  { value: '/game-center/daily-free', label: '/game-center/daily-free — Làng Nhân Ái / Quà miễn phí' },
+  { value: '/game-center/guess-number', label: '/game-center/guess-number — Làng Trẻ Con / Đoán số' },
+  { value: '/game-center/slot-machine', label: '/game-center/slot-machine — Làng Đỏ Đen / Máy đánh bạc' },
   { value: '/game-center', label: '/game-center — Trung tâm giải trí' },
   { value: '/tasks/spirit-fusion', label: '/tasks/spirit-fusion' },
   { value: '/tasks/item-hunt', label: '/tasks/item-hunt' },

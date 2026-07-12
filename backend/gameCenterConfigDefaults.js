@@ -11,6 +11,7 @@ function getDefaultGameCenterConfig() {
         title: 'Vòng quay may mắn',
         description: 'Luôn có ô Peta và Peta Gold; admin thêm ô vật phẩm.',
         imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+        pageBackgroundSrc: '',
       },
       {
         id: 'scratch-lottery',
@@ -18,6 +19,7 @@ function getDefaultGameCenterConfig() {
         title: 'Vé số cào',
         description: 'Vé 3 ô và vé 5 ô — cào trùng hình nhận thưởng.',
         imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+        pageBackgroundSrc: '',
       },
       {
         id: 'mystery-box',
@@ -25,6 +27,7 @@ function getDefaultGameCenterConfig() {
         title: 'Hộp bí ẩn',
         description: 'Cho vào một vật phẩm, nhận ngẫu nhiên theo độ hiếm.',
         imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+        pageBackgroundSrc: '',
       },
       {
         id: 'beggar-king',
@@ -32,13 +35,15 @@ function getDefaultGameCenterConfig() {
         title: 'Vua ăn mày',
         description: 'Ghé Làng Phú Gia xin lì xì từ trưởng làng Richies — mỗi 12 giờ một lần.',
         imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+        pageBackgroundSrc: '/images/background/langphugia.png',
       },
       {
         id: 'daily-free',
         path: 'daily-free',
         title: 'Vật phẩm miễn phí',
-        description: 'Mỗi ngày nhận vật phẩm theo bậc hiếm.',
+        description: 'Ghé Làng Nhân Ái nhận vật phẩm tặng — mỗi ngày một lần.',
         imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+        pageBackgroundSrc: '',
       },
       {
         id: 'lucky-booth',
@@ -46,20 +51,23 @@ function getDefaultGameCenterConfig() {
         title: 'Xổ số (Lucky booth)',
         description: 'Chọn dãy 4 chữ số, trúng nhận Peta cao.',
         imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+        pageBackgroundSrc: '',
       },
       {
         id: 'slot-machine',
         path: 'slot-machine',
         title: 'Máy đánh bạc',
-        description: 'Quay icon như casino, nhận quà theo điều kiện.',
+        description: 'Làng Đỏ Đen — Máy đánh bạc trên Hỏa Diệm Sơn.',
         imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+        pageBackgroundSrc: '/images/background/langdoden.png',
       },
       {
         id: 'guess-number',
         path: 'guess-number',
         title: 'Đoán số',
-        description: 'So sánh số ẩn với một mốc — cao hơn hay thấp hơn?',
+        description: 'Làng Trẻ Con — đoán cao hơn / thấp hơn mốc, nhận Peta.',
         imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+        pageBackgroundSrc: '/images/background/ice.png',
       },
     ],
     luckyWheel: {
@@ -193,6 +201,28 @@ function getDefaultGameCenterConfig() {
         { rarity: 'epic', weight: 7 },
         { rarity: 'legendary', weight: 1 },
       ],
+      /**
+       * Script hội thoại Làng Nhân Ái — Admin → Game center → Quà miễn phí.
+       * Token: {minItems} {maxItems} {itemCount} {playerName}
+       */
+      narrative: {
+        title: 'Làng Nhân Ái',
+        speaker: 'Cư dân làng',
+        portraitSrc: '/images/character/char2.jpg',
+        useBackground: false,
+        backgroundSrc: '',
+        typingMsPerChar: 26,
+        claimLabel: 'Nhận quà hôm nay',
+        lines: [
+          'Nằm phía nam Cánh đồng vạn hoa chính là Làng nhân ái — nơi mọi người hay chia sẻ những gì mình có được, không đòi hỏi tiền bạc gì.',
+          'Nếu ngươi là cư dân mới hay đang gặp khó khăn, hãy đến đây nhận các vật phẩm được tặng hàng ngày.',
+          'Mỗi ngày chỉ nhận được một lần thôi. Lần này làng có thể gửi khoảng {minItems}–{maxItems} món đấy!',
+        ],
+        cooldownLines: [
+          'Hôm nay ngươi đã nhận phần quà rồi. Hãy quay lại sau kỳ reset tiếp theo nhé — làng vẫn ở đây chờ!',
+        ],
+        rewardLine: 'Đây là phần quà làng gửi tặng — {itemCount} vật phẩm. Chúc ngươi bình an!',
+      },
     },
     luckyBooth: {
       dailyResetEnabled: true,
@@ -238,6 +268,29 @@ function getDefaultGameCenterConfig() {
           rewardDescription: 'Thưởng nhỏ',
         },
       ],
+      /**
+       * Intro ẩn/hiện UI máy; sau quay hiện win/lose.
+       * Token: {spinPrice} {maxPlays} {pairReward} {playerName} {tier} {message}
+       */
+      narrative: {
+        title: 'Làng Đỏ Đen',
+        speaker: 'Ignis',
+        portraitSrc: '/images/character/Ignis.png',
+        useBackground: false,
+        backgroundSrc: '',
+        typingMsPerChar: 26,
+        playLabel: 'Chơi Máy đánh bạc',
+        continueLabel: 'Tiếp tục quay',
+        lines: [
+          'Chào ngươi! Đây là Làng Đỏ Đen — cheo leo trên Hỏa Diệm Sơn, quanh năm rực lửa.',
+          'Dân làng mê đỏ đen lắm, nhất là Máy đánh bạc. Quay một phát {spinPrice} Peta — xem ai móc túi ai!',
+          'Đi săn núi lửa rồi dừng chân ở đây đi. Trò này dễ ra đê mà ở lắm ^^! Sẵn sàng chưa?',
+        ],
+        jackpotLine: 'Jackpot! Lửa núi cũng phải nhường ngươi — {message}',
+        winLine: 'Ha! Trúng rồi — {message}. Túi ngươi nặng thêm đấy!',
+        pairLine: 'Hai ô trùng — cũng được đó. {message}',
+        loseLine: 'Chưa ra gì… núi lửa nuốt Peta của ngươi rồi. Thử lại đi!',
+      },
     },
     guessNumber: {
       minSecret: 1,
@@ -248,6 +301,27 @@ function getDefaultGameCenterConfig() {
       penaltyPetaLose: 5000,
       /** Tối đa số vòng hoàn thành / ngày (theo global_reset_time) */
       maxPlaysPerDay: 10,
+      /**
+       * Dialog overlay — intro rồi ẩn để chơi; sau đoán hiện win/lose.
+       * Token: {minSecret} {maxSecret} {rewardWin} {penaltyLose} {secret} {pivot} {amount} {playerName}
+       */
+      narrative: {
+        title: 'Làng Trẻ Con',
+        speaker: 'Trẻ làng',
+        portraitSrc: '/images/character/char2.jpg',
+        useBackground: false,
+        backgroundSrc: '',
+        typingMsPerChar: 26,
+        playLabel: 'Chơi Đoán số',
+        continueLabel: 'Tiếp tục chơi',
+        lines: [
+          'Một khi ngươi đến Làng trẻ con của Xứ sở tuyết thì nhất định phải chơi trò Đoán số!',
+          'Ta sẽ chọn một số giữa {minSecret} và {maxSecret}. Càng đoán gần trúng — càng được thưởng nhiều Peta.',
+          'Đoán đúng nhận khoảng {rewardWin} Peta; đoán sai thì mất {penaltyLose} Peta. Sẵn sàng chưa?',
+        ],
+        winLine: 'Giỏi lắm! Số ẩn là {secret} (mốc {pivot}). Ngươi được +{amount} Peta!',
+        loseLine: 'Tiếc quá! Số ẩn là {secret} (mốc {pivot}). Lần này −{amount} Peta — thử lại nhé!',
+      },
     },
   };
 }
@@ -391,12 +465,24 @@ function mergeGameCenterConfig(stored) {
     if (!Number.isFinite(maxItems) || maxItems < 1) maxItems = dd.maxItemsPerClaim;
     minItems = Math.max(1, Math.min(20, minItems));
     maxItems = Math.max(minItems, Math.min(20, maxItems));
+    const sn = isPlainObject(sd.narrative) ? sd.narrative : {};
+    const dn = dd.narrative || {};
     out.dailyFree = {
       ...dd,
       ...sd,
       rarityWeights,
       minItemsPerClaim: minItems,
       maxItemsPerClaim: maxItems,
+      narrative: {
+        ...dn,
+        ...sn,
+        lines:
+          Array.isArray(sn.lines) && sn.lines.length > 0 ? sn.lines : dn.lines,
+        cooldownLines:
+          Array.isArray(sn.cooldownLines) && sn.cooldownLines.length > 0
+            ? sn.cooldownLines
+            : dn.cooldownLines,
+      },
     };
     delete out.dailyFree.tiers;
   }
@@ -406,20 +492,43 @@ function mergeGameCenterConfig(stored) {
   }
 
   if (stored.slotMachine && isPlainObject(stored.slotMachine)) {
+    const ss = stored.slotMachine;
+    const ds = defaults.slotMachine;
+    const sn = isPlainObject(ss.narrative) ? ss.narrative : {};
+    const dn = ds.narrative || {};
     out.slotMachine = {
-      ...defaults.slotMachine,
-      ...stored.slotMachine,
-      reelIcons: Array.isArray(stored.slotMachine.reelIcons) && stored.slotMachine.reelIcons.length
-        ? stored.slotMachine.reelIcons
-        : defaults.slotMachine.reelIcons,
-      winRules: Array.isArray(stored.slotMachine.winRules) && stored.slotMachine.winRules.length
-        ? stored.slotMachine.winRules
-        : defaults.slotMachine.winRules,
+      ...ds,
+      ...ss,
+      reelIcons: Array.isArray(ss.reelIcons) && ss.reelIcons.length
+        ? ss.reelIcons
+        : ds.reelIcons,
+      winRules: Array.isArray(ss.winRules) && ss.winRules.length
+        ? ss.winRules
+        : ds.winRules,
+      narrative: {
+        ...dn,
+        ...sn,
+        lines:
+          Array.isArray(sn.lines) && sn.lines.length > 0 ? sn.lines : dn.lines,
+      },
     };
   }
 
   if (stored.guessNumber && isPlainObject(stored.guessNumber)) {
-    out.guessNumber = { ...defaults.guessNumber, ...stored.guessNumber };
+    const sg = stored.guessNumber;
+    const dg = defaults.guessNumber;
+    const sn = isPlainObject(sg.narrative) ? sg.narrative : {};
+    const dn = dg.narrative || {};
+    out.guessNumber = {
+      ...dg,
+      ...sg,
+      narrative: {
+        ...dn,
+        ...sn,
+        lines:
+          Array.isArray(sn.lines) && sn.lines.length > 0 ? sn.lines : dn.lines,
+      },
+    };
   }
 
   if (typeof stored.version === 'number') out.version = stored.version;

@@ -55,13 +55,13 @@
       },
       "originalCoordinates": [
         { "id": 1, "coords": [234, 530, 293, 548], "path": "/", "name": "Động Nham Thạch", "huntingMapId": "dong_nham_thach" },
-        { "id": 2, "coords": [319, 796, 367, 812], "path": "/", "name": "Làng Đỏ Đen", "huntingMapId": "lang_do_den" },
+        { "id": 2, "coords": [319, 796, 367, 812], "path": "/game-center/slot-machine", "name": "Làng Đỏ Đen", "huntingMapId": "lang_do_den" },
         { "id": 3, "coords": [932, 496, 984, 522], "path": "/", "name": "Thành Hỏa Thạch", "huntingMapId": "thanh_hoa_thach" },
         { "id": 4, "coords": [1119, 757, 1178, 781], "path": "/", "name": "Lò Rèn", "huntingMapId": "lo_ren" }
 ],
       "mapButtons": [
         { "id": 1, "x": 264, "y": 539, "path": "/", "label": "Động Nham Thạch", "huntingMapId": "dong_nham_thach" },
-        { "id": 2, "x": 343, "y": 804, "path": "/", "label": "Làng Đỏ Đen", "huntingMapId": "lang_do_den" },
+        { "id": 2, "x": 343, "y": 804, "path": "/game-center/slot-machine", "label": "Làng Đỏ Đen", "huntingMapId": "lang_do_den" },
         { "id": 3, "x": 958, "y": 509, "path": "/", "label": "Thành Hỏa Thạch", "huntingMapId": "thanh_hoa_thach" },
         { "id": 4, "x": 1149, "y": 769, "path": "/", "label": "Lò Rèn", "huntingMapId": "lo_ren" }
 
@@ -97,13 +97,13 @@
       "originalCoordinates": [
       {"id": 1, "coords": [834, 392, 892, 414], "path": "/", "name": "Thành Vô Cực", "huntingMapId": "thanh_vo_cuc" },
       { "id": 2, "coords": [293, 438, 340, 454], "path": "/", "name": "Núi Băng", "huntingMapId": "nui_bang" },
-      { "id": 3, "coords": [341, 829, 434, 854], "path": "/", "name": "Làng Trẻ Thơ", "huntingMapId": "lang_tre_tho" },
+      { "id": 3, "coords": [341, 829, 434, 854], "path": "/game-center/guess-number", "name": "Làng Trẻ Con", "huntingMapId": "lang_tre_tho" },
       { "id": 4, "coords": [1062, 822, 1129, 853], "path": "/tasks/spirit-fusion", "name": "Động Tinh Linh", "huntingMapId": "dong_tinh_linh" }
     ],
       "mapButtons": [
         { "id": 1, "x": 863, "y": 403, "path": "/", "label": "Thành Vô Cực", "huntingMapId": "thanh_vo_cuc" },
         { "id": 2, "x": 316, "y": 446, "path": "/", "label": "Núi Băng", "huntingMapId": "nui_bang" },
-        { "id": 3, "x": 387, "y": 841, "path": "/", "label": "Làng Trẻ Thơ", "huntingMapId": "lang_tre_tho" },
+        { "id": 3, "x": 387, "y": 841, "path": "/game-center/guess-number", "label": "Làng Trẻ Con", "huntingMapId": "lang_tre_tho" },
         { "id": 4, "x": 1095, "y": 837, "path": "/tasks/spirit-fusion", "label": "Động Tinh Linh", "huntingMapId": "dong_tinh_linh" }
       ]
     },
@@ -196,13 +196,13 @@
       },
       "originalCoordinates": [
       {"id": 1, "coords": [255, 385, 319, 409], "path": "/", "name": "Thành Thái Dương", "huntingMapId": "thanh_thai_duong" },
-      { "id": 2, "coords": [322, 827, 399, 846], "path": "/", "name": "Làng Nhân Ái", "huntingMapId": "lang_nhan_ai" },
+      { "id": 2, "coords": [322, 827, 399, 846], "path": "/game-center/daily-free", "name": "Làng Nhân Ái", "huntingMapId": "lang_nhan_ai" },
       { "id": 3, "coords": [1148, 723, 1230, 747], "path": "/tasks/monster-hunt", "name": "Hội Anh Hùng", "huntingMapId": "hoi_anh_hung" },
       { "id": 4, "coords": [1201, 285, 1311, 315], "path": "/", "name": "Vườn Bách Thảo", "huntingMapId": "vuon_bach_thao" }
     ],
       "mapButtons": [
         { "id": 1, "x": 280, "y": 401, "path": "/", "label": "Thành Thái Dương", "huntingMapId": "thanh_thai_duong" },
-        { "id": 2, "x": 355, "y": 836, "path": "/", "label": "Làng Nhân Ái", "huntingMapId": "lang_nhan_ai" },
+        { "id": 2, "x": 355, "y": 836, "path": "/game-center/daily-free", "label": "Làng Nhân Ái", "huntingMapId": "lang_nhan_ai" },
         { "id": 3, "x": 1189, "y": 734, "path": "/tasks/monster-hunt", "label": "Hội Anh Hùng", "huntingMapId": "hoi_anh_hung" },
         { "id": 4, "x": 1256, "y": 300, "path": "/", "label": "Vườn Bách Thảo", "huntingMapId": "vuon_bach_thao" }
       ]

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import NarrativeScene, { applyNarrativeVars } from '../ui/NarrativeScene';
 import { useGameCenterConfig } from './GameCenterConfigContext';
+import { useFeatureBackNav } from './useFeatureBackNav';
 import { useUser } from '../../UserContext';
 import { dispatchCurrencyUpdate } from '../../utils/currencyEvents';
 
@@ -15,47 +16,10 @@ function formatDur(ms) {
   return `${h}h ${m}m ${sec}s`;
 }
 
-/** Nút back theo nơi đến (region / game-center / history). */
-function useBeggarBackNav() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const state = location.state && typeof location.state === 'object' ? location.state : null;
-
-  return useMemo(() => {
-    const regionId = state?.regionId ? String(state.regionId) : '';
-    const regionName = state?.regionName ? String(state.regionName).trim() : '';
-    if (state?.from === 'region' && regionId) {
-      return {
-        kind: 'link',
-        to: `/region/${encodeURIComponent(regionId)}`,
-        label: regionName ? `Trở lại ${regionName}` : 'Trở lại vùng trước',
-      };
-    }
-    if (state?.from === 'game-center') {
-      return {
-        kind: 'link',
-        to: '/game-center',
-        label: 'Trở lại Trung tâm giải trí',
-      };
-    }
-    return {
-      kind: 'history',
-      label: 'Trở lại sau',
-      go: () => {
-        if (typeof window !== 'undefined' && window.history.length > 1) {
-          navigate(-1);
-          return;
-        }
-        navigate('/game-center');
-      },
-    };
-  }, [state, navigate]);
-}
-
 function BeggarKingGame() {
   const { user, updateUserData } = useUser();
   const { config, loading } = useGameCenterConfig();
-  const backNav = useBeggarBackNav();
+  const backNav = useFeatureBackNav();
   const bk = config?.beggarKing || {};
   const narrative = bk.narrative || {};
   const fallbackMin = bk.minPeta ?? 100;

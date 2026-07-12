@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import GameDialogModal from '../ui/GameDialogModal';
+import NarrativeScene, { applyNarrativeVars } from '../ui/NarrativeScene';
 import { useGameCenterConfig } from './GameCenterConfigContext';
+import { useFeatureBackNav } from './useFeatureBackNav';
 import { useUser } from '../../UserContext';
 import { dispatchCurrencyUpdate } from '../../utils/currencyEvents';
 
@@ -38,7 +40,7 @@ function randInt(min, max) {
   return min + Math.floor(Math.random() * (max - min + 1));
 }
 
-function evaluateSlots(ids, rules, reelIcons) {
+function evaluateSlots(ids, rules) {
   const [a, b, c] = ids;
   const tripleSame = a && a === b && b === c;
   const anyPair = a === b || b === c || a === c;
@@ -69,29 +71,17 @@ function evaluateSlots(ids, rules, reelIcons) {
 }
 
 function iconDisplayNode(icon) {
-  if (!icon) return '🎰';
+  if (!icon) return '🔥';
   if (icon.imageUrl) return <img src={icon.imageUrl} alt="" className="ec-slot-img" />;
-  return icon.emoji || '🎰';
-}
-
-function rewardLabelForIcon(icon, itemsById) {
-  const k = String(icon?.reward?.kind || 'placeholder');
-  if (k === 'item') {
-    const id = icon?.reward?.itemId;
-    const it = id != null ? itemsById.get(Number(id)) : null;
-    return it ? it.name : id != null ? `Item #${id}` : 'Item';
-  }
-  if (k === 'spirit') {
-    const sid = icon?.reward?.spiritId;
-    return sid != null ? `Spirit #${sid}` : 'Spirit';
-  }
-  return String(icon?.label || icon?.id || 'Phần thưởng');
+  return icon.emoji || '🔥';
 }
 
 function SlotMachineGame() {
   const { config, loading } = useGameCenterConfig();
   const { user, updateUserData } = useUser();
-  const sm = config?.slotMachine;
+  const backNav = useFeatureBackNav();
+  const sm = config?.slotMachine || {};
+  const narrative = sm.narrative || {};
   const reelIcons = useMemo(
     () => (sm?.reelIcons?.length ? sm.reelIcons : []),
     [sm?.reelIcons],
@@ -108,6 +98,16 @@ function SlotMachineGame() {
   const [displayReels, setDisplayReels] = useState(defaultIds);
   const [spinningIdx, setSpinningIdx] = useState([false, false, false]);
   const timersRef = useRef([]);
+  const resultTimerRef = useRef(null);
+
+  /** intro | play | result */
+  const [storyPhase, setStoryPhase] = useState('intro');
+  const [lastSpin, setLastSpin] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const [result, setResult] = useState(null);
+  const [spinErr, setSpinErr] = useState('');
+  const [rewardDlg, setRewardDlg] = useState(null);
+  const [status, setStatus] = useState(null);
 
   useEffect(() => {
     if (loading || !reelIcons.length) return;
@@ -115,35 +115,98 @@ function SlotMachineGame() {
     setFinalReels(init);
     setDisplayReels(init);
   }, [loading, reelIcons]);
-  const [msg, setMsg] = useState(null);
-  const [result, setResult] = useState(null);
-  const [spinErr, setSpinErr] = useState('');
-  const [rewardDlg, setRewardDlg] = useState(null);
-  const [status, setStatus] = useState(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(
     () => () => {
       timersRef.current.forEach((t) => window.clearTimeout(t));
       timersRef.current = [];
+      if (resultTimerRef.current != null) {
+        window.clearTimeout(resultTimerRef.current);
+        resultTimerRef.current = null;
+      }
     },
     [],
   );
 
+  const spinPrice = Number(status?.spinPricePeta ?? sm.spinPricePeta ?? 50000);
+  const maxPlays = Number(status?.maxPlaysPerDay ?? sm.maxPlaysPerDay ?? 10);
+  const pairReward = Number(status?.pairRewardPeta ?? sm.pairRewardPeta ?? 20000);
+  const playsRem = status?.playsRemaining;
+
+  const vars = useMemo(
+    () => ({
+      spinPrice: spinPrice.toLocaleString('vi-VN'),
+      maxPlays: String(maxPlays),
+      pairReward: pairReward.toLocaleString('vi-VN'),
+      playerName: user?.username || user?.name || 'bạn',
+      tier: lastSpin?.tier || '…',
+      message: lastSpin?.message || '…',
+    }),
+    [spinPrice, maxPlays, pairReward, user?.username, user?.name, lastSpin],
+  );
+
+  const speaker = narrative.speaker || 'Ignis';
+  const portraitSrc = narrative.portraitSrc || '/images/character/Ignis.png';
+  const backgroundSrc = narrative.backgroundSrc || '';
+  const useBackground = narrative.useBackground === true;
+  const title = narrative.title || 'Làng Đỏ Đen';
+  const typingMsPerChar = narrative.typingMsPerChar ?? 26;
+  const playLabel = narrative.playLabel || 'Chơi Máy đánh bạc';
+  const continueLabel = narrative.continueLabel || 'Tiếp tục quay';
+
+  const lines = useMemo(() => {
+    if (storyPhase === 'result' && lastSpin) {
+      const tier = lastSpin.tier;
+      let tpl;
+      if (tier === 'jackpot') {
+        tpl =
+          narrative.jackpotLine ||
+          'Jackpot! Lửa núi cũng phải nhường ngươi — {message}';
+      } else if (tier === 'triple') {
+        tpl = narrative.winLine || 'Ha! Trúng rồi — {message}. Túi ngươi nặng thêm đấy!';
+      } else if (tier === 'pair') {
+        tpl = narrative.pairLine || 'Hai ô trùng — cũng được đó. {message}';
+      } else {
+        tpl = narrative.loseLine || 'Chưa ra gì… núi lửa nuốt Peta của ngươi rồi. Thử lại đi!';
+      }
+      return [applyNarrativeVars(tpl, vars)];
+    }
+    const intro = Array.isArray(narrative.lines) ? narrative.lines : [];
+    return intro.length
+      ? intro
+      : [
+          'Chào ngươi! Đây là Làng Đỏ Đen trên Hỏa Diệm Sơn.',
+          'Dân làng mê Máy đánh bạc. Quay một phát {spinPrice} Peta — xem ai móc túi ai!',
+        ];
+  }, [storyPhase, lastSpin, narrative, vars]);
+
+  const dismissIntro = () => setStoryPhase('play');
+
+  const dismissResult = () => {
+    setStoryPhase('play');
+    setLastSpin(null);
+  };
+
+  const closeRewardThenNarrative = () => {
+    setRewardDlg(null);
+    setStoryPhase('result');
+  };
+
   const spinWithFinals = useCallback(
-    (finals) => {
+    (finals, serverPayload) => {
       if (!reelIcons.length) return;
       setMsg(null);
       setResult(null);
       setSpinErr('');
-
       setFinalReels(finals);
 
-      // Clear timers
       timersRef.current.forEach((t) => window.clearTimeout(t));
       timersRef.current = [];
+      if (resultTimerRef.current != null) {
+        window.clearTimeout(resultTimerRef.current);
+        resultTimerRef.current = null;
+      }
 
-      // Start spinning all reels
       setSpinningIdx([true, true, true]);
 
       const startMs = Date.now();
@@ -154,26 +217,37 @@ function SlotMachineGame() {
 
       const tick = () => {
         const elapsed = Date.now() - startMs;
-        const next = [...displayReels];
+        const next = ['', '', ''];
 
         const isSpin0 = elapsed < baseStop1;
         const isSpin1 = elapsed < baseStop2;
         const isSpin2 = elapsed < baseStop3;
         setSpinningIdx([isSpin0, isSpin1, isSpin2]);
 
-        if (isSpin0) next[0] = randomIconId(reelIcons);
-        else next[0] = finals[0];
-        if (isSpin1) next[1] = randomIconId(reelIcons);
-        else next[1] = finals[1];
-        if (isSpin2) next[2] = randomIconId(reelIcons);
-        else next[2] = finals[2];
+        next[0] = isSpin0 ? randomIconId(reelIcons) : finals[0];
+        next[1] = isSpin1 ? randomIconId(reelIcons) : finals[1];
+        next[2] = isSpin2 ? randomIconId(reelIcons) : finals[2];
 
         setDisplayReels(next);
 
         if (!isSpin0 && !isSpin1 && !isSpin2) {
-          const out = evaluateSlots(finals, rules, reelIcons);
+          const out = evaluateSlots(finals, rules);
           setMsg(out);
           setResult({ reels: finals, tier: out.tier });
+          const spinMeta = {
+            tier: serverPayload?.tier || out.tier,
+            message: serverPayload?.message || out.msg,
+            rewards: Array.isArray(serverPayload?.rewards) ? serverPayload.rewards : [],
+          };
+          setLastSpin(spinMeta);
+          resultTimerRef.current = window.setTimeout(() => {
+            resultTimerRef.current = null;
+            setRewardDlg({
+              tier: spinMeta.tier,
+              message: spinMeta.message,
+              rewards: spinMeta.rewards,
+            });
+          }, 500);
           return;
         }
 
@@ -184,11 +258,33 @@ function SlotMachineGame() {
 
       timersRef.current.push(window.setTimeout(tick, 0));
     },
-    [displayReels, reelIcons, rules],
+    [reelIcons, rules],
   );
 
+  const fetchStatus = useCallback(async () => {
+    setSpinErr('');
+    try {
+      const headers = {};
+      if (user?.token) headers.Authorization = `Bearer ${user.token}`;
+      const r = await fetch(`${API_BASE_URL}/api/game-center/slot-machine/status`, { headers });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setStatus(null);
+        if (typeof data.error === 'string') setSpinErr(data.error);
+        return;
+      }
+      setStatus(data);
+    } catch {
+      setStatus(null);
+    }
+  }, [user?.token]);
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
   const doSpin = async () => {
-    if (!reelIcons.length) return;
+    if (!reelIcons.length || storyPhase !== 'play') return;
     if (!user?.token) {
       setSpinErr('Cần đăng nhập để quay và nhận thưởng thật.');
       return;
@@ -209,7 +305,7 @@ function SlotMachineGame() {
         return;
       }
       const finals = Array.isArray(data.reels) && data.reels.length === 3 ? data.reels : defaultIds;
-      spinWithFinals(finals);
+      spinWithFinals(finals, data);
       if (data.petagoldRemaining != null) {
         updateUserData({ petagold: Number(data.petagoldRemaining) });
       }
@@ -218,50 +314,46 @@ function SlotMachineGame() {
       }
       dispatchCurrencyUpdate();
       await fetchStatus();
-      // mở modal sau khi animation kết thúc 1 nhịp
-      const delayOpen = 2600 + (finals[0] === finals[1] ? 600 : 0);
-      window.setTimeout(() => {
-        setRewardDlg({
-          tier: data.tier,
-          message: data.message,
-          rewards: Array.isArray(data.rewards) ? data.rewards : [],
-        });
-      }, delayOpen);
     } catch (e) {
       setSpinErr(e.message || 'Lỗi mạng');
     }
   };
 
-  const fetchStatus = useCallback(async () => {
-    setSpinErr('');
-    try {
-      const headers = {};
-      if (user?.token) headers.Authorization = `Bearer ${user.token}`;
-      const r = await fetch(`${API_BASE_URL}/api/game-center/slot-machine/status`, { headers });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        setStatus(null);
-        if (typeof data.error === 'string') setSpinErr(data.error);
-        return;
-      }
-      setStatus(data);
-    } catch (e) {
-      setStatus(null);
-    }
-  }, [user?.token]);
-
-  useEffect(() => {
-    fetchStatus();
-  }, [fetchStatus]);
-
-  const itemsById = useMemo(() => {
-    const map = new Map();
-    // slotMachine reward picker lấy từ Admin items list; client game-center/config không có tên item → fallback label
-    // map rỗng ở đây, để hàm rewardLabelForIcon vẫn hoạt động (Item #id)
-    return map;
-  }, []);
-
   const renderReel = (id) => iconDisplayNode(reelIcons.find((x) => x.id === id));
+  const showNarrative = storyPhase === 'intro' || storyPhase === 'result';
+  const isSpinning = spinningIdx.some(Boolean);
+
+  const backButton =
+    backNav.kind === 'link' ? (
+      <Link to={backNav.to} className="ec-btn ec-btn--ghost narrative-scene__action-btn">
+        {backNav.label}
+      </Link>
+    ) : (
+      <button
+        type="button"
+        className="ec-btn ec-btn--ghost narrative-scene__action-btn"
+        onClick={backNav.go}
+      >
+        {backNav.label}
+      </button>
+    );
+
+  const narrativeActions =
+    storyPhase === 'intro' ? (
+      <>
+        <button type="button" className="ec-btn narrative-scene__action-btn" onClick={dismissIntro}>
+          {playLabel}
+        </button>
+        {backButton}
+      </>
+    ) : (
+      <>
+        <button type="button" className="ec-btn narrative-scene__action-btn" onClick={dismissResult}>
+          {continueLabel}
+        </button>
+        {backButton}
+      </>
+    );
 
   if (loading) {
     return (
@@ -273,60 +365,118 @@ function SlotMachineGame() {
 
   return (
     <div className="ec-game ec-game--slot">
-      <p className="ec-game__lead ec-slot-lead">
-        Quay guồng theo kiểu casino: ô 1 dừng trước, rồi ô 2, rồi ô 3. Nếu 2 ô đầu trùng, ô 3 sẽ chạy lâu hơn để gây hồi
-        hộp.
-      </p>
-
-      {!user?.token && (
-        <p className="ec-guess-alert ec-guess-alert--warn">
-          <Link to="/login">Đăng nhập</Link> để nhận thưởng thật (item/spirit/petagold) từ server.
-        </p>
-      )}
-
-      <div className={`ec-slot-machine-frame ${result?.tier === 'jackpot' ? 'is-jackpot' : ''}`}>
-        <div className="ec-slots" aria-live="polite">
-        {displayReels.map((id, i) => (
-          <div
-            key={i}
-            className={`ec-slot-reel ec-slot-reel--fancy ${spinningIdx[i] ? 'is-spinning' : ''}`}
-          >
-            <div className="ec-slot-reel__glow" aria-hidden />
-            <div className="ec-slot-reel__inner">{renderReel(id)}</div>
+      {showNarrative ? (
+        <NarrativeScene
+          className="ec-slot-narrative"
+          title={title}
+          speaker={speaker}
+          portraitSrc={portraitSrc}
+          backgroundSrc={backgroundSrc}
+          useBackground={useBackground}
+          lines={lines}
+          vars={vars}
+          typingMsPerChar={typingMsPerChar}
+          scriptKey={`${storyPhase}-${lastSpin?.tier ?? 'x'}-${lastSpin?.message ?? ''}`}
+          showActions="end"
+          actions={narrativeActions}
+          onSkip={storyPhase === 'intro' ? dismissIntro : dismissResult}
+          portraitFallback="/images/character/knight_warrior.jpg"
+        />
+      ) : (
+        <div className="ec-slot-play">
+          <div className="ec-slot-stats" aria-label="Giá và lượt">
+            <span className="ec-slot-stat">
+              <span className="ec-slot-stat__label">Giá quay</span>
+              <span className="ec-slot-stat__val">{spinPrice.toLocaleString('vi-VN')}</span>
+            </span>
+            <span className="ec-slot-stat ec-slot-stat--pair">
+              <span className="ec-slot-stat__label">Pair</span>
+              <span className="ec-slot-stat__val">+{pairReward.toLocaleString('vi-VN')}</span>
+            </span>
+            {user?.token && playsRem != null ? (
+              <span className="ec-slot-stat ec-slot-stat--turns">
+                <span className="ec-slot-stat__label">Lượt</span>
+                <span className="ec-slot-stat__val">
+                  {playsRem}/{maxPlays}
+                </span>
+              </span>
+            ) : null}
           </div>
-        ))}
+
+          {!user?.token && (
+            <p className="ec-guess-alert ec-guess-alert--warn">
+              <Link to="/login">Đăng nhập</Link> để nhận thưởng thật từ server.
+            </p>
+          )}
+
+          <div
+            className={`ec-slot-machine-frame${
+              result?.tier === 'jackpot' ? ' is-jackpot' : result?.tier && result.tier !== 'none' ? ' is-win' : ''
+            }`}
+          >
+            <div className="ec-slot-machine-frame__top" aria-hidden>
+              <span className="ec-slot-machine-frame__badge">ĐĐ</span>
+              <span className="ec-slot-machine-frame__title">Máy đánh bạc</span>
+            </div>
+            <div className="ec-slots" aria-live="polite">
+              {displayReels.map((id, i) => (
+                <div
+                  key={i}
+                  className={`ec-slot-reel ec-slot-reel--fancy${spinningIdx[i] ? ' is-spinning' : ''}`}
+                >
+                  <div className="ec-slot-reel__glow" aria-hidden />
+                  <div className="ec-slot-reel__inner">{renderReel(id)}</div>
+                </div>
+              ))}
+            </div>
+            {msg && storyPhase === 'play' && !isSpinning ? (
+              <p className={`ec-slot-hint ec-slot-hint--${msg.tier}`}>{msg.msg}</p>
+            ) : (
+              <p className="ec-slot-hint">Ba ô trùng lửa — Jackpot. Hai ô trùng vẫn có thưởng.</p>
+            )}
+          </div>
+
+          <div className="ec-btn-row ec-slot-actions">
+            <button
+              type="button"
+              className="ec-btn ec-slot-spin-btn"
+              onClick={() => void doSpin()}
+              disabled={
+                isSpinning ||
+                !!rewardDlg ||
+                !reelIcons.length ||
+                !user?.token ||
+                (playsRem != null && Number(playsRem) <= 0)
+              }
+            >
+              {reelIcons.length ? (isSpinning ? 'Đang quay…' : 'Quay') : 'Chưa có icon'}
+            </button>
+          </div>
+
+          {spinErr && (
+            <p className="ec-guess-alert ec-guess-alert--warn" role="alert">
+              {spinErr}
+            </p>
+          )}
+
+          <div className="ec-btn-row ec-slot-actions">{backButton}</div>
         </div>
-      </div>
-
-      <div className="ec-btn-row">
-        <button
-          type="button"
-          className="ec-btn ec-slot-spin-btn"
-          onClick={() => setConfirmOpen(true)}
-          disabled={
-            spinningIdx.some(Boolean) ||
-            !reelIcons.length ||
-            (status?.playsRemaining != null && Number(status.playsRemaining) <= 0)
-          }
-        >
-          {reelIcons.length ? (spinningIdx.some(Boolean) ? 'Đang quay…' : 'Quay') : 'Chưa có icon'}
-        </button>
-      </div>
-
-      {spinErr && (
-        <p className="ec-guess-alert ec-guess-alert--warn" role="alert">
-          {spinErr}
-        </p>
       )}
 
       <GameDialogModal
         isOpen={!!rewardDlg}
-        onClose={() => setRewardDlg(null)}
+        onClose={closeRewardThenNarrative}
         title={rewardDlg?.tier === 'jackpot' ? 'Jackpot!' : 'Kết quả nhận thưởng'}
         mode="alert"
-        confirmLabel="Đóng"
-        tone={rewardDlg?.tier === 'jackpot' ? 'info' : rewardDlg?.tier === 'none' ? 'warning' : 'default'}
-        onConfirm={() => setRewardDlg(null)}
+        confirmLabel="Nhận"
+        tone={
+          rewardDlg?.tier === 'jackpot'
+            ? 'info'
+            : rewardDlg?.tier === 'none'
+              ? 'warning'
+              : 'default'
+        }
+        onConfirm={closeRewardThenNarrative}
       >
         {rewardDlg && (
           <div className="ec-wheel-result-modal">
@@ -352,7 +502,9 @@ function SlotMachineGame() {
             <div className="ec-wheel-result-modal__label">{rewardDlg.message || '—'}</div>
             {(() => {
               const rw = rewardDlg.rewards?.[0];
-              if (!rw) return <div className="ec-wheel-result-modal__reward">Chưa nhận được phần thưởng.</div>;
+              if (!rw) {
+                return <div className="ec-wheel-result-modal__reward">Chưa nhận được phần thưởng.</div>;
+              }
               if (rw.kind === 'petagold') {
                 return (
                   <div className="ec-wheel-result-modal__reward">
@@ -368,50 +520,27 @@ function SlotMachineGame() {
                 );
               }
               if (rw.kind === 'item') {
-                return <div className="ec-wheel-result-modal__reward">{rw.name || `Item #${rw.itemId}`}</div>;
+                return (
+                  <div className="ec-wheel-result-modal__reward">
+                    {rw.name || `Item #${rw.itemId}`}
+                  </div>
+                );
               }
               if (rw.kind === 'spirit') {
-                return <div className="ec-wheel-result-modal__reward">{rw.name || `Spirit #${rw.spiritId}`}</div>;
+                return (
+                  <div className="ec-wheel-result-modal__reward">
+                    {rw.name || `Spirit #${rw.spiritId}`}
+                  </div>
+                );
               }
-              return <div className="ec-wheel-result-modal__reward">{String(rw.label || 'Phần thưởng')}</div>;
+              return (
+                <div className="ec-wheel-result-modal__reward">
+                  {String(rw.label || 'Phần thưởng')}
+                </div>
+              );
             })()}
           </div>
         )}
-      </GameDialogModal>
-
-      <GameDialogModal
-        isOpen={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        title="Xác nhận mua lượt quay"
-        mode="confirm"
-        tone="info"
-        cancelLabel="Hủy"
-        confirmLabel={spinningIdx.some(Boolean) ? 'Đang quay…' : 'Quay'}
-        confirmDisabled={
-          spinningIdx.some(Boolean) ||
-          !user?.token ||
-          !reelIcons.length ||
-          (status?.playsRemaining != null && Number(status.playsRemaining) <= 0)
-        }
-        costPill={{
-          icon: <img src={ICON_PETA} alt="" style={{ width: 18, height: 18 }} />,
-          amount: Number(status?.spinPricePeta ?? 0).toLocaleString('vi-VN'),
-          suffix: ' Peta',
-          prefix: '',
-        }}
-        onCancel={() => setConfirmOpen(false)}
-        onConfirm={() => {
-          setConfirmOpen(false);
-          void doSpin();
-        }}
-      >
-        <p style={{ margin: 0, textAlign: 'center', fontWeight: 700 }}>
-          Bạn sẽ mua <strong>1</strong> lượt quay.
-        </p>
-        <p style={{ margin: '10px 0 0', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>
-          Lượt còn lại trong kỳ: <strong>{status?.playsRemaining ?? '—'}</strong>/{status?.maxPlaysPerDay ?? '—'} · Pair
-          thưởng <strong>+{Number(status?.pairRewardPeta ?? 0).toLocaleString('vi-VN')} Peta</strong>
-        </p>
       </GameDialogModal>
     </div>
   );

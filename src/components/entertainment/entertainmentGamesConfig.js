@@ -6,6 +6,7 @@ export const ENTERTAINMENT_GAMES = [
     title: 'Vòng quay may mắn',
     description: 'Ô Peta, Peta Gold cố định + vật phẩm admin; lịch sử & lượt/ngày.',
     imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+    pageBackgroundSrc: '',
   },
   {
     id: 'scratch-lottery',
@@ -13,6 +14,7 @@ export const ENTERTAINMENT_GAMES = [
     title: 'Vé số cào',
     description: 'Vé 3 ô và vé 5 ô — cào trùng hình nhận thưởng.',
     imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+    pageBackgroundSrc: '',
   },
   {
     id: 'mystery-box',
@@ -20,6 +22,7 @@ export const ENTERTAINMENT_GAMES = [
     title: 'Hộp bí ẩn',
     description: 'Cho vào một vật phẩm, nhận ngẫu nhiên theo độ hiếm.',
     imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+    pageBackgroundSrc: '',
   },
   {
     id: 'beggar-king',
@@ -27,13 +30,15 @@ export const ENTERTAINMENT_GAMES = [
     title: 'Vua ăn mày',
     description: 'Ghé Làng Phú Gia xin lì xì từ trưởng làng Richies — mỗi 12 giờ một lần.',
     imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+    pageBackgroundSrc: '/images/background/langphugia.png',
   },
   {
     id: 'daily-free',
     path: 'daily-free',
     title: 'Vật phẩm miễn phí',
-    description: 'Mỗi ngày nhận vật phẩm theo bậc hiếm.',
+    description: 'Ghé Làng Nhân Ái nhận vật phẩm tặng — mỗi ngày một lần.',
     imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+    pageBackgroundSrc: '',
   },
   {
     id: 'lucky-booth',
@@ -41,19 +46,22 @@ export const ENTERTAINMENT_GAMES = [
     title: 'Xổ số (Lucky booth)',
     description: 'Chọn dãy 4 chữ số, trúng nhận Peta cao.',
     imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+    pageBackgroundSrc: '',
   },
   {
     id: 'slot-machine',
     path: 'slot-machine',
     title: 'Máy đánh bạc',
-    description: 'Quay icon như casino, nhận quà theo điều kiện.',
+    description: 'Làng Đỏ Đen — Máy đánh bạc trên Hỏa Diệm Sơn.',
     imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+    pageBackgroundSrc: '/images/background/langdoden.png',
   },
   {
     id: 'guess-number',
     path: 'guess-number',
     title: 'Đoán số',
-    description: 'So sánh số ẩn với một mốc — cao hơn hay thấp hơn?',
+    description: 'Làng Trẻ Con — đoán cao hơn / thấp hơn mốc, nhận Peta.',
     imgSrc: '/images/entertainment/game-tile-placeholder.svg',
+    pageBackgroundSrc: '/images/background/ice.png',
   },
 ];
