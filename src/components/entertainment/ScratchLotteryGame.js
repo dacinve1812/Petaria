@@ -2,6 +2,8 @@ import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom';
 import GameDialogModal from '../ui/GameDialogModal';
 import { useGameCenterConfig } from './GameCenterConfigContext';
+import FeatureNpcIntro, { buildFeatureNpcProps } from './FeatureNpcIntro';
+import { useFeatureBackNav } from './useFeatureBackNav';
 import ScratchCell from './ScratchCell';
 import { useUser } from '../../UserContext';
 import { dispatchCurrencyUpdate } from '../../utils/currencyEvents';
@@ -73,7 +75,9 @@ function sidebarTierBadgeClass(index) {
 function ScratchLotteryGame() {
   const { user, updateUserData } = useUser();
   const { config, loading } = useGameCenterConfig();
+  const backNav = useFeatureBackNav();
   const sc = config?.scratchLottery;
+  const narrative = sc?.narrative || {};
   const symbols = useMemo(
     () => (sc?.symbols?.length ? sc.symbols : []),
     [sc?.symbols],
@@ -84,6 +88,32 @@ function ScratchLotteryGame() {
   const price5 = t5?.pricePeta ?? 25;
   const dailyLimit3 = Math.max(0, clampInt(t3?.dailyBuyLimit ?? 0, 0));
   const dailyLimit5 = Math.max(0, clampInt(t5?.dailyBuyLimit ?? 0, 0));
+
+  const intro = useMemo(
+    () => buildFeatureNpcProps(narrative, {}, { speaker: '', portraitSrc: '', lines: [] }),
+    [narrative],
+  );
+
+  const npcIntro = (
+    <FeatureNpcIntro
+      speaker={intro.speaker}
+      portraitSrc={intro.portraitSrc}
+      lorePortraitSrc={intro.lorePortraitSrc}
+      greeting={intro.greeting}
+      loreLines={intro.loreLines}
+    />
+  );
+
+  const backButton =
+    backNav.kind === 'link' ? (
+      <Link to={backNav.to} className="ec-btn ec-btn--ghost">
+        {backNav.label}
+      </Link>
+    ) : (
+      <button type="button" className="ec-btn ec-btn--ghost" onClick={backNav.go}>
+        {backNav.label}
+      </button>
+    );
 
   const [mode, setMode] = useState(3);
   const [view, setView] = useState('shop'); // 'shop' | 'ticket'
@@ -405,8 +435,8 @@ function ScratchLotteryGame() {
     const left5 =
       user?.token && dailyLimit5 > 0 ? Math.max(0, dailyLimit5 - used5) : null;
     return (
-      <div className="ec-game">
-        <h3 className="ec-section-heading">Lottery</h3>
+      <div className="ec-game ec-game--scratch">
+        {npcIntro}
 
         <div className="ec-scratch-shop">
           <button
@@ -530,25 +560,14 @@ function ScratchLotteryGame() {
           </p>
         </GameDialogModal>
 
-        <p className="ec-note">
-          Biểu tượng vé cào do Admin cấu hình. Mua vé trừ Peta và nhận thưởng qua server (số tiền cập nhật trên Sidebar).
-        </p>
+        <div className="ec-btn-row ec-feature-actions ec-feature-actions--back">{backButton}</div>
       </div>
     );
   }
 
   return (
-    <div className="ec-game">
-      <p className="ec-game__lead">
-        Vé <strong>3 ô</strong>: {price3} Peta — vé <strong>5 ô</strong>: {price5} Peta (giá chỉnh trên Admin).
-        Vé 3 ô trúng khi có <strong>2</strong> icon trùng; vé 5 ô trúng khi có <strong>3</strong> icon trùng.
-      </p>
-
-      <div className="ec-scratch-back-row">
-        <button type="button" className="ec-btn ec-btn--ghost" onClick={() => resetRound(mode)}>
-          Quay lại
-        </button>
-      </div>
+    <div className="ec-game ec-game--scratch">
+      {npcIntro}
 
       <div className="ec-scratch-layout">
         <div
@@ -669,7 +688,16 @@ function ScratchLotteryGame() {
         ) : null}
       </GameDialogModal>
 
-      <p className="ec-note">Biểu tượng vé cào do Admin cấu hình (emoji hoặc ảnh URL).</p>
+      <div className="ec-btn-row ec-feature-actions ec-feature-actions--back">
+        <button
+          type="button"
+          className="ec-btn ec-mystery-btn-primary"
+          onClick={() => resetRound(mode)}
+        >
+          Về Shop
+        </button>
+        {backButton}
+      </div>
     </div>
   );
 }

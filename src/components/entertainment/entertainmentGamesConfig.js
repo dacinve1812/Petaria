@@ -20,7 +20,7 @@ export const ENTERTAINMENT_GAMES = [
     id: 'mystery-box',
     path: 'mystery-box',
     title: 'Hộp bí ẩn',
-    description: 'Cho vào một vật phẩm, nhận ngẫu nhiên theo độ hiếm.',
+    description: 'Làng Tráo Trở — BotBox đổi vật phẩm trong hộp thần kỳ.',
     imgSrc: '/images/entertainment/game-tile-placeholder.svg',
     pageBackgroundSrc: '',
   },
@@ -30,7 +30,7 @@ export const ENTERTAINMENT_GAMES = [
     title: 'Vua ăn mày',
     description: 'Ghé Làng Phú Gia xin lì xì từ trưởng làng Richies — mỗi 12 giờ một lần.',
     imgSrc: '/images/entertainment/game-tile-placeholder.svg',
-    pageBackgroundSrc: '/images/background/langphugia.png',
+    pageBackgroundSrc: '',
   },
   {
     id: 'daily-free',
@@ -44,7 +44,7 @@ export const ENTERTAINMENT_GAMES = [
     id: 'lucky-booth',
     path: 'lucky-booth',
     title: 'Xổ số (Lucky booth)',
-    description: 'Chọn dãy 4 chữ số, trúng nhận Peta cao.',
+    description: 'Làng Hảo Vọng — mua vé số, chờ may mắn.',
     imgSrc: '/images/entertainment/game-tile-placeholder.svg',
     pageBackgroundSrc: '',
   },
@@ -54,7 +54,7 @@ export const ENTERTAINMENT_GAMES = [
     title: 'Máy đánh bạc',
     description: 'Làng Đỏ Đen — Máy đánh bạc trên Hỏa Diệm Sơn.',
     imgSrc: '/images/entertainment/game-tile-placeholder.svg',
-    pageBackgroundSrc: '/images/background/langdoden.png',
+    pageBackgroundSrc: '',
   },
   {
     id: 'guess-number',
@@ -62,6 +62,6 @@ export const ENTERTAINMENT_GAMES = [
     title: 'Đoán số',
     description: 'Làng Trẻ Con — đoán cao hơn / thấp hơn mốc, nhận Peta.',
     imgSrc: '/images/entertainment/game-tile-placeholder.svg',
-    pageBackgroundSrc: '/images/background/ice.png',
+    pageBackgroundSrc: '',
   },
 ];

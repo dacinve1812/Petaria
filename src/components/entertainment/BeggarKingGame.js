@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import NarrativeScene, { applyNarrativeVars } from '../ui/NarrativeScene';
+import GameDialogModal from '../ui/GameDialogModal';
+import { applyNarrativeVars } from '../ui/NarrativeScene';
+import FeatureNpcIntro, { buildFeatureNpcProps } from './FeatureNpcIntro';
 import { useGameCenterConfig } from './GameCenterConfigContext';
 import { useFeatureBackNav } from './useFeatureBackNav';
 import { useUser } from '../../UserContext';
@@ -16,6 +18,9 @@ function formatDur(ms) {
   return `${h}h ${m}m ${sec}s`;
 }
 
+/**
+ * /game-center/beggar-king — nội dung trang trực tiếp (không NarrativeHost).
+ */
 function BeggarKingGame() {
   const { user, updateUserData } = useUser();
   const { config, loading } = useGameCenterConfig();
@@ -30,11 +35,8 @@ function BeggarKingGame() {
   const [srv, setSrv] = useState(null);
   const [statusErr, setStatusErr] = useState('');
   const [claiming, setClaiming] = useState(false);
-  const [rewardAmount, setRewardAmount] = useState(null);
   const [claimErr, setClaimErr] = useState('');
-  const [phase, setPhase] = useState('intro'); // intro | cooldown | reward
-  /** Snapshot cho script — tránh chữ chạy reset mỗi giây khi {remaining} đổi */
-  const [scriptRemaining, setScriptRemaining] = useState('');
+  const [rewardDlg, setRewardDlg] = useState(null);
 
   const minPeta = srv?.minPeta ?? fallbackMin;
   const maxPeta = srv?.maxPeta ?? fallbackMax;
@@ -75,74 +77,34 @@ function BeggarKingGame() {
   const remainingLabel = remainingMs > 0 ? formatDur(remainingMs) : '';
   const onCooldown = !!user?.token && !canClaim && remainingMs > 0;
 
-  useEffect(() => {
-    if (phase === 'reward') return;
-    const next = onCooldown ? 'cooldown' : 'intro';
-    if (next !== phase) {
-      if (next === 'cooldown') setScriptRemaining(remainingLabel || 'một chút');
-      setPhase(next);
-    }
-  }, [onCooldown, phase, remainingLabel]);
-
   const vars = useMemo(
     () => ({
       minPeta: Number(minPeta).toLocaleString('vi-VN'),
       maxPeta: Number(maxPeta).toLocaleString('vi-VN'),
       cooldownHours,
-      remaining: scriptRemaining || remainingLabel || 'một chút',
+      remaining: remainingLabel || 'một chút',
       amount:
-        rewardAmount != null ? Number(rewardAmount).toLocaleString('vi-VN') : '…',
+        rewardDlg?.amount != null ? Number(rewardDlg.amount).toLocaleString('vi-VN') : '…',
       playerName: user?.username || user?.name || 'bạn',
     }),
-    [
-      minPeta,
-      maxPeta,
-      cooldownHours,
-      scriptRemaining,
-      remainingLabel,
-      rewardAmount,
-      user?.username,
-      user?.name,
-    ],
+    [minPeta, maxPeta, cooldownHours, remainingLabel, rewardDlg, user?.username, user?.name],
   );
 
   const speaker = narrative.speaker || 'Richies';
-  const portraitSrc = narrative.portraitSrc || '/images/character/richies.jpg';
-  const backgroundSrc = narrative.backgroundSrc || '';
-  const useBackground = narrative.useBackground !== false;
-  const title = narrative.title || 'Làng Phú Gia';
-  const typingMsPerChar = narrative.typingMsPerChar ?? 26;
   const claimLabel = narrative.claimLabel || 'Xin lì xì';
 
-  const lines = useMemo(() => {
-    if (phase === 'reward') {
-      const tpl =
-        narrative.rewardLine ||
-        'Ha ha! Cầm lấy {amount} Peta lì xì đi — đừng khách khí với ta!';
-      return [applyNarrativeVars(tpl, vars)];
-    }
-    if (phase === 'cooldown') {
-      const cd = Array.isArray(narrative.cooldownLines) ? narrative.cooldownLines : [];
-      return cd.length ? cd : ['Hãy quay lại sau {remaining} nữa nhé.'];
-    }
-    const intro = Array.isArray(narrative.lines) ? narrative.lines : [];
-    return intro.length
-      ? intro
-      : [
+  const intro = useMemo(
+    () =>
+      buildFeatureNpcProps(narrative, vars, {
+        speaker: 'Richies',
+        portraitSrc: '/images/character/richies.jpg',
+        lines: [
           'Chào ngươi! Ta là Richies, trưởng làng Phú Gia.',
           'Mỗi lần ghé thăm, ta lì xì khoảng {minPeta}–{maxPeta} Peta — mỗi {cooldownHours} giờ một lần.',
-        ];
-  }, [phase, narrative, vars]);
-
-  const finishReward = () => {
-    setRewardAmount(null);
-    if (onCooldown) {
-      setScriptRemaining(remainingLabel || 'một chút');
-      setPhase('cooldown');
-    } else {
-      setPhase('intro');
-    }
-  };
+        ],
+      }),
+    [narrative, vars],
+  );
 
   const handleClaim = async () => {
     if (!user?.token || !canClaim || claiming) return;
@@ -159,7 +121,6 @@ function BeggarKingGame() {
       const data = await r.json().catch(() => ({}));
       if (r.status === 429) {
         setClaimErr(data.error || 'Chưa hết thời gian chờ');
-        setPhase('cooldown');
         await fetchStatus();
         return;
       }
@@ -167,8 +128,16 @@ function BeggarKingGame() {
         throw new Error(data.error || 'Không nhận được Peta');
       }
       const granted = Math.max(0, Number(data.grantedPeta) || 0);
-      setRewardAmount(granted);
-      setPhase('reward');
+      const tpl =
+        narrative.rewardLine ||
+        'Ha ha! Cầm lấy {amount} Peta lì xì đi — đừng khách khí với ta!';
+      setRewardDlg({
+        amount: granted,
+        message: applyNarrativeVars(tpl, {
+          ...vars,
+          amount: Number(granted).toLocaleString('vi-VN'),
+        }),
+      });
       if (data.petaRemaining != null) {
         updateUserData({ peta: Number(data.petaRemaining) });
       }
@@ -183,15 +152,11 @@ function BeggarKingGame() {
 
   const backButton =
     backNav.kind === 'link' ? (
-      <Link to={backNav.to} className="ec-btn ec-btn--ghost narrative-scene__action-btn">
+      <Link to={backNav.to} className="ec-btn ec-btn--ghost">
         {backNav.label}
       </Link>
     ) : (
-      <button
-        type="button"
-        className="ec-btn ec-btn--ghost narrative-scene__action-btn"
-        onClick={backNav.go}
-      >
+      <button type="button" className="ec-btn ec-btn--ghost" onClick={backNav.go}>
         {backNav.label}
       </button>
     );
@@ -204,78 +169,68 @@ function BeggarKingGame() {
     );
   }
 
-  const actions = (
-    <>
+  return (
+    <div className="ec-game ec-game--beggar">
+      <FeatureNpcIntro
+        speaker={intro.speaker}
+        portraitSrc={intro.portraitSrc}
+        lorePortraitSrc={intro.lorePortraitSrc}
+        greeting={intro.greeting}
+        loreLines={intro.loreLines}
+      />
+
       {statusErr ? (
-        <p className="narrative-scene__status narrative-scene__status--err" role="alert">
+        <p className="ec-guess-alert ec-guess-alert--error" role="alert">
           {statusErr}
         </p>
       ) : null}
       {claimErr ? (
-        <p className="narrative-scene__status narrative-scene__status--warn" role="alert">
+        <p className="ec-guess-alert ec-guess-alert--warn" role="alert">
           {claimErr}
         </p>
       ) : null}
 
       {!user?.token ? (
-        <>
-          <p className="narrative-scene__status">
-            <Link to="/login">Đăng nhập</Link> để nhận lì xì thật và đồng bộ thời gian chờ.
-          </p>
-          <Link to="/login" className="ec-btn narrative-scene__action-btn">
-            Đăng nhập để xin lì xì
-          </Link>
-        </>
+        <p className="ec-note">
+          <Link to="/login">Đăng nhập</Link> để nhận lì xì thật và đồng bộ thời gian chờ.
+        </p>
       ) : null}
 
-      {user?.token && phase === 'cooldown' ? (
-        <p className="narrative-scene__status narrative-scene__status--warn">
+      {user?.token && onCooldown ? (
+        <p className="ec-guess-alert ec-guess-alert--warn" role="status">
           Còn lại: {remainingLabel || '…'}
         </p>
       ) : null}
 
-      {user?.token && phase === 'intro' ? (
-        <button
-          type="button"
-          className="ec-btn narrative-scene__action-btn"
-          onClick={() => void handleClaim()}
-          disabled={!canClaim || claiming || !!statusErr}
-        >
-          {claiming ? 'Đang xử lý…' : claimLabel}
-        </button>
-      ) : null}
+      <div className="ec-btn-row ec-feature-actions">
+        {!user?.token ? (
+          <Link to="/login" className="ec-btn ec-mystery-btn-primary">
+            Đăng nhập để xin lì xì
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className="ec-btn ec-mystery-btn-primary"
+            onClick={() => void handleClaim()}
+            disabled={!canClaim || claiming || !!statusErr}
+          >
+            {claiming ? 'Đang xử lý…' : claimLabel}
+          </button>
+        )}
+      </div>
+      <div className="ec-btn-row ec-feature-actions ec-feature-actions--back">{backButton}</div>
 
-      {user?.token && phase === 'reward' ? (
-        <button
-          type="button"
-          className="ec-btn narrative-scene__action-btn"
-          onClick={finishReward}
-        >
-          Cảm ơn ngài Richies!
-        </button>
-      ) : null}
-
-      {backButton}
-    </>
-  );
-
-  return (
-    <div className="ec-game ec-game--beggar">
-      <NarrativeScene
-        className="ec-beggar-narrative"
-        title={title}
-        speaker={speaker}
-        portraitSrc={portraitSrc}
-        backgroundSrc={backgroundSrc}
-        useBackground={useBackground}
-        lines={lines}
-        vars={vars}
-        typingMsPerChar={typingMsPerChar}
-        scriptKey={`${phase}-${rewardAmount ?? 'x'}-${onCooldown ? 'cd' : 'ok'}`}
-        showActions="end"
-        actions={actions}
-        portraitFallback="/images/character/knight_warrior.jpg"
-      />
+      <GameDialogModal
+        isOpen={!!rewardDlg}
+        onClose={() => setRewardDlg(null)}
+        title={speaker}
+        mode="alert"
+        confirmLabel="Cảm ơn!"
+        tone="info"
+        onConfirm={() => setRewardDlg(null)}
+      >
+        {rewardDlg ? <p>{rewardDlg.message}</p> : null}
+      </GameDialogModal>
     </div>
   );
 }

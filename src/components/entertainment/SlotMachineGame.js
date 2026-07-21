@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import GameDialogModal from '../ui/GameDialogModal';
-import NarrativeScene, { applyNarrativeVars } from '../ui/NarrativeScene';
+import FeatureNpcIntro, { buildFeatureNpcProps } from './FeatureNpcIntro';
 import { useGameCenterConfig } from './GameCenterConfigContext';
 import { useFeatureBackNav } from './useFeatureBackNav';
 import { useUser } from '../../UserContext';
@@ -76,6 +76,7 @@ function iconDisplayNode(icon) {
   return icon.emoji || '🔥';
 }
 
+/** /game-center/slot-machine — nội dung trang trực tiếp (không NarrativeHost). */
 function SlotMachineGame() {
   const { config, loading } = useGameCenterConfig();
   const { user, updateUserData } = useUser();
@@ -100,9 +101,6 @@ function SlotMachineGame() {
   const timersRef = useRef([]);
   const resultTimerRef = useRef(null);
 
-  /** intro | play | result */
-  const [storyPhase, setStoryPhase] = useState('intro');
-  const [lastSpin, setLastSpin] = useState(null);
   const [msg, setMsg] = useState(null);
   const [result, setResult] = useState(null);
   const [spinErr, setSpinErr] = useState('');
@@ -139,58 +137,22 @@ function SlotMachineGame() {
       maxPlays: String(maxPlays),
       pairReward: pairReward.toLocaleString('vi-VN'),
       playerName: user?.username || user?.name || 'bạn',
-      tier: lastSpin?.tier || '…',
-      message: lastSpin?.message || '…',
     }),
-    [spinPrice, maxPlays, pairReward, user?.username, user?.name, lastSpin],
+    [spinPrice, maxPlays, pairReward, user?.username, user?.name],
   );
 
-  const speaker = narrative.speaker || 'Ignis';
-  const portraitSrc = narrative.portraitSrc || '/images/character/Ignis.png';
-  const backgroundSrc = narrative.backgroundSrc || '';
-  const useBackground = narrative.useBackground === true;
-  const title = narrative.title || 'Làng Đỏ Đen';
-  const typingMsPerChar = narrative.typingMsPerChar ?? 26;
-  const playLabel = narrative.playLabel || 'Chơi Máy đánh bạc';
-  const continueLabel = narrative.continueLabel || 'Tiếp tục quay';
-
-  const lines = useMemo(() => {
-    if (storyPhase === 'result' && lastSpin) {
-      const tier = lastSpin.tier;
-      let tpl;
-      if (tier === 'jackpot') {
-        tpl =
-          narrative.jackpotLine ||
-          'Jackpot! Lửa núi cũng phải nhường ngươi — {message}';
-      } else if (tier === 'triple') {
-        tpl = narrative.winLine || 'Ha! Trúng rồi — {message}. Túi ngươi nặng thêm đấy!';
-      } else if (tier === 'pair') {
-        tpl = narrative.pairLine || 'Hai ô trùng — cũng được đó. {message}';
-      } else {
-        tpl = narrative.loseLine || 'Chưa ra gì… núi lửa nuốt Peta của ngươi rồi. Thử lại đi!';
-      }
-      return [applyNarrativeVars(tpl, vars)];
-    }
-    const intro = Array.isArray(narrative.lines) ? narrative.lines : [];
-    return intro.length
-      ? intro
-      : [
+  const intro = useMemo(
+    () =>
+      buildFeatureNpcProps(narrative, vars, {
+        speaker: 'Ignis',
+        portraitSrc: '/images/character/Ignis.png',
+        lines: [
           'Chào ngươi! Đây là Làng Đỏ Đen trên Hỏa Diệm Sơn.',
           'Dân làng mê Máy đánh bạc. Quay một phát {spinPrice} Peta — xem ai móc túi ai!',
-        ];
-  }, [storyPhase, lastSpin, narrative, vars]);
-
-  const dismissIntro = () => setStoryPhase('play');
-
-  const dismissResult = () => {
-    setStoryPhase('play');
-    setLastSpin(null);
-  };
-
-  const closeRewardThenNarrative = () => {
-    setRewardDlg(null);
-    setStoryPhase('result');
-  };
+        ],
+      }),
+    [narrative, vars],
+  );
 
   const spinWithFinals = useCallback(
     (finals, serverPayload) => {
@@ -239,7 +201,6 @@ function SlotMachineGame() {
             message: serverPayload?.message || out.msg,
             rewards: Array.isArray(serverPayload?.rewards) ? serverPayload.rewards : [],
           };
-          setLastSpin(spinMeta);
           resultTimerRef.current = window.setTimeout(() => {
             resultTimerRef.current = null;
             setRewardDlg({
@@ -284,7 +245,7 @@ function SlotMachineGame() {
   }, [fetchStatus]);
 
   const doSpin = async () => {
-    if (!reelIcons.length || storyPhase !== 'play') return;
+    if (!reelIcons.length) return;
     if (!user?.token) {
       setSpinErr('Cần đăng nhập để quay và nhận thưởng thật.');
       return;
@@ -320,39 +281,17 @@ function SlotMachineGame() {
   };
 
   const renderReel = (id) => iconDisplayNode(reelIcons.find((x) => x.id === id));
-  const showNarrative = storyPhase === 'intro' || storyPhase === 'result';
   const isSpinning = spinningIdx.some(Boolean);
 
   const backButton =
     backNav.kind === 'link' ? (
-      <Link to={backNav.to} className="ec-btn ec-btn--ghost narrative-scene__action-btn">
+      <Link to={backNav.to} className="ec-btn ec-btn--ghost">
         {backNav.label}
       </Link>
     ) : (
-      <button
-        type="button"
-        className="ec-btn ec-btn--ghost narrative-scene__action-btn"
-        onClick={backNav.go}
-      >
+      <button type="button" className="ec-btn ec-btn--ghost" onClick={backNav.go}>
         {backNav.label}
       </button>
-    );
-
-  const narrativeActions =
-    storyPhase === 'intro' ? (
-      <>
-        <button type="button" className="ec-btn narrative-scene__action-btn" onClick={dismissIntro}>
-          {playLabel}
-        </button>
-        {backButton}
-      </>
-    ) : (
-      <>
-        <button type="button" className="ec-btn narrative-scene__action-btn" onClick={dismissResult}>
-          {continueLabel}
-        </button>
-        {backButton}
-      </>
     );
 
   if (loading) {
@@ -365,110 +304,100 @@ function SlotMachineGame() {
 
   return (
     <div className="ec-game ec-game--slot">
-      {showNarrative ? (
-        <NarrativeScene
-          className="ec-slot-narrative"
-          title={title}
-          speaker={speaker}
-          portraitSrc={portraitSrc}
-          backgroundSrc={backgroundSrc}
-          useBackground={useBackground}
-          lines={lines}
-          vars={vars}
-          typingMsPerChar={typingMsPerChar}
-          scriptKey={`${storyPhase}-${lastSpin?.tier ?? 'x'}-${lastSpin?.message ?? ''}`}
-          showActions="end"
-          actions={narrativeActions}
-          onSkip={storyPhase === 'intro' ? dismissIntro : dismissResult}
-          portraitFallback="/images/character/knight_warrior.jpg"
-        />
-      ) : (
-        <div className="ec-slot-play">
-          <div className="ec-slot-stats" aria-label="Giá và lượt">
-            <span className="ec-slot-stat">
-              <span className="ec-slot-stat__label">Giá quay</span>
-              <span className="ec-slot-stat__val">{spinPrice.toLocaleString('vi-VN')}</span>
-            </span>
-            <span className="ec-slot-stat ec-slot-stat--pair">
-              <span className="ec-slot-stat__label">Pair</span>
-              <span className="ec-slot-stat__val">+{pairReward.toLocaleString('vi-VN')}</span>
-            </span>
-            {user?.token && playsRem != null ? (
-              <span className="ec-slot-stat ec-slot-stat--turns">
-                <span className="ec-slot-stat__label">Lượt</span>
-                <span className="ec-slot-stat__val">
-                  {playsRem}/{maxPlays}
-                </span>
-              </span>
-            ) : null}
-          </div>
+      <FeatureNpcIntro
+        speaker={intro.speaker}
+        portraitSrc={intro.portraitSrc}
+        lorePortraitSrc={intro.lorePortraitSrc}
+        greeting={intro.greeting}
+        loreLines={intro.loreLines}
+      />
 
-          {!user?.token && (
-            <p className="ec-guess-alert ec-guess-alert--warn">
-              <Link to="/login">Đăng nhập</Link> để nhận thưởng thật từ server.
-            </p>
+      <div className="ec-slot-play">
+        <p className="ec-slot-stats" role="note">
+          Mỗi lần quay tốn{' '}
+          <strong className="ec-slot-stats__em">{spinPrice.toLocaleString('vi-VN')} Peta</strong>.
+          Hai ô trùng (pair) nhận{' '}
+          <strong className="ec-slot-stats__em ec-slot-stats__em--pair">
+            +{pairReward.toLocaleString('vi-VN')} Peta
+          </strong>
+          .
+          {user?.token && playsRem != null ? (
+            <>
+              {' '}
+              Còn{' '}
+              <strong className="ec-slot-stats__em ec-slot-stats__em--turns">
+                {playsRem}/{maxPlays}
+              </strong>{' '}
+              lượt trong kỳ này.
+            </>
+          ) : null}
+        </p>
+
+        {!user?.token && (
+          <p className="ec-guess-alert ec-guess-alert--warn">
+            <Link to="/login">Đăng nhập</Link> để nhận thưởng thật từ server.
+          </p>
+        )}
+
+        <div
+          className={`ec-slot-machine-frame${
+            result?.tier === 'jackpot' ? ' is-jackpot' : result?.tier && result.tier !== 'none' ? ' is-win' : ''
+          }`}
+        >
+          <div className="ec-slot-machine-frame__top" aria-hidden>
+            <span className="ec-slot-machine-frame__badge">ĐĐ</span>
+            <span className="ec-slot-machine-frame__title">Máy đánh bạc</span>
+          </div>
+          <div className="ec-slots" aria-live="polite">
+            {displayReels.map((id, i) => (
+              <div
+                key={i}
+                className={`ec-slot-reel ec-slot-reel--fancy${spinningIdx[i] ? ' is-spinning' : ''}`}
+              >
+                <div className="ec-slot-reel__glow" aria-hidden />
+                <div className="ec-slot-reel__inner">{renderReel(id)}</div>
+              </div>
+            ))}
+          </div>
+          {msg && !isSpinning ? (
+            <p className={`ec-slot-hint ec-slot-hint--${msg.tier}`}>{msg.msg}</p>
+          ) : (
+            <p className="ec-slot-hint">Ba ô trùng lửa — Jackpot. Hai ô trùng vẫn có thưởng.</p>
           )}
-
-          <div
-            className={`ec-slot-machine-frame${
-              result?.tier === 'jackpot' ? ' is-jackpot' : result?.tier && result.tier !== 'none' ? ' is-win' : ''
-            }`}
-          >
-            <div className="ec-slot-machine-frame__top" aria-hidden>
-              <span className="ec-slot-machine-frame__badge">ĐĐ</span>
-              <span className="ec-slot-machine-frame__title">Máy đánh bạc</span>
-            </div>
-            <div className="ec-slots" aria-live="polite">
-              {displayReels.map((id, i) => (
-                <div
-                  key={i}
-                  className={`ec-slot-reel ec-slot-reel--fancy${spinningIdx[i] ? ' is-spinning' : ''}`}
-                >
-                  <div className="ec-slot-reel__glow" aria-hidden />
-                  <div className="ec-slot-reel__inner">{renderReel(id)}</div>
-                </div>
-              ))}
-            </div>
-            {msg && storyPhase === 'play' && !isSpinning ? (
-              <p className={`ec-slot-hint ec-slot-hint--${msg.tier}`}>{msg.msg}</p>
-            ) : (
-              <p className="ec-slot-hint">Ba ô trùng lửa — Jackpot. Hai ô trùng vẫn có thưởng.</p>
-            )}
-          </div>
-
-          <div className="ec-btn-row ec-slot-actions">
-            <button
-              type="button"
-              className="ec-btn ec-slot-spin-btn"
-              onClick={() => void doSpin()}
-              disabled={
-                isSpinning ||
-                !!rewardDlg ||
-                !reelIcons.length ||
-                !user?.token ||
-                (playsRem != null && Number(playsRem) <= 0)
-              }
-            >
-              {reelIcons.length ? (isSpinning ? 'Đang quay…' : 'Quay') : 'Chưa có icon'}
-            </button>
-          </div>
-
-          {spinErr && (
-            <p className="ec-guess-alert ec-guess-alert--warn" role="alert">
-              {spinErr}
-            </p>
-          )}
-
-          <div className="ec-btn-row ec-slot-actions">{backButton}</div>
         </div>
-      )}
+
+        <div className="ec-btn-row ec-slot-actions">
+          <button
+            type="button"
+            className="ec-btn ec-slot-spin-btn"
+            onClick={() => void doSpin()}
+            disabled={
+              isSpinning ||
+              !!rewardDlg ||
+              !reelIcons.length ||
+              !user?.token ||
+              (playsRem != null && Number(playsRem) <= 0)
+            }
+          >
+            {reelIcons.length ? (isSpinning ? 'Đang quay…' : 'Quay') : 'Chưa có icon'}
+          </button>
+        </div>
+
+        {spinErr && (
+          <p className="ec-guess-alert ec-guess-alert--warn" role="alert">
+            {spinErr}
+          </p>
+        )}
+
+        <div className="ec-btn-row ec-slot-actions ec-feature-actions--back">{backButton}</div>
+      </div>
 
       <GameDialogModal
         isOpen={!!rewardDlg}
-        onClose={closeRewardThenNarrative}
+        onClose={() => setRewardDlg(null)}
         title={rewardDlg?.tier === 'jackpot' ? 'Jackpot!' : 'Kết quả nhận thưởng'}
         mode="alert"
-        confirmLabel="Nhận"
+        confirmLabel="Đóng"
         tone={
           rewardDlg?.tier === 'jackpot'
             ? 'info'
@@ -476,7 +405,7 @@ function SlotMachineGame() {
               ? 'warning'
               : 'default'
         }
-        onConfirm={closeRewardThenNarrative}
+        onConfirm={() => setRewardDlg(null)}
       >
         {rewardDlg && (
           <div className="ec-wheel-result-modal">

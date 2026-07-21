@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import GameDialogModal from '../ui/GameDialogModal';
 import { dispatchCurrencyUpdate } from '../../utils/currencyEvents';
 import { useGameCenterConfig } from './GameCenterConfigContext';
+import FeatureNpcIntro, { buildFeatureNpcProps } from './FeatureNpcIntro';
+import { useFeatureBackNav } from './useFeatureBackNav';
 import { buildLuckyWheelSegments } from '../../utils/luckyWheelSegments';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
@@ -51,13 +54,13 @@ function normalizeDeg(d) {
 }
 
 function buildConicGradient(n) {
-  const colors = [
-    '#fca5a5', '#fde047', '#86efac', '#7dd3fc', '#c4b5fd', '#f9a8d4', '#fdba74', '#e5e7eb',
-  ];
+  /* Trắng / kem ấm — tối giản như vòng quay tham chiếu */
+  const light = '#ffffff';
+  const soft = '#f5e6c8';
   const stops = [];
   const seg = Math.max(1, n);
   for (let i = 0; i < seg; i += 1) {
-    const c = colors[i % colors.length];
+    const c = i % 2 === 0 ? light : soft;
     const start = (i / seg) * 360;
     const end = ((i + 1) / seg) * 360;
     stops.push(`${c} ${start}deg ${end}deg`);
@@ -81,10 +84,17 @@ function formatCurrencyAmountLine(seg) {
 
 function LuckyWheelGame() {
   const { config, loading, reload } = useGameCenterConfig();
+  const backNav = useFeatureBackNav();
   const lw = config?.luckyWheel;
+  const narrative = lw?.narrative || {};
   const segments = useMemo(() => buildLuckyWheelSegments(lw), [lw]);
   const maxFromConfig = lw?.maxPurchasesPerDay ?? 2;
   const historyRows = lw?.serverHistory?.length ? lw.serverHistory : [];
+
+  const intro = useMemo(
+    () => buildFeatureNpcProps(narrative, {}, { speaker: '', portraitSrc: '', lines: [] }),
+    [narrative],
+  );
 
   const gradient = useMemo(() => buildConicGradient(segments.length || 2), [segments.length]);
 
@@ -206,7 +216,7 @@ function LuckyWheelGame() {
 
   if (loading) {
     return (
-      <div className="ec-game">
+      <div className="ec-game ec-game--wheel">
         <p className="ec-game__lead">Đang tải cấu hình...</p>
       </div>
     );
@@ -214,6 +224,17 @@ function LuckyWheelGame() {
 
   const currencyRewardHint = lastWin ? formatCurrencyAmountLine(lastWin) : '';
   const curWin = lastWin ? String(lastWin.currency || '').toLowerCase() : '';
+
+  const backButton =
+    backNav.kind === 'link' ? (
+      <Link to={backNav.to} className="ec-btn ec-btn--ghost">
+        {backNav.label}
+      </Link>
+    ) : (
+      <button type="button" className="ec-btn ec-btn--ghost" onClick={backNav.go}>
+        {backNav.label}
+      </button>
+    );
 
   const quotaLabel =
     !authToken ? (
@@ -232,11 +253,14 @@ function LuckyWheelGame() {
     );
 
   return (
-    <div className="ec-game">
-      <p className="ec-game__lead">
-        Quay vòng may mắn — thưởng được cộng vào tài khoản ngay khi trúng.
-        Bạn có <strong>{maxSpins}</strong> lượt miễn phí mỗi ngày.
-      </p>
+    <div className="ec-game ec-game--wheel">
+      <FeatureNpcIntro
+        speaker={intro.speaker}
+        portraitSrc={intro.portraitSrc}
+        lorePortraitSrc={intro.lorePortraitSrc}
+        greeting={intro.greeting}
+        loreLines={intro.loreLines}
+      />
 
       <div className="ec-wheel-stats">{quotaLabel}</div>
 
@@ -382,6 +406,8 @@ function LuckyWheelGame() {
           </tbody>
         </table>
       </div>
+
+      <div className="ec-btn-row ec-feature-actions ec-feature-actions--back">{backButton}</div>
     </div>
   );
 }

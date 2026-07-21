@@ -35,7 +35,7 @@ function getDefaultGameCenterConfig() {
         title: 'Vua ăn mày',
         description: 'Ghé Làng Phú Gia xin lì xì từ trưởng làng Richies — mỗi 12 giờ một lần.',
         imgSrc: '/images/entertainment/game-tile-placeholder.svg',
-        pageBackgroundSrc: '/images/background/langphugia.png',
+        pageBackgroundSrc: '',
       },
       {
         id: 'daily-free',
@@ -49,7 +49,7 @@ function getDefaultGameCenterConfig() {
         id: 'lucky-booth',
         path: 'lucky-booth',
         title: 'Xổ số (Lucky booth)',
-        description: 'Chọn dãy 4 chữ số, trúng nhận Peta cao.',
+        description: 'Làng Hảo Vọng — mua vé số, chờ may mắn.',
         imgSrc: '/images/entertainment/game-tile-placeholder.svg',
         pageBackgroundSrc: '',
       },
@@ -59,7 +59,7 @@ function getDefaultGameCenterConfig() {
         title: 'Máy đánh bạc',
         description: 'Làng Đỏ Đen — Máy đánh bạc trên Hỏa Diệm Sơn.',
         imgSrc: '/images/entertainment/game-tile-placeholder.svg',
-        pageBackgroundSrc: '/images/background/langdoden.png',
+        pageBackgroundSrc: '',
       },
       {
         id: 'guess-number',
@@ -67,7 +67,7 @@ function getDefaultGameCenterConfig() {
         title: 'Đoán số',
         description: 'Làng Trẻ Con — đoán cao hơn / thấp hơn mốc, nhận Peta.',
         imgSrc: '/images/entertainment/game-tile-placeholder.svg',
-        pageBackgroundSrc: '/images/background/ice.png',
+        pageBackgroundSrc: '',
       },
     ],
     luckyWheel: {
@@ -105,6 +105,16 @@ function getDefaultGameCenterConfig() {
         { user: 'Cá**', prize: 'Mảnh tinh thể', time: '12 phút trước' },
         { user: 'Dũng', prize: '500 Peta', time: '1 giờ trước' },
       ],
+      /**
+       * FeatureNpcIntro — Admin → Vòng quay. Có thể để trống, thêm NPC sau.
+       */
+      narrative: {
+        speaker: '',
+        portraitSrc: '',
+        lorePortraitSrc: '',
+        greeting: '',
+        lines: [],
+      },
     },
     scratchLottery: {
       /**
@@ -145,6 +155,16 @@ function getDefaultGameCenterConfig() {
         { id: 'sym_gem', label: 'Ngọc', emoji: '💎', imageUrl: '' },
         { id: 'sym_moon', label: 'Trăng', emoji: '🌙', imageUrl: '' },
       ],
+      /**
+       * FeatureNpcIntro — Admin → Vé cào. Có thể để trống, thêm NPC sau.
+       */
+      narrative: {
+        speaker: '',
+        portraitSrc: '',
+        lorePortraitSrc: '',
+        greeting: '',
+        lines: [],
+      },
     },
     mysteryBox: {
       /**
@@ -157,32 +177,42 @@ function getDefaultGameCenterConfig() {
         { rarity: 'epic', weight: 18 },
         { rarity: 'legendary', weight: 7 },
       ],
+      /**
+       * FeatureNpcIntro — Admin → Game center → Hộp bí ẩn.
+       * portraitSrc = ảnh nút trên trang; lorePortraitSrc = ảnh trong modal (optional).
+       */
+      narrative: {
+        speaker: 'BotBox',
+        portraitSrc: '/images/character/Botbox.png',
+        lorePortraitSrc: '/images/character/Botbox.png',
+        greeting:
+          'Xin chào, tôi là BotBox — thú cưng của Làng Tráo Trở nổi tiếng trong Khu Rừng Bí Ẩn.',
+        lines: [
+          'Xin chào, tôi là BotBox — thú cưng của Làng Tráo Trở nổi tiếng trong Khu Rừng Bí Ẩn.',
+          'Bạn hãy chọn bất kỳ một vật phẩm nào của bạn và đặt vào bên trong tôi.',
+          'Ngay sau đó, tôi sẽ đổi lại cho bạn vật phẩm khác mà trước đây người khác từng đặt vào — dĩ nhiên vật phẩm cũ của bạn sẽ bị tôi lấy mất, hehe.',
+          'Dám thử không? Biết đâu bạn sẽ nhận được vật phẩm rất có giá trị!',
+        ],
+      },
     },
     beggarKing: {
       minPeta: 100,
       maxPeta: 5000,
       cooldownHours: 12,
       /**
-       * Script hội thoại — admin sửa trong Game center → Vua ăn mày.
-       * Token: {minPeta} {maxPeta} {cooldownHours} {remaining} {amount} {playerName}
+       * FeatureNpcIntro — Admin → Game center → Vua ăn mày.
+       * Token: {minPeta} {maxPeta} {cooldownHours} {amount} {playerName}
        */
       narrative: {
-        title: 'Làng Phú Gia',
         speaker: 'Richies',
         portraitSrc: '/images/character/richies.jpg',
-        /** false = không dùng ảnh nền (transparent stage) */
-        useBackground: false,
-        backgroundSrc: '',
-        typingMsPerChar: 26,
+        lorePortraitSrc: '',
+        greeting: '',
         claimLabel: 'Xin lì xì',
         lines: [
           'Chào ngươi! Ta là Richies — trưởng làng Phú Gia trên Đảo ngọc trai, giữa Biển địa đàng.',
           'Làng ta rất giàu có, và ta vốn thích lì xì cho khách ghé thăm. Mỗi lần khoảng {minPeta}–{maxPeta} Peta đấy!',
           'Chỉ có điều… khách quá đông, nên mỗi người chỉ được gặp ta một lần mỗi {cooldownHours} giờ thôi nhé.',
-        ],
-        cooldownLines: [
-          'À, lại là ngươi à? Tiếc quá — túi lì xì dành cho ngươi hôm nay đã hết chỗ rồi.',
-          'Quay lại sau {remaining} nữa nhé. Ta vẫn ở đây chờ!',
         ],
         rewardLine: 'Ha ha! Cầm lấy {amount} Peta lì xì đi — đừng khách khí với ta!',
       },
@@ -202,26 +232,20 @@ function getDefaultGameCenterConfig() {
         { rarity: 'legendary', weight: 1 },
       ],
       /**
-       * Script hội thoại Làng Nhân Ái — Admin → Game center → Quà miễn phí.
-       * Token: {minItems} {maxItems} {itemCount} {playerName}
+       * FeatureNpcIntro — Admin → Game center → Quà miễn phí.
+       * Token: {minItems} {maxItems} {playerName}
        */
       narrative: {
-        title: 'Làng Nhân Ái',
         speaker: 'Cư dân làng',
         portraitSrc: '/images/character/char2.jpg',
-        useBackground: false,
-        backgroundSrc: '',
-        typingMsPerChar: 26,
+        lorePortraitSrc: '',
+        greeting: '',
         claimLabel: 'Nhận quà hôm nay',
         lines: [
           'Nằm phía nam Cánh đồng vạn hoa chính là Làng nhân ái — nơi mọi người hay chia sẻ những gì mình có được, không đòi hỏi tiền bạc gì.',
           'Nếu ngươi là cư dân mới hay đang gặp khó khăn, hãy đến đây nhận các vật phẩm được tặng hàng ngày.',
           'Mỗi ngày chỉ nhận được một lần thôi. Lần này làng có thể gửi khoảng {minItems}–{maxItems} món đấy!',
         ],
-        cooldownLines: [
-          'Hôm nay ngươi đã nhận phần quà rồi. Hãy quay lại sau kỳ reset tiếp theo nhé — làng vẫn ở đây chờ!',
-        ],
-        rewardLine: 'Đây là phần quà làng gửi tặng — {itemCount} vật phẩm. Chúc ngươi bình an!',
       },
     },
     luckyBooth: {
@@ -230,6 +254,21 @@ function getDefaultGameCenterConfig() {
       ticketPrice: 10,
       /** Tổng giải jackpot chia đều cho mọi vé trùng số (nếu >1 người trùng) */
       jackpotPeta: 1000000,
+      /**
+       * FeatureNpcIntro — Admin → Lucky booth.
+       * Token: {ticketPrice} {jackpot} {playerName}
+       */
+      narrative: {
+        speaker: 'Everlyn',
+        portraitSrc: '/images/character/Everlyn.png',
+        lorePortraitSrc: '',
+        greeting: '',
+        lines: [
+          'Chào ngươi! Đây là Làng Hảo Vọng — mọi người ở đây đều thích chơi vé số.',
+          'Làng đã lập hẳn Công ty phát hành Vé số và Bốc thăm may mắn. Vé chỉ {ticketPrice} Peta, giải độc đắc {jackpot} Peta!',
+          'Ngươi ghé Thung Lũng Hạnh Phúc rồi thì mua một ít vé đi — biết đâu may mắn sẽ đến với ngươi!',
+        ],
+      },
     },
     slotMachine: {
       /** Giá quay mỗi lần (Peta) */
@@ -269,27 +308,19 @@ function getDefaultGameCenterConfig() {
         },
       ],
       /**
-       * Intro ẩn/hiện UI máy; sau quay hiện win/lose.
-       * Token: {spinPrice} {maxPlays} {pairReward} {playerName} {tier} {message}
+       * FeatureNpcIntro — Admin → Máy slot.
+       * Token: {spinPrice} {maxPlays} {pairReward} {playerName}
        */
       narrative: {
-        title: 'Làng Đỏ Đen',
         speaker: 'Ignis',
         portraitSrc: '/images/character/Ignis.png',
-        useBackground: false,
-        backgroundSrc: '',
-        typingMsPerChar: 26,
-        playLabel: 'Chơi Máy đánh bạc',
-        continueLabel: 'Tiếp tục quay',
+        lorePortraitSrc: '',
+        greeting: '',
         lines: [
           'Chào ngươi! Đây là Làng Đỏ Đen — cheo leo trên Hỏa Diệm Sơn, quanh năm rực lửa.',
           'Dân làng mê đỏ đen lắm, nhất là Máy đánh bạc. Quay một phát {spinPrice} Peta — xem ai móc túi ai!',
           'Đi săn núi lửa rồi dừng chân ở đây đi. Trò này dễ ra đê mà ở lắm ^^! Sẵn sàng chưa?',
         ],
-        jackpotLine: 'Jackpot! Lửa núi cũng phải nhường ngươi — {message}',
-        winLine: 'Ha! Trúng rồi — {message}. Túi ngươi nặng thêm đấy!',
-        pairLine: 'Hai ô trùng — cũng được đó. {message}',
-        loseLine: 'Chưa ra gì… núi lửa nuốt Peta của ngươi rồi. Thử lại đi!',
       },
     },
     guessNumber: {
@@ -302,18 +333,14 @@ function getDefaultGameCenterConfig() {
       /** Tối đa số vòng hoàn thành / ngày (theo global_reset_time) */
       maxPlaysPerDay: 10,
       /**
-       * Dialog overlay — intro rồi ẩn để chơi; sau đoán hiện win/lose.
+       * FeatureNpcIntro — Admin → Đoán số.
        * Token: {minSecret} {maxSecret} {rewardWin} {penaltyLose} {secret} {pivot} {amount} {playerName}
        */
       narrative: {
-        title: 'Làng Trẻ Con',
         speaker: 'Trẻ làng',
         portraitSrc: '/images/character/char2.jpg',
-        useBackground: false,
-        backgroundSrc: '',
-        typingMsPerChar: 26,
-        playLabel: 'Chơi Đoán số',
-        continueLabel: 'Tiếp tục chơi',
+        lorePortraitSrc: '',
+        greeting: '',
         lines: [
           'Một khi ngươi đến Làng trẻ con của Xứ sở tuyết thì nhất định phải chơi trò Đoán số!',
           'Ta sẽ chọn một số giữa {minSecret} và {maxSecret}. Càng đoán gần trúng — càng được thưởng nhiều Peta.',
@@ -349,6 +376,8 @@ function mergeGameCenterConfig(stored) {
   if (stored.luckyWheel && isPlainObject(stored.luckyWheel)) {
     const sw = stored.luckyWheel;
     const dw = defaults.luckyWheel;
+    const sn = isPlainObject(sw.narrative) ? sw.narrative : {};
+    const dn = dw.narrative || {};
     out.luckyWheel = {
       ...dw,
       ...sw,
@@ -362,6 +391,12 @@ function mergeGameCenterConfig(stored) {
       },
       segments: Array.isArray(sw.segments) && sw.segments.length ? sw.segments : dw.segments,
       serverHistory: Array.isArray(sw.serverHistory) ? sw.serverHistory : dw.serverHistory,
+      narrative: {
+        ...dn,
+        ...sn,
+        lines:
+          Array.isArray(sn.lines) && sn.lines.length > 0 ? sn.lines : dn.lines || [],
+      },
     };
   }
 
@@ -405,6 +440,14 @@ function mergeGameCenterConfig(stored) {
         Array.isArray(ss.symbols) && ss.symbols.length
           ? ss.symbols
           : ds.symbols,
+      narrative: {
+        ...(ds.narrative || {}),
+        ...(isPlainObject(ss.narrative) ? ss.narrative : {}),
+        lines:
+          Array.isArray(ss.narrative?.lines) && ss.narrative.lines.length > 0
+            ? ss.narrative.lines
+            : (ds.narrative?.lines || []),
+      },
     };
   }
 
@@ -422,6 +465,14 @@ function mergeGameCenterConfig(stored) {
       ...dm,
       ...sm,
       rarityWeights,
+      narrative: {
+        ...(dm.narrative || {}),
+        ...(isPlainObject(sm.narrative) ? sm.narrative : {}),
+        lines:
+          Array.isArray(sm.narrative?.lines) && sm.narrative.lines.length > 0
+            ? sm.narrative.lines
+            : (dm.narrative?.lines || []),
+      },
     };
     delete out.mysteryBox.outcomes;
   }
@@ -441,10 +492,6 @@ function mergeGameCenterConfig(stored) {
           Array.isArray(sn.lines) && sn.lines.length > 0
             ? sn.lines
             : dn.lines,
-        cooldownLines:
-          Array.isArray(sn.cooldownLines) && sn.cooldownLines.length > 0
-            ? sn.cooldownLines
-            : dn.cooldownLines,
       },
     };
   }
@@ -478,17 +525,26 @@ function mergeGameCenterConfig(stored) {
         ...sn,
         lines:
           Array.isArray(sn.lines) && sn.lines.length > 0 ? sn.lines : dn.lines,
-        cooldownLines:
-          Array.isArray(sn.cooldownLines) && sn.cooldownLines.length > 0
-            ? sn.cooldownLines
-            : dn.cooldownLines,
       },
     };
     delete out.dailyFree.tiers;
   }
 
   if (stored.luckyBooth && isPlainObject(stored.luckyBooth)) {
-    out.luckyBooth = { ...defaults.luckyBooth, ...stored.luckyBooth };
+    const sb = stored.luckyBooth;
+    const db = defaults.luckyBooth;
+    const sn = isPlainObject(sb.narrative) ? sb.narrative : {};
+    const dn = db.narrative || {};
+    out.luckyBooth = {
+      ...db,
+      ...sb,
+      narrative: {
+        ...dn,
+        ...sn,
+        lines:
+          Array.isArray(sn.lines) && sn.lines.length > 0 ? sn.lines : dn.lines,
+      },
+    };
   }
 
   if (stored.slotMachine && isPlainObject(stored.slotMachine)) {

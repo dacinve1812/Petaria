@@ -45,26 +45,25 @@ export function applyNarrativeVars(template, vars = {}) {
 }
 
 /**
- * Scene kể chuyện / NPC dialog — tái dùng cho nhiều trang.
+ * Hội thoại NPC — chỉ nhân vật + hộp thoại.
  *
- * Props chính:
- * - speaker, portraitSrc, backgroundSrc
- * - useBackground: false = không hiện ảnh nền (chỉ nhân vật + dialog)
- * - lines, vars, typingMsPerChar
- * - actions / showActions
- * - align: 'left' | 'right' | 'center'
- * - scriptKey: đổi để reset về dòng 0
+ * mode:
+ * - 'inline' (mặc định): nằm trong page flow (tương thích cũ)
+ * - 'overlay': absolute fill parent / #peta-body — nền lấy từ container_fixed
+ *
+ * Không còn vẽ nền riêng. Actions (nếu có) chỉ dùng inline legacy; overlay không dùng actions.
  */
 function NarrativeScene({
+  mode = 'inline',
   speaker = '',
   portraitSrc = '',
   backgroundSrc = '',
-  useBackground = true,
+  useBackground = false,
   lines = [],
   vars = {},
   typingMsPerChar = 28,
   actions = null,
-  showActions = 'end',
+  showActions = 'never',
   onScriptComplete,
   onAdvance,
   onSkip,
@@ -153,25 +152,32 @@ function NarrativeScene({
     onAdvance?.(safeIndex);
   }, [typingDone, current, isLast, onAdvance, safeIndex]);
 
-  const reserveActions = showActions !== 'never' && actions;
+  const isOverlay = mode === 'overlay';
+  const reserveActions = !isOverlay && showActions !== 'never' && actions;
   const revealActions =
     showActions === 'always' || (showActions === 'end' && scriptDone);
 
-  const bgEnabled = useBackground !== false;
-  const bgUrl = bgEnabled && String(backgroundSrc || '').trim() ? String(backgroundSrc).trim() : '';
+  // Legacy: nền chỉ khi inline + bật useBackground (không khuyến nghị)
+  const bgEnabled = !isOverlay && useBackground !== false;
+  const bgUrl =
+    bgEnabled && String(backgroundSrc || '').trim() ? String(backgroundSrc).trim() : '';
 
-  const stageClass = [
-    'narrative-scene__stage',
-    bgUrl ? 'narrative-scene__stage--has-bg' : 'narrative-scene__stage--no-bg',
-  ].join(' ');
+  const rootClass = [
+    'narrative-scene',
+    `narrative-scene--align-${align}`,
+    isOverlay ? 'narrative-scene--overlay' : 'narrative-scene--inline',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <section
-      className={`narrative-scene narrative-scene--align-${align} ${className}`.trim()}
-      aria-label={title || displaySpeaker || 'Hội thoại'}
-    >
+    <section className={rootClass} aria-label={title || displaySpeaker || 'Hội thoại'}>
       <div
-        className={stageClass}
+        className={[
+          'narrative-scene__stage',
+          bgUrl ? 'narrative-scene__stage--has-bg' : 'narrative-scene__stage--no-bg',
+        ].join(' ')}
         style={bgUrl ? { backgroundImage: `url(${bgUrl})` } : undefined}
       >
         {title ? <p className="narrative-scene__title">{title}</p> : null}

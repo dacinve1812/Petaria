@@ -1,4 +1,4 @@
-/* Narrative scene — visual-novel style (desktop + mobile) */
+/* Narrative scene — chỉ nhân vật + hộp thoại. Nền = container_fixed / page surface. */
 
 .narrative-scene {
   --ns-text: #ffffff;
@@ -9,15 +9,41 @@
   --ns-muted: #9ca3af;
   --ns-dialog-h: clamp(120px, 22vh, 168px);
   --ns-edge-fade: 48px;
+  --ns-stage-min-h: min(62vh, 560px);
   position: relative;
   width: 100%;
   max-width: 100% !important;
   margin: 0 auto;
 }
 
+/* Overlay gắn #peta-body — không chiếm flow, không vẽ nền */
+.narrative-scene--overlay,
+.narrative-scene--host {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  width: auto;
+  max-width: none !important;
+  margin: 0;
+  pointer-events: none;
+}
+
+.narrative-scene--overlay .narrative-scene__stage,
+.narrative-scene--host .narrative-scene__stage {
+  min-height: 100%;
+  height: 100%;
+}
+
+.narrative-scene--overlay .narrative-scene__dialog,
+.narrative-scene--overlay .narrative-scene__nav,
+.narrative-scene--host .narrative-scene__dialog,
+.narrative-scene--host .narrative-scene__nav {
+  pointer-events: auto;
+}
+
 .narrative-scene__stage {
   position: relative;
-  min-height: min(62vh, 560px);
+  min-height: var(--ns-stage-min-h);
   border-radius: 0;
   overflow: hidden;
   background-color: transparent;
@@ -26,7 +52,7 @@
   isolation: isolate;
 }
 
-/* Fade viền ngoài → hòa vào nền trang (không còn cảm giác hộp cứng) */
+/* Legacy inline có ảnh nền riêng (không khuyến nghị) */
 .narrative-scene__stage--has-bg {
   background-color: #1a1520;
   box-shadow: none;
@@ -69,7 +95,7 @@
   white-space: nowrap;
 }
 
-/* Nhân vật sát đáy, nằm sau vùng dialog gradient */
+/* Nhân vật sát đáy, nằm sau vùng dialog */
 .narrative-scene__cast {
   position: absolute;
   left: 0;
@@ -122,7 +148,6 @@
   user-select: none;
 }
 
-/* Dialog: gradient tối full-bleed đáy + click toàn vùng = next */
 .narrative-scene__dialog {
   position: absolute;
   left: 0;
@@ -155,7 +180,6 @@
   }
 }
 
-/* Full-size hit target = toàn dialog */
 .narrative-scene__text {
   position: absolute;
   inset: 0;
@@ -187,7 +211,6 @@
   text-align: center;
 }
 
-/* Thanh tên + đường kẻ vàng nằm phía trên vùng chữ */
 .narrative-scene__rule {
   position: absolute;
   left: 4%;
@@ -310,6 +333,7 @@
   }
 }
 
+/* Legacy inline actions — trang mới nên đặt nút trong page */
 .narrative-scene__actions {
   display: flex;
   flex-wrap: wrap;
@@ -320,7 +344,6 @@
   min-height: 44px;
 }
 
-/* Giữ chỗ từ đầu — ẩn nội dung để không xê dịch stage/dialog khi reveal */
 .narrative-scene__actions.is-pending {
   visibility: hidden;
   pointer-events: none;
@@ -354,16 +377,32 @@
   color: #b91c1c;
 }
 
+/* Page actions slot (beggar-king …) — nằm trong trang, trên dialog */
+.ec-game__actions {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-top: min(42vh, 380px);
+  margin-bottom: calc(var(--ns-dialog-h, 140px) + 28px);
+  padding: 0 12px;
+}
+
+.ec-game__actions .ec-btn,
+.ec-game__actions .narrative-scene__action-btn {
+  min-width: 160px;
+}
+
 @media (max-width: 640px) {
   .narrative-scene {
     --ns-dialog-h: clamp(132px, 28vh, 130px);
     --ns-edge-fade: 28px;
+    --ns-stage-min-h: min(68vh, 520px);
     max-width: 100%;
-  }
-
-  .narrative-scene__stage {
-    min-height: min(68vh, 520px);
-    border-radius: 0;
   }
 
   .narrative-scene__portrait {
@@ -402,15 +441,24 @@
     font-size: 0.64rem;
     letter-spacing: 0.1em;
   }
+
+  .ec-game__actions {
+    margin-top: min(38vh, 320px);
+  }
 }
 
 @media (min-width: 900px) {
-  .narrative-scene__stage {
-    min-height: min(58vh, 580px);
+  .narrative-scene {
+    --ns-stage-min-h: min(58vh, 580px);
   }
 
   .narrative-scene__portrait {
     height: min(54vh, 460px);
     max-width: 340px;
   }
+}
+
+/* #peta-body cần relative để overlay neo đúng */
+#peta-body.container_fixed {
+  position: relative;
 }

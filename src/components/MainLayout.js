@@ -9,6 +9,8 @@ import NavigationMenu from './navbar/NavigationMenu';
 import GlobalChatBox from './GlobalChatBox';
 import EncounterModalContainer from './EncounterModalContainer';
 import { Outlet } from 'react-router-dom';
+import { NarrativeDialogProvider } from './ui/NarrativeDialogContext';
+import NarrativeHost from './ui/NarrativeHost';
 import '../styles/global.css';
 import { resolveAssetPath } from '../utils/pathUtils';
 import { dispatchMailInboxViewed } from '../utils/mailEvents';
@@ -141,9 +143,12 @@ function MainLayout() {
                 <h1 className="peta-sectiontitle">
                     {getPageTitle(location.pathname)}
                 </h1>
-                <main className="container_fixed" id="peta-body">
-                    <Outlet />
-                </main>
+                <NarrativeDialogProvider>
+                  <main className="container_fixed" id="peta-body">
+                      <Outlet />
+                      <NarrativeHost />
+                  </main>
+                </NarrativeDialogProvider>
             </section>
         </div>
         

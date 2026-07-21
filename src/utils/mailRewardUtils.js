@@ -32,3 +32,7 @@ export function mailHasClaimableRewards(rewards) {
 export function mailIsRewardsClaimed(mail) {
   return normalizeSqlBool(mail?.is_claimed);
 }
+
+/** Path Làng Hảo Vọng (xổ số) — dùng trong thư hệ thống. */
+export const LUCKY_BOOTH_MAIL_PATH = '/game-center/lucky-booth';
+export const LUCKY_BOOTH_MAIL_CTA = '(Đến làng hảo vọng để xem)';

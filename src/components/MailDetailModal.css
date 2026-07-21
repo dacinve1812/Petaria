@@ -140,6 +140,17 @@
   white-space: pre-wrap;
 }
 
+.mail-inline-link {
+  color: #166534;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.mail-inline-link:hover {
+  color: #14532d;
+}
+
 /* Rewards - New Design */
 .mail-detail-rewards {
   margin-bottom: 24px;

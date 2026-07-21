@@ -12,13 +12,17 @@ function EntertainmentCenterInner() {
   const segment = gameCenterPathSegment(path);
   const pageBg = useGamePageBackground(segment);
 
-  /** Narrative features tự có nút back trong actions */
+  /** Features tự có nút back (useFeatureBackNav) */
   const hideTopBack =
     onHub ||
     path === '/game-center/beggar-king' ||
     path === '/game-center/daily-free' ||
     path === '/game-center/guess-number' ||
-    path === '/game-center/slot-machine';
+    path === '/game-center/slot-machine' ||
+    path === '/game-center/lucky-booth' ||
+    path === '/game-center/mystery-box' ||
+    path === '/game-center/lucky-wheel' ||
+    path === '/game-center/scratch-lottery';
 
   return (
     <div className="entertainment-center">

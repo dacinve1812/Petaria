@@ -121,13 +121,13 @@
       },
       "originalCoordinates": [
       {"id": 1, "coords": [1182, 945, 1241, 968], "path": "/", "name": "Đấu Trường", "huntingMapId": "dau_truong" },
-      { "id": 2, "coords": [1265, 621, 1350, 646], "path": "/", "name": "Làng Hảo Vọng", "huntingMapId": "lang_hao_vong" },
+      { "id": 2, "coords": [1265, 621, 1350, 646], "path": "/game-center/lucky-booth", "name": "Làng Hảo Vọng", "huntingMapId": "lang_hao_vong" },
       { "id": 3, "coords": [1110, 277, 1175, 296], "path": "/", "name": "Pháo Đài Cổ", "huntingMapId": "phao_dai_co" },
       { "id": 4, "coords": [292, 405, 372, 430], "path": "/", "name": "Thành Vinh Quang", "huntingMapId": "thanh_vinh_quang" }
     ],
       "mapButtons": [
         { "id": 1, "x": 1213, "y": 957, "path": "/", "label": "Đấu Trường", "huntingMapId": "dau_truong" },
-        { "id": 2, "x": 1308, "y": 634, "path": "/", "label": "Làng Hảo Vọng", "huntingMapId": "lang_hao_vong" },
+        { "id": 2, "x": 1308, "y": 634, "path": "/game-center/lucky-booth", "label": "Làng Hảo Vọng", "huntingMapId": "lang_hao_vong" },
         { "id": 3, "x": 1143, "y": 287, "path": "/", "label": "Pháo Đài Cổ", "huntingMapId": "phao_dai_co" },
         { "id": 4, "x": 317, "y": 418, "path": "/", "label": "Thành Vinh Quang", "huntingMapId": "thanh_vinh_quang" }
       ]
@@ -171,13 +171,13 @@
       },
       "originalCoordinates": [
       {"id": 1, "coords": [1247, 299, 1321, 321], "path": "/tasks/item-hunt", "name": "Kỳ Trân Các", "huntingMapId": "ky_tran_cac" },
-      { "id": 2, "coords": [1079, 704, 1188, 728], "path": "/", "name": "Làng Xúc Xắc", "huntingMapId": "lang_xuc_xac" },
+      { "id": 2, "coords": [1079, 704, 1188, 728], "path": "/game-center/mystery-box", "name": "Làng Tráo Trở", "huntingMapId": "lang_xuc_xac" },
       { "id": 3, "coords": [394, 715, 460, 731], "path": "/", "name": "Đầm Lầy Ma Quái", "huntingMapId": "dam_lay_ma_quai" },
       { "id": 4, "coords": [346, 321, 396, 336], "path": "/", "name": "Thành Hắc Phong", "huntingMapId": "thanh_hac_phong" }
     ],
       "mapButtons": [
         { "id": 1, "x": 1274, "y": 313, "path": "/tasks/item-hunt", "label": "Kỳ Trân Các", "huntingMapId": "ky_tran_cac" },
-        { "id": 2, "x": 1133, "y": 716, "path": "/", "label": "Làng Xúc Xắc", "huntingMapId": "lang_xuc_xac" },
+        { "id": 2, "x": 1133, "y": 716, "path": "/game-center/mystery-box", "label": "Làng Tráo Trở", "huntingMapId": "lang_xuc_xac" },
         { "id": 3, "x": 427, "y": 723, "path": "/", "label": "Đầm Lầy Ma Quái", "huntingMapId": "dam_lay_ma_quai" },
         { "id": 4, "x": 371, "y": 333, "path": "/", "label": "Thành Hắc Phong", "huntingMapId": "thanh_hac_phong" }
       ]

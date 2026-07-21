@@ -3615,9 +3615,10 @@ async function luckyBoothExecuteDraw(conn, closedPeriodKey, gcConfig) {
 
   const winnersPayload = [];
   for (const w of winners) {
+    const username = String(w.username_snapshot || w.user_id || '');
     winnersPayload.push({
       userId: Number(w.user_id),
-      username: String(w.username_snapshot || w.user_id || ''),
+      username,
       digits: String(w.digits),
       petaShare: shareEach,
     });
@@ -3628,21 +3629,45 @@ async function luckyBoothExecuteDraw(conn, closedPeriodKey, gcConfig) {
       } catch (e) {
         console.error('title earn (lucky booth):', e);
       }
-      const expireAt = new Date();
-      expireAt.setDate(expireAt.getDate() + 30);
-      await conn.query(
-        `INSERT INTO mails (user_id, sender_type, sender_name, subject, message, attached_rewards, expire_at)
-         VALUES (?, 'admin', 'Xổ số', ?, ?, NULL, ?)`,
-        [
-          w.user_id,
-          'Chúc mừng trúng Xổ số!',
-          `Bạn đã trúng giải Xổ số kỳ ${closedPeriodKey}. Số trúng thưởng: ${winningNumber}. Bạn nhận được ${shareEach.toLocaleString(
-            'vi-VN',
-          )} Peta (đã cộng vào tài khoản).`,
-          expireAt,
-        ],
-      );
     }
+
+    // Luôn gửi thư thông báo khi trúng (kể cả jackpot = 0 — vẫn báo số trúng)
+    const expireAt = new Date();
+    expireAt.setDate(expireAt.getDate() + 30);
+    const drawLabel = (() => {
+      const n = Number(closedPeriodKey);
+      if (!Number.isFinite(n) || n <= 0) return String(closedPeriodKey);
+      return new Date(n).toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+    })();
+    const rewardLine =
+      shareEach > 0
+        ? `Bạn nhận được ${shareEach.toLocaleString('vi-VN')} Peta (đã cộng vào tài khoản).`
+        : 'Jackpot là 0 Peta — không có thưởng tiền, nhưng vẫn ghi nhận bạn đã trúng số.';
+    await conn.query(
+      `INSERT INTO mails (user_id, sender_type, sender_name, subject, message, attached_rewards, expire_at)
+       VALUES (?, 'system', 'Công ty Xổ số — Làng Hảo Vọng', ?, ?, NULL, ?)`,
+      [
+        w.user_id,
+        'Chúc mừng — Trúng độc đắc Xổ số!',
+        [
+          `Chúc mừng ${username || 'bạn'}!`,
+          '',
+          'Bạn đã trúng giải độc đắc từ chương trình Xổ số của Làng Hảo Vọng.',
+          `Số trúng thưởng: ${winningNumber}`,
+          `Ngày sổ (kỳ): ${drawLabel}`,
+          rewardLine,
+          '',
+          '(Đến làng hảo vọng để xem)',
+          '',
+          'Chúc bạn may mắn ở những kỳ tiếp theo!',
+        ].join('\n'),
+        expireAt,
+      ],
+    );
   }
 
   const winnersJson = JSON.stringify(winnersPayload);
@@ -3689,6 +3714,30 @@ function luckyBoothTableMissing(err) {
       err.errno === 1146 ||
       (typeof err.message === 'string' && err.message.includes("doesn't exist")))
   );
+}
+
+/** Khi user đăng nhập / tải profile: đóng kỳ cũ + cộng Peta thắng (không cần vào làng hay claim thư). */
+async function luckyBoothAdvanceOnSession() {
+  let conn;
+  try {
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+    await luckyBoothMaybeAdvancePeriod(conn);
+    await conn.commit();
+  } catch (e) {
+    if (conn) {
+      try {
+        await conn.rollback();
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    if (!luckyBoothTableMissing(e)) {
+      console.error('luckyBoothAdvanceOnSession:', e);
+    }
+  } finally {
+    if (conn) conn.release();
+  }
 }
 
 /**
@@ -5210,6 +5259,9 @@ app.post('/login', async (req, res) => {
                   console.error('Error updating user presence on login:', presenceErr);
                 }
 
+                // Đóng kỳ xổ số (nếu đổi ngày) + cộng Peta thắng ngay khi login
+                await luckyBoothAdvanceOnSession();
+
                 const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'your-secret-key', {
                   expiresIn: '23h',
                 });
@@ -5282,6 +5334,7 @@ app.get('/api/user/profile', async (req, res) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
     await touchUserPresenceByUserId(decoded.userId);
+    await luckyBoothAdvanceOnSession();
     
     const [users] = await db.query(`
       SELECT

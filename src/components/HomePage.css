@@ -3,32 +3,6 @@
 
 
 
-header {
-    background-color: #f0f0f0;
-    text-align: center;
-    height: 0;
-}
-header img {
-    width: 100%;
-    max-height: 300px;
-    object-fit: fill;
-    height: 0;
-}
-
-/* .content {
-    display: flex;
-} */
-
-
-
-
-.notice {
-    background-color: #fff8e1;
-    border: 1px solid #ffeb3b;
-    padding: 10px;
-    margin-bottom: 20px;
-}
-
 /* Interactive Map Styles */
 .map-interactive-container {
   background-color: #fff;

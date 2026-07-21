@@ -1,11 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, Fragment } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { UserContext } from '../UserContext';
 import TemplatePage from './template/TemplatePage';
 import MailDetailModal from './MailDetailModal';
 import { dispatchCurrencyUpdate } from '../utils/currencyEvents';
 import { dispatchMailInboxViewed, dispatchMailUnreadRefresh } from '../utils/mailEvents';
-import { mailHasClaimableRewards, normalizeSqlBool } from '../utils/mailRewardUtils';
+import {
+  mailHasClaimableRewards,
+  normalizeSqlBool,
+  LUCKY_BOOTH_MAIL_PATH,
+  LUCKY_BOOTH_MAIL_CTA,
+} from '../utils/mailRewardUtils';
+
+function renderMailMessageBody(message) {
+  const text = String(message || '');
+  if (!text.includes(LUCKY_BOOTH_MAIL_CTA)) return text;
+  const parts = text.split(LUCKY_BOOTH_MAIL_CTA);
+  return parts.map((part, i) => (
+    <Fragment key={i}>
+      {part}
+      {i < parts.length - 1 ? (
+        <Link to={LUCKY_BOOTH_MAIL_PATH} className="mail-inline-link" onClick={(e) => e.stopPropagation()}>
+          {LUCKY_BOOTH_MAIL_CTA}
+        </Link>
+      ) : null}
+    </Fragment>
+  ));
+}
 
 const MailPage = () => {
   const { user, isLoading } = React.useContext(UserContext);
@@ -346,7 +367,7 @@ const MailPage = () => {
                             <span className="mail-page-date">{formatDate(mail.created_at)}</span>
                           </div>
                           <div className="mail-page-item-body">
-                            {mail.message}
+                            {renderMailMessageBody(mail.message)}
                           </div>
                           <div className="mail-page-item-footer">
                             <span className="mail-page-sender-name" title={mail.sender_name || 'Hệ thống'}>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
 import './AdminConfigPage.css';
 import './AdminGameCenterManagement.css';
+import AdminFeatureNpcEditor from './AdminFeatureNpcEditor';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -234,8 +235,9 @@ function AdminGameCenterManagement() {
         <div className="gc-admin__panel">
           <h3>Nút trên hub Trung tâm giải trí</h3>
           <p className="gc-admin__help">
-            Mỗi game: tiêu đề, mô tả, ảnh nút hub, và <strong>nền trang</strong> (background khi
-            vào trang game — khác với nền Narrative dialog).
+            Mỗi game: tiêu đề, mô tả, ảnh nút hub, và <strong>nền trang</strong>{' '}
+            (<code>pageBackgroundSrc</code> — có thể để trống). Hội thoại nhân vật (ảnh
+            trên trang / ảnh modal lore) chỉnh trong từng tab feature.
           </p>
           <table>
             <thead>
@@ -769,6 +771,19 @@ function AdminGameCenterManagement() {
           >
             + Thêm dòng lịch sử
           </button>
+
+          <AdminFeatureNpcEditor
+            narrative={draft.luckyWheel?.narrative}
+            tokensHelp="có thể để trống — thêm NPC sau"
+            uploadFile={uploadFile}
+            onUploadError={(msg) => setErr(msg)}
+            patchNarrative={(fn) =>
+              patch((d) => {
+                if (!d.luckyWheel.narrative) d.luckyWheel.narrative = {};
+                fn(d.luckyWheel.narrative);
+              })
+            }
+          />
         </div>
       )}
 
@@ -1121,6 +1136,19 @@ function AdminGameCenterManagement() {
           >
             + Biểu tượng
           </button>
+
+          <AdminFeatureNpcEditor
+            narrative={draft.scratchLottery?.narrative}
+            tokensHelp="có thể để trống — thêm NPC sau"
+            uploadFile={uploadFile}
+            onUploadError={(msg) => setErr(msg)}
+            patchNarrative={(fn) =>
+              patch((d) => {
+                if (!d.scratchLottery.narrative) d.scratchLottery.narrative = {};
+                fn(d.scratchLottery.narrative);
+              })
+            }
+          />
         </div>
       )}
 
@@ -1201,6 +1229,19 @@ function AdminGameCenterManagement() {
           >
             + Dòng rarity
           </button>
+
+          <AdminFeatureNpcEditor
+            narrative={draft.mysteryBox?.narrative}
+            tokensHelp="không bắt buộc"
+            uploadFile={uploadFile}
+            onUploadError={(msg) => setErr(msg)}
+            patchNarrative={(fn) =>
+              patch((d) => {
+                if (!d.mysteryBox.narrative) d.mysteryBox.narrative = {};
+                fn(d.mysteryBox.narrative);
+              })
+            }
+          />
         </div>
       )}
 
@@ -1247,245 +1288,54 @@ function AdminGameCenterManagement() {
             </label>
           </div>
 
-          <h3 style={{ marginTop: 20 }}>Hội thoại (Narrative)</h3>
-          <p className="gc-admin__help">
-            Script hiện trên trang game với nhân vật + chữ chạy. Token hỗ trợ:{' '}
-            <code>{'{minPeta}'}</code> <code>{'{maxPeta}'}</code>{' '}
-            <code>{'{cooldownHours}'}</code> <code>{'{remaining}'}</code>{' '}
-            <code>{'{amount}'}</code> <code>{'{playerName}'}</code>. Mỗi dòng script
-            = một câu thoại (Enter xuống dòng).
-          </p>
-          <div className="gc-admin__row">
-            <label>
-              Tiêu đề scene
-              <input
-                type="text"
-                value={draft.beggarKing?.narrative?.title ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
-                    d.beggarKing.narrative.title = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Tên nhân vật
-              <input
-                type="text"
-                value={draft.beggarKing?.narrative?.speaker ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
-                    d.beggarKing.narrative.speaker = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Nhãn nút nhận
-              <input
-                type="text"
-                value={draft.beggarKing?.narrative?.claimLabel ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
-                    d.beggarKing.narrative.claimLabel = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Tốc độ chữ (ms/ký tự)
-              <input
-                type="number"
-                min={8}
-                max={120}
-                value={draft.beggarKing?.narrative?.typingMsPerChar ?? 26}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
-                    d.beggarKing.narrative.typingMsPerChar = Number(e.target.value);
-                  })
-                }
-              />
-            </label>
-          </div>
-
-          <div className="gc-admin__row" style={{ alignItems: 'start' }}>
-            <label style={{ gridColumn: '1 / -1' }}>
-              Ảnh nhân vật (portrait)
-              <div className="gc-admin__reward-row">
-                {draft.beggarKing?.narrative?.portraitSrc ? (
-                  <img
-                    src={draft.beggarKing.narrative.portraitSrc}
-                    alt=""
-                    className="gc-admin__thumb"
-                  />
-                ) : (
-                  <span className="gc-admin__thumb-placeholder">?</span>
-                )}
-                <input
-                  type="text"
-                  style={{ flex: 1 }}
-                  placeholder="/images/character/richies.jpg"
-                  value={draft.beggarKing?.narrative?.portraitSrc ?? ''}
-                  onChange={(e) =>
-                    patch((d) => {
-                      if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
-                      d.beggarKing.narrative.portraitSrc = e.target.value;
-                    })
-                  }
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = '';
-                    if (!f) return;
-                    try {
-                      await uploadFile(f, (url) => {
-                        patch((d) => {
-                          if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
-                          d.beggarKing.narrative.portraitSrc = url;
-                        });
-                      });
-                    } catch (err) {
-                      setErr(err.message || 'Upload thất bại');
-                    }
-                  }}
-                />
-              </div>
-            </label>
-            <label style={{ gridColumn: '1 / -1' }}>
-              Nền scene (background)
-              <div className="gc-admin__reward-row" style={{ marginBottom: 8 }}>
-                <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <AdminFeatureNpcEditor
+            narrative={draft.beggarKing?.narrative}
+            tokensHelp={
+              <>
+                <code>{'{minPeta}'}</code> <code>{'{maxPeta}'}</code>{' '}
+                <code>{'{cooldownHours}'}</code> <code>{'{amount}'}</code>{' '}
+                <code>{'{playerName}'}</code>
+              </>
+            }
+            uploadFile={uploadFile}
+            onUploadError={(msg) => setErr(msg)}
+            patchNarrative={(fn) =>
+              patch((d) => {
+                if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                fn(d.beggarKing.narrative);
+              })
+            }
+            extras={
+              <div className="gc-admin__row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <label>
+                  Nhãn nút nhận
                   <input
-                    type="checkbox"
-                    checked={draft.beggarKing?.narrative?.useBackground !== false}
+                    type="text"
+                    value={draft.beggarKing?.narrative?.claimLabel ?? ''}
                     onChange={(e) =>
                       patch((d) => {
                         if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
-                        d.beggarKing.narrative.useBackground = e.target.checked;
+                        d.beggarKing.narrative.claimLabel = e.target.value;
                       })
                     }
                   />
-                  Dùng ảnh nền
                 </label>
-                <span className="gc-admin__help" style={{ margin: 0 }}>
-                  Tắt = không nền (bạn sẽ tách nền nhân vật sau). Bật + để trống path = nền tối trơn.
-                </span>
-              </div>
-              <div className="gc-admin__reward-row">
-                {draft.beggarKing?.narrative?.backgroundSrc ? (
-                  <img
-                    src={draft.beggarKing.narrative.backgroundSrc}
-                    alt=""
-                    className="gc-admin__thumb"
-                  />
-                ) : (
-                  <span className="gc-admin__thumb-placeholder">—</span>
-                )}
-                <input
-                  type="text"
-                  style={{ flex: 1 }}
-                  disabled={draft.beggarKing?.narrative?.useBackground === false}
-                  placeholder="/images/… hoặc upload"
-                  value={draft.beggarKing?.narrative?.backgroundSrc ?? ''}
-                  onChange={(e) =>
-                    patch((d) => {
-                      if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
-                      d.beggarKing.narrative.backgroundSrc = e.target.value;
-                    })
-                  }
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={draft.beggarKing?.narrative?.useBackground === false}
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = '';
-                    if (!f) return;
-                    try {
-                      await uploadFile(f, (url) => {
-                        patch((d) => {
-                          if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
-                          d.beggarKing.narrative.backgroundSrc = url;
-                          d.beggarKing.narrative.useBackground = true;
-                        });
-                      });
-                    } catch (err) {
-                      setErr(err.message || 'Upload thất bại');
+                <label>
+                  Câu khi nhận lì xì (modal, {'{amount}'})
+                  <input
+                    type="text"
+                    value={draft.beggarKing?.narrative?.rewardLine ?? ''}
+                    onChange={(e) =>
+                      patch((d) => {
+                        if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
+                        d.beggarKing.narrative.rewardLine = e.target.value;
+                      })
                     }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="gc-admin__btn gc-admin__btn--ghost"
-                  disabled={!draft.beggarKing?.narrative?.backgroundSrc}
-                  onClick={() =>
-                    patch((d) => {
-                      if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
-                      d.beggarKing.narrative.backgroundSrc = '';
-                    })
-                  }
-                >
-                  Xóa nền
-                </button>
+                  />
+                </label>
               </div>
-            </label>
-          </div>
-
-          <div className="gc-admin__row" style={{ gridTemplateColumns: '1fr' }}>
-            <label>
-              Script giới thiệu (mỗi dòng = 1 câu)
-              <textarea
-                rows={5}
-                value={(draft.beggarKing?.narrative?.lines || []).join('\n')}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
-                    d.beggarKing.narrative.lines = e.target.value
-                      .split('\n')
-                      .map((s) => s.trimEnd())
-                      .filter((s) => s.trim().length > 0);
-                  })
-                }
-              />
-            </label>
-            <label>
-              Script khi đang cooldown
-              <textarea
-                rows={3}
-                value={(draft.beggarKing?.narrative?.cooldownLines || []).join('\n')}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
-                    d.beggarKing.narrative.cooldownLines = e.target.value
-                      .split('\n')
-                      .map((s) => s.trimEnd())
-                      .filter((s) => s.trim().length > 0);
-                  })
-                }
-              />
-            </label>
-            <label>
-              Câu khi nhận lì xì (1 dòng, dùng {'{amount}'})
-              <input
-                type="text"
-                value={draft.beggarKing?.narrative?.rewardLine ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.beggarKing.narrative) d.beggarKing.narrative = {};
-                    d.beggarKing.narrative.rewardLine = e.target.value;
-                  })
-                }
-              />
-            </label>
-          </div>
+            }
+          />
         </div>
       )}
 
@@ -1600,215 +1450,40 @@ function AdminGameCenterManagement() {
             + Dòng rarity
           </button>
 
-          <h3 style={{ marginTop: 24 }}>Hội thoại (Narrative) — Làng Nhân Ái</h3>
-          <p className="gc-admin__help">
-            Token: <code>{'{minItems}'}</code> <code>{'{maxItems}'}</code>{' '}
-            <code>{'{itemCount}'}</code> <code>{'{playerName}'}</code>. Mỗi dòng script = một câu.
-          </p>
-          <div className="gc-admin__row">
-            <label>
-              Tiêu đề scene
-              <input
-                type="text"
-                value={draft.dailyFree?.narrative?.title ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.dailyFree.narrative) d.dailyFree.narrative = {};
-                    d.dailyFree.narrative.title = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Tên nhân vật
-              <input
-                type="text"
-                value={draft.dailyFree?.narrative?.speaker ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.dailyFree.narrative) d.dailyFree.narrative = {};
-                    d.dailyFree.narrative.speaker = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Nhãn nút nhận
-              <input
-                type="text"
-                value={draft.dailyFree?.narrative?.claimLabel ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.dailyFree.narrative) d.dailyFree.narrative = {};
-                    d.dailyFree.narrative.claimLabel = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Tốc độ chữ (ms/ký tự)
-              <input
-                type="number"
-                min={8}
-                max={120}
-                value={draft.dailyFree?.narrative?.typingMsPerChar ?? 26}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.dailyFree.narrative) d.dailyFree.narrative = {};
-                    d.dailyFree.narrative.typingMsPerChar = Number(e.target.value);
-                  })
-                }
-              />
-            </label>
-          </div>
-          <div className="gc-admin__row" style={{ alignItems: 'start' }}>
-            <label style={{ gridColumn: '1 / -1' }}>
-              Ảnh nhân vật (portrait)
-              <div className="gc-admin__reward-row">
-                {draft.dailyFree?.narrative?.portraitSrc ? (
-                  <img
-                    src={draft.dailyFree.narrative.portraitSrc}
-                    alt=""
-                    className="gc-admin__thumb"
-                  />
-                ) : (
-                  <span className="gc-admin__thumb-placeholder">?</span>
-                )}
-                <input
-                  type="text"
-                  style={{ flex: 1 }}
-                  placeholder="/images/character/char2.jpg"
-                  value={draft.dailyFree?.narrative?.portraitSrc ?? ''}
-                  onChange={(e) =>
-                    patch((d) => {
-                      if (!d.dailyFree.narrative) d.dailyFree.narrative = {};
-                      d.dailyFree.narrative.portraitSrc = e.target.value;
-                    })
-                  }
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = '';
-                    if (!f) return;
-                    try {
-                      await uploadFile(f, (url) => {
-                        patch((d) => {
-                          if (!d.dailyFree.narrative) d.dailyFree.narrative = {};
-                          d.dailyFree.narrative.portraitSrc = url;
-                        });
-                      });
-                    } catch (err) {
-                      setErr(err.message || 'Upload thất bại');
-                    }
-                  }}
-                />
-              </div>
-            </label>
-            <label style={{ gridColumn: '1 / -1' }}>
-              Nền scene
-              <div className="gc-admin__reward-row" style={{ marginBottom: 8 }}>
-                <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <AdminFeatureNpcEditor
+            narrative={draft.dailyFree?.narrative}
+            tokensHelp={
+              <>
+                <code>{'{minItems}'}</code> <code>{'{maxItems}'}</code>{' '}
+                <code>{'{playerName}'}</code>
+              </>
+            }
+            uploadFile={uploadFile}
+            onUploadError={(msg) => setErr(msg)}
+            patchNarrative={(fn) =>
+              patch((d) => {
+                if (!d.dailyFree.narrative) d.dailyFree.narrative = {};
+                fn(d.dailyFree.narrative);
+              })
+            }
+            extras={
+              <div className="gc-admin__row" style={{ gridTemplateColumns: '1fr' }}>
+                <label>
+                  Nhãn nút nhận
                   <input
-                    type="checkbox"
-                    checked={draft.dailyFree?.narrative?.useBackground !== false}
+                    type="text"
+                    value={draft.dailyFree?.narrative?.claimLabel ?? ''}
                     onChange={(e) =>
                       patch((d) => {
                         if (!d.dailyFree.narrative) d.dailyFree.narrative = {};
-                        d.dailyFree.narrative.useBackground = e.target.checked;
+                        d.dailyFree.narrative.claimLabel = e.target.value;
                       })
                     }
                   />
-                  Dùng ảnh nền
                 </label>
               </div>
-              <div className="gc-admin__reward-row">
-                <input
-                  type="text"
-                  style={{ flex: 1 }}
-                  disabled={draft.dailyFree?.narrative?.useBackground === false}
-                  placeholder="/images/…"
-                  value={draft.dailyFree?.narrative?.backgroundSrc ?? ''}
-                  onChange={(e) =>
-                    patch((d) => {
-                      if (!d.dailyFree.narrative) d.dailyFree.narrative = {};
-                      d.dailyFree.narrative.backgroundSrc = e.target.value;
-                    })
-                  }
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={draft.dailyFree?.narrative?.useBackground === false}
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = '';
-                    if (!f) return;
-                    try {
-                      await uploadFile(f, (url) => {
-                        patch((d) => {
-                          if (!d.dailyFree.narrative) d.dailyFree.narrative = {};
-                          d.dailyFree.narrative.backgroundSrc = url;
-                          d.dailyFree.narrative.useBackground = true;
-                        });
-                      });
-                    } catch (err) {
-                      setErr(err.message || 'Upload thất bại');
-                    }
-                  }}
-                />
-              </div>
-            </label>
-          </div>
-          <div className="gc-admin__row" style={{ gridTemplateColumns: '1fr' }}>
-            <label>
-              Script giới thiệu
-              <textarea
-                rows={5}
-                value={(draft.dailyFree?.narrative?.lines || []).join('\n')}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.dailyFree.narrative) d.dailyFree.narrative = {};
-                    d.dailyFree.narrative.lines = e.target.value
-                      .split('\n')
-                      .map((s) => s.trimEnd())
-                      .filter((s) => s.trim().length > 0);
-                  })
-                }
-              />
-            </label>
-            <label>
-              Script khi đã nhận trong kỳ
-              <textarea
-                rows={3}
-                value={(draft.dailyFree?.narrative?.cooldownLines || []).join('\n')}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.dailyFree.narrative) d.dailyFree.narrative = {};
-                    d.dailyFree.narrative.cooldownLines = e.target.value
-                      .split('\n')
-                      .map((s) => s.trimEnd())
-                      .filter((s) => s.trim().length > 0);
-                  })
-                }
-              />
-            </label>
-            <label>
-              Câu khi nhận quà (dùng {'{itemCount}'})
-              <input
-                type="text"
-                value={draft.dailyFree?.narrative?.rewardLine ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.dailyFree.narrative) d.dailyFree.narrative = {};
-                    d.dailyFree.narrative.rewardLine = e.target.value;
-                  })
-                }
-              />
-            </label>
-          </div>
+            }
+          />
         </div>
       )}
 
@@ -1859,6 +1534,23 @@ function AdminGameCenterManagement() {
               />
             </label>
           </div>
+          <AdminFeatureNpcEditor
+            narrative={draft.luckyBooth?.narrative}
+            tokensHelp={
+              <>
+                <code>{'{ticketPrice}'}</code> <code>{'{jackpot}'}</code>{' '}
+                <code>{'{playerName}'}</code>
+              </>
+            }
+            uploadFile={uploadFile}
+            onUploadError={(msg) => setErr(msg)}
+            patchNarrative={(fn) =>
+              patch((d) => {
+                if (!d.luckyBooth.narrative) d.luckyBooth.narrative = {};
+                fn(d.luckyBooth.narrative);
+              })
+            }
+          />
         </div>
       )}
 
@@ -2195,253 +1887,23 @@ function AdminGameCenterManagement() {
             + Rule
           </button>
 
-          <h3 style={{ marginTop: 24 }}>Hội thoại (Narrative) — Làng Đỏ Đen / Ignis</h3>
-          <p className="gc-admin__help">
-            Intro rồi ẩn máy; sau quay hiện kết quả. Token:{' '}
-            <code>{'{spinPrice}'}</code> <code>{'{maxPlays}'}</code>{' '}
-            <code>{'{pairReward}'}</code> <code>{'{playerName}'}</code>{' '}
-            <code>{'{tier}'}</code> <code>{'{message}'}</code>.
-          </p>
-          <div className="gc-admin__row">
-            <label>
-              Tiêu đề scene
-              <input
-                type="text"
-                value={draft.slotMachine?.narrative?.title ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                    d.slotMachine.narrative.title = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Tên nhân vật
-              <input
-                type="text"
-                value={draft.slotMachine?.narrative?.speaker ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                    d.slotMachine.narrative.speaker = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Nhãn nút chơi
-              <input
-                type="text"
-                value={draft.slotMachine?.narrative?.playLabel ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                    d.slotMachine.narrative.playLabel = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Nhãn tiếp tục
-              <input
-                type="text"
-                value={draft.slotMachine?.narrative?.continueLabel ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                    d.slotMachine.narrative.continueLabel = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Tốc độ chữ (ms/ký tự)
-              <input
-                type="number"
-                min={8}
-                max={120}
-                value={draft.slotMachine?.narrative?.typingMsPerChar ?? 26}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                    d.slotMachine.narrative.typingMsPerChar = Number(e.target.value);
-                  })
-                }
-              />
-            </label>
-          </div>
-          <div className="gc-admin__row" style={{ alignItems: 'start' }}>
-            <label style={{ gridColumn: '1 / -1' }}>
-              Ảnh nhân vật (portrait)
-              <div className="gc-admin__reward-row">
-                {draft.slotMachine?.narrative?.portraitSrc ? (
-                  <img
-                    src={draft.slotMachine.narrative.portraitSrc}
-                    alt=""
-                    className="gc-admin__thumb"
-                  />
-                ) : (
-                  <span className="gc-admin__thumb-placeholder">?</span>
-                )}
-                <input
-                  type="text"
-                  style={{ flex: 1 }}
-                  placeholder="/images/character/Ignis.png"
-                  value={draft.slotMachine?.narrative?.portraitSrc ?? ''}
-                  onChange={(e) =>
-                    patch((d) => {
-                      if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                      d.slotMachine.narrative.portraitSrc = e.target.value;
-                    })
-                  }
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = '';
-                    if (!f) return;
-                    try {
-                      await uploadFile(f, (url) => {
-                        patch((d) => {
-                          if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                          d.slotMachine.narrative.portraitSrc = url;
-                        });
-                      });
-                    } catch (err) {
-                      setErr(err.message || 'Upload thất bại');
-                    }
-                  }}
-                />
-              </div>
-            </label>
-            <label style={{ gridColumn: '1 / -1' }}>
-              Nền scene
-              <div className="gc-admin__reward-row" style={{ marginBottom: 8 }}>
-                <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={draft.slotMachine?.narrative?.useBackground === true}
-                    onChange={(e) =>
-                      patch((d) => {
-                        if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                        d.slotMachine.narrative.useBackground = e.target.checked;
-                      })
-                    }
-                  />
-                  Dùng ảnh nền narrative (mặc định tắt)
-                </label>
-              </div>
-              <div className="gc-admin__reward-row">
-                <input
-                  type="text"
-                  style={{ flex: 1 }}
-                  disabled={draft.slotMachine?.narrative?.useBackground !== true}
-                  placeholder="/images/…"
-                  value={draft.slotMachine?.narrative?.backgroundSrc ?? ''}
-                  onChange={(e) =>
-                    patch((d) => {
-                      if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                      d.slotMachine.narrative.backgroundSrc = e.target.value;
-                    })
-                  }
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={draft.slotMachine?.narrative?.useBackground !== true}
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = '';
-                    if (!f) return;
-                    try {
-                      await uploadFile(f, (url) => {
-                        patch((d) => {
-                          if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                          d.slotMachine.narrative.backgroundSrc = url;
-                          d.slotMachine.narrative.useBackground = true;
-                        });
-                      });
-                    } catch (err) {
-                      setErr(err.message || 'Upload thất bại');
-                    }
-                  }}
-                />
-              </div>
-            </label>
-          </div>
-          <div className="gc-admin__row" style={{ gridTemplateColumns: '1fr' }}>
-            <label>
-              Script giới thiệu (mỗi dòng = một câu)
-              <textarea
-                rows={5}
-                value={(draft.slotMachine?.narrative?.lines || []).join('\n')}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                    d.slotMachine.narrative.lines = e.target.value
-                      .split('\n')
-                      .map((s) => s.trimEnd())
-                      .filter((s) => s.trim().length > 0);
-                  })
-                }
-              />
-            </label>
-            <label>
-              Câu jackpot
-              <input
-                type="text"
-                value={draft.slotMachine?.narrative?.jackpotLine ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                    d.slotMachine.narrative.jackpotLine = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Câu thắng (triple)
-              <input
-                type="text"
-                value={draft.slotMachine?.narrative?.winLine ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                    d.slotMachine.narrative.winLine = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Câu pair
-              <input
-                type="text"
-                value={draft.slotMachine?.narrative?.pairLine ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                    d.slotMachine.narrative.pairLine = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Câu thua
-              <input
-                type="text"
-                value={draft.slotMachine?.narrative?.loseLine ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
-                    d.slotMachine.narrative.loseLine = e.target.value;
-                  })
-                }
-              />
-            </label>
-          </div>
+          <AdminFeatureNpcEditor
+            narrative={draft.slotMachine?.narrative}
+            tokensHelp={
+              <>
+                <code>{'{spinPrice}'}</code> <code>{'{maxPlays}'}</code>{' '}
+                <code>{'{pairReward}'}</code> <code>{'{playerName}'}</code>
+              </>
+            }
+            uploadFile={uploadFile}
+            onUploadError={(msg) => setErr(msg)}
+            patchNarrative={(fn) =>
+              patch((d) => {
+                if (!d.slotMachine.narrative) d.slotMachine.narrative = {};
+                fn(d.slotMachine.narrative);
+              })
+            }
+          />
         </div>
       )}
 
@@ -2519,228 +1981,55 @@ function AdminGameCenterManagement() {
               />
             </label>
           </div>
-          <h3 style={{ marginTop: 24 }}>Hội thoại (Narrative) — Làng Trẻ Con</h3>
-          <p className="gc-admin__help">
-            Intro chạy overlay rồi ẩn để chơi; sau mỗi vòng hiện win/lose. Token:{' '}
-            <code>{'{minSecret}'}</code> <code>{'{maxSecret}'}</code>{' '}
-            <code>{'{rewardWin}'}</code> <code>{'{penaltyLose}'}</code>{' '}
-            <code>{'{secret}'}</code> <code>{'{pivot}'}</code> <code>{'{amount}'}</code>{' '}
-            <code>{'{playerName}'}</code>.
-          </p>
-          <div className="gc-admin__row">
-            <label>
-              Tiêu đề scene
-              <input
-                type="text"
-                value={draft.guessNumber?.narrative?.title ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
-                    d.guessNumber.narrative.title = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Tên nhân vật
-              <input
-                type="text"
-                value={draft.guessNumber?.narrative?.speaker ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
-                    d.guessNumber.narrative.speaker = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Nhãn nút chơi
-              <input
-                type="text"
-                value={draft.guessNumber?.narrative?.playLabel ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
-                    d.guessNumber.narrative.playLabel = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Nhãn tiếp tục
-              <input
-                type="text"
-                value={draft.guessNumber?.narrative?.continueLabel ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
-                    d.guessNumber.narrative.continueLabel = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Tốc độ chữ (ms/ký tự)
-              <input
-                type="number"
-                min={8}
-                max={120}
-                value={draft.guessNumber?.narrative?.typingMsPerChar ?? 26}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
-                    d.guessNumber.narrative.typingMsPerChar = Number(e.target.value);
-                  })
-                }
-              />
-            </label>
-          </div>
-          <div className="gc-admin__row" style={{ alignItems: 'start' }}>
-            <label style={{ gridColumn: '1 / -1' }}>
-              Ảnh nhân vật (portrait)
-              <div className="gc-admin__reward-row">
-                {draft.guessNumber?.narrative?.portraitSrc ? (
-                  <img
-                    src={draft.guessNumber.narrative.portraitSrc}
-                    alt=""
-                    className="gc-admin__thumb"
-                  />
-                ) : (
-                  <span className="gc-admin__thumb-placeholder">?</span>
-                )}
-                <input
-                  type="text"
-                  style={{ flex: 1 }}
-                  placeholder="/images/character/char2.jpg"
-                  value={draft.guessNumber?.narrative?.portraitSrc ?? ''}
-                  onChange={(e) =>
-                    patch((d) => {
-                      if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
-                      d.guessNumber.narrative.portraitSrc = e.target.value;
-                    })
-                  }
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = '';
-                    if (!f) return;
-                    try {
-                      await uploadFile(f, (url) => {
-                        patch((d) => {
-                          if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
-                          d.guessNumber.narrative.portraitSrc = url;
-                        });
-                      });
-                    } catch (err) {
-                      setErr(err.message || 'Upload thất bại');
-                    }
-                  }}
-                />
-              </div>
-            </label>
-            <label style={{ gridColumn: '1 / -1' }}>
-              Nền scene overlay
-              <div className="gc-admin__reward-row" style={{ marginBottom: 8 }}>
-                <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <AdminFeatureNpcEditor
+            narrative={draft.guessNumber?.narrative}
+            tokensHelp={
+              <>
+                <code>{'{minSecret}'}</code> <code>{'{maxSecret}'}</code>{' '}
+                <code>{'{rewardWin}'}</code> <code>{'{penaltyLose}'}</code>{' '}
+                <code>{'{secret}'}</code> <code>{'{pivot}'}</code>{' '}
+                <code>{'{amount}'}</code> <code>{'{playerName}'}</code>
+              </>
+            }
+            uploadFile={uploadFile}
+            onUploadError={(msg) => setErr(msg)}
+            patchNarrative={(fn) =>
+              patch((d) => {
+                if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
+                fn(d.guessNumber.narrative);
+              })
+            }
+            extras={
+              <div className="gc-admin__row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <label>
+                  Câu thắng (dùng {'{secret}'} {'{pivot}'} {'{amount}'})
                   <input
-                    type="checkbox"
-                    checked={draft.guessNumber?.narrative?.useBackground === true}
+                    type="text"
+                    value={draft.guessNumber?.narrative?.winLine ?? ''}
                     onChange={(e) =>
                       patch((d) => {
                         if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
-                        d.guessNumber.narrative.useBackground = e.target.checked;
+                        d.guessNumber.narrative.winLine = e.target.value;
                       })
                     }
                   />
-                  Dùng ảnh nền (mặc định tắt — overlay tối nửa trong suốt)
+                </label>
+                <label>
+                  Câu thua
+                  <input
+                    type="text"
+                    value={draft.guessNumber?.narrative?.loseLine ?? ''}
+                    onChange={(e) =>
+                      patch((d) => {
+                        if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
+                        d.guessNumber.narrative.loseLine = e.target.value;
+                      })
+                    }
+                  />
                 </label>
               </div>
-              <div className="gc-admin__reward-row">
-                <input
-                  type="text"
-                  style={{ flex: 1 }}
-                  disabled={draft.guessNumber?.narrative?.useBackground !== true}
-                  placeholder="/images/…"
-                  value={draft.guessNumber?.narrative?.backgroundSrc ?? ''}
-                  onChange={(e) =>
-                    patch((d) => {
-                      if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
-                      d.guessNumber.narrative.backgroundSrc = e.target.value;
-                    })
-                  }
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={draft.guessNumber?.narrative?.useBackground !== true}
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = '';
-                    if (!f) return;
-                    try {
-                      await uploadFile(f, (url) => {
-                        patch((d) => {
-                          if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
-                          d.guessNumber.narrative.backgroundSrc = url;
-                          d.guessNumber.narrative.useBackground = true;
-                        });
-                      });
-                    } catch (err) {
-                      setErr(err.message || 'Upload thất bại');
-                    }
-                  }}
-                />
-              </div>
-            </label>
-          </div>
-          <div className="gc-admin__row" style={{ gridTemplateColumns: '1fr' }}>
-            <label>
-              Script giới thiệu (mỗi dòng = một câu)
-              <textarea
-                rows={5}
-                value={(draft.guessNumber?.narrative?.lines || []).join('\n')}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
-                    d.guessNumber.narrative.lines = e.target.value
-                      .split('\n')
-                      .map((s) => s.trimEnd())
-                      .filter((s) => s.trim().length > 0);
-                  })
-                }
-              />
-            </label>
-            <label>
-              Câu thắng (dùng {'{secret}'} {'{pivot}'} {'{amount}'})
-              <input
-                type="text"
-                value={draft.guessNumber?.narrative?.winLine ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
-                    d.guessNumber.narrative.winLine = e.target.value;
-                  })
-                }
-              />
-            </label>
-            <label>
-              Câu thua
-              <input
-                type="text"
-                value={draft.guessNumber?.narrative?.loseLine ?? ''}
-                onChange={(e) =>
-                  patch((d) => {
-                    if (!d.guessNumber.narrative) d.guessNumber.narrative = {};
-                    d.guessNumber.narrative.loseLine = e.target.value;
-                  })
-                }
-              />
-            </label>
-          </div>
+            }
+          />
         </div>
       )}
 

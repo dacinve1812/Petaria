@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import GameDialogModal from '../ui/GameDialogModal';
-import NarrativeScene, { applyNarrativeVars } from '../ui/NarrativeScene';
+import FeatureNpcIntro, { buildFeatureNpcProps } from './FeatureNpcIntro';
 import { useGameCenterConfig } from './GameCenterConfigContext';
 import { useFeatureBackNav } from './useFeatureBackNav';
 import { useUser } from '../../UserContext';
@@ -28,6 +28,7 @@ const RARITY_LABEL = {
   legendary: 'Legendary',
 };
 
+/** /game-center/daily-free — nội dung trang trực tiếp (không NarrativeHost). */
 function DailyFreeItemsGame() {
   const { config, loading } = useGameCenterConfig();
   const { user } = useUser();
@@ -40,8 +41,6 @@ function DailyFreeItemsGame() {
   const [claiming, setClaiming] = useState(false);
   const [claimErr, setClaimErr] = useState('');
   const [resultDlg, setResultDlg] = useState(null);
-  const [phase, setPhase] = useState('intro'); // intro | cooldown | reward
-  const [lastItemCount, setLastItemCount] = useState(null);
 
   const fetchStatus = useCallback(async () => {
     setStatusErr('');
@@ -71,50 +70,30 @@ function DailyFreeItemsGame() {
   const canClaim = !!user?.token && srv?.canClaim === true;
   const alreadyClaimed = !!user?.token && srv?.canClaim === false;
 
-  useEffect(() => {
-    if (phase === 'reward') return;
-    setPhase(alreadyClaimed ? 'cooldown' : 'intro');
-  }, [alreadyClaimed, phase]);
-
   const vars = useMemo(
     () => ({
       minItems: String(minN),
       maxItems: String(maxN),
-      itemCount: lastItemCount != null ? String(lastItemCount) : '…',
+      itemCount: resultDlg?.itemCount != null ? String(resultDlg.itemCount) : '…',
       playerName: user?.username || user?.name || 'bạn',
     }),
-    [minN, maxN, lastItemCount, user?.username, user?.name],
+    [minN, maxN, resultDlg, user?.username, user?.name],
   );
 
-  const speaker = narrative.speaker || 'Cư dân làng';
-  const portraitSrc = narrative.portraitSrc || '/images/character/char2.jpg';
-  const backgroundSrc = narrative.backgroundSrc || '';
-  const useBackground = narrative.useBackground === true;
-  const title = narrative.title || 'Làng Nhân Ái';
-  const typingMsPerChar = narrative.typingMsPerChar ?? 26;
   const claimLabel = narrative.claimLabel || 'Nhận quà hôm nay';
 
-  const lines = useMemo(() => {
-    if (phase === 'reward') {
-      const tpl =
-        narrative.rewardLine ||
-        'Đây là phần quà làng gửi tặng — {itemCount} vật phẩm. Chúc ngươi bình an!';
-      return [applyNarrativeVars(tpl, vars)];
-    }
-    if (phase === 'cooldown') {
-      const cd = Array.isArray(narrative.cooldownLines) ? narrative.cooldownLines : [];
-      return cd.length
-        ? cd
-        : ['Hôm nay ngươi đã nhận phần quà rồi. Hãy quay lại sau kỳ reset tiếp theo nhé!'];
-    }
-    const intro = Array.isArray(narrative.lines) ? narrative.lines : [];
-    return intro.length
-      ? intro
-      : [
+  const intro = useMemo(
+    () =>
+      buildFeatureNpcProps(narrative, vars, {
+        speaker: 'Cư dân làng',
+        portraitSrc: '/images/character/char2.jpg',
+        lines: [
           'Chào ngươi! Đây là Làng nhân ái — nơi chia sẻ vật phẩm miễn phí mỗi ngày.',
           'Mỗi ngày chỉ nhận một lần, khoảng {minItems}–{maxItems} món.',
-        ];
-  }, [phase, narrative, vars]);
+        ],
+      }),
+    [narrative, vars],
+  );
 
   const handleClaim = async () => {
     if (!user?.token || !canClaim || claiming) return;
@@ -131,14 +110,11 @@ function DailyFreeItemsGame() {
       const data = await r.json().catch(() => ({}));
       if (r.status === 429) {
         setClaimErr(data.error || 'Đã nhận trong kỳ này');
-        setPhase('cooldown');
         await fetchStatus();
         return;
       }
       if (!r.ok) throw new Error(data.error || 'Không nhận được quà');
       const count = Number(data.itemCount) || 0;
-      setLastItemCount(count);
-      setPhase('reward');
       setResultDlg({
         itemCount: count,
         rewards: Array.isArray(data.rewards) ? data.rewards : [],
@@ -151,22 +127,13 @@ function DailyFreeItemsGame() {
     }
   };
 
-  const finishReward = () => {
-    setLastItemCount(null);
-    setPhase(alreadyClaimed || !canClaim ? 'cooldown' : 'intro');
-  };
-
   const backButton =
     backNav.kind === 'link' ? (
-      <Link to={backNav.to} className="ec-btn ec-btn--ghost narrative-scene__action-btn">
+      <Link to={backNav.to} className="ec-btn ec-btn--ghost">
         {backNav.label}
       </Link>
     ) : (
-      <button
-        type="button"
-        className="ec-btn ec-btn--ghost narrative-scene__action-btn"
-        onClick={backNav.go}
-      >
+      <button type="button" className="ec-btn ec-btn--ghost" onClick={backNav.go}>
         {backNav.label}
       </button>
     );
@@ -179,74 +146,56 @@ function DailyFreeItemsGame() {
     );
   }
 
-  const actions = (
-    <>
+  return (
+    <div className="ec-game ec-game--daily-free">
+      <FeatureNpcIntro
+        speaker={intro.speaker}
+        portraitSrc={intro.portraitSrc}
+        lorePortraitSrc={intro.lorePortraitSrc}
+        greeting={intro.greeting}
+        loreLines={intro.loreLines}
+      />
+
       {statusErr ? (
-        <p className="narrative-scene__status narrative-scene__status--err" role="alert">
+        <p className="ec-guess-alert ec-guess-alert--error" role="alert">
           {statusErr}
         </p>
       ) : null}
       {claimErr ? (
-        <p className="narrative-scene__status narrative-scene__status--warn" role="alert">
+        <p className="ec-guess-alert ec-guess-alert--warn" role="alert">
           {claimErr}
         </p>
       ) : null}
 
       {!user?.token ? (
-        <>
-          <p className="narrative-scene__status">
-            <Link to="/login">Đăng nhập</Link> để nhận quà vào kho.
-          </p>
-          <Link to="/login" className="ec-btn narrative-scene__action-btn">
-            Đăng nhập để nhận quà
-          </Link>
-        </>
+        <p className="ec-note">
+          <Link to="/login">Đăng nhập</Link> để nhận quà vào kho.
+        </p>
       ) : null}
 
-      {user?.token && phase === 'cooldown' ? (
-        <p className="narrative-scene__status narrative-scene__status--warn">
+      {user?.token && alreadyClaimed ? (
+        <p className="ec-guess-alert ec-guess-alert--warn" role="status">
           Đã nhận trong kỳ này — quay lại sau giờ reset server.
         </p>
       ) : null}
 
-      {user?.token && phase === 'intro' ? (
-        <button
-          type="button"
-          className="ec-btn narrative-scene__action-btn"
-          onClick={() => void handleClaim()}
-          disabled={!canClaim || claiming || !!statusErr}
-        >
-          {claiming ? 'Đang nhận…' : claimLabel}
-        </button>
-      ) : null}
-
-      {user?.token && phase === 'reward' ? (
-        <button type="button" className="ec-btn narrative-scene__action-btn" onClick={finishReward}>
-          Cảm ơn làng!
-        </button>
-      ) : null}
-
-      {backButton}
-    </>
-  );
-
-  return (
-    <div className="ec-game ec-game--daily-free">
-      <NarrativeScene
-        className="ec-daily-narrative"
-        title={title}
-        speaker={speaker}
-        portraitSrc={portraitSrc}
-        backgroundSrc={backgroundSrc}
-        useBackground={useBackground}
-        lines={lines}
-        vars={vars}
-        typingMsPerChar={typingMsPerChar}
-        scriptKey={`${phase}-${lastItemCount ?? 'x'}-${alreadyClaimed ? 'cd' : 'ok'}`}
-        showActions="end"
-        actions={actions}
-        portraitFallback="/images/character/knight_warrior.jpg"
-      />
+      <div className="ec-btn-row ec-feature-actions">
+        {!user?.token ? (
+          <Link to="/login" className="ec-btn ec-mystery-btn-primary">
+            Đăng nhập để nhận quà
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className="ec-btn ec-mystery-btn-primary"
+            onClick={() => void handleClaim()}
+            disabled={!canClaim || claiming || !!statusErr}
+          >
+            {claiming ? 'Đang nhận…' : claimLabel}
+          </button>
+        )}
+      </div>
+      <div className="ec-btn-row ec-feature-actions ec-feature-actions--back">{backButton}</div>
 
       <GameDialogModal
         isOpen={!!resultDlg}

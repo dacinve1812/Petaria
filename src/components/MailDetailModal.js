@@ -1,7 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Fragment } from 'react';
+import { Link } from 'react-router-dom';
 import './MailDetailModal.css';
 import { dispatchCurrencyUpdate } from '../utils/currencyEvents';
-import { mailHasClaimableRewards, mailIsRewardsClaimed } from '../utils/mailRewardUtils';
+import {
+  mailHasClaimableRewards,
+  mailIsRewardsClaimed,
+  LUCKY_BOOTH_MAIL_PATH,
+  LUCKY_BOOTH_MAIL_CTA,
+} from '../utils/mailRewardUtils';
 
 const PLACEHOLDER_ITEM = '/images/icons/bag.svg';
 /** File placeholder.png không có trong repo — dùng SVG có sẵn để tránh icon vỡ. */
@@ -27,6 +33,22 @@ function spiritPreviewSrc(row) {
   const s = String(row.spirit_image);
   if (s.startsWith('http') || s.startsWith('/')) return s;
   return `/images/spirit/${s}`;
+}
+
+function renderMailMessageBody(message) {
+  const text = String(message || '');
+  if (!text.includes(LUCKY_BOOTH_MAIL_CTA)) return text;
+  const parts = text.split(LUCKY_BOOTH_MAIL_CTA);
+  return parts.map((part, i) => (
+    <Fragment key={i}>
+      {part}
+      {i < parts.length - 1 ? (
+        <Link to={LUCKY_BOOTH_MAIL_PATH} className="mail-inline-link" onClick={(e) => e.stopPropagation()}>
+          {LUCKY_BOOTH_MAIL_CTA}
+        </Link>
+      ) : null}
+    </Fragment>
+  ));
 }
 
 const MailDetailModal = ({ isOpen, onClose, mail, onClaim, userId }) => {
@@ -239,7 +261,7 @@ const MailDetailModal = ({ isOpen, onClose, mail, onClaim, userId }) => {
 
             <div className="mail-detail-message">
               <div className="message-label">Nội dung:</div>
-              <div className="message-content">{mail.message}</div>
+              <div className="message-content">{renderMailMessageBody(mail.message)}</div>
             </div>
 
             {hasRewards && (
