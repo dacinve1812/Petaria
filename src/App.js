@@ -1,5 +1,5 @@
 import React from 'react';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, useLocation } from 'react-router-dom';
 import { UserProvider } from './UserContext';
 import MainLayout from './components/MainLayout';
 import HomePage from './components/HomePage';
@@ -24,6 +24,8 @@ import AdminCreatePet from './components/admin/AdminCreatePet';
 import ArenaPage from './components/battle/ArenaPage';
 import PveSelectPage from './components/battle/PveSelectPage';
 import ArenaBattlePage from './components/battle/ArenaBattlePage';
+import BattlePetSelectPage from './components/battle/BattlePetSelectPage';
+import ChampionChallengePage from './components/battle/ChampionChallengePage';
 import AdminSpiritEditor from './components/admin/AdminSpiritEditor';
 import SiteManagement from './components/admin/SiteManagement';
 import AdminSiteAuctionMailPage from './components/admin/AdminSiteAuctionMailPage';
@@ -87,6 +89,12 @@ import GuessNumberGame from './components/entertainment/GuessNumberGame';
 import AdminGameCenterManagement from './components/admin/AdminGameCenterManagement';
 import AdminRegionMapsManagement from './components/admin/AdminRegionMapsManagement';
 
+/** Giữ state khi đổi path cũ arenabattle → /battle/match */
+function RedirectLegacyArenaBattle() {
+  const location = useLocation();
+  return <Navigate to="/battle/match" replace state={location.state} />;
+}
+
 const router = createBrowserRouter([
   { path: '/login', element: <Auth /> },
   {
@@ -107,8 +115,10 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePageVer2 /> },
       { path: 'orphanage', element: <Orphanage /> },
-      { path: 'myhome', element: <MyHome /> },
-      { path: 'myhome/spirits', element: <MyHome /> },
+      { path: 'myhome', element: <Navigate to="/myhome/mypet" replace /> },
+      { path: 'myhome/mypet', element: <MyHome /> },
+      { path: 'myhome/myspirit', element: <MyHome /> },
+      { path: 'myhome/spirits', element: <Navigate to="/myhome/myspirit" replace /> },
       { path: 'admin', element: <Admin /> },
       { path: 'profile/:userId', element: <UserProfile /> },
       { path: 'profile', element: <UserProfile /> },
@@ -116,6 +126,7 @@ const router = createBrowserRouter([
       { path: 'pet/:uuid', element: <PetProfile /> },
       { path: 'pet/:uuid/evolve', element: <PetEvolutionPage /> },
       { path: 'inventory', element: <Inventory /> },
+      { path: 'inventory/:filterType', element: <Inventory /> },
       { path: 'admin/edit-pet-types', element: <EditPetTypes /> },
       { path: 'admin/pet-evolution', element: <AdminPetEvolutionManagement /> },
       { path: 'admin/edit-items', element: <EditItems /> },
@@ -130,19 +141,11 @@ const router = createBrowserRouter([
       { path: 'admin/create-pet', element: <AdminCreatePet /> },
       { path: 'battle', element: <PveSelectPage /> },
       { path: 'battle/arena', element: <ArenaPage /> },
-      { path: 'admin/npc-boss-management', element: <AdminNpcBossManagement /> },
-      { path: 'admin/spirits', element: <AdminSpiritEditor /> },
-      { path: 'admin/site-management', element: <SiteManagement /> },
-      { path: 'admin/game-center', element: <AdminGameCenterManagement /> },
-      { path: 'admin/region-maps', element: <AdminRegionMapsManagement /> },
-      { path: 'admin/site/auction-mail', element: <AdminSiteAuctionMailPage /> },
-      { path: 'admin/hunting-maps', element: <AdminHuntingMapManagement /> },
-      { path: 'admin/hunting-catch-rates', element: <AdminHuntingCatchRates /> },
-      { path: 'management', element: <MyStuffManagement /> },
-      { path: 'title', element: <TitleMyPage /> },
-      { path: 'exhibition', element: <ExhibitionRoom /> },
-      { path: 'exhibition/:userId', element: <ExhibitionRoom /> },
-      { path: 'battle/arena/arenabattle', element: <ArenaBattlePage /> },
+      { path: 'battle/champion', element: <ChampionChallengePage /> },
+      { path: 'battle/select', element: <Navigate to="/battle/arena/select" replace /> },
+      { path: 'battle/arena/select', element: <BattlePetSelectPage /> },
+      { path: 'battle/match', element: <ArenaBattlePage /> },
+      { path: 'battle/arena/arenabattle', element: <RedirectLegacyArenaBattle /> },
       { path: 'home-ver2', element: <HomePage /> },
       { path: 'pokedex', element: <PokedexPage /> },
       { path: 'cultivate', element: <CultivatePage /> },

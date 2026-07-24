@@ -7,6 +7,7 @@ import { useFeatureBackNav } from './useFeatureBackNav';
 import ScratchCell from './ScratchCell';
 import { useUser } from '../../UserContext';
 import { dispatchCurrencyUpdate } from '../../utils/currencyEvents';
+import { dispatchGameCenterAlertsRefresh } from '../../utils/gameCenterAlertEvents';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -312,6 +313,7 @@ function ScratchLotteryGame() {
           updateUserData({ peta: data.petaRemaining });
         }
         dispatchCurrencyUpdate();
+        dispatchGameCenterAlertsRefresh();
         setWinReward({ amount: granted });
         setWinOpen(true);
         await fetchScratchStatus();
@@ -400,6 +402,7 @@ function ScratchLotteryGame() {
         updateUserData({ peta: data.petaRemaining });
       }
       dispatchCurrencyUpdate();
+      dispatchGameCenterAlertsRefresh();
       if (Array.isArray(data.ids)) {
         setIds(data.ids);
       }

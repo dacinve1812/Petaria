@@ -6,6 +6,7 @@ import { useGameCenterConfig } from './GameCenterConfigContext';
 import { useFeatureBackNav } from './useFeatureBackNav';
 import { useUser } from '../../UserContext';
 import { dispatchCurrencyUpdate } from '../../utils/currencyEvents';
+import { dispatchGameCenterAlertsRefresh } from '../../utils/gameCenterAlertEvents';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -162,6 +163,7 @@ function LuckyBoothGame() {
         updateUserData({ peta: Number(data.petaRemaining) });
       }
       dispatchCurrencyUpdate();
+      dispatchGameCenterAlertsRefresh();
       const digits = data.digits || d;
       const paid = data.ticketPrice ?? ticketPrice;
       setSuccessDlg({ digits, paid });

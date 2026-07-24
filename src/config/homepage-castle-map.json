@@ -114,7 +114,7 @@
         970
       ],
       "name": "My Home",
-      "path": "/myhome",
+      "path": "/myhome/mypet",
       "buttonLabel": "My Home"
     },
     {
@@ -203,7 +203,7 @@
       "id": 9,
       "x": 1097,
       "y": 946,
-      "path": "/myhome",
+      "path": "/myhome/mypet",
       "label": "My Home"
     },
     {

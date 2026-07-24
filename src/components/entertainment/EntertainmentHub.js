@@ -1,9 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { AlertExclamationBadge } from '../ui/AlertExclamationBadge';
 import { useGameCenterConfig } from './GameCenterConfigContext';
+import { useGameCenterAlerts } from './GameCenterAlertsContext';
 
 function EntertainmentHub() {
   const { hubGames, loading } = useGameCenterConfig();
+  const { showFeatureAlert } = useGameCenterAlerts();
 
   if (loading) {
     return (
@@ -23,6 +26,13 @@ function EntertainmentHub() {
               state={{ from: 'game-center' }}
               className="ec-hub-card"
             >
+              {showFeatureAlert(game.id) && (
+                <AlertExclamationBadge
+                  size={18}
+                  title="Còn lượt chơi"
+                  ariaLabel={`${game.title}: còn lượt chơi`}
+                />
+              )}
               <span className="ec-hub-card__img-wrap">
                 <img src={game.imgSrc} alt="" className="ec-hub-card__img" width={120} height={120} />
               </span>

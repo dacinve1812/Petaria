@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import EncounterModal from './EncounterModal';
 import CatchWildPetModal from './CatchWildPetModal';
 import GameAlertModal from './ui/GameAlertModal';
-import EnemyInfoModal from './battle/EnemyInfoModal';
 import SimpleFlashOverlay from './SimpleFlashOverlay';
 import { UserContext } from '../UserContext';
 import { getActiveHuntingMap } from '../utils/huntingSessionStorage';
 
+/** Hunting encounters → modal / catch / battle select page */
 function EncounterModalContainer() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const navigate = useNavigate();
@@ -24,8 +24,6 @@ function EncounterModalContainer() {
   /** @type {[{ title?: string, message: string, confirmLabel?: string, afterClose?: () => void }|null, Function]} */
   const [alertModal, setAlertModal] = useState(null);
 
-  const [bossBattleEnemy, setBossBattleEnemy] = useState(null);
-  const [matchStarting, setMatchStarting] = useState(false);
   const [claimingItem, setClaimingItem] = useState(false);
 
   const showAlert = useCallback((message, opts = {}) => {
@@ -75,7 +73,6 @@ function EncounterModalContainer() {
       setEncounterType(type);
       setHuntingMapId(mapId ? String(mapId) : null);
       setPayload(mapId ? { ...nextPayload, mapId } : nextPayload);
-      setBossBattleEnemy(null);
       setShowCatchUi(false);
       setClaimingItem(false);
     };
@@ -95,7 +92,6 @@ function EncounterModalContainer() {
     setPayload(null);
     setEncounterType(null);
     setHuntingMapId(null);
-    setBossBattleEnemy(null);
     setClaimingItem(false);
     isProcessingRef.current = false;
     window.dispatchEvent(new CustomEvent('encounterModalClosed'));
@@ -153,89 +149,6 @@ function EncounterModalContainer() {
     setShowCatchUi(true);
   };
 
-  const startBossMatch = async (pet, enemy) => {
-    if (!user?.token || !pet?.id || !enemy?.id) return;
-    setMatchStarting(true);
-    const bossLevel = Math.max(
-      1,
-      Number(enemy.level) || Number(payload?.level) || 1
-    );
-    const mapId =
-      enemy.mapId ||
-      payload?.mapId ||
-      huntingMapId ||
-      getActiveHuntingMap()?.mapId ||
-      null;
-    const returnPath = mapId
-      ? `/hunting-world/map/${encodeURIComponent(String(mapId))}`
-      : '/hunting-world';
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/arena/match/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token}`,
-        },
-        body: JSON.stringify({
-          petId: pet.id,
-          bossId: enemy.id,
-          bossLevel,
-          battleSource: 'hunting',
-          huntingMapId: mapId,
-          returnPath,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      const goBattle = (match) => {
-        handleClose();
-        const path = returnPath;
-        const patchedMatch = {
-          ...match,
-          battleSource: 'hunting',
-          returnPath: path,
-          huntingMapId: mapId || match.huntingMapId || null,
-        };
-        try {
-          sessionStorage.setItem(
-            'petaria-arena-battle-return',
-            JSON.stringify({
-              battleSource: 'hunting',
-              returnPath: path,
-              huntingMapId: patchedMatch.huntingMapId,
-            })
-          );
-        } catch {
-          /* ignore */
-        }
-        navigate('/battle/arena/arenabattle', {
-          state: {
-            matchState: patchedMatch,
-            playerPet: patchedMatch.player,
-            enemyPet: patchedMatch.enemy,
-            useRedisMatch: true,
-            fromHunting: true,
-            battleSource: 'hunting',
-            returnPath: path,
-            huntingMapId: patchedMatch.huntingMapId,
-          },
-        });
-      };
-      if (res.ok) {
-        goBattle(data);
-        return;
-      }
-      if (res.status === 400 && data.code === 'ACTIVE_MATCH' && data.match) {
-        goBattle(data.match);
-        return;
-      }
-      showAlert(data.message || 'Không thể bắt đầu trận đấu.');
-    } catch (err) {
-      showAlert(err.message || 'Lỗi kết nối.');
-    } finally {
-      setMatchStarting(false);
-    }
-  };
-
   const handleBattle = async (data) => {
     if (encounterType === 'boss') {
       if (!user?.token || !user?.userId) {
@@ -249,18 +162,9 @@ function EncounterModalContainer() {
         return;
       }
       try {
-        const [bossRes, petsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/bosses/${bossId}?level=${encounterLevel}`),
-          fetch(`${API_BASE_URL}/users/${user.userId}/pets`, {
-            headers: { Authorization: `Bearer ${user.token}` },
-          }),
-        ]);
-        const petsJson = petsRes.ok ? await petsRes.json() : [];
-        const pets = Array.isArray(petsJson)
-          ? petsJson
-          : Array.isArray(petsJson?.pets)
-            ? petsJson.pets
-            : [];
+        const bossRes = await fetch(
+          `${API_BASE_URL}/api/bosses/${bossId}?level=${encounterLevel}`
+        );
         let boss;
         if (bossRes.ok) {
           boss = await bossRes.json();
@@ -275,14 +179,26 @@ function EncounterModalContainer() {
         }
         const mapId =
           data?.mapId || huntingMapId || getActiveHuntingMap()?.mapId || null;
-        setIsModalOpen(false);
-        setBossBattleEnemy({
-          ...boss,
-          level: encounterLevel,
-          statsScaled: true,
-          userPets: pets,
-          isBoss: true,
-          mapId,
+        const returnPath = mapId
+          ? `/hunting-world/map/${encodeURIComponent(String(mapId))}`
+          : '/hunting-world';
+
+        handleClose();
+        navigate('/battle/arena/select', {
+          state: {
+            enemy: {
+              ...boss,
+              level: encounterLevel,
+              statsScaled: true,
+              isBoss: true,
+              mapId,
+            },
+            battleMode: '1v1',
+            battleSource: 'hunting',
+            returnPath,
+            huntingMapId: mapId,
+            bossLevel: encounterLevel,
+          },
         });
       } catch (e) {
         showAlert(e.message || 'Không tải được thông tin Boss.');
@@ -356,15 +272,6 @@ function EncounterModalContainer() {
               afterClose: handleClose,
             });
           }}
-        />
-      )}
-
-      {bossBattleEnemy && (
-        <EnemyInfoModal
-          enemy={bossBattleEnemy}
-          onClose={handleClose}
-          onSelectPet={(pet) => startBossMatch(pet, bossBattleEnemy)}
-          matchStarting={matchStarting}
         />
       )}
 

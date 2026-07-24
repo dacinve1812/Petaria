@@ -4,7 +4,8 @@ import './Orphanage.css';
 import TemplatePage from './template/TemplatePage';
 import { resolveAssetPath } from '../utils/pathUtils';
 import PetNotice from './PetNotice';
-
+import { asOwnedList } from '../utils/inventoryApi';
+import GameDialogModal from './ui/GameDialogModal';
 
 function Orphanage() {
     const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
@@ -18,6 +19,10 @@ function Orphanage() {
     const [userId, setUserId] = useState(null);
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [releaseConfirmOpen, setReleaseConfirmOpen] = useState(false);
+    const [releaseSuccessOpen, setReleaseSuccessOpen] = useState(false);
+    const [releaseSuccessCount, setReleaseSuccessCount] = useState(0);
+    const [adoptSuccessOpen, setAdoptSuccessOpen] = useState(false);
 
     // Check if token is expired
     const isTokenExpired = () => {
@@ -106,7 +111,7 @@ function Orphanage() {
             
             if (response.ok) {
                 const data = await response.json();
-                setUserPets(data);
+                setUserPets(asOwnedList(data, 'pets'));
             } else if (response.status === 401) {
                 handleTokenExpiration();
             } else {
@@ -163,7 +168,7 @@ function Orphanage() {
                     // Update localStorage hasPet status
                     localStorage.setItem('hasPet', 'true');
                     
-                    alert(`Pet adopted successfully!`);
+                    setAdoptSuccessOpen(true);
                 } else if (response.status === 401) {
                     handleTokenExpiration();
                 } else {
@@ -179,14 +184,18 @@ function Orphanage() {
         }
     };
 
-    const handleReleasePets = async () => {
+    const handleReleasePets = () => {
         if (selectedPetsForRelease.length === 0) {
             setError('Please select at least one pet to release.');
             return;
         }
+        setReleaseConfirmOpen(true);
+    };
 
-        const confirmed = window.confirm(`Are you sure you want to release ${selectedPetsForRelease.length} pet(s)? This action cannot be undone.`);
-        if (!confirmed) return;
+    const confirmReleasePets = async () => {
+        setReleaseConfirmOpen(false);
+        const toRelease = [...selectedPetsForRelease];
+        const releaseCount = toRelease.length;
 
         setLoading(true);
         try {
@@ -196,7 +205,7 @@ function Orphanage() {
                 return;
             }
 
-            const releasePromises = selectedPetsForRelease.map(pet =>
+            const releasePromises = toRelease.map(pet =>
                 fetch(`${API_BASE_URL}/api/pets/${pet.uuid}/release`, {
                     method: 'DELETE',
                     headers: {
@@ -215,13 +224,14 @@ function Orphanage() {
             }
 
             if (failedReleases.length === 0) {
-                alert(`${selectedPetsForRelease.length} pet(s) released successfully!`);
                 setSelectedPetsForRelease([]);
-                fetchUserPets(); // Refresh the list
-                
-                // Check if user still has pets after release
-                const remainingPets = userPets.length - selectedPetsForRelease.length;
+                fetchUserPets();
+
+                const remainingPets = userPets.length - releaseCount;
                 localStorage.setItem('hasPet', String(remainingPets > 0));
+
+                setReleaseSuccessCount(releaseCount);
+                setReleaseSuccessOpen(true);
             } else {
                 setError(`Failed to release ${failedReleases.length} pet(s).`);
             }
@@ -378,6 +388,50 @@ function Orphanage() {
             {currentMode === 'main' && renderMainMenu()}
             {currentMode === 'adopt' && renderAdoptMode()}
             {currentMode === 'release' && renderReleaseMode()}
+
+            <GameDialogModal
+                isOpen={releaseConfirmOpen}
+                onClose={() => setReleaseConfirmOpen(false)}
+                title="Xác nhận phóng thích"
+                mode="confirm"
+                tone="warning"
+                confirmLabel="Phóng thích"
+                cancelLabel="Hủy"
+                onConfirm={() => void confirmReleasePets()}
+                onCancel={() => setReleaseConfirmOpen(false)}
+            >
+                <p>
+                    Bạn sắp phóng thích{' '}
+                    <strong>{selectedPetsForRelease.length}</strong> thú cưng.
+                    Hành động này không thể hoàn tác. Tiếp tục chứ?
+                </p>
+            </GameDialogModal>
+
+            <GameDialogModal
+                isOpen={releaseSuccessOpen}
+                onClose={() => setReleaseSuccessOpen(false)}
+                title="Phóng thích thành công"
+                mode="alert"
+                tone="success"
+                confirmLabel="Đóng"
+                onConfirm={() => setReleaseSuccessOpen(false)}
+            >
+                <p>
+                    Đã phóng thích <strong>{releaseSuccessCount}</strong> thú cưng.
+                </p>
+            </GameDialogModal>
+
+            <GameDialogModal
+                isOpen={adoptSuccessOpen}
+                onClose={() => setAdoptSuccessOpen(false)}
+                title="Nhận nuôi thành công"
+                mode="alert"
+                tone="success"
+                confirmLabel="Đóng"
+                onConfirm={() => setAdoptSuccessOpen(false)}
+            >
+                <p>Bạn đã nhận nuôi thú cưng thành công!</p>
+            </GameDialogModal>
         </TemplatePage>
     );
 }

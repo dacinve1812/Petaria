@@ -101,7 +101,7 @@ const NavigationMenu = ({ className = '' }) => {
       title: 'Đặc trưng',
       submenu: [
         { title: 'Trang bị', path: '/inventory' },
-        { title: 'Thú cưng', path: '/myhome' },
+        { title: 'Thú cưng', path: '/myhome/mypet' },
         { title: 'Ngân Hàng', path: '/bank' },
         { title: 'Mua sắm', path: '/shop' },
         { title: 'Đấu giá', path: '/auction' },

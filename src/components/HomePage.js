@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PetNotice from './PetNotice';
+import { AlertExclamationBadge } from './ui/AlertExclamationBadge';
+import { useGameCenterAlerts } from './entertainment/GameCenterAlertsContext';
 import './HomePage.css';
 import './RegionMapPage.css';
 import castleMapPreset from '../config/homepage-castle-map.json';
@@ -23,6 +25,7 @@ function buildMapButtons() {
 
 function HomePage() {
   const navigate = useNavigate();
+  const { hasAnyAlert } = useGameCenterAlerts();
   const mapScrollRef = useRef(null);
   const imageRef = useRef(null);
   const [loadedNaturalSize, setLoadedNaturalSize] = useState({ width: 0, height: 0 });
@@ -179,23 +182,41 @@ function HomePage() {
               </div>
 
               <div className="regionmap-buttons-layer">
-                {mapButtons.map((btn, idx) => (
-                  <button
+                {mapButtons.map((btn, idx) => {
+                  const pathNorm = String(btn.path || '').replace(/\/$/, '');
+                  const isGameCenter =
+                    pathNorm === '/game-center' ||
+                    String(btn.label || '').trim() === 'Giải Trí';
+                  const showAlert = isGameCenter && hasAnyAlert;
+                  return (
+                  <span
                     key={`btn-${btn.id}-${idx}`}
-                    type="button"
-                    className="regionmap-button"
+                    className={`regionmap-button-wrap${showAlert ? ' regionmap-button-wrap--alert' : ''}`}
                     style={{
                       left: `${(Number(btn.x) / naturalWidth) * 100}%`,
                       top: `${(Number(btn.y) / naturalHeight) * 100}%`,
                     }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAreaClick(btn.path);
-                    }}
                   >
-                    {btn.label}
-                  </button>
-                ))}
+                    <button
+                      type="button"
+                      className="regionmap-button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAreaClick(btn.path);
+                      }}
+                    >
+                      {btn.label}
+                    </button>
+                    {showAlert && (
+                      <AlertExclamationBadge
+                        size={16}
+                        title="Game Center còn lượt chơi"
+                        ariaLabel="Game Center còn lượt chơi"
+                      />
+                    )}
+                  </span>
+                  );
+                })}
               </div>
             </div>
           </div>

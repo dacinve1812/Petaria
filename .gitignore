@@ -27,3 +27,9 @@ yarn-error.log*
 
 # Auction admin logs (JSONL theo ngày)
 backend/logs/auction/
+
+# Windows reserved device name — never commit
+NUL.css
+nul.css
+Nul.css
+

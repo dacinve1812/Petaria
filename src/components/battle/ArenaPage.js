@@ -5,17 +5,12 @@ import { UserContext } from '../../UserContext';
 import TemplatePage from '../template/TemplatePage';
 import GameDialogModal from '../ui/GameDialogModal';
 import '../css/ArenaPage.css';
-import EnemyInfoModal from './EnemyInfoModal';
 
 function ArenaPage() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const { user, isLoading } = React.useContext(UserContext);
   const navigate = useNavigate();
   const [enemies, setEnemies] = useState([]);
-  const [selectedEnemy, setSelectedEnemy] = useState(null);
-  const [userPets, setUserPets] = useState([]);
-  const [matchStartError, setMatchStartError] = useState('');
-  const [matchStarting, setMatchStarting] = useState(false);
   /** 'loading' | 'list' | 'resume' — có trận Redis đang dở thì chặn list, chỉ hiện dialog */
   const [arenaGate, setArenaGate] = useState('loading');
   const [resumeMatch, setResumeMatch] = useState(null);
@@ -41,7 +36,7 @@ function ArenaPage() {
         if (cancelled) return;
         if (res.ok) {
           const data = await res.json();
-          if (data?.player) {
+          if (data?.active !== false && data?.player) {
             setResumeMatch(data);
             setArenaGate('resume');
             return;
@@ -64,32 +59,26 @@ function ArenaPage() {
       .catch(err => console.error('Lỗi khi tải danh sách enemy:', err));
   }, [API_BASE_URL]);
 
-  const handleOpenEnemyModal = async (enemy) => {
-    if (!user || !user.token || !user.userId) return;
+  const handleChallenge = async (enemy) => {
+    if (!user || !user.token) return;
 
     try {
-      // Đối thủ Arena = Boss (bảng boss_templates)
       const enemyDetailResponse = await fetch(`${API_BASE_URL}/api/bosses/${enemy.id}`);
       if (!enemyDetailResponse.ok) {
         console.error('Failed to fetch boss details');
         return;
       }
       const enemyDetail = await enemyDetailResponse.json();
-
-      const userPetsResponse = await fetch(`${API_BASE_URL}/users/${user.userId}/pets`, {
-        headers: { Authorization: `Bearer ${user.token}` }
+      navigate('/battle/arena/select', {
+        state: {
+          enemy: { ...enemyDetail, isBoss: true },
+          battleMode: '1v1',
+          battleSource: 'arena',
+          returnPath: '/battle/arena',
+        },
       });
-      const userPetsJson = await userPetsResponse.json();
-      const userPets = Array.isArray(userPetsJson)
-        ? userPetsJson
-        : Array.isArray(userPetsJson?.pets)
-          ? userPetsJson.pets
-          : [];
-      setUserPets(userPets);
-
-      setSelectedEnemy({ ...enemyDetail, userPets });
     } catch (err) {
-      console.error('Error fetching boss details or user pets:', err);
+      console.error('Error fetching boss details:', err);
     }
   };
 
@@ -133,7 +122,7 @@ function ArenaPage() {
     } catch {
       /* ignore */
     }
-    navigate('/battle/arena/arenabattle', {
+    navigate('/battle/match', {
       state: {
         matchState: resumeMatch,
         playerPet: resumeMatch.player,
@@ -142,83 +131,9 @@ function ArenaPage() {
         battleSource: resumeMatch.battleSource || 'arena',
         returnPath: resumeMatch.returnPath || '/battle/arena',
         fromHunting: resumeMatch.battleSource === 'hunting',
+        battleMode: resumeMatch.battleMode || '1v1',
       },
     });
-  };
-
-  const startMatchAndNavigate = async (pet, enemy) => {
-    if (!user?.token || !pet?.id || !enemy?.id) return;
-    setMatchStartError('');
-    setMatchStarting(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/arena/match/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
-        body: JSON.stringify({
-          petId: pet.id,
-          bossId: enemy.id,
-          battleSource: 'arena',
-          returnPath: '/battle/arena',
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        try {
-          sessionStorage.setItem(
-            'petaria-arena-battle-return',
-            JSON.stringify({
-              battleSource: 'arena',
-              returnPath: '/battle/arena',
-              huntingMapId: null,
-            })
-          );
-        } catch {
-          /* ignore */
-        }
-        navigate('/battle/arena/arenabattle', {
-          state: {
-            matchState: data,
-            playerPet: data.player,
-            enemyPet: data.enemy,
-            useRedisMatch: true,
-            battleSource: 'arena',
-            returnPath: '/battle/arena',
-          },
-        });
-        return;
-      }
-      if (res.status === 400 && data.code === 'ACTIVE_MATCH' && data.match) {
-        try {
-          sessionStorage.setItem(
-            'petaria-arena-battle-return',
-            JSON.stringify({
-              battleSource: data.match.battleSource || 'arena',
-              returnPath: data.match.returnPath || '/battle/arena',
-              huntingMapId: data.match.huntingMapId || null,
-            })
-          );
-        } catch {
-          /* ignore */
-        }
-        navigate('/battle/arena/arenabattle', {
-          state: {
-            matchState: data.match,
-            playerPet: data.match.player,
-            enemyPet: data.match.enemy,
-            useRedisMatch: true,
-            battleSource: data.match.battleSource || 'arena',
-            returnPath: data.match.returnPath || '/battle/arena',
-            fromHunting: data.match.battleSource === 'hunting',
-          },
-        });
-        return;
-      }
-      setMatchStartError(data.message || 'Không thể bắt đầu trận đấu.');
-    } catch (err) {
-      setMatchStartError(err.message || 'Lỗi kết nối.');
-    } finally {
-      setMatchStarting(false);
-    }
   };
 
   return (
@@ -255,7 +170,7 @@ function ArenaPage() {
                     <button
                       type="button"
                       className="arena-card-challenge"
-                      onClick={() => handleOpenEnemyModal(enemy)}
+                      onClick={() => handleChallenge(enemy)}
                     >
                       Thách đấu
                     </button>
@@ -263,16 +178,6 @@ function ArenaPage() {
                 ))
               )}
             </div>
-
-            {matchStartError && <div className="arena-match-error">{matchStartError}</div>}
-            {selectedEnemy && (
-              <EnemyInfoModal
-                enemy={selectedEnemy}
-                onClose={() => { setSelectedEnemy(null); setMatchStartError(''); }}
-                onSelectPet={(pet) => startMatchAndNavigate(pet, selectedEnemy)}
-                matchStarting={matchStarting}
-              />
-            )}
           </>
         )}
 

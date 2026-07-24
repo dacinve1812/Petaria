@@ -1,0 +1,134 @@
+/* Champion Challenge — tái dùng cảm giác Arena, layout đơn giản */
+
+.champion-page .champion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 24px;
+  max-width: 88.75rem;
+  margin: 0 auto;
+}
+
+.champion-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  gap: 8px;
+}
+
+.champion-card__portrait-wrap {
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.champion-card__portrait {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.champion-card__name {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.champion-card__level {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #c45c26;
+}
+
+.champion-card__desc {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #64748b;
+  max-width: 28ch;
+}
+
+.champion-card__formation-preview {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.champion-mini-pet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 56px;
+}
+
+.champion-mini-pet img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.champion-mini-pet span {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.champion-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.champion-card__actions .arena-card-challenge {
+  width: 100%;
+}
+
+.champion-card__btn-5v5 {
+  background: #1e293b !important;
+}
+
+.champion-card__btn-5v5:hover:not(:disabled) {
+  background: #0f172a !important;
+}
+
+.champion-back-wrap {
+  text-align: center;
+  margin-top: 28px;
+}
+
+.champion-back-btn {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.champion-back-btn:hover {
+  background: #e2e8f0;
+}
+
+@media (max-width: 600px) {
+  .champion-page .champion-grid {
+    grid-template-columns: 1fr;
+  }
+}

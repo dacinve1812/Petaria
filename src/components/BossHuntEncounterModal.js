@@ -125,7 +125,7 @@ function BossHuntEncounterModal({ bossPreview, onClose }) {
         } catch {
           /* ignore */
         }
-        navigate('/battle/arena/arenabattle', {
+        navigate('/battle/match', {
           state: {
             matchState: patchedMatch,
             playerPet: patchedMatch.player,
@@ -135,6 +135,7 @@ function BossHuntEncounterModal({ bossPreview, onClose }) {
             battleSource: 'hunting',
             returnPath: path,
             huntingMapId: patchedMatch.huntingMapId,
+            battleMode: '1v1',
           },
         });
       };

@@ -178,7 +178,7 @@ div {
 
 @media (max-width: 480px) {
   div, button, span, strong {
-    font-size: var(--font-sm) !important;
+    font-size: var(--font-xs) !important;
   }
 }
 
@@ -1808,6 +1808,45 @@ h1.peta-sectiontitle {
 .pet-detail-tam-trang { animation-delay: 0.27s; }
 .pet-detail-battles { animation-delay: 0.28s; }
 
+/* Chữ tình trạng / tâm trạng có thể click mở modal — dùng span để đồng bộ font mọi device */
+.pet-vitals-status-btn {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 1em;
+  font-weight: 500;
+  font-style: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  vertical-align: baseline;
+  cursor: pointer;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+
+.pet-vitals-help__advice {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #334155 !important;
+  text-align: center;
+}
+
+.pet-vitals-help__link {
+  font-weight: 700;
+  color: #c45c26;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.pet-vitals-help__link:hover {
+  color: #a3481c;
+}
+
 /* Bonus stats styling */
 .bonus-stats {
   color: var(--bonus-stats-color);
@@ -2022,7 +2061,7 @@ h1.peta-sectiontitle {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding-left: 5px;
+  padding-left: 15px;
 }
 
 .pet-details-right{
@@ -2062,7 +2101,9 @@ h1.peta-sectiontitle {
 .pet-details p {
   margin: 3px;
   color: var(--pet-detail-text);
+  font-size: 1rem;
   font-weight: 400;
+  line-height: 1.45;
   /* font-family: "Poppins", sans-serif; */
   font-optical-sizing: auto;
   animation: fadeInUp 0.3s ease-out;

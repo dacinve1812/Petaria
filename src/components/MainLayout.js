@@ -11,6 +11,7 @@ import EncounterModalContainer from './EncounterModalContainer';
 import { Outlet } from 'react-router-dom';
 import { NarrativeDialogProvider } from './ui/NarrativeDialogContext';
 import NarrativeHost from './ui/NarrativeHost';
+import { GameCenterAlertsProvider } from './entertainment/GameCenterAlertsContext';
 import '../styles/global.css';
 import { resolveAssetPath } from '../utils/pathUtils';
 import { dispatchMailInboxViewed } from '../utils/mailEvents';
@@ -95,6 +96,21 @@ function MainLayout() {
         if (pathname.startsWith('/shop') || pathname.startsWith('/admin/edit-shop-items')) {
             return 'CỬA HÀNG';
         }
+        if (pathname.startsWith('/inventory')) {
+            return 'TRANG BỊ';
+        }
+        if (pathname.startsWith('/battle/arena/select') || pathname.startsWith('/battle/select')) {
+            return 'CHUẨN BỊ CHIẾN ĐẤU';
+        }
+        if (pathname.startsWith('/battle/match') || pathname.startsWith('/battle/arena/arenabattle')) {
+            return 'CHIẾN ĐẤU';
+        }
+        if (pathname.startsWith('/battle/champion')) {
+            return 'CHAMPION CHALLENGE';
+        }
+        if (pathname.startsWith('/battle')) {
+            return 'ĐẤU TRƯỜNG';
+        }
 
         const titleMap = {
             '/': 'PETARIA',
@@ -102,6 +118,8 @@ function MainLayout() {
             '/home-ver2': 'KINH THÀNH',
             '/inventory': 'TRANG BỊ',
             '/myhome': 'THÚ CƯNG',
+            '/myhome/mypet': 'THÚ CƯNG',
+            '/myhome/myspirit': 'LINH THÚ',
             '/myhome/spirits': 'LINH THÚ',
             '/bank': 'NGÂN HÀNG',
             '/shop': 'CỬA HÀNG',
@@ -111,7 +129,8 @@ function MainLayout() {
             '/healia-river': 'SÔNG HEALIA',
             '/battle': 'ĐẤU TRƯỜNG',
             '/battle/arena': 'ĐẤU TRƯỜNG',
-            '/battle/arena/arenabattle': 'ĐẤU TRƯỜNG',
+            '/battle/match': 'CHIẾN ĐẤU',
+            '/battle/arena/arenabattle': 'CHIẾN ĐẤU',
             '/hunting-world': 'ĐI SĂN',
             '/world-map': 'PETARIA',
             '/quest': 'NHIỆM VỤ',
@@ -122,14 +141,24 @@ function MainLayout() {
             '/buddies': 'BẠN BÈ',
             '/admin': 'ADMIN PANEL',
             '/dev-dashboard': 'DEV DASHBOARD',
-            '/example': 'BẢNG XẾP HẠNG'
+            '/example': 'BẢNG XẾP HẠNG',
+            '/game-center/lucky-wheel': 'LUCKLY WHEEL',
+            '/game-center/lucky-booth': 'LÀNG HẢO VỌNG',
+            '/game-center/mystery-box': 'LÀNG TRÁO TRỞ',
+            '/game-center/scratch-lottery': 'VÉ SỐ CÀO',
+            '/game-center/beggar-king': 'LÀNG PHÚ GIA',
+            '/game-center/slot-machine': 'LÀNG ĐỎ ĐEN',
+            '/game-center/guess-number': 'LÀNG TRẺ CON',
+            '/game-center/daily-free': 'LÀNG NHÂN ÁI'
+            
+
         };
         
         return titleMap[pathname] || 'PETARIA';
     };
 
     return (
-        <>
+        <GameCenterAlertsProvider>
        
         {/* Top Navigation Bar */}
         <TopNavigation className={isScrolledDown ? 'hidden' : ''} onOpenSidebar={() => setSidebarOpen(true)} />
@@ -174,7 +203,7 @@ function MainLayout() {
         <GlobalChatBox />
         <EncounterModalContainer />
         <Footer />
-        </>
+        </GameCenterAlertsProvider>
     );
 }
 

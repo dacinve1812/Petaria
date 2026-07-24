@@ -12,6 +12,7 @@ const {
 
 const { generateIVStats, calculateFinalStats, calculateBossFinalStats, rawBossFinalStats } = require('./utils/petStats');
 const huntingCatch = require('./utils/huntingCatch');
+const expTable = require('../src/data/exp_table_petaria.json');
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
 
@@ -489,6 +490,23 @@ async function ensureExhibitionTables() {
   }
 }
 
+async function ensureUserFormationsTable() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_formations (
+        user_id INT NOT NULL PRIMARY KEY,
+        levels_json JSON NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_user_formations_user
+          FOREIGN KEY (user_id) REFERENCES users(id)
+          ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+  } catch (error) {
+    console.error('Error ensuring user_formations table:', error);
+  }
+}
+
 async function touchUserPresenceByUserId(userId) {
   if (!userId) return;
   await db.query(
@@ -585,6 +603,7 @@ ensureBuddiesTables();
 ensureGuildTables();
 ensureChatTables();
 ensureExhibitionTables();
+ensureUserFormationsTable();
 
 titleService
   .ensureTitleSchema(db)
@@ -4088,6 +4107,149 @@ app.get('/api/game-center/slot-machine/status', async (req, res) => {
 });
 
 /**
+ * GET /api/game-center/playable-alerts
+ * Các game còn lượt / còn chơi được trong kỳ hiện tại (để hiện badge).
+ * mystery-box không có quota — client tự xử lý “đã vào trang trong kỳ”.
+ */
+app.get('/api/game-center/playable-alerts', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Cần đăng nhập' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch {
+      return res.status(401).json({ error: 'Token không hợp lệ' });
+    }
+    const userId = decoded.userId;
+
+    const conn = await db.getConnection();
+    try {
+      try {
+        await conn.beginTransaction();
+        await luckyBoothMaybeAdvancePeriod(conn);
+        await conn.commit();
+      } catch (e) {
+        await conn.rollback();
+        if (!luckyBoothTableMissing(e)) throw e;
+      }
+
+      const resetHm = await luckyWheelFetchGlobalResetHm(conn);
+      const periodKey = luckyWheelDailyPeriodKey(new Date(), resetHm);
+
+      const [gcRows] = await conn.query('SELECT config FROM site_game_center_config WHERE id = 1 LIMIT 1');
+      let storedGc = null;
+      if (gcRows.length && gcRows[0].config != null) {
+        const c = gcRows[0].config;
+        if (typeof c === 'string') {
+          try {
+            storedGc = JSON.parse(c);
+          } catch {
+            storedGc = null;
+          }
+        } else if (typeof c === 'object') storedGc = c;
+      }
+      const gcConfig = mergeGameCenterConfig(storedGc);
+
+      const [userRows] = await conn.query(
+        `SELECT
+           lucky_wheel_period_key, lucky_wheel_spins,
+           scratch_daily_period_key, scratch_daily_buys_3, scratch_daily_buys_5, scratch_pending_json,
+           beggar_king_last_claim_ms,
+           daily_free_last_claim_period_key,
+           guess_number_period_key, guess_number_daily_plays, guess_number_pending_json,
+           slot_machine_period_key, slot_machine_spins
+         FROM users WHERE id = ? LIMIT 1`,
+        [userId],
+      );
+      if (!userRows.length) return res.status(404).json({ error: 'Không tìm thấy người chơi' });
+      const u = userRows[0];
+
+      const alerts = {
+        'lucky-wheel': false,
+        'scratch-lottery': false,
+        'beggar-king': false,
+        'daily-free': false,
+        'lucky-booth': false,
+        'guess-number': false,
+        'slot-machine': false,
+        'mystery-box': true,
+      };
+
+      const maxWheel = Math.max(1, parseInt(gcConfig.luckyWheel?.maxPurchasesPerDay, 10) || 2);
+      let wheelSpins = Number(u.lucky_wheel_spins) || 0;
+      if (String(u.lucky_wheel_period_key || '') !== periodKey) wheelSpins = 0;
+      alerts['lucky-wheel'] = wheelSpins < maxWheel;
+
+      const sl = gcConfig.scratchLottery || {};
+      const max3 = Math.max(0, parseInt(sl.ticket3?.dailyBuyLimit, 10) || 0);
+      const max5 = Math.max(0, parseInt(sl.ticket5?.dailyBuyLimit, 10) || 0);
+      let buys3 = Number(u.scratch_daily_buys_3) || 0;
+      let buys5 = Number(u.scratch_daily_buys_5) || 0;
+      if (String(u.scratch_daily_period_key || '') !== periodKey) {
+        buys3 = 0;
+        buys5 = 0;
+      }
+      const pendScratch = parsePending(u.scratch_pending_json);
+      alerts['scratch-lottery'] =
+        !!pendScratch || (max3 > 0 && buys3 < max3) || (max5 > 0 && buys5 < max5);
+
+      const bk = gcConfig.beggarKing || {};
+      const cooldownMs = Math.max(0, Number(bk.cooldownHours) || 6) * 3600 * 1000;
+      const lastClaimMs =
+        u.beggar_king_last_claim_ms != null ? Number(u.beggar_king_last_claim_ms) : null;
+      alerts['beggar-king'] =
+        lastClaimMs == null || !Number.isFinite(lastClaimMs) || Date.now() >= lastClaimMs + cooldownMs;
+
+      alerts['daily-free'] = String(u.daily_free_last_claim_period_key || '') !== periodKey;
+
+      let activePeriodKey = null;
+      try {
+        const [[st]] = await conn.query(
+          'SELECT active_period_key FROM lucky_booth_state WHERE id = 1 LIMIT 1',
+        );
+        activePeriodKey = st?.active_period_key ?? null;
+        if (activePeriodKey) {
+          const [tr] = await conn.query(
+            `SELECT id FROM lucky_booth_tickets WHERE period_key = ? AND user_id = ? LIMIT 1`,
+            [activePeriodKey, userId],
+          );
+          alerts['lucky-booth'] = tr.length === 0;
+        }
+      } catch (e) {
+        if (!luckyBoothTableMissing(e)) throw e;
+      }
+
+      const gn = await guessNumberLoadConfig(conn);
+      let gnPlays = Number(u.guess_number_daily_plays) || 0;
+      if (String(u.guess_number_period_key || '') !== periodKey) gnPlays = 0;
+      const gnPend = parsePending(u.guess_number_pending_json);
+      const gnHasPending = gnPend != null && Number.isFinite(Number(gnPend.pivot));
+      alerts['guess-number'] =
+        gnHasPending || gnPlays < Math.max(1, Number(gn.maxPlaysPerDay) || 1);
+
+      const sm = gcConfig.slotMachine || {};
+      const smMax = Math.max(1, Math.min(500, parseInt(sm.maxPlaysPerDay, 10) || 10));
+      let smPlays = Number(u.slot_machine_spins) || 0;
+      if (String(u.slot_machine_period_key || '') !== periodKey) smPlays = 0;
+      alerts['slot-machine'] = smPlays < smMax;
+
+      res.json({ periodKey, alerts });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    if (error && error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(503).json({
+        error: 'DB thiếu cột game-center — chạy migrations tương ứng.',
+      });
+    }
+    console.error('GET /api/game-center/playable-alerts', error);
+    res.status(500).json({ error: 'Lỗi tải cảnh báo game center' });
+  }
+});
+
+/**
  * POST /api/game-center/slot-machine/spin
  * Server quyết định kết quả + cộng thưởng.
  */
@@ -4680,6 +4842,9 @@ app.post('/api/hunting/catch', async (req, res) => {
     const petUuid = uuidv4();
     const displayName = petNameRaw || species.name;
     const createdDate = new Date();
+    // Cumulative EXP floor for this level (not 0) — matches admin create & battle level-up logic
+    const currentExp = Number(expTable[level]) || 0;
+    const expToNextLevel = Number(expTable[level + 1]) || currentExp || 100;
 
     const petCap = await getPetCapacity(conn, uid);
     const petFull = petCap.freeSlots < 1;
@@ -4715,8 +4880,8 @@ app.post('/api/hunting/catch', async (req, res) => {
         iv.iv_def,
         iv.iv_intelligence,
         iv.iv_spd,
-        0,
-        100,
+        currentExp,
+        expToNextLevel,
       ]
     );
     const newPetId = insPet?.insertId;
@@ -7465,7 +7630,11 @@ app.get('/users/:userId/pets', (req, res) => {
           p.def,
           p.intelligence,
           p.spd,
-          p.final_stats
+          p.final_stats,
+          p.hunger_status,
+          p.hunger_vitals_at,
+          p.mood,
+          p.mood_vitals_at
         FROM pets p
         JOIN pet_species ps ON p.pet_species_id = ps.id
         WHERE p.owner_id = ?
@@ -7476,24 +7645,34 @@ app.get('/users/:userId/pets', (req, res) => {
           console.error('Error fetching user pets: ', err);
           res.status(500).json({ message: 'Error fetching user pets' });
         } else {
+          // Decay hunger/mood in-memory so list reflects "Tử Vong" without N writes
+          const pets = results.map((pet) => {
+            const dec = petVitals.computeDecayedVitals(pet);
+            return {
+              ...pet,
+              hunger_status: dec.hunger,
+              mood: dec.mood,
+              hunger_status_text: petVitals.getHungerStatusText(dec.hunger),
+            };
+          });
           try {
             const [cntRows] = await pool.promise().query(
               'SELECT COUNT(*) AS c FROM pets WHERE owner_id = ?',
               [userId]
             );
-            const slotCount = Number(cntRows[0]?.c) || results.length;
+            const slotCount = Number(cntRows[0]?.c) || pets.length;
             res.json({
-              pets: results,
+              pets,
               slotCount,
               maxSlots: PET_MAX_SLOTS,
               freeSlots: Math.max(0, PET_MAX_SLOTS - slotCount),
             });
           } catch (e) {
             res.json({
-              pets: results,
-              slotCount: results.length,
+              pets,
+              slotCount: pets.length,
               maxSlots: PET_MAX_SLOTS,
-              freeSlots: Math.max(0, PET_MAX_SLOTS - results.length),
+              freeSlots: Math.max(0, PET_MAX_SLOTS - pets.length),
             });
           }
         }
@@ -8495,8 +8674,6 @@ app.put('/api/users/:userId/role', (req, res) => {
 
 // API: Admin tạo pet thủ công
 // API: Admin tạo pet thủ công (không cần owner_id và không cần type)
-const expTable = require('../src/data/exp_table_petaria.json');
-
 app.post('/api/admin/pets', async (req, res) => {
   let {
     name, pet_species_id, level = 1,
@@ -11939,6 +12116,113 @@ async function finalizeMatchInMySQL(matchState, winner) {
   }
 }
 
+const formationSystem = require('../src/data/formationSystem');
+
+// GET /api/formations/me — levels đội hình của user
+app.get('/api/formations/me', async (req, res) => {
+  const userId = getUserIdFromToken(req);
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+  try {
+    const [rows] = await db.query(
+      'SELECT levels_json FROM user_formations WHERE user_id = ? LIMIT 1',
+      [userId]
+    );
+    let raw = rows[0]?.levels_json;
+    if (typeof raw === 'string') {
+      try {
+        raw = JSON.parse(raw);
+      } catch {
+        raw = null;
+      }
+    }
+    const levels = formationSystem.normalizeLevelsMap(raw);
+    return res.json({ levels, maxLevel: formationSystem.FORMATION_MAX_LEVEL });
+  } catch (err) {
+    console.error('GET /api/formations/me', err);
+    return res.status(500).json({ message: 'Không tải được đội hình.' });
+  }
+});
+
+// POST /api/formations/enhance — nâng cấp formation bằng Peta
+app.post('/api/formations/enhance', async (req, res) => {
+  const userId = getUserIdFromToken(req);
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+  const formationId = formationSystem.normalizeFormationId(req.body?.formationId);
+  const targetLevel = formationSystem.clampLevel(req.body?.targetLevel);
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [levelRows] = await conn.query(
+      'SELECT levels_json FROM user_formations WHERE user_id = ? FOR UPDATE',
+      [userId]
+    );
+    let raw = levelRows[0]?.levels_json;
+    if (typeof raw === 'string') {
+      try {
+        raw = JSON.parse(raw);
+      } catch {
+        raw = null;
+      }
+    }
+    const levels = formationSystem.normalizeLevelsMap(raw);
+    const current = levels[formationId] || formationSystem.FORMATION_MIN_LEVEL;
+    if (targetLevel <= current) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'Cấp đích phải cao hơn cấp hiện tại.', levels });
+    }
+    if (current >= formationSystem.FORMATION_MAX_LEVEL) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'Đội hình đã đạt cấp tối đa.', levels });
+    }
+
+    const cost = formationSystem.costEnhanceRange(current, targetLevel);
+    const [userRows] = await conn.query('SELECT peta FROM users WHERE id = ? FOR UPDATE', [userId]);
+    if (!userRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ message: 'User not found' });
+    }
+    const petaBal = Number(userRows[0].peta) || 0;
+    if (petaBal < cost) {
+      await conn.rollback();
+      return res.status(402).json({
+        message: 'Không đủ Peta',
+        cost,
+        petaRemaining: petaBal,
+        levels,
+      });
+    }
+
+    levels[formationId] = targetLevel;
+    await conn.query('UPDATE users SET peta = peta - ? WHERE id = ?', [cost, userId]);
+    await conn.query(
+      `INSERT INTO user_formations (user_id, levels_json)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE levels_json = VALUES(levels_json)`,
+      [userId, JSON.stringify(levels)]
+    );
+    await conn.commit();
+    const [[after]] = await db.query('SELECT peta FROM users WHERE id = ? LIMIT 1', [userId]);
+    return res.json({
+      levels,
+      formationId,
+      level: targetLevel,
+      cost,
+      petaRemaining: Number(after?.peta) || 0,
+    });
+  } catch (err) {
+    try {
+      await conn.rollback();
+    } catch {
+      /* ignore */
+    }
+    console.error('POST /api/formations/enhance', err);
+    return res.status(500).json({ message: 'Không nâng cấp được đội hình.' });
+  } finally {
+    conn.release();
+  }
+});
+
 // POST /api/arena/match/start — Check HP, check active match, init Redis
 app.post('/api/arena/match/start', async (req, res) => {
   const userId = getUserIdFromToken(req);
@@ -12105,7 +12389,7 @@ app.post('/api/arena/match/start', async (req, res) => {
   }
 });
 
-// GET /api/arena/match/status — Reconnect: trả về trận đấu đang dang dở
+// GET /api/arena/match/status — Reconnect: trả về trận đấu đang dang dở (200 + active:false nếu không có)
 app.get('/api/arena/match/status', async (req, res) => {
   const userId = getUserIdFromToken(req);
   if (!userId) return res.status(401).json({ message: 'Unauthorized' });
@@ -12115,8 +12399,9 @@ app.get('/api/arena/match/status', async (req, res) => {
   try {
     const key = REDIS_MATCH_PREFIX + userId;
     const data = await redis.get(key);
-    if (!data) return res.status(404).json({ message: 'No active match' });
-    res.json(JSON.parse(data));
+    if (!data) return res.json({ active: false });
+    const match = JSON.parse(data);
+    res.json({ active: true, ...match });
   } catch (err) {
     console.error('Error arena match status:', err);
     res.status(500).json({ message: 'Lỗi kiểm tra trận đấu' });

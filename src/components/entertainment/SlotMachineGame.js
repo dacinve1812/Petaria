@@ -6,6 +6,7 @@ import { useGameCenterConfig } from './GameCenterConfigContext';
 import { useFeatureBackNav } from './useFeatureBackNav';
 import { useUser } from '../../UserContext';
 import { dispatchCurrencyUpdate } from '../../utils/currencyEvents';
+import { dispatchGameCenterAlertsRefresh } from '../../utils/gameCenterAlertEvents';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 const ICON_PETA = '/images/icons/peta.png';
@@ -274,6 +275,7 @@ function SlotMachineGame() {
         updateUserData({ peta: Number(data.petaRemaining) });
       }
       dispatchCurrencyUpdate();
+      dispatchGameCenterAlertsRefresh();
       await fetchStatus();
     } catch (e) {
       setSpinErr(e.message || 'Lỗi mạng');

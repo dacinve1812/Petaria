@@ -5,6 +5,7 @@ import FeatureNpcIntro, { buildFeatureNpcProps } from './FeatureNpcIntro';
 import { useGameCenterConfig } from './GameCenterConfigContext';
 import { useFeatureBackNav } from './useFeatureBackNav';
 import { useUser } from '../../UserContext';
+import { dispatchGameCenterAlertsRefresh } from '../../utils/gameCenterAlertEvents';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -120,6 +121,7 @@ function DailyFreeItemsGame() {
         rewards: Array.isArray(data.rewards) ? data.rewards : [],
       });
       await fetchStatus();
+      dispatchGameCenterAlertsRefresh();
     } catch (e) {
       setClaimErr(e.message || 'Lỗi');
     } finally {

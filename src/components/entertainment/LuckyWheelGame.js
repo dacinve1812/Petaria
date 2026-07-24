@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import GameDialogModal from '../ui/GameDialogModal';
 import { dispatchCurrencyUpdate } from '../../utils/currencyEvents';
+import { dispatchGameCenterAlertsRefresh } from '../../utils/gameCenterAlertEvents';
 import { useGameCenterConfig } from './GameCenterConfigContext';
 import FeatureNpcIntro, { buildFeatureNpcProps } from './FeatureNpcIntro';
 import { useFeatureBackNav } from './useFeatureBackNav';
@@ -206,6 +207,7 @@ function LuckyWheelGame() {
         setLastWin(data.lastWin || null);
         setResultModalOpen(true);
         dispatchCurrencyUpdate();
+        dispatchGameCenterAlertsRefresh();
         reload?.();
       }, SPIN_DURATION_MS);
     } catch {

@@ -1,11 +1,12 @@
 // Pet profile: equipped item detail dùng ItemDetailModal; gỡ đồ trong modal (Remove).
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import TemplatePage from './template/TemplatePage';
 import BackButton from './BackButton';
 import ItemDetailModal from './items/ItemDetailModal';
 import SpiritDetailModal from './spirit/SpiritDetailModal';
 import GameModalButton from './ui/GameModalButton';
+import GameDialogModal from './ui/GameDialogModal';
 import expTable from '../data/exp_table_petaria.json';
 
 /** Chuẩn hóa dòng từ GET /api/pets/:id/equipment → shape dùng chung với ItemDetailModal (inventory). */
@@ -30,19 +31,100 @@ function mapEquippedRowToModalItem(row) {
 
 /** API GET /api/pets/:id/hunger-status — cùng kiểu dòng với pet-detail-hp, mp, … */
 const PetVitalsDisplay = ({ vitals }) => {
+  const [helpKind, setHelpKind] = useState(null); // 'hunger' | 'mood' | null
+
   if (!vitals) return null;
   const hColor = vitals.hunger_color || '#333';
   const mColor = vitals.mood_color || '#333';
+  const hungerText = vitals.hunger_status_text || 'Không xác định';
+  const moodText = vitals.mood_text || 'Không xác định';
+
+  const closeHelp = () => setHelpKind(null);
+
   return (
     <>
       <p className="pet-detail-tinh-trang">
         Tình trạng:{' '}
-        <span style={{ color: hColor, fontWeight: 600 }}>{vitals.hunger_status_text}</span>
+        <span
+          role="button"
+          tabIndex={0}
+          className="pet-vitals-status-btn"
+          style={{ color: hColor }}
+          onClick={() => setHelpKind('hunger')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setHelpKind('hunger');
+            }
+          }}
+        >
+          {hungerText}
+        </span>
       </p>
       <p className="pet-detail-tam-trang">
         Tâm trạng:{' '}
-        <span style={{ color: mColor, fontWeight: 600 }}>{vitals.mood_text}</span>
+        <span
+          role="button"
+          tabIndex={0}
+          className="pet-vitals-status-btn"
+          style={{ color: mColor }}
+          onClick={() => setHelpKind('mood')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setHelpKind('mood');
+            }
+          }}
+        >
+          {moodText}
+        </span>
       </p>
+
+      <GameDialogModal
+        isOpen={helpKind === 'hunger'}
+        onClose={closeHelp}
+        title="Tình trạng thú cưng"
+        mode="alert"
+        confirmLabel="Đóng"
+        tone="info"
+        onConfirm={closeHelp}
+        className="pet-vitals-help-modal"
+      >
+        <p className="pet-vitals-help__advice">
+          Thú cưng của bạn hiện đang{' '}
+          <strong style={{ color: hColor }}>{hungerText}</strong>.
+          Hãy sớm hồi phục sức sống — ghé{' '}
+          <Link to="/restaurant" className="pet-vitals-help__link" onClick={closeHelp}>
+            Nhà hàng
+          </Link>
+          {' '}hoặc{' '}
+          <Link to="/inventory/food" className="pet-vitals-help__link" onClick={closeHelp}>
+            cho thú cưng ăn
+          </Link>
+          .
+        </p>
+      </GameDialogModal>
+
+      <GameDialogModal
+        isOpen={helpKind === 'mood'}
+        onClose={closeHelp}
+        title="Tâm trạng thú cưng"
+        mode="alert"
+        confirmLabel="Đóng"
+        tone="info"
+        onConfirm={closeHelp}
+        className="pet-vitals-help-modal"
+      >
+        <p className="pet-vitals-help__advice">
+          Thú cưng của bạn hiện đang{' '}
+          <strong style={{ color: mColor }}>{moodText}</strong>.
+          Hãy{' '}
+          <Link to="/inventory/booster" className="pet-vitals-help__link" onClick={closeHelp}>
+            chơi với thú cưng
+          </Link>
+          {' '}bằng vật phẩm đồ chơi (Toy) để giúp chúng vui vẻ trở lại.
+        </p>
+      </GameDialogModal>
     </>
   );
 };
@@ -163,7 +245,7 @@ function PetProfile() {
   // };
 
   const handleBack = () => {
-    navigate('/myhome');
+    navigate('/myhome/mypet');
   };
 
 
@@ -246,7 +328,7 @@ function PetProfile() {
 
   // Tab configuration for TemplatePage
   const tabs = [
-    { label: '← Thú cưng', value: 'pet-profile', path: `/myhome` }
+    { label: '← Thú cưng', value: 'pet-profile', path: `/myhome/mypet` }
   ];
 
   // Additional controls for the header

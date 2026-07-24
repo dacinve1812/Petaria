@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRegionMapsConfig } from '../hooks/useRegionMapsConfig';
+import { AlertExclamationBadge } from './ui/AlertExclamationBadge';
+import { useGameCenterAlerts } from './entertainment/GameCenterAlertsContext';
 import './RegionMapPage.css';
 
 function buildButtons(mapConfig) {
@@ -26,6 +28,7 @@ function buildButtons(mapConfig) {
 function RegionMapPage() {
   const { regionId } = useParams();
   const navigate = useNavigate();
+  const { hasAnyAlert } = useGameCenterAlerts();
   const scrollRef = useRef(null);
   const imageRef = useRef(null);
   const { regions, loading: mapsLoading } = useRegionMapsConfig();
@@ -203,26 +206,44 @@ function RegionMapPage() {
             </div>
 
             <div className="regionmap-buttons-layer">
-              {mapButtons.map((btn, idx) => (
-                <button
+              {mapButtons.map((btn, idx) => {
+                const pathNorm = String(btn.path || '').replace(/\/$/, '');
+                const isGameCenter =
+                  pathNorm === '/game-center' ||
+                  String(btn.label || '').trim() === 'Giải Trí';
+                const showAlert = isGameCenter && hasAnyAlert;
+                return (
+                <span
                   key={`${btn.id || idx}-btn`}
-                  type="button"
-                  className="regionmap-button"
+                  className={`regionmap-button-wrap${showAlert ? ' regionmap-button-wrap--alert' : ''}`}
                   style={{
                     left: `${(Number(btn.x) / naturalWidth) * 100}%`,
                     top: `${(Number(btn.y) / naturalHeight) * 100}%`,
                   }}
-                  onClick={() =>
-                    handleNavigate(btn.path, {
-                      spotId: btn.id,
-                      spotName: btn.label || btn.name,
-                      huntingMapId: btn.huntingMapId,
-                    })
-                  }
                 >
-                  {btn.label || `Go ${idx + 1}`}
-                </button>
-              ))}
+                  <button
+                    type="button"
+                    className="regionmap-button"
+                    onClick={() =>
+                      handleNavigate(btn.path, {
+                        spotId: btn.id,
+                        spotName: btn.label || btn.name,
+                        huntingMapId: btn.huntingMapId,
+                      })
+                    }
+                  >
+                    {btn.label || `Go ${idx + 1}`}
+                  </button>
+                  {showAlert && (
+                    <AlertExclamationBadge
+                      size={16}
+                      title="Game Center còn lượt chơi"
+                      ariaLabel="Game Center còn lượt chơi"
+                    />
+                  )}
+                </span>
+                );
+              })}
             </div>
           </div>
         </div>

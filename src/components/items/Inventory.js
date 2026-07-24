@@ -1,12 +1,20 @@
 // Updated Inventory.js to show equipped items with toggle and note
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ItemCard from './ItemCard';
 import ItemDetailModal from './ItemDetailModal';
 import GlobalBanner from '../GlobalBanner';
 import TemplatePage from '../template/TemplatePage';
 import { resolveAssetPath } from '../../utils/pathUtils';
 import { normalizeInventoryResponse } from '../../utils/inventoryApi';
+
+const INVENTORY_FILTERS = ['all', 'food', 'consumable', 'equipment', 'booster', 'misc'];
+
+function filterFromPath(pathname) {
+  const segment = pathname.replace(/^\/inventory\/?/, '').split('/')[0];
+  if (segment && INVENTORY_FILTERS.includes(segment)) return segment;
+  return 'all';
+}
 
 function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -17,14 +25,20 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const [inventoryItems, setInventoryItems] = useState([]);
   const [slotCount, setSlotCount] = useState(0);
   const [maxSlots, setMaxSlots] = useState(100);
-  const [filterType, setFilterType] = useState('all');
   const [sortOption, setSortOption] = useState('name');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showEquipped, setShowEquipped] = useState(false);
   const pageSize = 24;
   const navigate = useNavigate();
+  const location = useLocation();
   const isAdmin = localStorage.getItem('isAdmin') === 'true';
+
+  const filterType = filterFromPath(location.pathname);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterType]);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -82,8 +96,6 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   // Force re-render when filter changes to trigger animation
   const animationKey = `${filterType}-${searchTerm}-${sortOption}-${showEquipped}-${currentPage}`;
 
-  const filterOptions = ['all', 'food', 'consumable', 'equipment', 'booster', 'misc'];
-
   const filteredItems = inventoryItems
     .filter((item) => {
       if (filterType === 'all') return true;
@@ -129,11 +141,11 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
 
   if (error) return <div>Error: {error}</div>;
 
-  // Define tabs for TemplatePage - using filter buttons as tabs
-  const tabs = filterOptions.map(type => ({
+  // Define tabs for TemplatePage — URL-driven filters
+  const tabs = INVENTORY_FILTERS.map((type) => ({
     label: type.charAt(0).toUpperCase() + type.slice(1),
     value: type,
-    onClick: () => { setFilterType(type); setCurrentPage(1); }
+    path: type === 'all' ? '/inventory' : `/inventory/${type}`,
   }));
 
   return (
@@ -144,7 +156,7 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
         showSearch={true}
         searchPlaceholder="Tìm kiếm vật phẩm..."
         onSearch={setSearchTerm}
-        currentTab={filterOptions.indexOf(filterType)}
+        currentTab={INVENTORY_FILTERS.indexOf(filterType)}
       >
               {/* Controls section - moved outside of inventory-main */}
               <div className="inventory-controls">

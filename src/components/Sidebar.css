@@ -74,6 +74,24 @@
   overflow: hidden;
 }
 
+.sidebar-nav-link--badge {
+  overflow: visible !important;
+}
+
+.sidebar-nav-link__badge-wrap {
+  position: relative;
+  display: inline-flex;
+  line-height: 0;
+}
+
+.sidebar-nav-link__badge-wrap > .alert-exclamation-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .sidebar nav ul li a:hover {
   transform: translateY(-2px);
 }

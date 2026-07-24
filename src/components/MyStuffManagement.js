@@ -17,13 +17,13 @@ function MyStuffManagement() {
       id: 'pets',
       name: 'My Pets',
       backgroundImage: '/images/buttons/my_pet.png',
-      path: '/myhome',
+      path: '/myhome/mypet',
     },
     {
       id: 'spirits',
       name: 'My Spirits',
       backgroundImage: '/images/buttons/my_spirit.png',
-      path: '/myhome/spirits',
+      path: '/myhome/myspirit',
     },
     {
       id: 'inventory',

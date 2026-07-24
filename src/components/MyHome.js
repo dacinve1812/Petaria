@@ -69,8 +69,8 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
   // Get current active tab from URL path
   const getCurrentTab = () => {
     const currentPath = location.pathname;
-    if (currentPath === '/myhome/spirits') return 1;
-    return 0; // Default to pets tab
+    if (currentPath === '/myhome/myspirit' || currentPath === '/myhome/spirits') return 1;
+    return 0; // Default to pets tab (/myhome/mypet)
   };
 
   const currentTab = getCurrentTab();
@@ -224,8 +224,8 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
 
   // Tab configuration
   const tabs = [
-    { label: 'Thú cưng', value: 'pet', path: '/myhome' },
-    { label: 'Linh thú', value: 'spirits', path: '/myhome/spirits' }
+    { label: 'Thú cưng', value: 'pet', path: '/myhome/mypet' },
+    { label: 'Linh thú', value: 'spirits', path: '/myhome/myspirit' }
   ];
 
   // Search handlers for each tab
@@ -375,46 +375,51 @@ function PetManagement({ userPets, slotCount = 0, maxSlots = 1000, isLoading, im
         </div>
         ) : paginatedPets.length > 0 ? (
           <div className="pets-grid" key={`pet-${currentPage}-${searchTerm}-${sortOption}`}>
-            {paginatedPets.map((pet, index) => (
-              <div
-                key={`${pet.uuid}-${index}`}
-                className="pet-card"
-                style={{ animationDelay: `${index * 0.02}s` }}
-              >
-                <Link to={`/pet/${pet.uuid}`} style={{ textDecoration: 'none' }}>
-                  <div className="pet-image-container">
-                    <img 
-                      src={imageLoadErrors[pet.uuid] ? '/images/pets/placeholder.png' : `/images/pets/${pet.image}`}
-                      alt={pet.name || pet.species_name}
-                      className="myhome-pet-image"
-                      loading="lazy"
-                      onError={(e) => {
-                        setImageLoadErrors(prev => ({
-                          ...prev,
-                          [pet.uuid]: true
-                        }));
-                        e.target.src = '/images/pets/placeholder.png';
-                        e.target.onerror = null;
-                      }}
-                    />
-                    {pet.is_deployed && (
-                      <div className="deployed-badge">
-                        <span>Trong đội</span>
+            {paginatedPets.map((pet, index) => {
+              const isDeceased =
+                pet.hunger_status === 0 ||
+                pet.hunger_status_text === 'Tử Vong';
+              return (
+                <div
+                  key={`${pet.uuid}-${index}`}
+                  className={`pet-card${isDeceased ? ' pet-card--deceased' : ''}`}
+                  style={{ animationDelay: `${index * 0.02}s` }}
+                >
+                  <Link to={`/pet/${pet.uuid}`} style={{ textDecoration: 'none' }}>
+                    <div className="pet-image-container">
+                      <img 
+                        src={imageLoadErrors[pet.uuid] ? '/images/pets/placeholder.png' : `/images/pets/${pet.image}`}
+                        alt={pet.name || pet.species_name}
+                        className="myhome-pet-image"
+                        loading="lazy"
+                        onError={(e) => {
+                          setImageLoadErrors(prev => ({
+                            ...prev,
+                            [pet.uuid]: true
+                          }));
+                          e.target.src = '/images/pets/placeholder.png';
+                          e.target.onerror = null;
+                        }}
+                      />
+                      {pet.is_deployed && (
+                        <div className="deployed-badge">
+                          <span>Trong đội</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="pet-info">
+                      <div className="pet-name">
+                        {pet.name || pet.species_name}
                       </div>
-                    )}
-                  </div>
-                  
-                  <div className="pet-info">
-                    <div className="pet-name">
-                      {pet.name || pet.species_name}
+                      <div className="pet-level">
+                        Cấp độ {pet.level}
+                      </div>
                     </div>
-                    <div className="pet-level">
-                      Cấp độ {pet.level}
-                    </div>
-                  </div>
-                </Link>
-              </div>
-            ))}
+                  </Link>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="empty-message">

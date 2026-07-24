@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import GameDialogModal from '../ui/GameDialogModal';
 import FeatureNpcIntro, { buildFeatureNpcProps } from './FeatureNpcIntro';
 import { useGameCenterConfig } from './GameCenterConfigContext';
+import { useGameCenterAlerts } from './GameCenterAlertsContext';
 import { useFeatureBackNav } from './useFeatureBackNav';
 import { useUser } from '../../UserContext';
+import { markMysteryBoxSeenThisPeriod } from '../../utils/gameCenterAlertEvents';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -35,8 +37,15 @@ const RARITY_LABEL = {
 function MysteryBoxGame() {
   const { user } = useUser();
   const { config, loading } = useGameCenterConfig();
+  const { periodKey } = useGameCenterAlerts();
   const backNav = useFeatureBackNav();
   const narrative = config?.mysteryBox?.narrative || {};
+
+  useEffect(() => {
+    const uid = user?.userId;
+    if (uid == null || periodKey == null) return;
+    markMysteryBoxSeenThisPeriod(uid, periodKey);
+  }, [user?.userId, periodKey]);
 
   const [srv, setSrv] = useState(null);
   const [statusErr, setStatusErr] = useState('');
