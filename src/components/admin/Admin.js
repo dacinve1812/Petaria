@@ -79,6 +79,8 @@ function Admin() {
             <li><Link to="/admin/auction-logs">Hệ thống đấu giá — Log</Link></li>
             <li><Link to="/admin/bank-management">Hệ thống Bank</Link></li>
             <li><Link to="/admin/titles">Hệ thống Title</Link></li>
+            <li><Link to="/admin/skills">Hệ thống Skill</Link></li>
+            <li><Link to="/admin/battle-fx">Battle FX / Skill Animations</Link></li>
             <li>
               <button
                 type="button"

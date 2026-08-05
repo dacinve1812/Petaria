@@ -10,7 +10,6 @@ import './BattlePetSelectPage.css';
 
 const {
   FORMATIONS,
-  FORMATION_ORDER,
   FORMATION_MAX_LEVEL,
   FORMATION_MIN_LEVEL,
   normalizeFormationId,
@@ -22,11 +21,13 @@ const {
   formatPct,
   normalizeLevelsMap,
   defaultFormationLevels,
+  formationsForMode,
+  defaultFormationForMode,
 } = formationSystem;
 
 const MODE_SLOT_COUNT = {
   '1v1': 1,
-  '3v3': 5, // vẫn 5 ô layout; giới hạn deploy riêng
+  '3v3': 3,
   '5v5': 5,
 };
 
@@ -337,7 +338,8 @@ function BattlePetSelectPage() {
       ? prep.enemy.formation
       : [];
   const enemyFormationId = normalizeFormationId(
-    prep.enemyFormationId || prep.enemy?.formationId || '3-2'
+    prep.enemyFormationId || prep.enemy?.formationId || defaultFormationForMode(battleMode),
+    battleMode
   );
 
   const [enemy, setEnemy] = useState(prep.enemy || null);
@@ -353,11 +355,17 @@ function BattlePetSelectPage() {
   const [fleeConfirmOpen, setFleeConfirmOpen] = useState(false);
   const [dupHint, setDupHint] = useState('');
   const [formationId, setFormationId] = useState(() =>
-    normalizeFormationId(prep.formationId || '3-2')
+    normalizeFormationId(
+      prep.formationId || defaultFormationForMode(normalizeMode(prep.battleMode)),
+      normalizeMode(prep.battleMode)
+    )
   );
   const [formationModalOpen, setFormationModalOpen] = useState(false);
   const [formationDraft, setFormationDraft] = useState(() =>
-    normalizeFormationId(prep.formationId || '3-2')
+    normalizeFormationId(
+      prep.formationId || defaultFormationForMode(normalizeMode(prep.battleMode)),
+      normalizeMode(prep.battleMode)
+    )
   );
   const [formationView, setFormationView] = useState('list'); // 'list' | 'enhance'
   const [enhanceFormationId, setEnhanceFormationId] = useState('3-2');
@@ -940,7 +948,7 @@ function BattlePetSelectPage() {
       setFormationView('list');
       return;
     }
-    setFormationId(normalizeFormationId(formationDraft));
+    setFormationId(normalizeFormationId(formationDraft, battleMode));
     closeFormationModal();
   };
 
@@ -1749,7 +1757,7 @@ function BattlePetSelectPage() {
         {formationView === 'list' ? (
           <>
             <div className="bps-formation-grid">
-              {FORMATION_ORDER.map((id) => {
+              {formationsForMode(battleMode).map((id) => {
                 const f = FORMATIONS[id];
                 const selected = formationDraft === id;
                 const lv = formationLevels[id] || FORMATION_MIN_LEVEL;

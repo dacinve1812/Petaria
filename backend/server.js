@@ -280,6 +280,25 @@ ensurePetBattleStatsColumns().catch((err) => {
   console.error('ensurePetBattleStatsColumns:', err);
 });
 
+async function ensureSkillsAnimationIdColumn() {
+  try {
+    await db.query(
+      'ALTER TABLE skills ADD COLUMN animation_id INT NOT NULL DEFAULT 1'
+    );
+    console.log('[db] skills.animation_id column added');
+  } catch (err) {
+    const code = err && err.code;
+    const msg = String((err && err.message) || '');
+    if (code !== 'ER_DUP_FIELDNAME' && !msg.includes('Duplicate column')) {
+      console.error('ensureSkillsAnimationIdColumn:', err);
+    }
+  }
+}
+
+ensureSkillsAnimationIdColumn().catch((err) => {
+  console.error('ensureSkillsAnimationIdColumn:', err);
+});
+
 petVitals.ensurePetVitalsSchema(db).catch((err) => {
   console.error('ensurePetVitalsSchema:', err);
 });
@@ -11238,17 +11257,20 @@ app.get('/api/admin/skills', checkAdminRoleNpc, async (req, res) => {
   }
 });
 
-// Skills - create (type, power_min, power_max, accuracy cho Boss skill)
+// Skills - create (type, power_min, power_max, accuracy, animation_id cho Boss skill)
 app.post('/api/admin/skills', checkAdminRoleNpc, async (req, res) => {
   try {
-    const { name, description, power_multiplier, effect_type, mana_cost, type, power_min, power_max, accuracy } = req.body;
+    const { name, description, power_multiplier, effect_type, mana_cost, type, power_min, power_max, accuracy, animation_id } = req.body;
     const skillType = (type === 'defend' ? 'defend' : 'attack');
     const pMin = power_min != null ? parseInt(power_min, 10) : 80;
     const pMax = power_max != null ? parseInt(power_max, 10) : 100;
     const acc = accuracy != null ? Math.min(100, Math.max(0, parseInt(accuracy, 10))) : 100;
+    const animId = animation_id != null && String(animation_id).trim() !== ''
+      ? Math.max(1, parseInt(animation_id, 10) || 1)
+      : 1;
     await db.query(
-      'INSERT INTO skills (name, description, power_multiplier, effect_type, mana_cost, type, power_min, power_max, accuracy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [name || '', description || null, power_multiplier != null ? Number(power_multiplier) : 1, effect_type || null, mana_cost != null ? parseInt(mana_cost, 10) : 0, skillType, pMin, pMax, acc]
+      'INSERT INTO skills (name, description, power_multiplier, effect_type, mana_cost, type, power_min, power_max, accuracy, animation_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name || '', description || null, power_multiplier != null ? Number(power_multiplier) : 1, effect_type || null, mana_cost != null ? parseInt(mana_cost, 10) : 0, skillType, pMin, pMax, acc, animId]
     );
     const [inserted] = await db.query('SELECT * FROM skills ORDER BY id DESC LIMIT 1');
     res.status(201).json(inserted[0]);
@@ -11262,14 +11284,17 @@ app.post('/api/admin/skills', checkAdminRoleNpc, async (req, res) => {
 app.put('/api/admin/skills/:id', checkAdminRoleNpc, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const { name, description, power_multiplier, effect_type, mana_cost, type, power_min, power_max, accuracy } = req.body;
+    const { name, description, power_multiplier, effect_type, mana_cost, type, power_min, power_max, accuracy, animation_id } = req.body;
     const skillType = (type === 'defend' ? 'defend' : 'attack');
     const pMin = power_min != null ? parseInt(power_min, 10) : 80;
     const pMax = power_max != null ? parseInt(power_max, 10) : 100;
     const acc = accuracy != null ? Math.min(100, Math.max(0, parseInt(accuracy, 10))) : 100;
+    const animId = animation_id != null && String(animation_id).trim() !== ''
+      ? Math.max(1, parseInt(animation_id, 10) || 1)
+      : 1;
     await db.query(
-      'UPDATE skills SET name=?, description=?, power_multiplier=?, effect_type=?, mana_cost=?, type=?, power_min=?, power_max=?, accuracy=? WHERE id=?',
-      [name ?? '', description ?? null, power_multiplier != null ? Number(power_multiplier) : 1, effect_type ?? null, mana_cost != null ? parseInt(mana_cost, 10) : 0, skillType, pMin, pMax, acc, id]
+      'UPDATE skills SET name=?, description=?, power_multiplier=?, effect_type=?, mana_cost=?, type=?, power_min=?, power_max=?, accuracy=?, animation_id=? WHERE id=?',
+      [name ?? '', description ?? null, power_multiplier != null ? Number(power_multiplier) : 1, effect_type ?? null, mana_cost != null ? parseInt(mana_cost, 10) : 0, skillType, pMin, pMax, acc, animId, id]
     );
     const [rows] = await db.query('SELECT * FROM skills WHERE id=?', [id]);
     res.json(rows[0] || {});
@@ -11295,7 +11320,7 @@ app.delete('/api/admin/skills/:id', checkAdminRoleNpc, async (req, res) => {
 app.get('/api/admin/skills/csv', checkAdminRoleNpc, async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM skills ORDER BY id');
-    const headers = ['id', 'name', 'description', 'type', 'power_min', 'power_max', 'accuracy', 'power_multiplier', 'effect_type', 'mana_cost', 'created_at'];
+    const headers = ['id', 'name', 'description', 'type', 'power_min', 'power_max', 'accuracy', 'power_multiplier', 'effect_type', 'mana_cost', 'animation_id', 'created_at'];
     const csv = [headers.join(','), ...rows.map(r => headers.map(h => escapeCSV(r[h])).join(','))].join('\n');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=skills.csv');
@@ -11330,14 +11355,17 @@ app.post('/api/admin/skills/csv', checkAdminRoleNpc, uploadMemory.single('file')
       const pMin = o.power_min != null && o.power_min !== '' ? parseInt(o.power_min, 10) : 80;
       const pMax = o.power_max != null && o.power_max !== '' ? parseInt(o.power_max, 10) : 100;
       const acc = o.accuracy != null && o.accuracy !== '' ? Math.min(100, Math.max(0, parseInt(o.accuracy, 10))) : 100;
+      const animId = o.animation_id != null && String(o.animation_id).trim() !== ''
+        ? Math.max(1, parseInt(o.animation_id, 10) || 1)
+        : 1;
       if (doUpdate) {
-        await db.query('UPDATE skills SET name=?, description=?, power_multiplier=?, effect_type=?, mana_cost=?, type=?, power_min=?, power_max=?, accuracy=? WHERE id=?', [
-          o.name ?? '', o.description ?? null, o.power_multiplier != null ? Number(o.power_multiplier) : 1, o.effect_type ?? null, o.mana_cost != null ? parseInt(o.mana_cost, 10) : 0, skillType, pMin, pMax, acc, id
+        await db.query('UPDATE skills SET name=?, description=?, power_multiplier=?, effect_type=?, mana_cost=?, type=?, power_min=?, power_max=?, accuracy=?, animation_id=? WHERE id=?', [
+          o.name ?? '', o.description ?? null, o.power_multiplier != null ? Number(o.power_multiplier) : 1, o.effect_type ?? null, o.mana_cost != null ? parseInt(o.mana_cost, 10) : 0, skillType, pMin, pMax, acc, animId, id
         ]);
         updated++;
       } else {
-        await db.query('INSERT INTO skills (name, description, power_multiplier, effect_type, mana_cost, type, power_min, power_max, accuracy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [
-          o.name ?? '', o.description ?? null, o.power_multiplier != null ? Number(o.power_multiplier) : 1, o.effect_type ?? null, o.mana_cost != null ? parseInt(o.mana_cost, 10) : 0, skillType, pMin, pMax, acc
+        await db.query('INSERT INTO skills (name, description, power_multiplier, effect_type, mana_cost, type, power_min, power_max, accuracy, animation_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+          o.name ?? '', o.description ?? null, o.power_multiplier != null ? Number(o.power_multiplier) : 1, o.effect_type ?? null, o.mana_cost != null ? parseInt(o.mana_cost, 10) : 0, skillType, pMin, pMax, acc, animId
         ]);
         inserted++;
       }

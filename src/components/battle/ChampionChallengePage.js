@@ -53,6 +53,8 @@ function ChampionChallengePage() {
             current_hp: 1,
           },
           enemyFormation: formation,
+          enemyFormationId: battleMode === '3v3' ? '2-1' : '3-2',
+          formationId: battleMode === '3v3' ? '2-1' : '3-2',
           battleMode,
           battleSource: 'champion',
           returnPath: '/battle/champion',

@@ -29,6 +29,7 @@ const FORMATIONS = {
     title: '3 Back / 2 Front',
     back: 3,
     front: 2,
+    modes: ['5v5'],
     backBonus: { stat: 'attack', maxEach: 14, minEach: BASIC_ATK_L1 },
     frontBonus: { stat: 'defense', maxEach: 21, minEach: BASIC_DEF_L1 },
   },
@@ -40,6 +41,7 @@ const FORMATIONS = {
     title: '2 Back / 3 Front',
     back: 2,
     front: 3,
+    modes: ['5v5'],
     backBonus: { stat: 'attack', maxEach: 21, minEach: scaleAtkMin(21) },
     frontBonus: { stat: 'defense', maxEach: 14, minEach: scaleDefMin(14) },
   },
@@ -51,6 +53,7 @@ const FORMATIONS = {
     title: '4 Back / 1 Front',
     back: 4,
     front: 1,
+    modes: ['5v5'],
     backBonus: { stat: 'attack', maxEach: 10.5, minEach: scaleAtkMin(10.5) },
     frontBonus: { stat: 'defense', maxEach: 42, minEach: scaleDefMin(42) },
   },
@@ -62,23 +65,70 @@ const FORMATIONS = {
     title: '1 Back / 4 Front',
     back: 1,
     front: 4,
+    modes: ['5v5'],
     backBonus: { stat: 'attack', maxEach: 42, minEach: scaleAtkMin(42) },
     frontBonus: { stat: 'defense', maxEach: 10.5, minEach: scaleDefMin(10.5) },
+  },
+  // 3v3 — chỉ 3 ô
+  '2-1': {
+    id: '2-1',
+    label: '2-1',
+    name: 'Đội hình 3v3 tấn công',
+    nameEn: '3v3 Attack',
+    title: '2 Back / 1 Front',
+    back: 2,
+    front: 1,
+    modes: ['3v3'],
+    backBonus: { stat: 'attack', maxEach: 18, minEach: scaleAtkMin(18) },
+    frontBonus: { stat: 'defense', maxEach: 28, minEach: scaleDefMin(28) },
+  },
+  '1-2': {
+    id: '1-2',
+    label: '1-2',
+    name: 'Đội hình 3v3 phòng thủ',
+    nameEn: '3v3 Defend',
+    title: '1 Back / 2 Front',
+    back: 1,
+    front: 2,
+    modes: ['3v3'],
+    backBonus: { stat: 'attack', maxEach: 28, minEach: scaleAtkMin(28) },
+    frontBonus: { stat: 'defense', maxEach: 18, minEach: scaleDefMin(18) },
   },
 };
 
 const FORMATION_ORDER = ['3-2', '2-3', '4-1', '1-4'];
+const FORMATION_ORDER_3V3 = ['2-1', '1-2'];
 
-function normalizeFormationId(raw) {
-  const id = String(raw || '3-2');
-  return FORMATIONS[id] ? id : '3-2';
+function formationsForMode(mode) {
+  const m = String(mode || '').toLowerCase();
+  if (m === '3v3' || m === '3vs3') return FORMATION_ORDER_3V3.slice();
+  return FORMATION_ORDER.slice();
+}
+
+function defaultFormationForMode(mode) {
+  const m = String(mode || '').toLowerCase();
+  if (m === '3v3' || m === '3vs3') return '2-1';
+  return '3-2';
+}
+
+function normalizeFormationId(raw, mode) {
+  const id = String(raw || '');
+  if (FORMATIONS[id]) {
+    if (mode) {
+      const allowed = formationsForMode(mode);
+      if (allowed.includes(id)) return id;
+      return defaultFormationForMode(mode);
+    }
+    return id;
+  }
+  return defaultFormationForMode(mode);
 }
 
 function getFormation(formationId) {
   return FORMATIONS[normalizeFormationId(formationId)];
 }
 
-/** Indices: 0..back-1 = back (top→bottom); back..4 = front (top→bottom) */
+/** Indices: 0..back-1 = back (top→bottom); rồi front tiếp theo */
 function getLineIndices(formationId) {
   const f = getFormation(formationId);
   const back = [];
@@ -177,7 +227,7 @@ function costEnhanceRange(fromLevel, toLevel) {
 function defaultFormationLevels() {
   /** @type {Record<string, number>} */
   const levels = {};
-  FORMATION_ORDER.forEach((id) => {
+  Object.keys(FORMATIONS).forEach((id) => {
     levels[id] = FORMATION_MIN_LEVEL;
   });
   return levels;
@@ -186,7 +236,7 @@ function defaultFormationLevels() {
 function normalizeLevelsMap(raw) {
   const base = defaultFormationLevels();
   if (!raw || typeof raw !== 'object') return base;
-  FORMATION_ORDER.forEach((id) => {
+  Object.keys(FORMATIONS).forEach((id) => {
     if (raw[id] != null) base[id] = clampLevel(raw[id]);
   });
   return base;
@@ -197,6 +247,9 @@ module.exports = {
   FORMATION_MIN_LEVEL,
   FORMATIONS,
   FORMATION_ORDER,
+  FORMATION_ORDER_3V3,
+  formationsForMode,
+  defaultFormationForMode,
   normalizeFormationId,
   getFormation,
   getLineIndices,

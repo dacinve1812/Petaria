@@ -24,6 +24,7 @@ import AdminCreatePet from './components/admin/AdminCreatePet';
 import ArenaPage from './components/battle/ArenaPage';
 import PveSelectPage from './components/battle/PveSelectPage';
 import ArenaBattlePage from './components/battle/ArenaBattlePage';
+import ArenaFieldConfigPage from './components/battle/ArenaFieldConfigPage';
 import BattlePetSelectPage from './components/battle/BattlePetSelectPage';
 import ChampionChallengePage from './components/battle/ChampionChallengePage';
 import AdminSpiritEditor from './components/admin/AdminSpiritEditor';
@@ -55,6 +56,8 @@ import AdminUserManagement from './components/admin/AdminUserManagement';
 import AdminNpcBossManagement from './components/admin/AdminNpcBossManagement';
 import AdminTitlesManagement from './components/admin/AdminTitlesManagement';
 import AdminAuctionLogs from './components/admin/AdminAuctionLogs';
+import AdminBattleFxPage from './components/admin/AdminBattleFxPage';
+import AdminSkillManagement from './components/admin/AdminSkillManagement';
 import AuctionList from './components/auction/AuctionList';
 import AuctionDetail from './components/auction/AuctionDetail';
 import CreateAuction from './components/auction/CreateAuction';
@@ -119,6 +122,10 @@ const router = createBrowserRouter([
       { path: 'myhome/mypet', element: <MyHome /> },
       { path: 'myhome/myspirit', element: <MyHome /> },
       { path: 'myhome/spirits', element: <Navigate to="/myhome/myspirit" replace /> },
+      { path: 'my-stuff', element: <MyStuffManagement /> },
+      { path: 'exhibition', element: <ExhibitionRoom /> },
+      { path: 'exhibition/:userId', element: <ExhibitionRoom /> },
+      { path: 'titles', element: <TitleMyPage /> },
       { path: 'admin', element: <Admin /> },
       { path: 'profile/:userId', element: <UserProfile /> },
       { path: 'profile', element: <UserProfile /> },
@@ -139,12 +146,21 @@ const router = createBrowserRouter([
       { path: 'admin/edit-shop-items/:category', element: <EditShopItems /> },
       { path: 'admin/edit-shop-items/:category/:shopCode', element: <EditShopItems /> },
       { path: 'admin/create-pet', element: <AdminCreatePet /> },
+      { path: 'admin/npc-boss-management', element: <AdminNpcBossManagement /> },
+      { path: 'admin/spirits', element: <AdminSpiritEditor /> },
+      { path: 'admin/site-management', element: <SiteManagement /> },
+      { path: 'admin/game-center', element: <AdminGameCenterManagement /> },
+      { path: 'admin/region-maps', element: <AdminRegionMapsManagement /> },
+      { path: 'admin/site/auction-mail', element: <AdminSiteAuctionMailPage /> },
+      { path: 'admin/hunting-maps', element: <AdminHuntingMapManagement /> },
+      { path: 'admin/hunting-catch-rates', element: <AdminHuntingCatchRates /> },
       { path: 'battle', element: <PveSelectPage /> },
       { path: 'battle/arena', element: <ArenaPage /> },
       { path: 'battle/champion', element: <ChampionChallengePage /> },
       { path: 'battle/select', element: <Navigate to="/battle/arena/select" replace /> },
       { path: 'battle/arena/select', element: <BattlePetSelectPage /> },
       { path: 'battle/match', element: <ArenaBattlePage /> },
+      { path: 'battle/arena/field-config', element: <ArenaFieldConfigPage /> },
       { path: 'battle/arena/arenabattle', element: <RedirectLegacyArenaBattle /> },
       { path: 'home-ver2', element: <HomePage /> },
       { path: 'pokedex', element: <PokedexPage /> },
@@ -163,7 +179,9 @@ const router = createBrowserRouter([
       { path: 'admin/bank-management', element: <AdminBankManagement /> },
       { path: 'admin/user-management', element: <AdminUserManagement /> },
       { path: 'admin/titles', element: <AdminTitlesManagement /> },
+      { path: 'admin/skills', element: <AdminSkillManagement /> },
       { path: 'admin/auction-logs', element: <AdminAuctionLogs /> },
+      { path: 'admin/battle-fx', element: <AdminBattleFxPage /> },
       { path: 'dev-dashboard', element: <DevDashboard /> },
       { path: 'map-tool', element: <MapCoordinateTool /> },
       { path: 'bank', element: <Bank /> },

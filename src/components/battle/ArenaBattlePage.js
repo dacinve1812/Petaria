@@ -6,14 +6,22 @@ import { UserContext } from '../../UserContext';
 import TemplatePage from '../template/TemplatePage';
 import GameModalButton from '../ui/GameModalButton';
 import { BattleBannerOverlay, BattleResultDimOverlay } from './BattleOverlays';
+import BattleFxOverlay from './BattleFxOverlay';
+import {
+  BATTLE_FX_ATTACK_ANIM_ID,
+  BATTLE_FX_DEFEND_ANIM_ID,
+  getBattleFxByNumId,
+  loadBattleFxCatalogAsync,
+} from '../../data/battleFxCatalog';
 import { getDisplayName } from '../../utils/userDisplay';
 import { getActiveHuntingMap } from '../../utils/huntingSessionStorage';
 import formationSystem from '../../data/formationSystem';
+import { getArenaPose } from '../../data/arenaFieldConfig';
 import '../css/BattlePage.css';
 import '../css/ArenaBattlePage.css';
 import expTable from '../../data/exp_table_petaria.json';
 
-const { normalizeFormationId, getLineIndices } = formationSystem;
+const { normalizeFormationId } = formationSystem;
 
 const BATTLE_RETURN_KEY = 'petaria-arena-battle-return';
 
@@ -29,6 +37,24 @@ function battlePetImg(image) {
   const s = String(image);
   if (s.startsWith('http') || s.startsWith('/')) return s;
   return `/images/pets/${s}`;
+}
+
+/** equipment_type khớp *weapon (weapon, melee_weapon, …) */
+function isWeaponEquipmentType(type) {
+  const t = String(type || '').toLowerCase();
+  return t === 'weapon' || t.endsWith('weapon') || t.includes('weapon');
+}
+
+function isShieldEquipmentType(type) {
+  return String(type || '').toLowerCase() === 'shield';
+}
+
+function catalogFxWaitMs(animationId) {
+  const entry = getBattleFxByNumId(animationId, null, {
+    fallback: Number(animationId) === BATTLE_FX_ATTACK_ANIM_ID,
+  });
+  if (!entry) return 900;
+  return Math.max(600, (Number(entry.delayMs) || 0) + (Number(entry.durationMs) || 550) + 80);
 }
 
 function unitSpd(u) {
@@ -160,26 +186,42 @@ function MultiBattleUnit({
   unit,
   side,
   isLead,
-  flash,
-  onFlashEnd,
+  isLunge,
+  isHit,
+  fx,
+  fxAnimId,
+  fxToken,
+  lifePhase = 'alive',
+  entrySpawn = false,
   statusIcons = [],
+  pose,
 }) {
-  if (!unit) {
-    return <div className={`abm-unit abm-unit--empty abm-unit--${side}`} aria-hidden />;
-  }
+  if (!unit) return null;
+  if (lifePhase === 'gone') return null;
   const pct = unitHpPct(unit);
-  const dead = (Number(unit.current_hp) || 0) <= 0;
+  const style = pose
+    ? {
+        left: pose.left,
+        top: pose.top,
+        zIndex: pose.zIndex,
+        '--abm-s': String(pose.scale),
+      }
+    : undefined;
+  const isDying = lifePhase === 'death';
   return (
     <div
       className={[
         'abm-unit',
         `abm-unit--${side}`,
         isLead ? 'abm-unit--lead' : '',
-        flash ? 'abm-unit--flash' : '',
-        dead ? 'abm-unit--dead' : '',
+        isLunge ? 'abm-unit--lunge' : '',
+        isHit ? 'abm-unit--hit' : '',
+        entrySpawn ? 'abm-unit--spawn' : '',
+        isDying ? 'abm-unit--death' : '',
       ]
         .filter(Boolean)
         .join(' ')}
+      style={style}
     >
       <div className="abm-unit__hud">
         <div className="abm-unit__statuses" aria-hidden>
@@ -203,55 +245,122 @@ function MultiBattleUnit({
           alt={unit.name || ''}
           className="abm-unit__sprite"
           draggable={false}
-          onAnimationEnd={onFlashEnd}
         />
+        {fxAnimId != null ? (
+          <BattleFxOverlay fxNumId={fxAnimId} token={fxToken || 'bolt'} />
+        ) : fx ? (
+          <span
+            key={fxToken || fx}
+            className={`abm-unit__fx abm-unit__fx--${fx}`}
+            aria-hidden
+          />
+        ) : null}
         <span className="abm-unit__ground-shadow" aria-hidden />
       </div>
     </div>
   );
 }
 
-function MultiFormationBoard({
-  side,
-  formationId,
-  unitsBySlot,
-  leadId,
-  flashUnitId,
-  onFlashEnd,
+/** Sàn chiến đấu perspective — 1 không gian chung, không tách board BPS */
+function MultiBattleArena({
+  playerFormationId,
+  enemyFormationId,
+  playerUnitsBySlot,
+  enemyUnitsBySlot,
+  actingUnit,
+  battleFx,
+  lifeFx = {},
+  entrySpawn = false,
+  battleMode = '5v5',
 }) {
-  const lines = getLineIndices(formationId);
-  const renderLine = (lineName, indices) => (
-    <div className={`abm-line abm-line--${lineName}`} key={lineName}>
-      {indices.map((i) => {
-        const unit = unitsBySlot[i] || null;
-        return (
-          <MultiBattleUnit
-            key={`${side}-${i}`}
-            unit={unit}
-            side={side}
-            isLead={unit && String(unit.id) === String(leadId)}
-            flash={Boolean(unit) && String(unit.id) === String(flashUnitId)}
-            onFlashEnd={onFlashEnd}
-          />
-        );
-      })}
-    </div>
-  );
+  // Poses from src/data/arenaFieldConfig.js (no localStorage)
+  const attackerId = battleFx?.attackerId != null ? String(battleFx.attackerId) : null;
+  const hitId = battleFx?.hitId != null ? String(battleFx.hitId) : null;
+  const fxId = battleFx?.fxId != null ? String(battleFx.fxId) : hitId;
+  const placements = [];
+  const pushSide = (side, formationId, unitsBySlot) => {
+    Object.keys(unitsBySlot || {}).forEach((key) => {
+      const slotIndex = Number(key);
+      const unit = unitsBySlot[slotIndex];
+      if (!unit) return;
+      const uid = String(unit.id);
+      const lifePhase = lifeFx[uid] || 'alive';
+      if (lifePhase === 'gone') return;
+      placements.push({
+        key: `${side}-${slotIndex}-${unit.id}`,
+        unit,
+        side,
+        pose: getArenaPose(side, formationId, slotIndex, battleMode),
+        isLead:
+          actingUnit &&
+          actingUnit.side === side &&
+          String(actingUnit.id) === String(unit.id),
+        isLunge: Boolean(attackerId) && uid === attackerId,
+        isHit: Boolean(hitId) && uid === hitId,
+        fx: fxId && uid === fxId ? battleFx.effect : null,
+        fxAnimId: fxId && uid === fxId ? battleFx.animationId ?? null : null,
+        fxToken: battleFx?.token,
+        lifePhase,
+        entrySpawn,
+      });
+    });
+  };
+  pushSide('player', playerFormationId, playerUnitsBySlot);
+  pushSide('enemy', enemyFormationId, enemyUnitsBySlot);
 
-  // Player: Back | Front — Enemy mirrored: Front | Back
+  // Redis/multi: hitId đôi khi không khớp id trong squad → vẫn gắn FX lên pet địch/đồng minh sống
+  const animId = battleFx?.animationId ?? null;
+  if (animId != null && !placements.some((p) => p.fxAnimId != null)) {
+    const atkSide =
+      attackerId && placements.find((p) => String(p.unit.id) === attackerId)?.side;
+    const preferSide = atkSide === 'player' ? 'enemy' : atkSide === 'enemy' ? 'player' : 'enemy';
+    const fallback =
+      placements.find((p) => p.side === preferSide && p.lifePhase !== 'gone') ||
+      placements.find((p) => p.lifePhase !== 'gone');
+    if (fallback) {
+      fallback.fxAnimId = animId;
+      fallback.isHit = true;
+      fallback.fxToken = battleFx?.token;
+    }
+  }
+  // Lunge fallback
+  if (attackerId && !placements.some((p) => p.isLunge)) {
+    const fallAtk =
+      placements.find((p) => p.side === 'player' && p.isLead) ||
+      placements.find((p) => p.side === 'player' && p.lifePhase !== 'gone');
+    if (fallAtk) fallAtk.isLunge = true;
+  }
+
+  placements.sort((a, b) => (a.pose.zIndex || 0) - (b.pose.zIndex || 0));
+
   return (
-    <div className={`abm-board abm-board--${side} abm-board--f${formationId}`}>
-      {side === 'player' ? (
-        <>
-          {renderLine('back', lines.back)}
-          {renderLine('front', lines.front)}
-        </>
-      ) : (
-        <>
-          {renderLine('front', lines.front)}
-          {renderLine('back', lines.back)}
-        </>
-      )}
+    <div
+      className={`abm-arena${battleMode === '3v3' ? ' abm-arena--3v3' : ''}`}
+      aria-label="Chiến trường"
+    >
+      <div className="abm-arena__floor" aria-hidden>
+        <div className="abm-arena__floor-ring" />
+        <div className="abm-arena__floor-glow" />
+        <div className="abm-arena__vanish" />
+      </div>
+      <div className="abm-arena__cast">
+        {placements.map((p) => (
+          <MultiBattleUnit
+            key={p.key}
+            unit={p.unit}
+            side={p.side}
+            pose={p.pose}
+            isLead={p.isLead}
+            isLunge={p.isLunge}
+            isHit={p.isHit}
+            fx={p.fx}
+            fxAnimId={p.fxAnimId}
+            fxToken={p.fxToken}
+            lifePhase={p.lifePhase}
+            entrySpawn={p.entrySpawn}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -347,9 +456,13 @@ function ArenaBattlePage() {
       battleModeState || initialMatchState?.battleMode || '1v1'
     );
     const isMulti = battleMode === '3v3' || battleMode === '5v5';
-    const formationId = normalizeFormationId(formationIdState || '3-2');
+    const formationId = normalizeFormationId(
+      formationIdState || (battleMode === '3v3' ? '2-1' : '3-2'),
+      battleMode
+    );
     const enemyFormationId = normalizeFormationId(
-      enemyFormationIdState || formationIdState || '3-2'
+      enemyFormationIdState || formationIdState || (battleMode === '3v3' ? '2-1' : '3-2'),
+      battleMode
     );
 
     const returnMeta = useMemo(() => {
@@ -712,7 +825,14 @@ function ArenaBattlePage() {
         return [];
       });
   const [attackAnimation, setAttackAnimation] = useState('');
-    const [flashUnitId, setFlashUnitId] = useState(null);
+    /** { attackerId, hitId, fxId, effect, token } — CSS lunge / hit / overlay */
+    const [battleFx, setBattleFx] = useState(null);
+    /** unitId → 'alive'|'death'|'gone' (spawn entry dùng entrySpawn riêng) */
+    const [lifeFx, setLifeFx] = useState({});
+    const lifeFxRef = React.useRef({});
+    lifeFxRef.current = lifeFx;
+    const [entrySpawn, setEntrySpawn] = useState(true);
+    const entrySpawnDoneRef = React.useRef(false);
     const [resultEffect, setResultEffect] = useState('');
     const [actionLocked, setActionLocked] = useState(false);
     const [selectedAction, setSelectedAction] = useState('');
@@ -723,6 +843,82 @@ function ArenaBattlePage() {
     const holdTimerRef = React.useRef(null);
     const longPressTriggeredRef = React.useRef(false);
     const equipItemElsRef = React.useRef({});
+
+    const clearCombatFx = useCallback(() => {
+      setBattleFx(null);
+      setAttackAnimation('');
+    }, []);
+
+    // Preload catalog + IndexedDB images so overlay không miss khi đánh
+    useEffect(() => {
+      loadBattleFxCatalogAsync().catch(() => {});
+    }, []);
+
+    /** Attacker lunge → defender shake + catalog / CSS effect overlay */
+    const playCombatFx = useCallback(
+      async ({
+        attackerId,
+        hitId = null,
+        effect = null,
+        animationId = null,
+        side = 'player',
+        miss = false,
+        noLunge = false,
+      }) => {
+        const token = Date.now();
+        const anim =
+          !miss && animationId != null && Number(animationId) >= 1
+            ? Math.round(Number(animationId))
+            : null;
+        if (anim != null) {
+          try {
+            await loadBattleFxCatalogAsync();
+          } catch {
+            /* overlay vẫn tự load */
+          }
+        }
+        setAttackAnimation(noLunge ? '' : side);
+        setBattleFx({
+          attackerId: noLunge || attackerId == null ? null : String(attackerId),
+          hitId: miss || hitId == null ? null : String(hitId),
+          fxId: miss || hitId == null ? null : String(hitId),
+          effect: miss ? null : anim != null ? 'catalog' : effect,
+          animationId: anim,
+          token,
+        });
+        const waitMs = miss
+          ? 420
+          : anim != null
+            ? catalogFxWaitMs(anim)
+            : 900;
+        await waitPace(waitMs);
+        clearCombatFx();
+      },
+      [waitPace, clearCombatFx]
+    );
+
+    /** After hit FX: pet vanish (no lightning) */
+    const playDeathFx = useCallback(
+      async (unitId) => {
+        if (unitId == null) return;
+        const id = String(unitId);
+        const cur = lifeFxRef.current[id];
+        if (cur === 'death' || cur === 'gone') return;
+        setLifeFx((prev) => ({ ...prev, [id]: 'death' }));
+        await waitPace(420);
+        setLifeFx((prev) => ({ ...prev, [id]: 'gone' }));
+      },
+      [waitPace]
+    );
+
+    const playDeathIfKo = useCallback(
+      async (unitId, hpAfter) => {
+        if (unitId == null) return;
+        if ((Number(hpAfter) || 0) > 0) return;
+        await playDeathFx(unitId);
+      },
+      [playDeathFx]
+    );
 
     const battleUiLocked =
       actionLocked || battleEnded || startBannerVisible || !isPlayerActing;
@@ -973,7 +1169,6 @@ function ArenaBattlePage() {
       setTurn(data.turn_count ?? 0);
       setBattleEnded(!!data.finished);
       setResultEffect(data.result || '');
-      setAttackAnimation('player');
       return data;
     };
 
@@ -1005,6 +1200,14 @@ function ArenaBattlePage() {
       if (isRedisMatch) {
         try {
           const data = await sendMatchTurn({ action: 'attack_item', itemId: item.id, power_min: powerMin, power_max: powerMax, moveName: item.item_name || 'Weapon' });
+          const hitEnemyId = data.enemy?.id ?? enemy?.id;
+          const atkId = data.player?.id ?? player?.id;
+          await playCombatFx({
+            attackerId: atkId,
+            hitId: hitEnemyId,
+            animationId: BATTLE_FX_ATTACK_ANIM_ID,
+            side: 'player',
+          });
           await advanceQueueAfterPlayer({
             redisCombined: true,
             serverTurnCount: data.turn_count,
@@ -1073,12 +1276,23 @@ function ArenaBattlePage() {
                 : u
             );
             setPlayerSquad(nextPlayerSquad);
-            setFlashUnitId(actingPlayer.id);
+            await playCombatFx({
+              attackerId: actingPlayer.id,
+              hitId: actingPlayer.id,
+              animationId: BATTLE_FX_ATTACK_ANIM_ID,
+              side: 'player',
+            });
+            await playDeathIfKo(actingPlayer.id, result.attacker_hp_after);
           } else if (result.miss) {
             appendLog(
               `${actingPlayer.name} dùng ${result.moveUsed} vào ${targetEnemy.name} nhưng trượt!`,
               'player_attack'
             );
+            await playCombatFx({
+              attackerId: actingPlayer.id,
+              side: 'player',
+              miss: true,
+            });
           } else {
             appendLog(
               `${actingPlayer.name} dùng ${result.moveUsed}${result.critical ? ' (CRIT)' : ''} vào ${targetEnemy.name}, gây ${result.damage} sát thương.`,
@@ -1094,14 +1308,19 @@ function ArenaBattlePage() {
                 : u
             );
             setEnemySquad(nextEnemySquad);
-            setFlashUnitId(targetEnemy.id);
+            await playCombatFx({
+              attackerId: actingPlayer.id,
+              hitId: targetEnemy.id,
+              animationId: BATTLE_FX_ATTACK_ANIM_ID,
+              side: 'player',
+            });
             if ((result.defender_hp_after ?? 0) <= 0) {
               appendLog(`${targetEnemy.name} đã bị hạ!`, 'default');
+              await playDeathIfKo(targetEnemy.id, result.defender_hp_after);
             }
           }
           playerSquadRef.current = nextPlayerSquad;
           enemySquadRef.current = nextEnemySquad;
-          setAttackAnimation('player');
           purgeDeadFromQueue(nextPlayerSquad, nextEnemySquad);
           const ended = checkSquadBattleEnded(nextPlayerSquad, nextEnemySquad);
           // Cập nhật durability
@@ -1132,7 +1351,6 @@ function ArenaBattlePage() {
               })
             );
           }
-          await waitPace(780);
           await advanceQueueAfterPlayer({ redisCombined: false, ended });
           return;
         }
@@ -1178,12 +1396,21 @@ function ArenaBattlePage() {
           }));
         }
         
-        setAttackAnimation('player');
+        await playCombatFx({
+          attackerId: actingPlayer?.id || player?.id,
+          hitId: result.reflectedDamage > 0 ? actingPlayer?.id || player?.id : enemy?.id,
+          animationId: BATTLE_FX_ATTACK_ANIM_ID,
+          side: 'player',
+        });
 
         const newEnemyHp = result.defender_hp_after ?? Math.max(0, enemy.current_hp - result.damage);
         const newPlayerHp = result.reflectedDamage > 0 ? result.attacker_hp_after : player.current_hp;
+        if (result.reflectedDamage > 0) {
+          await playDeathIfKo(actingPlayer?.id || player?.id, newPlayerHp);
+        } else {
+          await playDeathIfKo(enemy?.id, newEnemyHp);
+        }
         const ended = checkBattleEnded(newEnemyHp, newPlayerHp);
-        await waitPace(650);
         await advanceQueueAfterPlayer({ redisCombined: false, ended });
       } catch (err) {
         console.error('Lỗi khi đánh bằng vũ khí:', err);
@@ -1200,6 +1427,14 @@ function ArenaBattlePage() {
       if (isRedisMatch) {
         try {
           const data = await sendMatchTurn({ action: 'defend_shield', itemId: shieldItem.id, power_min: powerMin, power_max: powerMax });
+          const selfId = data.player?.id ?? player?.id;
+          await playCombatFx({
+            attackerId: selfId,
+            hitId: selfId,
+            animationId: BATTLE_FX_DEFEND_ANIM_ID,
+            side: 'player',
+            noLunge: true,
+          });
           await advanceQueueAfterPlayer({
             redisCombined: true,
             serverTurnCount: data.turn_count,
@@ -1246,6 +1481,13 @@ function ArenaBattlePage() {
         } else {
           setPlayer((prev) => ({ ...prev, current_def_dmg: result.defDmg ?? 0 }));
         }
+        await playCombatFx({
+          attackerId: actingPlayer.id,
+          hitId: actingPlayer.id,
+          animationId: BATTLE_FX_DEFEND_ANIM_ID,
+          side: 'player',
+          noLunge: true,
+        });
         try {
           const durRes = await fetch(`${API_BASE_URL}/api/inventory/${shieldItem.id}/use-durability`, {
             method: 'POST',
@@ -1278,6 +1520,14 @@ function ArenaBattlePage() {
       if (isRedisMatch) {
         try {
           const data = await sendMatchTurn({ action: 'normal_attack', power_min: NORMAL_POWER_MIN, power_max: NORMAL_POWER_MAX, moveName: 'Normal Attack' });
+          const hitEnemyId = data.enemy?.id ?? enemy?.id;
+          const atkId = data.player?.id ?? player?.id;
+          await playCombatFx({
+            attackerId: atkId,
+            hitId: hitEnemyId,
+            animationId: BATTLE_FX_ATTACK_ANIM_ID,
+            side: 'player',
+          });
           await advanceQueueAfterPlayer({
             redisCombined: true,
             serverTurnCount: data.turn_count,
@@ -1334,12 +1584,23 @@ function ArenaBattlePage() {
                 : u
             );
             setPlayerSquad(nextPlayerSquad);
-            setFlashUnitId(actingPlayer.id);
+            await playCombatFx({
+              attackerId: actingPlayer.id,
+              hitId: actingPlayer.id,
+              animationId: BATTLE_FX_ATTACK_ANIM_ID,
+              side: 'player',
+            });
+            await playDeathIfKo(actingPlayer.id, result.attacker_hp_after);
           } else if (result.miss) {
             appendLog(
               `${actingPlayer.name} dùng ${result.moveUsed} vào ${targetEnemy.name} nhưng trượt!`,
               'player_attack'
             );
+            await playCombatFx({
+              attackerId: actingPlayer.id,
+              side: 'player',
+              miss: true,
+            });
           } else {
             appendLog(
               `${actingPlayer.name} dùng ${result.moveUsed} vào ${targetEnemy.name}, gây ${result.damage} sát thương.`,
@@ -1357,13 +1618,19 @@ function ArenaBattlePage() {
                 : u
             );
             setEnemySquad(nextEnemySquad);
-            setFlashUnitId(targetEnemy.id);
-            if ((result.defender_hp_after ?? 0) <= 0) appendLog(`${targetEnemy.name} đã bị hạ!`, 'default');
+            await playCombatFx({
+              attackerId: actingPlayer.id,
+              hitId: targetEnemy.id,
+              animationId: BATTLE_FX_ATTACK_ANIM_ID,
+              side: 'player',
+            });
+            if ((result.defender_hp_after ?? 0) <= 0) {
+              appendLog(`${targetEnemy.name} đã bị hạ!`, 'default');
+              await playDeathIfKo(targetEnemy.id, result.defender_hp_after);
+            }
           }
-          setAttackAnimation('player');
           purgeDeadFromQueue(nextPlayerSquad, nextEnemySquad);
           const ended = checkSquadBattleEnded(nextPlayerSquad, nextEnemySquad);
-          await waitPace(780);
           await advanceQueueAfterPlayer({ redisCombined: false, ended });
           return;
         }
@@ -1380,12 +1647,24 @@ function ArenaBattlePage() {
           );
         }
         setEnemy((prev) => ({ ...prev, current_hp: result.defender_hp_after ?? Math.max(0, prev.current_hp - result.damage), current_def_dmg: 0 }));
-        setAttackAnimation('player');
+        await playCombatFx({
+          attackerId: actingPlayer?.id || player?.id,
+          hitId: result.reflectedDamage > 0 ? actingPlayer?.id || player?.id : enemy?.id,
+          animationId: BATTLE_FX_ATTACK_ANIM_ID,
+          side: 'player',
+          miss: !!result.miss,
+        });
 
         const newEnemyHp = result.defender_hp_after ?? Math.max(0, enemy.current_hp - result.damage);
         const newPlayerHp = result.reflectedDamage > 0 ? result.attacker_hp_after : player.current_hp;
+        if (!result.miss) {
+          if (result.reflectedDamage > 0) {
+            await playDeathIfKo(actingPlayer?.id || player?.id, newPlayerHp);
+          } else {
+            await playDeathIfKo(enemy?.id, newEnemyHp);
+          }
+        }
         const ended = checkBattleEnded(newEnemyHp, newPlayerHp);
-        await waitPace(650);
         await advanceQueueAfterPlayer({ redisCombined: false, ended });
       } catch (err) {
         console.error('Lỗi khi tấn công thường:', err);
@@ -1400,6 +1679,14 @@ function ArenaBattlePage() {
       if (isRedisMatch) {
         try {
           const data = await sendMatchTurn({ action: 'defend_basic', power_min: NORMAL_POWER_MIN, power_max: NORMAL_POWER_MAX });
+          const selfId = data.player?.id ?? player?.id;
+          await playCombatFx({
+            attackerId: selfId,
+            hitId: selfId,
+            animationId: BATTLE_FX_DEFEND_ANIM_ID,
+            side: 'player',
+            noLunge: true,
+          });
           await advanceQueueAfterPlayer({
             redisCombined: true,
             serverTurnCount: data.turn_count,
@@ -1425,6 +1712,13 @@ function ArenaBattlePage() {
         const result = await res.json();
         appendLog(result.logMessage || `${player.name} sử dụng Phòng thủ vật lý, thiết lập shield ${result.defDmg ?? 0} HP phòng ngự.`, 'defense');
         setPlayer((prev) => ({ ...prev, current_def_dmg: result.defDmg ?? 0 }));
+        await playCombatFx({
+          attackerId: player.id,
+          hitId: player.id,
+          animationId: BATTLE_FX_DEFEND_ANIM_ID,
+          side: 'player',
+          noLunge: true,
+        });
         const ended = checkBattleEnded(enemy.current_hp, player.current_hp);
         await advanceQueueAfterPlayer({ redisCombined: false, ended });
       } catch (err) {
@@ -1489,6 +1783,11 @@ function ArenaBattlePage() {
               `${attacker.name} dùng ${result.moveUsed || 'Tấn công thường'} vào ${target.name} nhưng trượt!`,
               'enemy_attack'
             );
+            await playCombatFx({
+              attackerId: attacker.id,
+              side: 'enemy',
+              miss: true,
+            });
           } else if (result.isBossDefend) {
             appendLog(
               `${attacker.name} sử dụng Phòng thủ, thiết lập shield ${result.bossDefDmg ?? 0} HP phòng ngự.`,
@@ -1500,6 +1799,13 @@ function ArenaBattlePage() {
                 : u
             );
             setEnemySquad(nextEnemySquad);
+            await playCombatFx({
+              attackerId: attacker.id,
+              hitId: attacker.id,
+              animationId: BATTLE_FX_DEFEND_ANIM_ID,
+              side: 'enemy',
+              noLunge: true,
+            });
           } else if (result.reflectedDamage > 0) {
             appendLog(
               `${attacker.name} đánh ${target.name}, bị phản đòn ${result.reflectedDamage} sát thương!`,
@@ -1522,7 +1828,13 @@ function ArenaBattlePage() {
             );
             setPlayerSquad(nextPlayerSquad);
             setEnemySquad(nextEnemySquad);
-            setFlashUnitId(attacker.id);
+            await playCombatFx({
+              attackerId: attacker.id,
+              hitId: attacker.id,
+              animationId: BATTLE_FX_ATTACK_ANIM_ID,
+              side: 'enemy',
+            });
+            await playDeathIfKo(attacker.id, result.attacker_hp_after);
           } else {
             const dmg = result.damage ?? 0;
             const newHp =
@@ -1539,15 +1851,21 @@ function ArenaBattlePage() {
                 : u
             );
             setPlayerSquad(nextPlayerSquad);
-            setFlashUnitId(target.id);
-            if (newHp <= 0) appendLog(`${target.name} đã bị hạ!`, 'default');
+            await playCombatFx({
+              attackerId: attacker.id,
+              hitId: target.id,
+              animationId: BATTLE_FX_ATTACK_ANIM_ID,
+              side: 'enemy',
+            });
+            if (newHp <= 0) {
+              appendLog(`${target.name} đã bị hạ!`, 'default');
+              await playDeathIfKo(target.id, newHp);
+            }
           }
 
-          setAttackAnimation('enemy');
           playerSquadRef.current = nextPlayerSquad;
           enemySquadRef.current = nextEnemySquad;
           purgeDeadFromQueue(nextPlayerSquad, nextEnemySquad);
-          await waitPace(980);
           return checkSquadBattleEnded(nextPlayerSquad, nextEnemySquad);
         } catch (err) {
           console.error('Enemy squad attack failed:', err);
@@ -1581,14 +1899,33 @@ function ArenaBattlePage() {
         let ended = false;
         if (result.miss) {
           appendLog(`${result.attacker} dùng ${result.moveUsed} nhưng trượt!`, 'enemy_attack');
+          await playCombatFx({
+            attackerId: latestEnemy?.id,
+            side: 'enemy',
+            miss: true,
+          });
         } else if (result.isBossDefend) {
           appendLog(`${result.attacker} sử dụng Phòng thủ, thiết lập shield ${result.bossDefDmg ?? 0} HP phòng ngự.`, 'defense');
           setEnemy((prev) => ({ ...prev, current_def_dmg: result.bossDefDmg ?? 0 }));
+          await playCombatFx({
+            attackerId: latestEnemy?.id,
+            hitId: latestEnemy?.id,
+            animationId: BATTLE_FX_DEFEND_ANIM_ID,
+            side: 'enemy',
+            noLunge: true,
+          });
         } else if (result.reflectedDamage > 0) {
           appendLog(`${result.attacker} đánh, ${result.defender} phản đòn ${result.reflectedDamage} sát thương!`, 'player_attack');
           setPlayer((prev) => ({ ...prev, current_hp: result.defender_hp_after ?? prev.current_hp, current_def_dmg: 0 }));
           setEnemy((prev) => ({ ...prev, current_hp: result.attacker_hp_after ?? prev.current_hp }));
           ended = checkBattleEnded(result.attacker_hp_after ?? enemy.current_hp, result.defender_hp_after ?? player.current_hp);
+          await playCombatFx({
+            attackerId: latestEnemy?.id,
+            hitId: latestEnemy?.id,
+            animationId: BATTLE_FX_ATTACK_ANIM_ID,
+            side: 'enemy',
+          });
+          await playDeathIfKo(latestEnemy?.id, result.attacker_hp_after);
         } else {
           const newPlayerHp = result.defender_hp_after ?? Math.max(0, player.current_hp - (result.damage ?? 0));
           const enemyActor =
@@ -1599,10 +1936,15 @@ function ArenaBattlePage() {
           );
           setPlayer((prev) => ({ ...prev, current_hp: newPlayerHp, current_def_dmg: 0 }));
           ended = checkBattleEnded(enemy.current_hp, newPlayerHp);
+          await playCombatFx({
+            attackerId: latestEnemy?.id,
+            hitId: latestPlayer?.id,
+            animationId: BATTLE_FX_ATTACK_ANIM_ID,
+            side: 'enemy',
+          });
+          await playDeathIfKo(latestPlayer?.id, newPlayerHp);
         }
 
-        setAttackAnimation('enemy');
-        await waitPace(850);
         return ended;
       } catch (err) {
         console.error('Enemy attack failed:', err);
@@ -1859,6 +2201,23 @@ function ArenaBattlePage() {
       return () => window.clearTimeout(t);
     }, [startBannerVisible]);
 
+    /** Battle entry: flash hiện cùng lúc với banner start (~1.8s) */
+    useEffect(() => {
+      if (entrySpawnDoneRef.current) return undefined;
+      const hasUnits =
+        (playerSquadRef.current || []).length > 0 ||
+        (enemySquadRef.current || []).length > 0 ||
+        !!player?.id;
+      if (!hasUnits) return undefined;
+
+      entrySpawnDoneRef.current = true;
+      setEntrySpawn(true);
+      // Cùng timing banner start (không chia battle-pace)
+      window.setTimeout(() => setEntrySpawn(false), 1800);
+      return undefined;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [playerSquad.length, enemySquad.length, player?.id, enemy?.id]);
+
     useEffect(() => {
       if (!battleEnded) {
         setPostBattlePhase(null);
@@ -2040,6 +2399,10 @@ function ArenaBattlePage() {
         setBattleEnded(false);
         setPostBattlePhase(null);
         setAttackAnimation('');
+        setBattleFx(null);
+        setLifeFx({});
+        entrySpawnDoneRef.current = false;
+        setEntrySpawn(true);
         setResultEffect('');
         setActionLocked(false);
         setStartBannerVisible(true);
@@ -2162,30 +2525,17 @@ function ArenaBattlePage() {
           {/* Middle: 1v1 classic blocks | multi formation + speed bar */}
           {isMulti ? (
             <div className="abm-stage">
-              <div className="abm-field">
-                <MultiFormationBoard
-                  side="player"
-                  formationId={formationId}
-                  unitsBySlot={playerUnitsBySlot}
-                  leadId={actingUnit?.side === 'player' ? actingUnit.id : null}
-                  flashUnitId={flashUnitId}
-                  onFlashEnd={() => {
-                    setAttackAnimation('');
-                    setFlashUnitId(null);
-                  }}
-                />
-                <MultiFormationBoard
-                  side="enemy"
-                  formationId={enemyFormationId}
-                  unitsBySlot={enemyUnitsBySlot}
-                  leadId={actingUnit?.side === 'enemy' ? actingUnit.id : null}
-                  flashUnitId={flashUnitId}
-                  onFlashEnd={() => {
-                    setAttackAnimation('');
-                    setFlashUnitId(null);
-                  }}
-                />
-              </div>
+              <MultiBattleArena
+                playerFormationId={formationId}
+                enemyFormationId={enemyFormationId}
+                playerUnitsBySlot={playerUnitsBySlot}
+                enemyUnitsBySlot={enemyUnitsBySlot}
+                actingUnit={actingUnit}
+                battleFx={battleFx}
+                lifeFx={lifeFx}
+                entrySpawn={entrySpawn}
+                battleMode={battleMode}
+              />
               <SpeedOrderBar
                 units={speedQueue}
                 leaving={chipLeaving}
@@ -2195,22 +2545,85 @@ function ArenaBattlePage() {
             </div>
           ) : (
             <div className="arena-battle-pets">
-              <div className="arena-pet-block">
-                <img src={`/images/pets/${player?.image}`} alt={player?.name} className={attackAnimation === 'enemy' ? 'attack-flash' : ''} onAnimationEnd={() => setAttackAnimation('')} />
+              {(() => {
+                const pLife = lifeFx[String(player?.id)] || 'alive';
+                const eLife = lifeFx[String(enemy?.id)] || 'alive';
+                if (pLife === 'gone' && eLife === 'gone') return null;
+                return (
+                  <>
+              <div
+                className={[
+                  'arena-pet-block',
+                  'arena-pet-block--player',
+                  attackAnimation === 'player' ? 'arena-pet--lunge' : '',
+                  (attackAnimation === 'enemy' && battleFx?.hitId) ||
+                  (battleFx?.hitId != null && String(battleFx.hitId) === String(player?.id))
+                    ? 'arena-pet--hit'
+                    : '',
+                  entrySpawn ? 'arena-pet--spawn' : '',
+                  pLife === 'death' ? 'arena-pet--death' : '',
+                  pLife === 'gone' ? 'arena-pet--hidden' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                <div className="arena-pet-sprite-wrap">
+                  <img src={`/images/pets/${player?.image}`} alt={player?.name} />
+                  {battleFx?.hitId != null &&
+                  String(battleFx.hitId) === String(player?.id) &&
+                  battleFx?.animationId != null ? (
+                    <BattleFxOverlay fxNumId={battleFx.animationId} token={battleFx?.token || 'p'} />
+                  ) : battleFx?.hitId != null &&
+                    String(battleFx.hitId) === String(player?.id) &&
+                    battleFx?.effect &&
+                    battleFx.effect !== 'catalog' ? (
+                    <span className={`abm-unit__fx abm-unit__fx--${battleFx.effect}`} aria-hidden />
+                  ) : null}
+                </div>
                 <p className="arena-pet-name">{player?.name} <span className="arena-pet-level">Lv.{player?.level ?? 1}</span></p>
                 <div className="arena-pet-stats">
                   <div className="arena-stats-row">HP: <span className={`arena-hp-value arena-hp--${getHpClass(player?.current_hp, player?.final_stats?.hp)}`}>{player?.current_hp ?? 0}/{player?.final_stats?.hp ?? 0}</span></div>
                   <div className="arena-stats-row">STR: {player?.final_stats?.str ?? player?.str ?? 0} · DEF: {player?.final_stats?.def ?? player?.def ?? 0}</div>
                 </div>
               </div>
-              <div className="arena-pet-block">
-                <img src={enemy?.image} alt={enemy?.name} className={attackAnimation === 'player' ? 'attack-flash' : ''} onAnimationEnd={() => setAttackAnimation('')} />
+              <div
+                className={[
+                  'arena-pet-block',
+                  'arena-pet-block--enemy',
+                  attackAnimation === 'enemy' ? 'arena-pet--lunge' : '',
+                  (attackAnimation === 'player' && battleFx?.hitId) ||
+                  (battleFx?.hitId != null && String(battleFx.hitId) === String(enemy?.id))
+                    ? 'arena-pet--hit'
+                    : '',
+                  entrySpawn ? 'arena-pet--spawn' : '',
+                  eLife === 'death' ? 'arena-pet--death' : '',
+                  eLife === 'gone' ? 'arena-pet--hidden' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                <div className="arena-pet-sprite-wrap">
+                  <img src={enemy?.image} alt={enemy?.name} />
+                  {battleFx?.hitId != null &&
+                  String(battleFx.hitId) === String(enemy?.id) &&
+                  battleFx?.animationId != null ? (
+                    <BattleFxOverlay fxNumId={battleFx.animationId} token={battleFx?.token || 'e'} />
+                  ) : battleFx?.hitId != null &&
+                    String(battleFx.hitId) === String(enemy?.id) &&
+                    battleFx?.effect &&
+                    battleFx.effect !== 'catalog' ? (
+                    <span className={`abm-unit__fx abm-unit__fx--${battleFx.effect}`} aria-hidden />
+                  ) : null}
+                </div>
                 <p className="arena-pet-name">{enemy?.name} <span className="arena-pet-level">Lv.{enemy?.level ?? 1}</span></p>
                 <div className="arena-pet-stats">
                   <div className="arena-stats-row">HP: <span className={`arena-hp-value arena-hp--${getHpClass(enemy?.current_hp, enemy?.final_stats?.hp)}`}>{enemy?.current_hp ?? 0}/{enemy?.final_stats?.hp ?? 0}</span></div>
                   <div className="arena-stats-row">STR: {enemy?.final_stats?.str ?? enemy?.str ?? 0} · DEF: {enemy?.final_stats?.def ?? enemy?.def ?? 0}</div>
                 </div>
               </div>
+                  </>
+                );
+              })()}
             </div>
           )}
 
@@ -2235,7 +2648,7 @@ function ArenaBattlePage() {
             </h3>
             <div className="arena-equipment-grid">
               {equippedItems.map((item) => {
-                const isShield = item.equipment_type === 'shield';
+                const isShield = isShieldEquipmentType(item.equipment_type);
                 const magicVal = item.magic_value ?? item.power ?? 0;
                 const disabled = !isItemUsableByDurability(item);
                 const handleClick = () => {

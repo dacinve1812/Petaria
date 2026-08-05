@@ -1,0 +1,296 @@
+.afc-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 12px 14px 28px;
+  color: #e2e8f0;
+}
+
+.afc-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.afc-title {
+  margin: 0 0 4px;
+  font-size: 1.35rem;
+  color: #f8fafc;
+}
+
+.afc-path {
+  margin: 0 0 4px;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.afc-path code {
+  color: #7dd3fc;
+  background: rgba(15, 23, 42, 0.55);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.afc-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.afc-header__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.afc-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #e2e8f0;
+  text-decoration: none;
+  font-size: 0.82rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.afc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.afc-seg {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.afc-seg--wrap {
+  flex-wrap: wrap;
+}
+
+.afc-seg__btn {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 6px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.afc-seg__btn--on {
+  background: #2563eb;
+  color: #fff;
+}
+
+.afc-meta {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+.afc-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 12px;
+  align-items: start;
+}
+
+.afc-arena {
+  position: relative;
+  width: 100%;
+  height: clamp(280px, 52vh, 460px);
+  border-radius: 14px;
+  overflow: hidden;
+  touch-action: none;
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 12%, rgba(129, 140, 248, 0.28), transparent 58%),
+    linear-gradient(165deg, #0b1220 0%, #151c34 40%, #1a1430 100%);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.afc-arena__cast {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.afc-marker {
+  position: absolute;
+  z-index: 3;
+  width: 56px;
+  height: 72px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: grab;
+  transform-origin: center bottom;
+}
+
+.afc-marker--enemy {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.afc-marker__dot {
+  display: block;
+  width: 36px;
+  height: 36px;
+  margin: 8px auto 0;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.afc-marker--player .afc-marker__dot {
+  background: #307a34;
+}
+
+.afc-marker--enemy .afc-marker__dot {
+  background: #ae1818;
+}
+
+.afc-marker--selected .afc-marker__dot {
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.85);
+}
+
+.afc-marker__badge {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #0f172a;
+  background: #fde68a;
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+.afc-marker__label {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #f8fafc;
+  text-shadow: 0 1px 2px #000;
+}
+
+.afc-side {
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(15, 23, 42, 0.72);
+  padding: 12px;
+}
+
+.afc-side__title {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.afc-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.afc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+}
+
+.afc-field input {
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}
+
+.afc-enemy-note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.afc-slot-list h3 {
+  margin: 10px 0 4px;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.afc-slot-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: rgba(30, 41, 59, 0.65);
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.afc-slot-row--on {
+  border-color: #fbbf24;
+  background: rgba(69, 26, 3, 0.45);
+}
+
+.afc-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.afc-btn {
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(30, 41, 59, 0.9);
+  color: #e2e8f0;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+
+.afc-btn--primary {
+  background: #2563eb;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.afc-btn--file {
+  display: block;
+}
+
+.afc-flash {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+  color: #86efac;
+}
+
+@media (max-width: 860px) {
+  .afc-workspace {
+    grid-template-columns: 1fr;
+  }
+}
