@@ -1142,6 +1142,105 @@
   overflow: visible;
 }
 
+/* Floating combat text — dmg / crit / heal */
+.abm-float {
+  position: absolute;
+  left: 50%;
+  /* ~72% chiều cao img (từ đáy) → top ~28% */
+  top: 28%;
+  z-index: 24;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.12em;
+  pointer-events: none;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  animation: abm-float-rise 1s ease-out forwards;
+  will-change: transform, opacity;
+}
+
+.abm-float__num {
+  font-style: italic;
+  font-weight: 900;
+  font-family: Impact, Haettenschweiler, 'Arial Black', 'Segoe UI', sans-serif;
+  font-size: clamp(1.35rem, 5.2vw, 2.15rem);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  -webkit-text-stroke: 3px #1a1208;
+  paint-order: stroke fill;
+  text-shadow:
+    0 2px 0 #1a1208,
+    0 3px 6px rgba(0, 0, 0, 0.45);
+}
+
+.abm-float--damage .abm-float__num {
+  color: #ffffff;
+}
+
+.abm-float--crit .abm-float__num {
+  color: #ff8a1a;
+  -webkit-text-stroke: 3px #1a1208;
+  paint-order: stroke fill;
+  text-shadow:
+    0 2px 0 #1a1208,
+    0 3px 6px rgba(0, 0, 0, 0.4);
+}
+
+.abm-float--heal .abm-float__num {
+  color: #5cff4a;
+  -webkit-text-stroke: 3px #0d2808;
+  text-shadow:
+    0 2px 0 #0d2808,
+    0 3px 6px rgba(0, 0, 0, 0.35);
+}
+
+.abm-float--miss .abm-float__num {
+  color: #a8a8a8;
+  letter-spacing: 0.06em;
+  -webkit-text-stroke: 3px #1a1208;
+  text-shadow:
+    0 2px 0 #1a1208,
+    0 3px 6px rgba(0, 0, 0, 0.4);
+}
+
+.abm-float__crit-icon {
+  width: clamp(1.05rem, 3.8vw, 1.55rem);
+  height: clamp(1.05rem, 3.8vw, 1.55rem);
+  color: #ff8a1a;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.55));
+  transform: translateY(-0.05em);
+}
+
+@keyframes abm-float-rise {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px) scale(0.72);
+  }
+  12% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1.08);
+  }
+  28% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-6px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    /* bay lên về phía thanh HP (HUD phía trên sprite) */
+    transform: translateX(-50%) translateY(calc(-1 * clamp(2.8rem, 12vw, 4.6rem))) scale(0.92);
+  }
+}
+
+.arena-pet-sprite-wrap .abm-float {
+  font-size: 1em;
+}
+
+.arena-pet-sprite-wrap .abm-float__num {
+  font-size: clamp(1.5rem, 4.5vw, 2.4rem);
+}
+
 .abm-unit__sprite {
   position: relative;
   z-index: 1;
@@ -1305,6 +1404,21 @@
   animation: abm-shadow-fade-out 0.35s ease forwards;
 }
 
+/* Pet cuối cùng — chết chậm ~x2 (0.4s → 0.8s) rồi biến mất */
+.abm-unit--finale-death .abm-unit__sprite,
+.abm-unit--finale-death.abm-unit--lead .abm-unit__sprite {
+  animation: abm-pet-finale-death-out 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+.abm-unit--finale-death .abm-unit__ground-shadow,
+.abm-unit--finale-death.abm-unit--lead .abm-unit__ground-shadow {
+  animation: abm-shadow-fade-out 0.7s ease forwards;
+}
+
+.abm-unit--finale-death .abm-unit__hud {
+  animation: abm-shadow-fade-out 0.65s ease forwards;
+}
+
 /* Catalog FX overlay — box ngang (slash/sheet), không dùng aspect lightning cũ */
 .abm-battle-fx {
   position: absolute;
@@ -1341,6 +1455,15 @@
 
 .arena-pet--death img {
   animation: abm-pet-death-out 0.4s ease forwards;
+}
+
+.arena-pet--finale-death img {
+  animation: abm-pet-finale-death-out 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+.arena-pet--finale-death .arena-pet-name,
+.arena-pet--finale-death .arena-pet-stats {
+  animation: abm-shadow-fade-out 1.2s ease forwards;
 }
 
 .arena-pet--hidden {
@@ -1434,6 +1557,39 @@
     opacity: 0;
     filter: brightness(3.5);
     transform: scale(0.35);
+  }
+}
+
+@keyframes abm-pet-finale-death-out {
+  0% {
+    opacity: 1;
+    filter: brightness(1) saturate(1);
+    transform: scale(1);
+  }
+  12% {
+    opacity: 1;
+    filter: brightness(1.35) saturate(1.1);
+    transform: scale(1.03);
+  }
+  38% {
+    opacity: 1;
+    filter: brightness(2.1) saturate(0.85);
+    transform: scale(1.08);
+  }
+  62% {
+    opacity: 0.72;
+    filter: brightness(2.6) saturate(0.55);
+    transform: scale(0.92);
+  }
+  82% {
+    opacity: 0.28;
+    filter: brightness(3.2) saturate(0.25);
+    transform: scale(0.55);
+  }
+  100% {
+    opacity: 0;
+    filter: brightness(3.8) saturate(0);
+    transform: scale(0.28);
   }
 }
 

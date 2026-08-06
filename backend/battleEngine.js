@@ -37,8 +37,10 @@ function calculateDamage(attacker, defender, movePower, options = {}) {
   const Def = defender.final_stats?.def ?? 10;
   const mult = randomMultiplierFromPowerRange(options.power_min, options.power_max);
   const dmg = (Str * mult) * 0.6 - Def * 0.5;
-  const damage = Math.max(1, Math.floor(dmg));
-  return { damage, critical: false };
+  const critical = isCriticalHit();
+  let damage = Math.max(1, Math.floor(dmg));
+  if (critical) damage = Math.max(1, Math.floor(damage * 1.5));
+  return { damage, critical };
 }
 
 /**

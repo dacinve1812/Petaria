@@ -180,6 +180,118 @@ function turnLimitForMode(mode) {
   return mode === '1v1' ? 50 : 200;
 }
 
+/** Crit burst icon (orange jagged impact) */
+function CritBurstIcon() {
+  return (
+    <svg className="abm-float__crit-icon" viewBox="0 0 36 36" aria-hidden focusable="false">
+      <path
+        fill="currentColor"
+        stroke="#1a1008"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+        d="M18 1.5l3.2 9.2 9.8-2.6-6.2 7.8 8.6 5.6-10.2-1.2-1.4 10.4-3.8-9.6-8.8 6.2 3.2-9.4L2 14.8l9.6-2.2L18 1.5z"
+      />
+    </svg>
+  );
+}
+
+/** Floating dmg / crit / heal / miss over pet */
+function FloatingCombatText({ value, kind = 'damage' }) {
+  if (kind === 'miss') {
+    return (
+      <span className="abm-float abm-float--miss" aria-hidden>
+        <em className="abm-float__num">MISS</em>
+      </span>
+    );
+  }
+  const n = Math.abs(Math.round(Number(value) || 0));
+  if (!n) return null;
+  const label = kind === 'heal' ? `+${n}` : String(n);
+  return (
+    <span className={`abm-float abm-float--${kind}`} aria-hidden>
+      {kind === 'crit' ? <CritBurstIcon /> : null}
+      <em className="abm-float__num">{label}</em>
+    </span>
+  );
+}
+
+function floatTextsForUnit(floatTexts, unitId) {
+  if (!unitId || !Array.isArray(floatTexts)) return [];
+  const id = String(unitId);
+  return floatTexts.filter((t) => String(t.unitId) === id);
+}
+
+/** Parse dmg/crit/heal/miss từ 1 dòng log */
+function parseCombatFloatFromText(text) {
+  const t = String(text || '');
+  if (/trượt|miss/i.test(t)) return { kind: 'miss', value: 1 };
+  const reflect = t.match(/phản đòn\s+(\d+)/i);
+  if (reflect) return { value: Number(reflect[1]), kind: 'damage', reflected: true };
+  const dmg = t.match(/gây\s+(\d+)\s+sát thương/i);
+  if (dmg) {
+    return {
+      value: Number(dmg[1]),
+      kind: /\(CRIT\)/i.test(t) ? 'crit' : 'damage',
+      reflected: false,
+    };
+  }
+  const heal = t.match(/(?:hồi|heal)\s*\+?(\d+)|\+(\d+)\s*(?:HP|máu|hp)/i);
+  if (heal) return { value: Number(heal[1] || heal[2]), kind: 'heal', reflected: false };
+  return null;
+}
+
+/**
+ * Các nhịp combat mới trong history (từ fromIndex).
+ * Dùng cho Redis: play FX player rồi NPC trong cùng 1 turn.
+ */
+function parseHistoryCombatBeats(history, fromIndex = 0, names = {}) {
+  const beats = [];
+  const list = Array.isArray(history) ? history : [];
+  const playerName = String(names.playerName || '');
+  const enemyName = String(names.enemyName || '');
+  for (let i = Math.max(0, fromIndex); i < list.length; i += 1) {
+    const entry = list[i];
+    const type = String(entry?.type || '');
+    const text = String(entry?.text || '');
+    if (type !== 'player_attack' && type !== 'enemy_attack') continue;
+    const parsed = parseCombatFloatFromText(text);
+    if (!parsed) continue;
+
+    let side = type === 'enemy_attack' ? 'enemy' : 'player';
+    // Phản đòn: log đôi khi ghi type sai — suy ra từ tên attacker trong câu
+    if (parsed.reflected) {
+      const who = text.match(/^(.+?)\s+đánh/);
+      const atkName = who?.[1]?.trim() || '';
+      if (atkName && playerName && atkName === playerName) side = 'player';
+      else if (atkName && enemyName && atkName === enemyName) side = 'enemy';
+    }
+
+    beats.push({
+      side,
+      miss: parsed.kind === 'miss',
+      reflected: !!parsed.reflected,
+      floatText: { value: parsed.value, kind: parsed.kind },
+    });
+  }
+  return beats;
+}
+
+function floatFromDamageResult(result) {
+  const dmg = Math.round(Number(result?.damage) || 0);
+  if (dmg <= 0) return null;
+  return { value: dmg, kind: result?.critical ? 'crit' : 'damage' };
+}
+
+function floatFromReflectResult(result) {
+  const dmg = Math.round(Number(result?.reflectedDamage) || 0);
+  if (dmg <= 0) return null;
+  return { value: dmg, kind: 'damage' };
+}
+
+function floatMiss() {
+  return { value: 1, kind: 'miss' };
+}
+
 
 /** Ô pet multi: HP + status icons phía trên, Lv phía dưới — không hiện tên/stats */
 function MultiBattleUnit({
@@ -195,6 +307,7 @@ function MultiBattleUnit({
   entrySpawn = false,
   statusIcons = [],
   pose,
+  floatTexts = [],
 }) {
   if (!unit) return null;
   if (lifePhase === 'gone') return null;
@@ -207,7 +320,8 @@ function MultiBattleUnit({
         '--abm-s': String(pose.scale),
       }
     : undefined;
-  const isDying = lifePhase === 'death';
+  const isFinaleDying = lifePhase === 'finale-death';
+  const isDying = lifePhase === 'death' || isFinaleDying;
   return (
     <div
       className={[
@@ -217,7 +331,7 @@ function MultiBattleUnit({
         isLunge ? 'abm-unit--lunge' : '',
         isHit ? 'abm-unit--hit' : '',
         entrySpawn ? 'abm-unit--spawn' : '',
-        isDying ? 'abm-unit--death' : '',
+        isFinaleDying ? 'abm-unit--finale-death' : isDying ? 'abm-unit--death' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -246,6 +360,9 @@ function MultiBattleUnit({
           className="abm-unit__sprite"
           draggable={false}
         />
+        {floatTexts.map((ft) => (
+          <FloatingCombatText key={ft.id} value={ft.value} kind={ft.kind} />
+        ))}
         {fxAnimId != null ? (
           <BattleFxOverlay fxNumId={fxAnimId} token={fxToken || 'bolt'} />
         ) : fx ? (
@@ -270,6 +387,7 @@ function MultiBattleArena({
   actingUnit,
   battleFx,
   lifeFx = {},
+  floatTexts = [],
   entrySpawn = false,
   battleMode = '5v5',
 }) {
@@ -302,6 +420,7 @@ function MultiBattleArena({
         fxToken: battleFx?.token,
         lifePhase,
         entrySpawn,
+        floatTexts: floatTextsForUnit(floatTexts, uid),
       });
     });
   };
@@ -358,6 +477,7 @@ function MultiBattleArena({
             fxToken={p.fxToken}
             lifePhase={p.lifePhase}
             entrySpawn={p.entrySpawn}
+            floatTexts={p.floatTexts}
           />
         ))}
       </div>
@@ -587,6 +707,8 @@ function ArenaBattlePage() {
       (baseMs) => new Promise((resolve) => setTimeout(resolve, paceMs(baseMs))),
       [paceMs]
     );
+    /** Real-time wait (không chia battle-speed) — dùng cho finale death / hold.result */
+    const waitRaw = useCallback((ms) => new Promise((resolve) => setTimeout(resolve, ms)), []);
 
     const [isRedisMatch, setIsRedisMatch] = useState(!!useRedisMatchFromState);
     /** 3v3/5v5 local (champion test): combat theo từng pet trong squad */
@@ -603,6 +725,26 @@ function ArenaBattlePage() {
     const enemySquadRef = React.useRef(enemySquad);
     playerSquadRef.current = playerSquad;
     enemySquadRef.current = enemySquad;
+
+    /** Pet cuối trên đội bị KO → quyết định thắng/thua (1v1 / multi / redis đều dùng) */
+    const isLastPetKo = useCallback((unitId) => {
+      if (unitId == null) return false;
+      const id = String(unitId);
+      const pSquad = playerSquadRef.current || [];
+      const eSquad = enemySquadRef.current || [];
+      const inPlayer = pSquad.some((u) => String(u.id) === id);
+      const inEnemy = eSquad.some((u) => String(u.id) === id);
+      const squad = inPlayer ? pSquad : inEnemy ? eSquad : null;
+      // Multi: chỉ slow khi không còn pet sống khác trên cùng đội
+      if (squad && squad.length > 1) {
+        const othersAlive = squad.filter(
+          (u) => String(u.id) !== id && (Number(u.current_hp) || 0) > 0
+        );
+        return othersAlive.length === 0;
+      }
+      // 1v1 / lead-only / chưa có squad: mọi KO đều là kết thúc trận
+      return true;
+    }, []);
 
     // Sync HP combat lead → squad (1v1 Redis / lead-only). Squad combat: squad là source of truth.
     useEffect(() => {
@@ -827,10 +969,17 @@ function ArenaBattlePage() {
   const [attackAnimation, setAttackAnimation] = useState('');
     /** { attackerId, hitId, fxId, effect, token } — CSS lunge / hit / overlay */
     const [battleFx, setBattleFx] = useState(null);
-    /** unitId → 'alive'|'death'|'gone' (spawn entry dùng entrySpawn riêng) */
+    /** unitId → 'alive'|'death'|'finale-death'|'gone' (spawn entry dùng entrySpawn riêng) */
     const [lifeFx, setLifeFx] = useState({});
     const lifeFxRef = React.useRef({});
     lifeFxRef.current = lifeFx;
+    /** Chặn useEffect auto-end trong lúc phát death finale */
+    const endPresentationLockRef = React.useRef(false);
+    /** Đã hold 1s sau death → bỏ banner FINISH dài, vào result ngay */
+    const skipLongFinishRef = React.useRef(false);
+    const [finaleSlowMo, setFinaleSlowMo] = useState(false);
+    const [floatTexts, setFloatTexts] = useState([]);
+    const floatTimersRef = React.useRef([]);
     const [entrySpawn, setEntrySpawn] = useState(true);
     const entrySpawnDoneRef = React.useRef(false);
     const [resultEffect, setResultEffect] = useState('');
@@ -854,6 +1003,48 @@ function ArenaBattlePage() {
       loadBattleFxCatalogAsync().catch(() => {});
     }, []);
 
+    const unitCurrentHp = useCallback((unitId) => {
+      if (unitId == null) return 1;
+      const sid = String(unitId);
+      const fromP = (playerSquadRef.current || []).find((u) => String(u.id) === sid);
+      if (fromP) return Number(fromP.current_hp) || 0;
+      const fromE = (enemySquadRef.current || []).find((u) => String(u.id) === sid);
+      if (fromE) return Number(fromE.current_hp) || 0;
+      if (String(playerRef.current?.id) === sid) return Number(playerRef.current?.current_hp) || 0;
+      if (String(enemyRef.current?.id) === sid) return Number(enemyRef.current?.current_hp) || 0;
+      return 1;
+    }, []);
+
+    /** Finale (pet cuối quyết định thắng/thua): chậm đúng ~x2 — mọi chế độ trận */
+    const FINALE_SLOW_MULT = 2;
+    const FINALE_DEATH_MS = 800; // death thường 0.4s × 2
+    const FINALE_HOLD_MS = 1000;
+    const FLOAT_TEXT_MS = 1000;
+
+    const pushFloatText = useCallback((unitId, floatText) => {
+      if (unitId == null || !floatText) return;
+      const kind =
+        floatText.kind === 'crit' || floatText.kind === 'heal' || floatText.kind === 'miss'
+          ? floatText.kind
+          : 'damage';
+      const value = kind === 'miss' ? 1 : Math.round(Number(floatText.value) || 0);
+      if (kind !== 'miss' && !value) return;
+      const id = `${unitId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      setFloatTexts((prev) => [...prev.slice(-10), { id, unitId: String(unitId), value, kind }]);
+      const t = window.setTimeout(() => {
+        setFloatTexts((prev) => prev.filter((x) => x.id !== id));
+      }, FLOAT_TEXT_MS);
+      floatTimersRef.current.push(t);
+    }, []);
+
+    useEffect(
+      () => () => {
+        floatTimersRef.current.forEach((t) => window.clearTimeout(t));
+        floatTimersRef.current = [];
+      },
+      []
+    );
+
     /** Attacker lunge → defender shake + catalog / CSS effect overlay */
     const playCombatFx = useCallback(
       async ({
@@ -864,7 +1055,16 @@ function ArenaBattlePage() {
         side = 'player',
         miss = false,
         noLunge = false,
+        /** Đòn kết thúc trận (pet cuối) — chậm ~x2 */
+        killingBlow = false,
+        /** { value, kind: 'damage'|'crit'|'heal'|'miss' } — hiện ~50% animation */
+        floatText = null,
       }) => {
+        // Khóa end sớm (trước mọi await) để useEffect HP không skip death delay
+        if (killingBlow || (hitId != null && !miss && isLastPetKo(hitId) && unitCurrentHp(hitId) <= 0)) {
+          endPresentationLockRef.current = true;
+        }
+
         const token = Date.now();
         const anim =
           !miss && animationId != null && Number(animationId) >= 1
@@ -877,11 +1077,22 @@ function ArenaBattlePage() {
             /* overlay vẫn tự load */
           }
         }
+        const finaleBlow =
+          !miss &&
+          hitId != null &&
+          isLastPetKo(hitId) &&
+          (killingBlow || unitCurrentHp(hitId) <= 0);
+        if (finaleBlow) {
+          endPresentationLockRef.current = true;
+          setFinaleSlowMo(true);
+        }
+        // Miss: vẫn lunge attacker; không hit-shake / catalog FX trên target
+        const resolvedHitId = hitId == null ? null : String(hitId);
         setAttackAnimation(noLunge ? '' : side);
         setBattleFx({
           attackerId: noLunge || attackerId == null ? null : String(attackerId),
-          hitId: miss || hitId == null ? null : String(hitId),
-          fxId: miss || hitId == null ? null : String(hitId),
+          hitId: miss ? null : resolvedHitId,
+          fxId: miss || resolvedHitId == null ? null : resolvedHitId,
           effect: miss ? null : anim != null ? 'catalog' : effect,
           animationId: anim,
           token,
@@ -891,33 +1102,66 @@ function ArenaBattlePage() {
           : anim != null
             ? catalogFxWaitMs(anim)
             : 900;
-        await waitPace(waitMs);
+        const totalWait = finaleBlow
+          ? Math.round(waitMs * FINALE_SLOW_MULT)
+          : paceMs(waitMs);
+        const resolvedFloat =
+          floatText ||
+          (miss && resolvedHitId ? floatMiss() : null);
+        if (resolvedFloat && resolvedHitId != null) {
+          const delay = Math.max(80, Math.round(totalWait * 0.5));
+          const floatTimer = window.setTimeout(() => {
+            pushFloatText(resolvedHitId, resolvedFloat);
+          }, delay);
+          floatTimersRef.current.push(floatTimer);
+        }
+        if (finaleBlow) {
+          await waitRaw(totalWait);
+        } else {
+          await waitPace(waitMs);
+        }
         clearCombatFx();
+        if (finaleBlow) setFinaleSlowMo(false);
       },
-      [waitPace, clearCombatFx]
+      [waitPace, waitRaw, paceMs, clearCombatFx, unitCurrentHp, isLastPetKo, pushFloatText]
     );
 
-    /** After hit FX: pet vanish (no lightning) */
+    /** After hit FX: pet vanish. Finale = pet cuối — chậm ~x2 rồi biến mất. */
     const playDeathFx = useCallback(
-      async (unitId) => {
+      async (unitId, { finale = false } = {}) => {
         if (unitId == null) return;
         const id = String(unitId);
         const cur = lifeFxRef.current[id];
-        if (cur === 'death' || cur === 'gone') return;
+        if (cur === 'death' || cur === 'finale-death' || cur === 'gone') return;
+        if (finale) {
+          endPresentationLockRef.current = true;
+          setFinaleSlowMo(true);
+          setLifeFx((prev) => ({ ...prev, [id]: 'finale-death' }));
+          await waitRaw(FINALE_DEATH_MS);
+          setLifeFx((prev) => ({ ...prev, [id]: 'gone' }));
+          setFinaleSlowMo(false);
+          return;
+        }
         setLifeFx((prev) => ({ ...prev, [id]: 'death' }));
         await waitPace(420);
         setLifeFx((prev) => ({ ...prev, [id]: 'gone' }));
       },
-      [waitPace]
+      [waitPace, waitRaw]
     );
 
     const playDeathIfKo = useCallback(
       async (unitId, hpAfter) => {
         if (unitId == null) return;
         if ((Number(hpAfter) || 0) > 0) return;
-        await playDeathFx(unitId);
+        const finale = isLastPetKo(unitId);
+        if (finale) endPresentationLockRef.current = true;
+        await playDeathFx(unitId, { finale });
+        if (finale) {
+          await waitRaw(FINALE_HOLD_MS);
+          skipLongFinishRef.current = true;
+        }
       },
-      [playDeathFx]
+      [playDeathFx, isLastPetKo, waitRaw]
     );
 
     const battleUiLocked =
@@ -1162,14 +1406,100 @@ function ArenaBattlePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || 'Turn failed');
-      setPlayer({ ...data.player, current_def_dmg: data.player?.current_def_dmg ?? 0 });
-      setEnemy({ ...data.enemy, current_def_dmg: data.enemy?.current_def_dmg ?? 0 });
+      if (data.finished) endPresentationLockRef.current = true;
+      const nextPlayer = { ...data.player, current_def_dmg: data.player?.current_def_dmg ?? 0 };
+      const nextEnemy = { ...data.enemy, current_def_dmg: data.enemy?.current_def_dmg ?? 0 };
+      playerRef.current = nextPlayer;
+      enemyRef.current = nextEnemy;
+      setPlayer(nextPlayer);
+      setEnemy(nextEnemy);
       setLog(Array.isArray(data.history) ? data.history : []);
       if (Array.isArray(data.equipment)) setEquippedItems(data.equipment.map((e) => ({ ...e, image_url: e.image_url || '' })));
       setTurn(data.turn_count ?? 0);
-      setBattleEnded(!!data.finished);
-      setResultEffect(data.result || '');
+      // battleEnded / result: settle sau death FX (settleMatchFinish)
       return data;
+    };
+
+    /** Redis: sau combat FX — slow death pet cuối + hold 1s rồi hiện result */
+    const settleMatchFinish = async (data) => {
+      if (!data?.finished) return false;
+      endPresentationLockRef.current = true;
+      const pHp = Number(data.player?.current_hp) || 0;
+      const eHp = Number(data.enemy?.current_hp) || 0;
+      if (eHp <= 0 && data.enemy?.id != null) {
+        await playDeathFx(data.enemy.id, { finale: true });
+      } else if (pHp <= 0 && data.player?.id != null) {
+        await playDeathFx(data.player.id, { finale: true });
+      }
+      await waitRaw(FINALE_HOLD_MS);
+      skipLongFinishRef.current = true;
+      setResultEffect(data.result || (eHp <= 0 ? 'win' : 'lose'));
+      setBattleEnded(true);
+      return true;
+    };
+
+    /** Redis: play FX theo đúng thứ tự history (player/NPC/defend) */
+    const playRedisMatchTurnPresentation = async (data, histBeforeLen) => {
+      const playerId = data.player?.id ?? playerRef.current?.id;
+      const enemyId = data.enemy?.id ?? enemyRef.current?.id;
+      const pHp = Number(data.player?.current_hp) || 0;
+      const eHp = Number(data.enemy?.current_hp) || 0;
+      const finished = !!data.finished;
+      const names = {
+        playerName: data.player?.name || playerRef.current?.name,
+        enemyName: data.enemy?.name || enemyRef.current?.name,
+      };
+      const list = Array.isArray(data.history) ? data.history : [];
+
+      for (let i = Math.max(0, histBeforeLen); i < list.length; i += 1) {
+        const entry = list[i];
+        const type = String(entry?.type || '');
+
+        if (type === 'defense') {
+          await playCombatFx({
+            attackerId: playerId,
+            hitId: playerId,
+            animationId: BATTLE_FX_DEFEND_ANIM_ID,
+            side: 'player',
+            noLunge: true,
+          });
+          continue;
+        }
+
+        if (type !== 'player_attack' && type !== 'enemy_attack') continue;
+        const beats = parseHistoryCombatBeats([entry], 0, names);
+        for (const beat of beats) {
+          if (beat.side === 'player') {
+            const hitId = beat.reflected ? playerId : enemyId;
+            await playCombatFx({
+              attackerId: playerId,
+              hitId,
+              animationId: beat.miss ? null : BATTLE_FX_ATTACK_ANIM_ID,
+              side: 'player',
+              miss: !!beat.miss,
+              floatText: beat.floatText,
+              killingBlow:
+                finished &&
+                !beat.miss &&
+                (beat.reflected ? pHp <= 0 : eHp <= 0),
+            });
+          } else {
+            const hitId = beat.reflected ? enemyId : playerId;
+            await playCombatFx({
+              attackerId: enemyId,
+              hitId,
+              animationId: beat.miss ? null : BATTLE_FX_ATTACK_ANIM_ID,
+              side: 'enemy',
+              miss: !!beat.miss,
+              floatText: beat.floatText,
+              killingBlow:
+                finished &&
+                !beat.miss &&
+                (beat.reflected ? eHp <= 0 : pHp <= 0),
+            });
+          }
+        }
+      }
     };
 
     const advanceQueueAfterPlayer = async ({ redisCombined, serverTurnCount, ended }) => {
@@ -1199,19 +1529,14 @@ function ArenaBattlePage() {
 
       if (isRedisMatch) {
         try {
+          const histBefore = Array.isArray(log) ? log.length : 0;
           const data = await sendMatchTurn({ action: 'attack_item', itemId: item.id, power_min: powerMin, power_max: powerMax, moveName: item.item_name || 'Weapon' });
-          const hitEnemyId = data.enemy?.id ?? enemy?.id;
-          const atkId = data.player?.id ?? player?.id;
-          await playCombatFx({
-            attackerId: atkId,
-            hitId: hitEnemyId,
-            animationId: BATTLE_FX_ATTACK_ANIM_ID,
-            side: 'player',
-          });
+          await playRedisMatchTurnPresentation(data, histBefore);
+          const ended = await settleMatchFinish(data);
           await advanceQueueAfterPlayer({
             redisCombined: true,
             serverTurnCount: data.turn_count,
-            ended: !!data.finished,
+            ended,
           });
         } catch (err) {
           console.error('Match turn (attack_item):', err);
@@ -1276,11 +1601,14 @@ function ArenaBattlePage() {
                 : u
             );
             setPlayerSquad(nextPlayerSquad);
+            playerSquadRef.current = nextPlayerSquad;
             await playCombatFx({
               attackerId: actingPlayer.id,
               hitId: actingPlayer.id,
               animationId: BATTLE_FX_ATTACK_ANIM_ID,
               side: 'player',
+              killingBlow: (Number(result.attacker_hp_after) || 0) <= 0,
+              floatText: floatFromReflectResult(result),
             });
             await playDeathIfKo(actingPlayer.id, result.attacker_hp_after);
           } else if (result.miss) {
@@ -1290,6 +1618,7 @@ function ArenaBattlePage() {
             );
             await playCombatFx({
               attackerId: actingPlayer.id,
+              hitId: targetEnemy.id,
               side: 'player',
               miss: true,
             });
@@ -1308,11 +1637,14 @@ function ArenaBattlePage() {
                 : u
             );
             setEnemySquad(nextEnemySquad);
+            enemySquadRef.current = nextEnemySquad;
             await playCombatFx({
               attackerId: actingPlayer.id,
               hitId: targetEnemy.id,
               animationId: BATTLE_FX_ATTACK_ANIM_ID,
               side: 'player',
+              killingBlow: (Number(result.defender_hp_after) || 0) <= 0,
+              floatText: floatFromDamageResult(result),
             });
             if ((result.defender_hp_after ?? 0) <= 0) {
               appendLog(`${targetEnemy.name} đã bị hạ!`, 'default');
@@ -1357,7 +1689,11 @@ function ArenaBattlePage() {
 
         if (result.reflectedDamage > 0) {
           appendLog(`${result.attacker} đánh, ${result.defender} phản đòn ${result.reflectedDamage} sát thương!`, 'enemy_attack');
-          setPlayer((prev) => ({ ...prev, current_hp: result.attacker_hp_after ?? prev.current_hp }));
+          setPlayer((prev) => {
+            const next = { ...prev, current_hp: result.attacker_hp_after ?? prev.current_hp };
+            playerRef.current = next;
+            return next;
+          });
         } else {
           const playerActor =
             actingUnit?.side === 'player' ? actingUnit.name : result.attacker;
@@ -1366,7 +1702,15 @@ function ArenaBattlePage() {
             'player_attack'
           );
         }
-        setEnemy((prev) => ({ ...prev, current_hp: result.defender_hp_after ?? Math.max(0, prev.current_hp - result.damage), current_def_dmg: 0 }));
+        setEnemy((prev) => {
+          const next = {
+            ...prev,
+            current_hp: result.defender_hp_after ?? Math.max(0, prev.current_hp - result.damage),
+            current_def_dmg: 0,
+          };
+          enemyRef.current = next;
+          return next;
+        });
         
         // Cập nhật durability trong database
         try {
@@ -1396,15 +1740,23 @@ function ArenaBattlePage() {
           }));
         }
         
+        const newEnemyHp = result.defender_hp_after ?? Math.max(0, enemy.current_hp - result.damage);
+        const newPlayerHp = result.reflectedDamage > 0 ? result.attacker_hp_after : player.current_hp;
         await playCombatFx({
           attackerId: actingPlayer?.id || player?.id,
           hitId: result.reflectedDamage > 0 ? actingPlayer?.id || player?.id : enemy?.id,
           animationId: BATTLE_FX_ATTACK_ANIM_ID,
           side: 'player',
+          killingBlow:
+            result.reflectedDamage > 0
+              ? (Number(newPlayerHp) || 0) <= 0
+              : (Number(newEnemyHp) || 0) <= 0,
+          floatText:
+            result.reflectedDamage > 0
+              ? floatFromReflectResult(result)
+              : floatFromDamageResult(result),
         });
 
-        const newEnemyHp = result.defender_hp_after ?? Math.max(0, enemy.current_hp - result.damage);
-        const newPlayerHp = result.reflectedDamage > 0 ? result.attacker_hp_after : player.current_hp;
         if (result.reflectedDamage > 0) {
           await playDeathIfKo(actingPlayer?.id || player?.id, newPlayerHp);
         } else {
@@ -1426,19 +1778,14 @@ function ArenaBattlePage() {
       const powerMax = shieldItem.power_max != null ? shieldItem.power_max : 0;
       if (isRedisMatch) {
         try {
+          const histBefore = Array.isArray(log) ? log.length : 0;
           const data = await sendMatchTurn({ action: 'defend_shield', itemId: shieldItem.id, power_min: powerMin, power_max: powerMax });
-          const selfId = data.player?.id ?? player?.id;
-          await playCombatFx({
-            attackerId: selfId,
-            hitId: selfId,
-            animationId: BATTLE_FX_DEFEND_ANIM_ID,
-            side: 'player',
-            noLunge: true,
-          });
+          await playRedisMatchTurnPresentation(data, histBefore);
+          const ended = await settleMatchFinish(data);
           await advanceQueueAfterPlayer({
             redisCombined: true,
             serverTurnCount: data.turn_count,
-            ended: !!data.finished,
+            ended,
           });
         } catch (err) {
           console.error('Match turn (defend_shield):', err);
@@ -1519,19 +1866,14 @@ function ArenaBattlePage() {
       setActionLocked(true);
       if (isRedisMatch) {
         try {
+          const histBefore = Array.isArray(log) ? log.length : 0;
           const data = await sendMatchTurn({ action: 'normal_attack', power_min: NORMAL_POWER_MIN, power_max: NORMAL_POWER_MAX, moveName: 'Normal Attack' });
-          const hitEnemyId = data.enemy?.id ?? enemy?.id;
-          const atkId = data.player?.id ?? player?.id;
-          await playCombatFx({
-            attackerId: atkId,
-            hitId: hitEnemyId,
-            animationId: BATTLE_FX_ATTACK_ANIM_ID,
-            side: 'player',
-          });
+          await playRedisMatchTurnPresentation(data, histBefore);
+          const ended = await settleMatchFinish(data);
           await advanceQueueAfterPlayer({
             redisCombined: true,
             serverTurnCount: data.turn_count,
-            ended: !!data.finished,
+            ended,
           });
         } catch (err) {
           console.error('Match turn (normal_attack):', err);
@@ -1584,11 +1926,14 @@ function ArenaBattlePage() {
                 : u
             );
             setPlayerSquad(nextPlayerSquad);
+            playerSquadRef.current = nextPlayerSquad;
             await playCombatFx({
               attackerId: actingPlayer.id,
               hitId: actingPlayer.id,
               animationId: BATTLE_FX_ATTACK_ANIM_ID,
               side: 'player',
+              killingBlow: (Number(result.attacker_hp_after) || 0) <= 0,
+              floatText: floatFromReflectResult(result),
             });
             await playDeathIfKo(actingPlayer.id, result.attacker_hp_after);
           } else if (result.miss) {
@@ -1598,12 +1943,13 @@ function ArenaBattlePage() {
             );
             await playCombatFx({
               attackerId: actingPlayer.id,
+              hitId: targetEnemy.id,
               side: 'player',
               miss: true,
             });
           } else {
             appendLog(
-              `${actingPlayer.name} dùng ${result.moveUsed} vào ${targetEnemy.name}, gây ${result.damage} sát thương.`,
+              `${actingPlayer.name} dùng ${result.moveUsed}${result.critical ? ' (CRIT)' : ''} vào ${targetEnemy.name}, gây ${result.damage} sát thương.`,
               'player_attack'
             );
             nextEnemySquad = nextEnemySquad.map((u) =>
@@ -1618,11 +1964,14 @@ function ArenaBattlePage() {
                 : u
             );
             setEnemySquad(nextEnemySquad);
+            enemySquadRef.current = nextEnemySquad;
             await playCombatFx({
               attackerId: actingPlayer.id,
               hitId: targetEnemy.id,
               animationId: BATTLE_FX_ATTACK_ANIM_ID,
               side: 'player',
+              killingBlow: (Number(result.defender_hp_after) || 0) <= 0,
+              floatText: floatFromDamageResult(result),
             });
             if ((result.defender_hp_after ?? 0) <= 0) {
               appendLog(`${targetEnemy.name} đã bị hạ!`, 'default');
@@ -1637,26 +1986,49 @@ function ArenaBattlePage() {
 
         if (result.reflectedDamage > 0) {
           appendLog(`${result.attacker} đánh, ${result.defender} phản đòn ${result.reflectedDamage} sát thương!`, 'enemy_attack');
-          setPlayer((prev) => ({ ...prev, current_hp: result.attacker_hp_after ?? prev.current_hp }));
+          setPlayer((prev) => {
+            const next = { ...prev, current_hp: result.attacker_hp_after ?? prev.current_hp };
+            playerRef.current = next;
+            return next;
+          });
         } else {
           const playerActor =
             actingUnit?.side === 'player' ? actingUnit.name : result.attacker;
           appendLog(
-            `${playerActor} dùng ${result.moveUsed}, gây ${result.damage} sát thương.`,
+            `${playerActor} dùng ${result.moveUsed}${result.critical ? ' (CRIT)' : ''}, gây ${result.damage} sát thương.`,
             'player_attack'
           );
         }
-        setEnemy((prev) => ({ ...prev, current_hp: result.defender_hp_after ?? Math.max(0, prev.current_hp - result.damage), current_def_dmg: 0 }));
+        setEnemy((prev) => {
+          const next = {
+            ...prev,
+            current_hp: result.defender_hp_after ?? Math.max(0, prev.current_hp - result.damage),
+            current_def_dmg: 0,
+          };
+          enemyRef.current = next;
+          return next;
+        });
+
+        const newEnemyHp = result.defender_hp_after ?? Math.max(0, enemy.current_hp - result.damage);
+        const newPlayerHp = result.reflectedDamage > 0 ? result.attacker_hp_after : player.current_hp;
         await playCombatFx({
           attackerId: actingPlayer?.id || player?.id,
           hitId: result.reflectedDamage > 0 ? actingPlayer?.id || player?.id : enemy?.id,
           animationId: BATTLE_FX_ATTACK_ANIM_ID,
           side: 'player',
           miss: !!result.miss,
+          killingBlow: !result.miss && (
+            result.reflectedDamage > 0
+              ? (Number(newPlayerHp) || 0) <= 0
+              : (Number(newEnemyHp) || 0) <= 0
+          ),
+          floatText: result.miss
+            ? null
+            : result.reflectedDamage > 0
+              ? floatFromReflectResult(result)
+              : floatFromDamageResult(result),
         });
 
-        const newEnemyHp = result.defender_hp_after ?? Math.max(0, enemy.current_hp - result.damage);
-        const newPlayerHp = result.reflectedDamage > 0 ? result.attacker_hp_after : player.current_hp;
         if (!result.miss) {
           if (result.reflectedDamage > 0) {
             await playDeathIfKo(actingPlayer?.id || player?.id, newPlayerHp);
@@ -1678,19 +2050,14 @@ function ArenaBattlePage() {
       setActionLocked(true);
       if (isRedisMatch) {
         try {
+          const histBefore = Array.isArray(log) ? log.length : 0;
           const data = await sendMatchTurn({ action: 'defend_basic', power_min: NORMAL_POWER_MIN, power_max: NORMAL_POWER_MAX });
-          const selfId = data.player?.id ?? player?.id;
-          await playCombatFx({
-            attackerId: selfId,
-            hitId: selfId,
-            animationId: BATTLE_FX_DEFEND_ANIM_ID,
-            side: 'player',
-            noLunge: true,
-          });
+          await playRedisMatchTurnPresentation(data, histBefore);
+          const ended = await settleMatchFinish(data);
           await advanceQueueAfterPlayer({
             redisCombined: true,
             serverTurnCount: data.turn_count,
-            ended: !!data.finished,
+            ended,
           });
         } catch (err) {
           console.error('Match turn (defend_basic):', err);
@@ -1785,6 +2152,7 @@ function ArenaBattlePage() {
             );
             await playCombatFx({
               attackerId: attacker.id,
+              hitId: target.id,
               side: 'enemy',
               miss: true,
             });
@@ -1828,11 +2196,15 @@ function ArenaBattlePage() {
             );
             setPlayerSquad(nextPlayerSquad);
             setEnemySquad(nextEnemySquad);
+            playerSquadRef.current = nextPlayerSquad;
+            enemySquadRef.current = nextEnemySquad;
             await playCombatFx({
               attackerId: attacker.id,
               hitId: attacker.id,
               animationId: BATTLE_FX_ATTACK_ANIM_ID,
               side: 'enemy',
+              killingBlow: (Number(result.attacker_hp_after) || 0) <= 0,
+              floatText: floatFromReflectResult(result),
             });
             await playDeathIfKo(attacker.id, result.attacker_hp_after);
           } else {
@@ -1851,11 +2223,14 @@ function ArenaBattlePage() {
                 : u
             );
             setPlayerSquad(nextPlayerSquad);
+            playerSquadRef.current = nextPlayerSquad;
             await playCombatFx({
               attackerId: attacker.id,
               hitId: target.id,
               animationId: BATTLE_FX_ATTACK_ANIM_ID,
               side: 'enemy',
+              killingBlow: newHp <= 0,
+              floatText: floatFromDamageResult(result),
             });
             if (newHp <= 0) {
               appendLog(`${target.name} đã bị hạ!`, 'default');
@@ -1901,6 +2276,7 @@ function ArenaBattlePage() {
           appendLog(`${result.attacker} dùng ${result.moveUsed} nhưng trượt!`, 'enemy_attack');
           await playCombatFx({
             attackerId: latestEnemy?.id,
+            hitId: latestPlayer?.id,
             side: 'enemy',
             miss: true,
           });
@@ -1916,16 +2292,26 @@ function ArenaBattlePage() {
           });
         } else if (result.reflectedDamage > 0) {
           appendLog(`${result.attacker} đánh, ${result.defender} phản đòn ${result.reflectedDamage} sát thương!`, 'player_attack');
-          setPlayer((prev) => ({ ...prev, current_hp: result.defender_hp_after ?? prev.current_hp, current_def_dmg: 0 }));
-          setEnemy((prev) => ({ ...prev, current_hp: result.attacker_hp_after ?? prev.current_hp }));
-          ended = checkBattleEnded(result.attacker_hp_after ?? enemy.current_hp, result.defender_hp_after ?? player.current_hp);
+          setPlayer((prev) => {
+            const next = { ...prev, current_hp: result.defender_hp_after ?? prev.current_hp, current_def_dmg: 0 };
+            playerRef.current = next;
+            return next;
+          });
+          setEnemy((prev) => {
+            const next = { ...prev, current_hp: result.attacker_hp_after ?? prev.current_hp };
+            enemyRef.current = next;
+            return next;
+          });
           await playCombatFx({
             attackerId: latestEnemy?.id,
             hitId: latestEnemy?.id,
             animationId: BATTLE_FX_ATTACK_ANIM_ID,
             side: 'enemy',
+            killingBlow: (Number(result.attacker_hp_after) || 0) <= 0,
+            floatText: floatFromReflectResult(result),
           });
           await playDeathIfKo(latestEnemy?.id, result.attacker_hp_after);
+          ended = checkBattleEnded(result.attacker_hp_after ?? enemy.current_hp, result.defender_hp_after ?? player.current_hp);
         } else {
           const newPlayerHp = result.defender_hp_after ?? Math.max(0, player.current_hp - (result.damage ?? 0));
           const enemyActor =
@@ -1934,15 +2320,21 @@ function ArenaBattlePage() {
             `${enemyActor} dùng ${result.moveUsed}${result.critical ? ' (CRIT)' : ''}, gây ${result.damage} sát thương.`,
             'enemy_attack'
           );
-          setPlayer((prev) => ({ ...prev, current_hp: newPlayerHp, current_def_dmg: 0 }));
-          ended = checkBattleEnded(enemy.current_hp, newPlayerHp);
+          setPlayer((prev) => {
+            const next = { ...prev, current_hp: newPlayerHp, current_def_dmg: 0 };
+            playerRef.current = next;
+            return next;
+          });
           await playCombatFx({
             attackerId: latestEnemy?.id,
             hitId: latestPlayer?.id,
             animationId: BATTLE_FX_ATTACK_ANIM_ID,
             side: 'enemy',
+            killingBlow: newPlayerHp <= 0,
+            floatText: floatFromDamageResult(result),
           });
           await playDeathIfKo(latestPlayer?.id, newPlayerHp);
+          ended = checkBattleEnded(enemy.current_hp, newPlayerHp);
         }
 
         return ended;
@@ -2174,24 +2566,6 @@ function ArenaBattlePage() {
     ]);
   
     useEffect(() => {
-      if (useSquadCombat) {
-        if (!teamStillAlive(enemySquad)) {
-          setBattleEnded(true);
-          setResultEffect('win');
-        } else if (!teamStillAlive(playerSquad)) {
-          setBattleEnded(true);
-          setResultEffect('lose');
-        }
-        return;
-      }
-      if (player.current_hp <= 0 || enemy.current_hp <= 0) {
-        setBattleEnded(true);
-        if ((enemy.current_hp ?? 0) <= 0 && (player.current_hp ?? 0) > 0) setResultEffect('win');
-        else if ((player.current_hp ?? 0) <= 0) setResultEffect('lose');
-      }
-    }, [useSquadCombat, player.current_hp, enemy.current_hp, playerSquad, enemySquad]);
-
-    useEffect(() => {
       if (turn > 0 || log.length > 1) setStartBannerVisible(false);
     }, [turn, log]);
 
@@ -2221,6 +2595,11 @@ function ArenaBattlePage() {
     useEffect(() => {
       if (!battleEnded) {
         setPostBattlePhase(null);
+        return undefined;
+      }
+      if (skipLongFinishRef.current) {
+        skipLongFinishRef.current = false;
+        setPostBattlePhase('result');
         return undefined;
       }
       setPostBattlePhase('finish');
@@ -2401,6 +2780,10 @@ function ArenaBattlePage() {
         setAttackAnimation('');
         setBattleFx(null);
         setLifeFx({});
+        setFloatTexts([]);
+        setFinaleSlowMo(false);
+        endPresentationLockRef.current = false;
+        skipLongFinishRef.current = false;
         entrySpawnDoneRef.current = false;
         setEntrySpawn(true);
         setResultEffect('');
@@ -2472,8 +2855,12 @@ function ArenaBattlePage() {
           }
         />
         <div
-          className={`arena-battle-container${battleEnded ? ' arena-battle-container--ended' : ''}${isMulti ? ' arena-battle-container--multi' : ''}`}
-          style={{ '--battle-pace': String(battleSpeed) }}
+          className={`arena-battle-container${battleEnded ? ' arena-battle-container--ended' : ''}${isMulti ? ' arena-battle-container--multi' : ''}${finaleSlowMo ? ' arena-battle-container--finale-slow' : ''}`}
+          style={{
+            '--battle-pace': String(
+              finaleSlowMo ? Math.max(0.25, Number(battleSpeed) / FINALE_SLOW_MULT) : battleSpeed
+            ),
+          }}
         >
           {/* Top: [Avatar + Speed] [HP bar + Name] | VS | [HP bar + Name] [Avatar + Speed] */}
           <header className="arena-battle-header">
@@ -2533,6 +2920,7 @@ function ArenaBattlePage() {
                 actingUnit={actingUnit}
                 battleFx={battleFx}
                 lifeFx={lifeFx}
+                floatTexts={floatTexts}
                 entrySpawn={entrySpawn}
                 battleMode={battleMode}
               />
@@ -2561,6 +2949,7 @@ function ArenaBattlePage() {
                     ? 'arena-pet--hit'
                     : '',
                   entrySpawn ? 'arena-pet--spawn' : '',
+                  pLife === 'finale-death' ? 'arena-pet--finale-death' : '',
                   pLife === 'death' ? 'arena-pet--death' : '',
                   pLife === 'gone' ? 'arena-pet--hidden' : '',
                 ]
@@ -2569,6 +2958,9 @@ function ArenaBattlePage() {
               >
                 <div className="arena-pet-sprite-wrap">
                   <img src={`/images/pets/${player?.image}`} alt={player?.name} />
+                  {floatTextsForUnit(floatTexts, player?.id).map((ft) => (
+                    <FloatingCombatText key={ft.id} value={ft.value} kind={ft.kind} />
+                  ))}
                   {battleFx?.hitId != null &&
                   String(battleFx.hitId) === String(player?.id) &&
                   battleFx?.animationId != null ? (
@@ -2596,6 +2988,7 @@ function ArenaBattlePage() {
                     ? 'arena-pet--hit'
                     : '',
                   entrySpawn ? 'arena-pet--spawn' : '',
+                  eLife === 'finale-death' ? 'arena-pet--finale-death' : '',
                   eLife === 'death' ? 'arena-pet--death' : '',
                   eLife === 'gone' ? 'arena-pet--hidden' : '',
                 ]
@@ -2604,6 +2997,9 @@ function ArenaBattlePage() {
               >
                 <div className="arena-pet-sprite-wrap">
                   <img src={enemy?.image} alt={enemy?.name} />
+                  {floatTextsForUnit(floatTexts, enemy?.id).map((ft) => (
+                    <FloatingCombatText key={ft.id} value={ft.value} kind={ft.kind} />
+                  ))}
                   {battleFx?.hitId != null &&
                   String(battleFx.hitId) === String(enemy?.id) &&
                   battleFx?.animationId != null ? (
