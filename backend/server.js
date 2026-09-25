@@ -12,6 +12,7 @@ const {
 
 const { generateIVStats, calculateFinalStats, calculateBossFinalStats, rawBossFinalStats } = require('./utils/petStats');
 const huntingCatch = require('./utils/huntingCatch');
+const petSpeciesLocalFetch = require('./utils/petSpeciesLocalFetch');
 const expTable = require('../src/data/exp_table_petaria.json');
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
@@ -72,7 +73,7 @@ const io = new SocketIOServer(httpServer, {
     methods: ['GET', 'POST'],
   },
 });
-const port = 5000; // Chọn cổng cho backend
+const port = Number(process.env.PORT) || 5000; // Chọn cổng cho backend
 
 
 const mysql = require('mysql2'); // Hoặc const { Pool } = require('pg');
@@ -665,7 +666,7 @@ async function resetOnlineStatusOnStartup() {
 // Quản lý RAM: mỗi SET match phải có TTL; khi kết thúc trận (finalize) hoặc terminate phải DEL key ngay.
 let redisClient = null;
 const REDIS_MATCH_TTL = parseInt(process.env.REDIS_MATCH_TTL, 10) || 3600; // 1 giờ mặc định (env: REDIS_MATCH_TTL)
-const REDIS_MATCH_PREFIX = 'match:';
+const REDIS_MATCH_PREFIX = process.env.REDIS_MATCH_PREFIX || 'match:';
 
 async function initRedis() {
   const url = process.env.REDIS_URL || 'redis://localhost:6379';
@@ -695,6 +696,49 @@ pool.getConnection((err, connection) => {
 
 app.use(cors());
 app.use(bodyParser.json());
+// Reject revoked sessions consistently, including legacy routes.
+app.use(async(req,res,next)=>{
+  const raw=req.headers.authorization;
+  if(!raw)return next();
+  try {
+    const decoded=jwt.verify(raw.split(' ')[1],process.env.JWT_SECRET || 'your-secret-key',{ignoreExpiration:req.path==='/refresh-token'});
+    if(req.path==='/refresh-token' && (!decoded.iat || Date.now()/1000-decoded.iat>7*86400)) return res.status(401).json({message:'Vui lòng đăng nhập lại.'});
+    const [[account]]=await db.query('SELECT token_version FROM account_security WHERE user_id=?',[decoded.userId]);
+    if(Number(decoded.version || 0)!==Number(account?.token_version || 0)) return res.status(401).json({message:'Phiên đăng nhập đã hết hiệu lực.'});
+    next();
+  }catch{res.status(401).json({message:'Vui lòng đăng nhập lại.'});}
+});
+app.use(require('./routes/classicAuth').createClassicAuth({db,getUserIdFromToken}));
+const { createClassicBattle, validateAction } = require('./services/classicBattle');
+const classicBattle = createClassicBattle({db,calculateLoot,calculateBattleExpGain,titleService});
+const classicAuth = async (req,res,next) => {
+  const id=getUserIdFromToken(req);
+  if (!id) return res.status(401).json({message:'Vui lòng đăng nhập.'});
+  req.classicUserId=id; next();
+};
+app.use('/api/admin', classicAuth, async (req,res,next)=>{
+  try { const [[u]]=await db.query('SELECT role FROM users WHERE id=?',[req.classicUserId]);
+    if(u?.role!=='admin') return res.status(403).json({message:'Chỉ quản trị viên được thực hiện.'}); next();
+  } catch {res.status(500).json({message:'Không thể kiểm tra quyền.'});}
+});
+app.put('/api/users/:userId/role',classicAuth,async(req,res)=>{
+  try { const [[u]]=await db.query('SELECT role FROM users WHERE id=?',[req.classicUserId]);
+    if(u?.role!=='admin') return res.status(403).json({message:'Chỉ quản trị viên được thực hiện.'});
+    if(!['user','admin','moderator'].includes(req.body.role)) return res.status(400).json({message:'Vai trò không hợp lệ.'});
+    await db.query('UPDATE users SET role=? WHERE id=?',[req.body.role,req.params.userId]);res.json({success:true});
+  } catch {res.status(500).json({message:'Không thể đổi vai trò.'});}
+});
+for (const route of ['/api/pets/:id/gain-exp','/api/pets/:petId/update-hp','/api/arena/claim-loot','/api/pets/:petId/update-hunger-after-battle']) {
+  app.post(route,classicAuth,(req,res)=>res.status(410).json({message:'Kết quả và phần thưởng được server tự lưu khi kết thúc trận.'}));
+}
+app.post('/api/formations/enhance',classicAuth,(req,res)=>res.status(403).json({message:'Đội hình nhiều pet chưa mở.'}));
+
+app.get('/api/arena/match/result/:id',classicAuth,async(req,res)=>{
+  try {const [[row]]=await db.query('SELECT result_json FROM arena_match_receipts WHERE match_id=? AND user_id=?',[req.params.id,req.classicUserId]);
+    if(!row?.result_json) return res.status(404).json({message:'Chưa có kết quả.'});
+    res.json(typeof row.result_json==='string'?JSON.parse(row.result_json):row.result_json);
+  }catch {res.status(500).json({message:'Không thể đọc kết quả.'});}
+});
 
 async function getUserBasicProfile(userId) {
   const [rows] = await db.query(
@@ -1003,6 +1047,8 @@ io.on('connection', async (socket) => {
 // Import auction routes
 const auctionRoutes = require('./routes/auctions');
 app.use('/api/auctions', auctionRoutes);
+const itemHuntRoutes = require('./routes/itemHunt');
+app.use('/api/tasks/item-hunt', itemHuntRoutes);
 const { ensureAuctionMultiAssetSchema } = require('./services/auctionMultiAssetSchema');
 ensureAuctionMultiAssetSchema().catch((err) =>
   console.warn('ensureAuctionMultiAssetSchema:', err && err.message)
@@ -1078,13 +1124,149 @@ app.get('/api/items/by-ids', async (req, res) => {
     ];
     if (!ids.length) return res.json([]);
     const [rows] = await db.query(
-      `SELECT id, name, image_url, description, type, rarity, stackable, max_stack FROM items WHERE id IN (?)`,
+      `SELECT id, name, image_url, description, type, rarity, stackable, max_stack, magic_value, category, subtype FROM items WHERE id IN (?)`,
       [ids]
     );
     res.json(rows || []);
   } catch (err) {
     console.error('GET /api/items/by-ids:', err);
     res.status(500).json({ error: 'Không thể tải vật phẩm' });
+  }
+});
+
+/** Itemdex (user): danh mục vật phẩm + tóm tắt công dụng. Không trả buy/sell/currency. */
+app.get('/api/itemdex', async (req, res) => {
+  try {
+    const [items] = await db.query(
+      `
+      SELECT
+        i.id,
+        i.item_code,
+        i.name,
+        i.image_url,
+        i.description,
+        i.type,
+        i.category,
+        i.subtype,
+        i.rarity,
+        i.magic_value
+      FROM items i
+      ORDER BY i.id ASC
+      `
+    );
+
+    const [effects] = await db.query(
+      `
+      SELECT
+        item_id,
+        effect_target,
+        effect_type,
+        value_min,
+        value_max,
+        is_permanent,
+        duration_turns,
+        magic_value
+      FROM item_effects
+      `
+    );
+
+    let equipByItem = new Map();
+    try {
+      const [equipRows] = await db.query(
+        `
+        SELECT item_id, power_min, power_max, durability_max, equipment_type, slot_type
+        FROM equipment_data
+        `
+      );
+      equipByItem = new Map(
+        (equipRows || []).map((r) => [Number(r.item_id), r])
+      );
+    } catch (_) {
+      /* bảng có thể chưa có trên DB cũ */
+    }
+
+    const effectsByItem = new Map();
+    for (const raw of effects || []) {
+      const row = normalizeEffectRow(raw);
+      const id = Number(row.item_id);
+      if (!effectsByItem.has(id)) effectsByItem.set(id, []);
+      effectsByItem.get(id).push(row);
+    }
+
+    const TARGET_LABEL = {
+      hp: 'HP',
+      mp: 'MP',
+      str: 'Sức mạnh',
+      def: 'Phòng thủ',
+      intelligence: 'Thông minh',
+      spd: 'Tốc độ',
+      exp: 'EXP',
+      hunger: 'Đói',
+      mood: 'Tâm trạng',
+      status: 'Trạng thái',
+    };
+
+    const formatUsage = (item) => {
+      const parts = [];
+      const id = Number(item.id);
+      const eq = equipByItem.get(id);
+      if (eq && String(item.type || '').toLowerCase() === 'equipment') {
+        const pmin = eq.power_min != null ? Number(eq.power_min) : null;
+        const pmax = eq.power_max != null ? Number(eq.power_max) : null;
+        if (pmin != null && pmax != null && pmin !== pmax) {
+          parts.push(`Sức mạnh: ${pmin}–${pmax}`);
+        } else if (pmin != null) {
+          parts.push(`Sức mạnh: ${pmin}`);
+        } else if (pmax != null) {
+          parts.push(`Sức mạnh: ${pmax}`);
+        }
+        if (eq.slot_type) parts.push(`Ô: ${eq.slot_type}`);
+        if (eq.durability_max != null) parts.push(`Độ bền: ${eq.durability_max}`);
+      }
+      const list = effectsByItem.get(id) || [];
+      for (const ef of list) {
+        const target = TARGET_LABEL[ef.effect_target] || String(ef.effect_target || '').toUpperCase();
+        const typ = String(ef.effect_type || 'flat').toLowerCase();
+        if (typ === 'status_cure') {
+          parts.push(`Chữa ${target}`);
+          continue;
+        }
+        const vmin = ef.value_min != null ? Number(ef.value_min) : null;
+        const vmax = ef.value_max != null ? Number(ef.value_max) : null;
+        const unit = typ === 'percent' ? '%' : '';
+        let range = '';
+        if (vmin != null && vmax != null && vmin !== vmax) range = `${vmin}${unit}–${vmax}${unit}`;
+        else if (vmin != null) range = `${vmin}${unit}`;
+        else if (ef.magic_value != null) range = String(ef.magic_value);
+        const perm = Number(ef.is_permanent) === 1 ? ' (vĩnh viễn)' : '';
+        const turns =
+          ef.duration_turns != null && Number(ef.duration_turns) > 0
+            ? ` (${ef.duration_turns} lượt)`
+            : '';
+        parts.push(`${target}${range ? `: ${range}` : ''}${perm}${turns}`.trim());
+      }
+      return parts.join(' · ');
+    };
+
+    const payload = (items || []).map((item) => ({
+      id: item.id,
+      item_code: item.item_code,
+      name: item.name,
+      image_url: item.image_url,
+      description: item.description,
+      type: item.type,
+      category: item.category,
+      subtype: item.subtype,
+      rarity: item.rarity,
+      magic_value: item.magic_value != null ? Number(item.magic_value) : null,
+      usage: formatUsage(item),
+      obtain_method: null,
+    }));
+
+    res.json(payload);
+  } catch (err) {
+    console.error('GET /api/itemdex:', err);
+    res.status(500).json({ error: 'Không thể tải danh mục vật phẩm' });
   }
 });
 
@@ -5373,51 +5555,13 @@ app.get('/api/bank/transactions/:userId', async (req, res) => {
 });
 
 // API Register
-app.post('/register', async (req, res) => {
-  const { username, password } = req.body;
-  try {
-    // Kiểm tra username đã tồn tại hay chưa
-    pool.query(
-      'SELECT * FROM users WHERE username = ?',
-      [username],
-      async (err, results) => {
-        if (err) {
-          console.error('Error checking username: ', err);
-          return res.status(500).json({ message: 'Error checking username' });
-        }
 
-        if (results.length > 0) {
-          // Username đã tồn tại
-          return res.status(409).json({ message: 'Username đã được sử dụng' });
-        }
-
-        // Username chưa tồn tại, tiếp tục đăng ký
-        const hashedPassword = await bcrypt.hash(password, 10); // Mã hóa mật khẩu
-        pool.query(
-          'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-          [username, hashedPassword, 'user'],
-          (insertErr, insertResults) => {
-            if (insertErr) {
-              console.error('Error registering user: ', insertErr);
-              return res.status(500).json({ message: 'Error registering user' });
-            } else {
-              return res.json({ message: 'Đăng ký thành công' });
-            }
-          }
-        );
-      }
-    );
-  } catch (err) {
-    console.error('Error hashing password: ', err);
-    return res.status(500).json({ message: 'Error hashing password' });
-  }
-});
 
 // API Login
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   pool.query(
-    'SELECT * FROM users WHERE username = ?',
+    'SELECT u.*, COALESCE(a.token_version,0) AS token_version FROM users u LEFT JOIN account_security a ON a.user_id=u.id WHERE u.username = ?',
     [username],
     async (err, results) => {
       if (err) {
@@ -5446,7 +5590,7 @@ app.post('/login', async (req, res) => {
                 // Đóng kỳ xổ số (nếu đổi ngày) + cộng Peta thắng ngay khi login
                 await luckyBoothAdvanceOnSession();
 
-                const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'your-secret-key', {
+                const token = jwt.sign({ userId: user.id, version: user.token_version || 0 }, process.env.JWT_SECRET || 'your-secret-key', {
                   expiresIn: '23h',
                 });
                 res.json({
@@ -5490,7 +5634,7 @@ app.post('/refresh-token', async (req, res) => {
     const isAdmin = user.role === 'admin'; // ✅ Check role từ database
     
     // Generate new token
-    const newToken = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'your-secret-key', {
+    const newToken = jwt.sign({ userId: user.id, version: decoded.version || 0 }, process.env.JWT_SECRET || 'your-secret-key', {
       expiresIn: '23h',
     });
 
@@ -8414,10 +8558,11 @@ app.post('/api/adopt-pet', async (req, res) => {
       const tempPet = orphanagePets.find(pet => pet.tempId === tempId);
       if (!tempPet) return res.status(400).json({ message: 'Invalid temporary pet ID' });
 
+      // Trại mồ côi: chỉ nhận nuôi khi user chưa có thú nào
       const adoptCap = await getPetCapacity(db, tokenUserId);
-      if (adoptCap.freeSlots < 1) {
+      if (adoptCap.slotCount > 0) {
         return res.status(400).json({
-          message: `Kho pet đã đầy (${adoptCap.slotCount}/${adoptCap.maxSlots}).`,
+          message: 'Bạn đã có thú cưng. Chỉ được nhận nuôi khi chưa có thú nào.',
           slotCount: adoptCap.slotCount,
           maxSlots: adoptCap.maxSlots,
         });
@@ -8486,6 +8631,227 @@ app.post('/api/adopt-pet', async (req, res) => {
   }
 });
 
+
+
+// ========== SITE STATISTICS / RANKINGS ==========
+async function countScalar(sql, params = []) {
+  try {
+    const [rows] = await db.query(sql, params);
+    return Number(rows?.[0]?.c) || 0;
+  } catch (e) {
+    console.error('stats countScalar:', e.message || e);
+    return 0;
+  }
+}
+
+async function fetchTopPetByStat(orderExpr, valueAlias) {
+  try {
+    const [rows] = await db.query(
+      `
+      SELECT
+        p.uuid,
+        p.name,
+        p.owner_id,
+        (${orderExpr}) AS value,
+        u.username,
+        up.display_name AS owner_display_name
+      FROM pets p
+      JOIN users u ON u.id = p.owner_id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      ORDER BY (${orderExpr}) DESC, p.id ASC
+      LIMIT 1
+      `
+    );
+    if (!rows.length) return null;
+    const row = rows[0];
+    return {
+      pet_uuid: row.uuid,
+      pet_name: row.name,
+      owner_id: row.owner_id,
+      owner_name: row.owner_display_name || row.username,
+      value: Number(row.value) || 0,
+      key: valueAlias,
+    };
+  } catch (e) {
+    console.error(`stats top pet (${valueAlias}):`, e.message || e);
+    return null;
+  }
+}
+
+async function countEvolutionForms() {
+  try {
+    const [rows] = await db.query('SELECT id, evolve_to FROM pet_species');
+    const formIds = new Set();
+    for (const row of rows || []) {
+      const targets = parseSpeciesEvolveTo(row.evolve_to);
+      if (targets.length > 0) {
+        formIds.add(Number(row.id));
+        targets.forEach((id) => formIds.add(id));
+      }
+    }
+    if (formIds.size > 0) return formIds.size;
+    return (rows || []).length;
+  } catch (e) {
+    console.error('stats evolution forms:', e.message || e);
+    return 0;
+  }
+}
+
+app.get('/api/statistics', async (req, res) => {
+  try {
+    const [
+      members,
+      vipAccounts,
+      itemTypes,
+      shops,
+      clubs,
+      exhibitions,
+      spiritTypes,
+      petTypes,
+      evolutionForms,
+    ] = await Promise.all([
+      countScalar('SELECT COUNT(*) AS c FROM users'),
+      countScalar('SELECT COUNT(*) AS c FROM users WHERE is_vip = 1 OR is_vip = TRUE'),
+      countScalar('SELECT COUNT(*) AS c FROM items'),
+      countScalar('SELECT COUNT(*) AS c FROM shop_definitions'),
+      countScalar('SELECT COUNT(*) AS c FROM guilds'),
+      countScalar('SELECT COUNT(DISTINCT user_id) AS c FROM user_exhibition_items'),
+      countScalar('SELECT COUNT(*) AS c FROM spirits'),
+      countScalar('SELECT COUNT(*) AS c FROM pet_species'),
+      countEvolutionForms(),
+    ]);
+
+    const [
+      highestLevel,
+      highestStr,
+      smartest,
+      fastest,
+      bestDef,
+      highestExp,
+      mostWins,
+    ] = await Promise.all([
+      fetchTopPetByStat('p.level', 'level'),
+      fetchTopPetByStat('p.str', 'str'),
+      fetchTopPetByStat('p.intelligence', 'intelligence'),
+      fetchTopPetByStat('p.spd', 'spd'),
+      fetchTopPetByStat('p.def', 'def'),
+      fetchTopPetByStat('COALESCE(p.current_exp, 0)', 'exp'),
+      fetchTopPetByStat('COALESCE(p.battles_won, 0)', 'battles_won'),
+    ]);
+
+    const [topPetsByLevel] = await db.query(
+      `
+      SELECT
+        p.uuid AS pet_uuid,
+        p.name AS pet_name,
+        p.level,
+        ps.name AS species_name,
+        ps.image AS species_image,
+        p.owner_id,
+        u.username,
+        up.display_name AS owner_display_name,
+        up.avatar_url AS owner_avatar_url
+      FROM pets p
+      JOIN pet_species ps ON ps.id = p.pet_species_id
+      JOIN users u ON u.id = p.owner_id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      ORDER BY p.level DESC, COALESCE(p.current_exp, 0) DESC, p.id ASC
+      LIMIT 10
+      `
+    );
+
+    const [topCash] = await db.query(
+      `
+      SELECT
+        u.id AS user_id,
+        u.username,
+        u.guild,
+        up.display_name,
+        up.avatar_url,
+        COALESCE(u.peta, 0) AS peta,
+        g.banner_url AS guild_banner_url
+      FROM users u
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      LEFT JOIN guilds g ON g.name = u.guild
+      ORDER BY COALESCE(u.peta, 0) DESC, u.id ASC
+      LIMIT 10
+      `
+    );
+
+    const [topBank] = await db.query(
+      `
+      SELECT
+        u.id AS user_id,
+        u.username,
+        u.guild,
+        up.display_name,
+        up.avatar_url,
+        COALESCE(ba.peta_balance, 0) AS peta,
+        g.banner_url AS guild_banner_url
+      FROM users u
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      LEFT JOIN bank_accounts ba ON ba.user_id = u.id
+      LEFT JOIN guilds g ON g.name = u.guild
+      ORDER BY COALESCE(ba.peta_balance, 0) DESC, u.id ASC
+      LIMIT 10
+      `
+    );
+
+    const [topPetagold] = await db.query(
+      `
+      SELECT
+        u.id AS user_id,
+        u.username,
+        u.guild,
+        up.display_name,
+        up.avatar_url,
+        COALESCE(u.petagold, 0) AS petagold,
+        g.banner_url AS guild_banner_url
+      FROM users u
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      LEFT JOIN guilds g ON g.name = u.guild
+      ORDER BY COALESCE(u.petagold, 0) DESC, u.id ASC
+      LIMIT 10
+      `
+    );
+
+    const mapOwner = (row) => ({
+      ...row,
+      owner_name: row.owner_display_name || row.username,
+      display_name: row.display_name || row.username,
+    });
+
+    res.json({
+      website: {
+        members,
+        vipAccounts,
+        itemTypes,
+        shops,
+        clubs,
+        exhibitions,
+        spiritTypes,
+        petTypes,
+        evolutionForms,
+      },
+      petHighlights: {
+        highestLevel,
+        highestStr,
+        smartest,
+        fastest,
+        bestDef,
+        highestExp,
+        mostWins,
+      },
+      topPetsByLevel: (topPetsByLevel || []).map(mapOwner),
+      topCash: (topCash || []).map(mapOwner),
+      topBank: (topBank || []).map(mapOwner),
+      topPetagold: (topPetagold || []).map(mapOwner),
+    });
+  } catch (err) {
+    console.error('Error fetching statistics:', err);
+    res.status(500).json({ error: 'Không thể tải số liệu thống kê' });
+  }
+});
 
 
 // API Get User Info
@@ -8639,57 +9005,7 @@ app.get('/api/users/:userId/role', (req, res) => {
 });
 
 // API: Update user role (admin only)
-app.put('/api/users/:userId/role', (req, res) => {
-  const userId = parseInt(req.params.userId);
-  const { role } = req.body;
-  const { adminUserId } = req.body; // ID của admin thực hiện thay đổi
 
-  if (isNaN(userId)) {
-    res.status(400).json({ message: 'Invalid user ID' });
-    return;
-  }
-
-  // Validate role
-  const validRoles = ['user', 'admin', 'moderator'];
-  if (!validRoles.includes(role)) {
-    res.status(400).json({ message: 'Invalid role' });
-    return;
-  }
-
-  // Check if adminUserId is admin
-  pool.query('SELECT role FROM users WHERE id = ?', [adminUserId], (err, results) => {
-    if (err) {
-      console.error('Error checking admin role: ', err);
-      res.status(500).json({ message: 'Error checking admin role' });
-      return;
-    }
-
-    if (results.length === 0 || results[0].role !== 'admin') {
-      res.status(403).json({ message: 'Only admins can change user roles' });
-      return;
-    }
-
-    // Update user role
-    pool.query('UPDATE users SET role = ? WHERE id = ?', [role, userId], (updateErr, updateResults) => {
-      if (updateErr) {
-        console.error('Error updating user role: ', updateErr);
-        res.status(500).json({ message: 'Error updating user role' });
-        return;
-      }
-
-      if (updateResults.affectedRows === 0) {
-        res.status(404).json({ message: 'User not found' });
-        return;
-      }
-
-      res.json({ 
-        message: 'User role updated successfully',
-        userId,
-        newRole: role
-      });
-    });
-  });
-});
 
 // API: Admin tạo pet thủ công
 // API: Admin tạo pet thủ công (không cần owner_id và không cần type)
@@ -9076,6 +9392,123 @@ const checkAdminRoleItems = async (req, res, next) => {
     return res.status(401).json({ error: 'Invalid token' });
   }
 };
+
+const INSERT_PET_SPECIES_SQL = `
+  INSERT INTO pet_species
+  (name, image, type, description, rarity,
+   base_hp, base_mp, base_str, base_def, base_intelligence, base_spd, evolve_to,
+   evolve_min_level, evolve_item_id)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`;
+
+function petSpeciesInsertValues(p) {
+  return [
+    p.name, p.image, p.type, p.description, p.rarity,
+    p.base_hp, p.base_mp, p.base_str, p.base_def, p.base_intelligence, p.base_spd,
+    p.evolve_to ? JSON.stringify(p.evolve_to) : null,
+    p.evolve_min_level,
+    p.evolve_item_id,
+  ];
+}
+
+// Local-fetch drafts from public/images/pets (or a folder under public/)
+app.get('/api/admin/pet-species/local-scan', checkAdminRoleItems, async (req, res) => {
+  try {
+    const dir = petSpeciesLocalFetch.resolveScanDir(req.query.folder);
+    const [existing] = await db.query('SELECT id, name, image FROM pet_species');
+    const result = petSpeciesLocalFetch.scanFolderToDrafts(dir, existing || []);
+    res.json({
+      success: true,
+      folder: result.folder,
+      excelFile: result.excelFile,
+      drafts: result.drafts,
+      deduped: result.deduped,
+      skippedNonImages: result.skippedNonImages,
+      matched: result.matched,
+      total: result.drafts.length,
+    });
+  } catch (e) {
+    console.error('GET /api/admin/pet-species/local-scan', e);
+    res.status(e.status || 500).json({ message: e.message || 'Không quét được folder' });
+  }
+});
+
+// Build drafts from locally selected filenames (browser folder picker)
+app.post('/api/admin/pet-species/local-drafts', checkAdminRoleItems, async (req, res) => {
+  try {
+    const files = Array.isArray(req.body?.files) ? req.body.files : [];
+    const [existing] = await db.query('SELECT id, name, image FROM pet_species');
+    const { file, index } = petSpeciesLocalFetch.loadPetariaReference();
+    const result = petSpeciesLocalFetch.draftsFromLocalFiles(files, index, existing || []);
+    res.json({
+      success: true,
+      excelFile: file,
+      drafts: result.drafts,
+      deduped: result.deduped,
+      skippedNonImages: result.skippedNonImages,
+      matched: result.drafts.filter((d) => d.matchedName).length,
+      total: result.drafts.length,
+    });
+  } catch (e) {
+    console.error('POST /api/admin/pet-species/local-drafts', e);
+    res.status(e.status || 500).json({ message: e.message || 'Không tạo được draft' });
+  }
+});
+
+app.post('/api/admin/pet-species/generate-stats', checkAdminRoleItems, async (req, res) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [{ name: req.body?.name, image: req.body?.image }];
+    const { file, index } = petSpeciesLocalFetch.loadPetariaReference();
+    const results = items.map((it) => {
+      const generated = petSpeciesLocalFetch.generateDraftStats(it?.name, it?.image, index);
+      return {
+        name: it?.name || '',
+        image: it?.image || '',
+        ...generated,
+      };
+    });
+    res.json({ success: true, excelFile: file, results });
+  } catch (e) {
+    console.error('POST /api/admin/pet-species/generate-stats', e);
+    res.status(e.status || 500).json({ message: e.message || 'Không generate được stat' });
+  }
+});
+
+app.post('/api/admin/pet-species/auto-generate-stats', checkAdminRoleItems, async (req, res) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [{ rarity: req.body?.rarity }];
+    const results = items.map((it) => ({
+      rarity: it?.rarity || 'common',
+      ...petSpeciesLocalFetch.autoGenerateStats({ rarity: it?.rarity }),
+    }));
+    res.json({ success: true, results });
+  } catch (e) {
+    console.error('POST /api/admin/pet-species/auto-generate-stats', e);
+    res.status(e.status || 500).json({ message: e.message || 'Không auto generate được stat' });
+  }
+});
+
+app.post('/api/admin/pet-species/bulk', checkAdminRoleItems, async (req, res) => {
+  try {
+    const list = Array.isArray(req.body?.species) ? req.body.species : [];
+    if (!list.length) return res.status(400).json({ message: 'Danh sách trống' });
+    const inserted = [];
+    const failed = [];
+    for (const row of list) {
+      try {
+        const p = petSpeciesLocalFetch.normalizeSpeciesPayload(row);
+        const [result] = await db.query(INSERT_PET_SPECIES_SQL, petSpeciesInsertValues(p));
+        inserted.push({ name: p.name, image: p.image, speciesId: result.insertId });
+      } catch (err) {
+        failed.push({ name: row?.name, image: row?.image, error: err.message || 'Lỗi thêm' });
+      }
+    }
+    res.json({ success: true, inserted: inserted.length, failed, items: inserted });
+  } catch (e) {
+    console.error('POST /api/admin/pet-species/bulk', e);
+    res.status(500).json({ message: e.message || 'Lỗi thêm hàng loạt' });
+  }
+});
 
 app.put('/api/admin/game-center/config', checkAdminRoleItems, async (req, res) => {
   try {
@@ -9607,7 +10040,7 @@ async function ensureShopRestockColumns(dbConn = db) {
     }
     await dbConn.query(
       `UPDATE shop_items SET max_stock = stock_limit
-       WHERE stock_limit IS NOT NULL AND max_stock IS NULL`
+       WHERE stock_limit IS NOT NULL AND stock_limit > 0 AND max_stock IS NULL`
     );
     shopRestockColumnsReady = true;
   } catch (e) {
@@ -9655,6 +10088,7 @@ function shopRestockPeriodKey(now, resetHm, interval) {
 /**
  * Restock lazy: nếu sang kỳ mới thì đổ stock_limit = max_stock cho item có restock_interval.
  * Shop-level shop_restock_interval dùng làm fallback khi item.restock_interval = none.
+ * Chỉ dùng max_stock làm mức đổ đầy — không fallback sang stock_limit (có thể đã = 0 khi hết hàng).
  */
 async function ensureShopItemsRestocked(dbConn, shopId) {
   await ensureShopRestockColumns(dbConn);
@@ -9683,16 +10117,16 @@ async function ensureShopItemsRestocked(dbConn, shopId) {
 
   let restocked = 0;
   for (const item of items) {
-    const interval = String(item.restock_interval || 'none').toLowerCase();
+    let interval = String(item.restock_interval || 'none').toLowerCase();
+    if (interval === 'none' || !interval) {
+      interval = shopInterval;
+    }
     if (interval === 'none' || !interval) continue;
 
+    // max_stock = mức đổ đầy; stock_limit = tồn kho hiện tại (không dùng làm target)
     const maxStock =
-      item.max_stock != null && item.max_stock !== ''
-        ? Number(item.max_stock)
-        : item.stock_limit != null
-          ? Number(item.stock_limit)
-          : null;
-    if (maxStock == null || !Number.isFinite(maxStock)) continue; // unlimited
+      item.max_stock != null && item.max_stock !== '' ? Number(item.max_stock) : null;
+    if (maxStock == null || !Number.isFinite(maxStock) || maxStock <= 0) continue;
 
     const periodKey = shopRestockPeriodKey(now, resetHm, interval);
     if (!periodKey) continue;
@@ -9700,9 +10134,9 @@ async function ensureShopItemsRestocked(dbConn, shopId) {
 
     await dbConn.query(
       `UPDATE shop_items
-       SET stock_limit = ?, max_stock = COALESCE(max_stock, ?), last_restock_period_key = ?
+       SET stock_limit = ?, last_restock_period_key = ?
        WHERE id = ?`,
-      [maxStock, maxStock, periodKey, item.id]
+      [maxStock, periodKey, item.id]
     );
     restocked += 1;
   }
@@ -12016,87 +12450,7 @@ function calculateLoot(dropTable) {
  * body: { bossId: number, petId: number }
  * Header: Authorization: Bearer <token>
  */
-app.post('/api/arena/claim-loot', async (req, res) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ message: 'Unauthorized' });
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    const tokenUserId = decoded.userId;
 
-    const { bossId, petId } = req.body;
-    if (!bossId || !petId) return res.status(400).json({ message: 'Thiếu bossId hoặc petId' });
-
-    const [petRows] = await db.query('SELECT id, owner_id FROM pets WHERE id = ?', [petId]);
-    if (!petRows.length) return res.status(404).json({ message: 'Pet not found' });
-    if (petRows[0].owner_id !== tokenUserId) return res.status(403).json({ message: 'Chỉ chủ pet mới được nhận loot' });
-
-    const [bossRows] = await db.query('SELECT drop_table FROM boss_templates WHERE id = ?', [bossId]);
-    if (!bossRows.length) return res.status(404).json({ message: 'Boss not found' });
-    const dropTableRaw = bossRows[0].drop_table;
-    const dropTable = dropTableRaw
-      ? (typeof dropTableRaw === 'string' ? JSON.parse(dropTableRaw) : dropTableRaw)
-      : [];
-    if (!Array.isArray(dropTable) || dropTable.length === 0) {
-      return res.json({ success: true, loot: [], message: 'Boss không có bảng rơi đồ' });
-    }
-
-    const loot = calculateLoot(dropTable);
-    const responseLoot = [];
-    const userId = tokenUserId;
-
-    for (const entry of loot) {
-      if (entry.item_id === 0) {
-        await db.query('UPDATE users SET peta = peta + ? WHERE id = ?', [entry.quantity, userId]);
-        try {
-          await titleService.recordPetaEarned(db, userId, entry.quantity);
-        } catch (e) {
-          console.error('title earn (loot):', e);
-        }
-        responseLoot.push({
-          ...entry,
-          image_url: null,
-        });
-        continue;
-      }
-      const itemId = entry.item_id;
-      const quantity = entry.quantity;
-      const [itemRows] = await db.query('SELECT id, type, image_url, name FROM items WHERE id = ?', [itemId]);
-      if (!itemRows.length) continue;
-      const itemRow = itemRows[0];
-      if (itemRow.type === 'equipment') {
-        const [equipInfo] = await db.query('SELECT durability_max FROM equipment_data WHERE item_id = ?', [itemId]);
-        const durability = (equipInfo.length > 0) ? (equipInfo[0].durability_max ?? 1) : 1;
-        for (let i = 0; i < quantity; i++) {
-          await db.query(
-            `INSERT INTO inventory (player_id, item_id, quantity, is_equipped, durability_left) VALUES (?, ?, 1, 0, ?)`,
-            [userId, itemId, durability]
-          );
-        }
-      } else {
-        const [invRows] = await db.query(
-          'SELECT id, quantity FROM inventory WHERE player_id = ? AND item_id = ? AND (is_equipped = 0 OR is_equipped IS NULL)',
-          [userId, itemId]
-        );
-        if (invRows.length > 0) {
-          await db.query('UPDATE inventory SET quantity = quantity + ? WHERE id = ?', [quantity, invRows[0].id]);
-        } else {
-          await db.query('INSERT INTO inventory (player_id, item_id, quantity) VALUES (?, ?, ?)', [userId, itemId, quantity]);
-        }
-      }
-      responseLoot.push({
-        ...entry,
-        name: itemRow.name || entry.name || 'Item',
-        image_url: itemRow.image_url || null,
-      });
-    }
-
-    res.json({ success: true, loot: responseLoot });
-  } catch (err) {
-    if (err.name === 'JsonWebTokenError') return res.status(401).json({ message: 'Invalid token' });
-    console.error('Error claiming arena loot:', err);
-    res.status(500).json({ message: 'Lỗi khi nhận thưởng Boss' });
-  }
-});
 
 // ---------- Arena Match State (Redis) ----------
 function getUserIdFromToken(req) {
@@ -12110,39 +12464,7 @@ function getUserIdFromToken(req) {
   }
 }
 
-async function finalizeMatchInMySQL(matchState, winner) {
-  const conn = await pool.promise().getConnection();
-  try {
-    await conn.beginTransaction();
-    const petId = matchState.pet_id;
-    const playerHp = Math.max(0, matchState.player?.current_hp ?? 0);
-    if (winner === 'enemy') {
-      await conn.query(
-        'UPDATE pets SET current_hp = 0, battles_lost = COALESCE(battles_lost, 0) + 1 WHERE id = ?',
-        [petId]
-      );
-    } else {
-      await conn.query(
-        'UPDATE pets SET current_hp = ?, battles_won = COALESCE(battles_won, 0) + 1 WHERE id = ?',
-        [playerHp, petId]
-      );
-      const uid = matchState.userId;
-      if (uid) {
-        try {
-          await titleService.recordHuntWin(db, uid, 1);
-        } catch (e) {
-          console.error('titleService.recordHuntWin:', e);
-        }
-      }
-    }
-    await conn.commit();
-  } catch (e) {
-    await conn.rollback();
-    throw e;
-  } finally {
-    conn.release();
-  }
-}
+async function finalizeMatchInMySQL(state,winner) { return classicBattle.finalize(state,winner); }
 
 const formationSystem = require('../src/data/formationSystem');
 
@@ -12252,12 +12574,13 @@ app.post('/api/formations/enhance', async (req, res) => {
 });
 
 // POST /api/arena/match/start — Check HP, check active match, init Redis
-app.post('/api/arena/match/start', async (req, res) => {
+app.post('/api/arena/match/start', classicAuth, classicBattle.serialize(async (req, res) => {
   const userId = getUserIdFromToken(req);
   if (!userId) return res.status(401).json({ message: 'Unauthorized' });
   const redis = getRedis();
   if (!redis) return res.status(503).json({ message: 'Match service temporarily unavailable' });
 
+  if ((req.body.battleMode && req.body.battleMode !== '1v1') || req.body.petIds?.length > 1 || req.body.battleSource === 'champion') return res.status(403).json({message:'Hiện chỉ mở đấu 1vs1.'});
   const { petId, bossId, bossLevel, battleSource, returnPath, huntingMapId } = req.body;
   if (!petId || !bossId) return res.status(400).json({ message: 'Thiếu petId hoặc bossId' });
 
@@ -12289,6 +12612,7 @@ app.post('/api/arena/match/start', async (req, res) => {
     const existing = await redis.get(key);
     if (existing) {
       const matchData = JSON.parse(existing);
+      if(!matchData.matchId){await classicBattle.register(matchData);await redis.set(key,JSON.stringify(matchData),{EX:REDIS_MATCH_TTL});}
       return res.status(400).json({
         code: 'ACTIVE_MATCH',
         message: 'Bạn đang có trận đấu dang dở. Hãy quay lại tiếp tục.',
@@ -12300,7 +12624,15 @@ app.post('/api/arena/match/start', async (req, res) => {
     if (!bossRows.length) return res.status(404).json({ message: 'Boss not found' });
     const row = bossRows[0];
     const templateLevel = parseInt(row.level, 10) || 1;
-    const overrideLevel = parseInt(bossLevel, 10);
+    let overrideLevel = NaN;
+    if(battleSource === 'hunting') {
+      const [[map]]=await db.query('SELECT encounter_level_min,encounter_level_max,encounter_pool_json FROM hunting_maps WHERE id=? AND is_hidden=0',[String(huntingMapId || '')]);
+      const poolEntries=typeof map?.encounter_pool_json==='string'?JSON.parse(map.encounter_pool_json):map?.encounter_pool_json;
+      if(!map || !Array.isArray(poolEntries) || !poolEntries.some(x=>x.kind==='boss' && Number(x.boss_id)===Number(bossId))) return res.status(400).json({message:'Boss không thuộc bản đồ này.'});
+      const requested=Number(bossLevel);
+      if(!Number.isSafeInteger(requested) || requested<map.encounter_level_min || requested>map.encounter_level_max) return res.status(400).json({message:'Cấp boss không hợp lệ.'});
+      overrideLevel=requested;
+    }
     // Hunting truyền bossLevel → công thức; Arena không truyền → base_* thô
     const useFormula = Number.isFinite(overrideLevel) && overrideLevel > 0;
     const combatLevel = useFormula ? overrideLevel : templateLevel;
@@ -12409,16 +12741,17 @@ app.post('/api/arena/match/start', async (req, res) => {
       finished: false,
       result: null,
     };
+    await classicBattle.register(matchState);
     await redis.set(key, JSON.stringify(matchState), { EX: REDIS_MATCH_TTL });
     res.json(matchState);
   } catch (err) {
     console.error('Error arena match start:', err);
     res.status(500).json({ message: 'Lỗi khởi tạo trận đấu' });
   }
-});
+}));
 
 // GET /api/arena/match/status — Reconnect: trả về trận đấu đang dang dở (200 + active:false nếu không có)
-app.get('/api/arena/match/status', async (req, res) => {
+app.get('/api/arena/match/status', classicAuth, classicBattle.serialize(async (req, res) => {
   const userId = getUserIdFromToken(req);
   if (!userId) return res.status(401).json({ message: 'Unauthorized' });
   const redis = getRedis();
@@ -12429,15 +12762,16 @@ app.get('/api/arena/match/status', async (req, res) => {
     const data = await redis.get(key);
     if (!data) return res.json({ active: false });
     const match = JSON.parse(data);
+    if(!match.matchId){await classicBattle.register(match);await redis.set(key,JSON.stringify(match),{EX:REDIS_MATCH_TTL});}
     res.json({ active: true, ...match });
   } catch (err) {
     console.error('Error arena match status:', err);
     res.status(500).json({ message: 'Lỗi kiểm tra trận đấu' });
   }
-});
+}));
 
 // POST /api/arena/match/terminate — User rời đi: force loss, lưu HP pet, xóa Redis
-app.post('/api/arena/match/terminate', async (req, res) => {
+app.post('/api/arena/match/terminate', classicAuth, classicBattle.serialize(async (req, res) => {
   const userId = getUserIdFromToken(req);
   if (!userId) return res.status(401).json({ message: 'Unauthorized' });
   const redis = getRedis();
@@ -12449,19 +12783,10 @@ app.post('/api/arena/match/terminate', async (req, res) => {
     const data = await redis.get(key);
     if (!data) return res.status(404).json({ message: 'No active match' });
     const matchState = JSON.parse(data);
-    const playerHp = Math.max(0, matchState.player?.current_hp ?? 0);
-    conn = await db.getConnection();
-    await conn.beginTransaction();
-
-    await conn.query(
-      'UPDATE pets SET current_hp = ?, battles_lost = COALESCE(battles_lost, 0) + 1 WHERE id = ?',
-      [playerHp, matchState.pet_id]
-    );
-    await normalizePetCurrentHp(conn, matchState.pet_id);
-
-    await conn.commit();
+    if(req.body.matchId !== matchState.matchId) return res.status(409).json({message:'Trận đấu đã thay đổi.'});
+    await classicBattle.finalize(matchState, 'flee');
     await redis.del(key);
-    res.json({ forceLoss: true, message: 'Trận đấu đã kết thúc (rời đi).' });
+    res.json(matchState);
   } catch (err) {
     if (conn) await conn.rollback();
     console.error('Error arena match terminate:', err);
@@ -12469,22 +12794,35 @@ app.post('/api/arena/match/terminate', async (req, res) => {
   } finally {
     if (conn) conn.release();
   }
-});
+}));
 
 // POST /api/arena/match/turn — Xử lý 1 lượt (player action + enemy action), chỉ dùng Redis rồi finalize khi hết trận
-app.post('/api/arena/match/turn', async (req, res) => {
+app.post('/api/arena/match/turn', classicAuth, classicBattle.serialize(async (req, res) => {
   const userId = getUserIdFromToken(req);
   if (!userId) return res.status(401).json({ message: 'Unauthorized' });
   const redis = getRedis();
   if (!redis) return res.status(503).json({ message: 'Match service temporarily unavailable' });
 
   const key = REDIS_MATCH_PREFIX + userId;
-  const { action, itemId, power_min, power_max, moveName } = req.body || {};
+  const { action } = req.body || {};
+  const itemId = Number(req.body?.itemId);
 
   try {
     const data = await redis.get(key);
     if (!data) return res.status(404).json({ message: 'Match not found' });
     const state = JSON.parse(data);
+    if(state.matchId){
+      const [[done]]=await db.query('SELECT result_json FROM arena_match_receipts WHERE match_id=? AND user_id=?',[state.matchId,userId]);
+      if(done?.result_json){await redis.del(key);return res.json(typeof done.result_json==='string'?JSON.parse(done.result_json):done.result_json);}
+    }
+    if(req.body.matchId !== state.matchId) return res.status(409).json({message:'Trận đấu đã thay đổi.'});
+    if (['attack_item','defend_shield'].includes(action)) {
+      const [[actual]]=await db.query('SELECT i.id,i.durability_left,ed.power_min,ed.power_max,ed.equipment_type FROM inventory i JOIN equipment_data ed ON ed.item_id=i.item_id WHERE i.id=? AND i.player_id=? AND i.equipped_pet_id=? AND i.is_equipped=1',[Number(itemId),userId,state.pet_id]);
+      if(!actual || actual.durability_left<=0) return res.status(409).json({message:'Trang bị không còn khả dụng.'});
+      state.equipment=state.equipment.map(e=>Number(e.id)===Number(itemId)?{...e,...actual}:e);
+    }
+    const actionError = validateAction(state, req.body || {});
+    if(actionError) return res.status(409).json({message:actionError});
     const player = state.player;
     const enemy = state.enemy;
     const NORMAL_POWER_MIN = 7;
@@ -12516,8 +12854,9 @@ app.post('/api/arena/match/turn', async (req, res) => {
     const runPlayerAction = async () => {
       let result;
       if (action === 'defend_shield' || action === 'defend_basic') {
-        const powerMin = action === 'defend_shield' && power_min != null ? Number(power_min) : NORMAL_POWER_MIN;
-        const powerMax = action === 'defend_shield' && power_max != null ? Number(power_max) : NORMAL_POWER_MAX;
+        const shield = action === 'defend_shield' ? state.equipment.find(e => Number(e.id) === Number(itemId)) : null;
+        const powerMin = shield ? Number(shield.power_min) : NORMAL_POWER_MIN;
+        const powerMax = shield ? Number(shield.power_max) : NORMAL_POWER_MAX;
         result = simulateDefendTurn(player, enemy, powerMin, powerMax);
         state.history.push({ text: result.logMessage || `${player.name} sử dụng Phòng thủ.`, type: 'defense' });
         player.current_def_dmg = result.defDmg ?? 0;
@@ -12639,7 +12978,7 @@ app.post('/api/arena/match/turn', async (req, res) => {
     console.error('Error arena match turn:', err);
     res.status(500).json({ message: 'Lỗi xử lý lượt đấu' });
   }
-});
+}));
 
 // API ARENA: Mô phỏng toàn bộ trận đấu (PvE). Cả hai bên dùng Dmg_out với power_min/power_max.
 // body: playerPet, enemyPet, playerMovePower, playerMoveName, enemyMovePower, enemyMoveName, playerPowerMin, playerPowerMax, enemyPowerMin, enemyPowerMax
@@ -12686,74 +13025,7 @@ function calculateBattleExpGain(enemyLevel) {
 }
 
 // ✅ API cộng EXP khi thắng trận
-app.post('/api/pets/:id/gain-exp', async (req, res) => {
-  const petId = req.params.id;
-  const { source, enemy_level, custom_amount } = req.body;
 
-  try {
-    const [rows] = await pool.promise().query('SELECT * FROM pets WHERE id = ?', [petId]);
-    if (!rows.length) return res.status(404).json({ message: 'Pet not found' });
-
-    const pet = rows[0];
-
-    if (pet.owner_id == null) {
-      return res.status(403).json({ message: 'Pet không có chủ không được cộng EXP' });
-    }
-
-    const gain = custom_amount !== null ? custom_amount : calculateBattleExpGain(enemy_level);
-    let newExp = pet.current_exp + gain;
-    let newLevel = pet.level;
-
-    while (expTable[newLevel + 1] && newExp >= expTable[newLevel + 1]) {
-      newLevel++;
-    }
-
-    // ✅ Recalculate stats khi level up — gộp IV formula + booster_stats + *_added
-    let updatedStats = null;
-    if (newLevel > pet.level) {
-      await pool.promise().query(
-        'UPDATE pets SET current_exp = ?, level = ? WHERE id = ?',
-        [newExp, newLevel, petId]
-      );
-      const refreshed = await refreshPetIntrinsicStats(db, petId);
-      updatedStats = refreshed ? refreshed.merged : null;
-    } else {
-      await pool.promise().query(
-        'UPDATE pets SET current_exp = ? WHERE id = ?',
-        [newExp, petId]
-      );
-    }
-
-    if (String(source) === 'hunt' && pet.owner_id) {
-      try {
-        await titleService.recordHuntWin(db, pet.owner_id, 1);
-      } catch (e) {
-        console.error('title hunt (gain-exp):', e);
-      }
-    }
-
-    res.json({ 
-      id: petId, 
-      level: newLevel, 
-      current_exp: newExp, 
-      gained: gain, 
-      source,
-      stats_updated: !!updatedStats,
-      new_stats: updatedStats,
-      old_stats: updatedStats ? {
-        hp: pet.hp,
-        mp: pet.mp,
-        str: pet.str,
-        def: pet.def,
-        intelligence: pet.intelligence,
-        spd: pet.spd
-      } : null
-    });
-  } catch (err) {
-    console.error('Lỗi cộng EXP:', err);
-    res.status(500).json({ message: 'Server error cộng EXP' });
-  }
-});
 
 // API: Sửa chữa equipment bị hỏng bằng Repair Kit
 app.post('/api/inventory/:id/repair-with-kit', async (req, res) => {
@@ -12965,57 +13237,7 @@ app.post('/api/pets/:petId/feed', async (req, res) => {
 });
 
 // API: Sau trận đấu — decay thời gian; +1 hunger_battles; cứ 50 trận trừ 1 hunger
-app.post('/api/pets/:petId/update-hunger-after-battle', async (req, res) => {
-  const { petId } = req.params;
 
-  try {
-    const pet = await petVitals.refreshPetVitalsById(db, petId);
-    if (!pet) {
-      return res.status(404).json({ message: 'Pet không tồn tại' });
-    }
-
-    const hungerBefore = petVitals.clampHunger(pet.hunger_status);
-    const priorBattles = Number(pet.hunger_battles) || 0;
-
-    const { hunger: newHunger, hunger_battles: newBattles } = petVitals.applyBattlesIncrementToHunger(
-      hungerBefore,
-      priorBattles
-    );
-
-    await pool.promise().query(
-      'UPDATE pets SET hunger_status = ?, hunger_battles = ? WHERE id = ?',
-      [newHunger, newBattles, petId]
-    );
-
-    if (newHunger === 0) {
-      await pool.promise().query(
-        'UPDATE pets SET current_hp = 0, hp = 0 WHERE id = ?',
-        [petId]
-      );
-    }
-
-    if (newHunger !== hungerBefore) {
-      await pool.promise().query(
-        'INSERT INTO hunger_status_history (pet_id, old_status, new_status, old_battles, new_battles, change_reason) VALUES (?, ?, ?, ?, ?, ?)',
-        [petId, hungerBefore, newHunger, priorBattles, newBattles, 'battle_wear']
-      );
-    }
-
-    res.json({
-      message: 'Cập nhật đói sau trận (đếm trận / mòn đói)',
-      old_status: hungerBefore,
-      new_status: newHunger,
-      old_status_text: petVitals.getHungerStatusText(hungerBefore),
-      new_status_text: petVitals.getHungerStatusText(newHunger),
-      old_battles: priorBattles,
-      new_battles: newBattles,
-      status_changed: newHunger !== hungerBefore,
-    });
-  } catch (err) {
-    console.error('Error updating pet hunger status after battle:', err);
-    res.status(500).json({ message: 'Lỗi khi cập nhật hunger status' });
-  }
-});
 
 // ======================================================== MAIL SYSTEM ========================================================
 
@@ -16002,49 +16224,7 @@ app.get('/api/global-reset-time', async (req, res) => {
 // ========================================
 
 // POST /api/pets/:petId/update-hp - Update pet's current HP
-app.post('/api/pets/:petId/update-hp', async (req, res) => {
-  const { petId } = req.params;
-  const { current_hp } = req.body;
 
-  try {
-    // Validate current_hp
-    if (current_hp === undefined || current_hp < 0) {
-      return res.status(400).json({ error: 'Invalid current_hp value' });
-    }
-
-    // Get pet's max_hp to validate
-    const [petRows] = await db.query(
-      'SELECT final_stats FROM pets WHERE id = ?',
-      [petId]
-    );
-
-    if (petRows.length === 0) {
-      return res.status(404).json({ error: 'Pet not found' });
-    }
-
-    const pet = petRows[0];
-    const maxHp = JSON.parse(pet.final_stats).hp;
-    
-    // Ensure current_hp doesn't exceed max_hp
-    const validCurrentHp = Math.min(current_hp, maxHp);
-
-    // Update current_hp
-    await db.query(
-      'UPDATE pets SET current_hp = ? WHERE id = ?',
-      [validCurrentHp, petId]
-    );
-
-    res.json({ 
-      message: 'HP updated successfully',
-      pet_id: petId,
-      current_hp: validCurrentHp,
-      max_hp: maxHp
-    });
-  } catch (error) {
-    console.error('Error updating pet HP:', error);
-    res.status(500).json({ error: 'Failed to update pet HP' });
-  }
-});
 
 // GET /api/pets/:petId/current-hp - Get pet's current HP
 app.get('/api/pets/:petId/current-hp', async (req, res) => {

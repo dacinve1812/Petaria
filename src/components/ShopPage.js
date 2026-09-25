@@ -155,10 +155,30 @@ function ShopPage() {
       return;
     }
     if (!activeShopCode) return;
-    const shop = shops.find((s) => s.code === activeShopCode);
-    setCurrentShopRestockInterval(shop?.shop_restock_interval || null);
     fetchShopItems(activeShopCode);
   }, [activeShopCode, user?.token, shops, isGeneralGrid, fetchShopItems]);
+
+  // Timer: ưu tiên shop_restock_interval; nếu none thì lấy interval ngắn nhất từ item
+  useEffect(() => {
+    if (isGeneralGrid || !activeShopCode) {
+      setCurrentShopRestockInterval(null);
+      return;
+    }
+    const shop = shops.find((s) => s.code === activeShopCode);
+    const shopIv = String(shop?.shop_restock_interval || 'none').toLowerCase();
+    if (shopIv && shopIv !== 'none') {
+      setCurrentShopRestockInterval(shopIv);
+      return;
+    }
+    const rank = { daily: 1, weekly: 2, monthly: 3 };
+    let best = null;
+    for (const item of shopItems) {
+      const iv = String(item.restock_interval || 'none').toLowerCase();
+      if (!iv || iv === 'none') continue;
+      if (!best || (rank[iv] || 99) < (rank[best] || 99)) best = iv;
+    }
+    setCurrentShopRestockInterval(best);
+  }, [isGeneralGrid, activeShopCode, shops, shopItems]);
 
   const calculateTimeUntilRestock = useCallback(
     (cycle) => {
@@ -226,7 +246,8 @@ function ShopPage() {
           Authorization: `Bearer ${user.token}`,
         },
         body: JSON.stringify({
-          shop_item_id: item.id,
+          item_id: item.item_id ?? item.id,
+          user_id: user.userId,
           quantity,
           shop_code: activeShopCode,
         }),

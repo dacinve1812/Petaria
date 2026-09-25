@@ -88,3 +88,162 @@
   text-align: right;
   font-weight: 500;
 }
+
+.admin-pet-species .available-pet-card h3 {
+  background: #1f4e5f;
+}
+
+.admin-pet-species .avail-folder-meta {
+  font-size: 13px;
+  color: #495057;
+}
+
+.admin-pet-species .avail-help {
+  margin: 0;
+  padding: 8px 20px 0;
+  font-size: 13px;
+  color: #5c6770;
+  line-height: 1.45;
+}
+
+.admin-pet-species .avail-dedupe {
+  color: #856404;
+  padding-top: 4px;
+}
+
+.admin-pet-species .avail-empty {
+  text-align: center;
+  color: #6c757d;
+  padding: 28px 12px;
+}
+
+.admin-pet-species .avail-input {
+  width: 100%;
+  min-width: 64px;
+  padding: 4px 6px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.admin-pet-species .avail-input-num {
+  width: 64px;
+  min-width: 56px;
+}
+
+.admin-pet-species .avail-input-sm {
+  min-width: 72px;
+}
+
+.admin-pet-species .avail-input-image {
+  min-width: 110px;
+}
+
+.admin-pet-species .avail-row-exist td {
+  background: #f4f6f7;
+}
+
+.admin-pet-species .btn-generate,
+.admin-pet-species .btn-add-row {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #fff;
+}
+
+.admin-pet-species .btn-add-row {
+  background: #28a745;
+}
+
+.admin-pet-species .btn-add-row:disabled {
+  background: #9aa5ad;
+  cursor: not-allowed;
+}
+
+.admin-pet-species .btn-generate {
+  background: #e67e22;
+}
+
+.admin-pet-species .avail-source {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #6c757d;
+  white-space: nowrap;
+}
+
+.admin-pet-species .data-table th.col-actions,
+.admin-pet-species .data-table td.col-actions {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 168px;
+  white-space: normal;
+  vertical-align: top;
+}
+
+.admin-pet-species .data-table th.col-actions {
+  z-index: 4;
+  background: #2c3e50;
+}
+
+.admin-pet-species .data-table td.col-actions {
+  background: #fff;
+  z-index: 1;
+}
+
+.admin-pet-species .data-table tr:hover td.col-actions {
+  background: #f8f9fa;
+}
+
+.admin-pet-species .data-table tr.quick-edit-row td,
+.admin-pet-species .data-table tr.quick-edit-row td.col-actions {
+  background: #fff8e8;
+}
+
+.admin-pet-species .data-table .cell-actions {
+  flex-wrap: wrap;
+}
+
+.admin-pet-species .btn-quick-edit,
+.admin-pet-species .btn-save-row,
+.admin-pet-species .btn-cancel-row,
+.admin-pet-species .btn-auto-gen {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #fff;
+}
+
+.admin-pet-species .btn-quick-edit {
+  background: #6f42c1;
+}
+
+.admin-pet-species .btn-save-row {
+  background: #28a745;
+}
+
+.admin-pet-species .btn-cancel-row {
+  background: #6c757d;
+}
+
+.admin-pet-species .btn-auto-gen {
+  background: #0d9488;
+}
+
+.admin-pet-species .sort-th {
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-pet-species .sort-th:hover {
+  background: #3d566e;
+}
+
+.admin-pet-species .sort-th.active {
+  text-decoration: underline;
+}

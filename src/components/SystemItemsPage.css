@@ -1,0 +1,391 @@
+.itemdex-page {
+  --itemdex-ink: #3a2a12;
+  --itemdex-muted: #6b7280;
+  --itemdex-table-bg: #eef1f5;
+  --itemdex-header-bg: #4a5568;
+  --itemdex-row: #ffffff;
+  --itemdex-row-gap: 8px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 8px 10px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.itemdex-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding-left: 4px;
+}
+
+.itemdex-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--itemdex-ink);
+}
+
+.itemdex-subtitle {
+  margin: 4px 0 0;
+  color: var(--itemdex-muted);
+  font-size: 0.9rem;
+}
+
+.itemdex-status {
+  margin: 0;
+  padding: 22px;
+  text-align: center;
+  color: var(--itemdex-muted);
+  background: var(--itemdex-table-bg);
+  border-radius: 12px;
+}
+
+.itemdex-status--error {
+  color: #b71c1c;
+  background: #fdecea;
+}
+
+/* Search — match rank table palette */
+.itemdex-toolbar {
+  margin: 0;
+  padding: 0;
+}
+
+.itemdex-toolbar .edit-items-toolbar-right {
+  margin-left: 0;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.itemdex-toolbar .edit-items-search-input {
+  max-width: 380px;
+  width: 100%;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(74, 85, 104, 0.28);
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(30, 40, 60, 0.06);
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  color: #1c1c1c;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.itemdex-toolbar .edit-items-search-input::placeholder {
+  color: #9aa3af;
+}
+
+.itemdex-toolbar .edit-items-search-input:focus {
+  outline: none;
+  border-color: #4a5568;
+  box-shadow: 0 0 0 3px rgba(74, 85, 104, 0.18);
+}
+
+/* Table shell — same feel as .stats-rank-table */
+.itemdex-table-wrap {
+  border-radius: 14px;
+  background: var(--itemdex-table-bg);
+  box-shadow: 0 6px 18px rgba(40, 48, 64, 0.1);
+  overflow: auto;
+  max-height: min(72vh, 820px);
+  padding: 0 0 12px;
+}
+
+.itemdex-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 var(--itemdex-row-gap);
+  min-width: 960px;
+  margin: 0;
+}
+
+.itemdex-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--itemdex-header-bg);
+  color: #f7fafc;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 12px 12px;
+  white-space: nowrap;
+  border: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.08);
+}
+
+.itemdex-table thead th:first-child {
+  padding-left: 16px;
+}
+
+.itemdex-table thead th:last-child {
+  border-right: none;
+  padding-right: 16px;
+}
+
+.itemdex-table thead th.is-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.itemdex-table thead th.is-sortable:hover {
+  background: #3d4656;
+}
+
+.itemdex-table tbody tr td {
+  padding: 12px;
+  vertical-align: middle;
+  color: #1c1c1c;
+  font-size: 0.88rem;
+  background: var(--itemdex-row);
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 2px 6px rgba(30, 40, 60, 0.07);
+}
+
+.itemdex-table tbody tr td:first-child {
+  padding-left: 16px;
+  border-radius: 10px 0 0 10px;
+}
+
+.itemdex-table tbody tr td:last-child {
+  padding-right: 16px;
+  border-radius: 0 10px 10px 0;
+}
+
+.itemdex-table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+.itemdex-name {
+  font-weight: 800;
+  min-width: 130px;
+  color: #1c1c1c;
+}
+
+.itemdex-image-cell {
+  width: 68px;
+}
+
+.itemdex-image {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 50%;
+  background: #f3f4f6;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px rgba(180, 140, 60, 0.45), 0 2px 6px rgba(0, 0, 0, 0.12);
+  display: block;
+}
+
+.itemdex-desc,
+.itemdex-usage {
+  max-width: 240px;
+  line-height: 1.45;
+  color: #4b5563;
+}
+
+.itemdex-magic {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #6b4bb5;
+}
+
+.itemdex-type {
+  white-space: nowrap;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #4a5568;
+}
+
+.itemdex-obtain {
+  color: #9aa3af;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.itemdex-empty {
+  text-align: center;
+  padding: 28px 12px !important;
+  color: var(--itemdex-muted);
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.itemdex-rarity {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.itemdex-rarity--common {
+  color: #4b5563;
+  background: rgba(107, 114, 128, 0.16);
+}
+
+.itemdex-rarity--rare {
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.16);
+}
+
+.itemdex-rarity--epic {
+  color: #6b21a8;
+  background: rgba(168, 85, 247, 0.16);
+}
+
+.itemdex-rarity--legendary {
+  color: #b45309;
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.28), rgba(245, 158, 11, 0.16));
+}
+
+/* ===== Tablet ===== */
+@media (max-width: 900px) {
+  .itemdex-table {
+    min-width: 860px;
+  }
+
+  .itemdex-desc,
+  .itemdex-usage {
+    max-width: 180px;
+  }
+
+  .itemdex-image {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+/* ===== Mobile: card rows ===== */
+@media (max-width: 760px) {
+  .itemdex-page {
+    padding: 6px 6px 28px;
+    gap: 12px;
+  }
+
+  .itemdex-title {
+    font-size: 1.08rem;
+  }
+
+  .itemdex-toolbar .edit-items-search-input {
+    max-width: none;
+  }
+
+  .itemdex-table-wrap {
+    border-radius: 12px;
+    max-height: none;
+    padding: 10px 8px 10px;
+    overflow: visible;
+  }
+
+  .itemdex-table {
+    min-width: 0;
+    border-spacing: 0;
+  }
+
+  .itemdex-table thead {
+    display: none;
+  }
+
+  .itemdex-table,
+  .itemdex-table tbody,
+  .itemdex-table tr,
+  .itemdex-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .itemdex-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .itemdex-table tbody tr {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(30, 40, 60, 0.08);
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .itemdex-table tbody tr:hover td {
+    background: transparent;
+  }
+
+  .itemdex-table tbody td {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 8px;
+    align-items: start;
+    padding: 8px 12px;
+    margin: 0;
+    max-width: none;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: none;
+    border-bottom: 1px solid rgba(74, 85, 104, 0.08);
+    font-size: 0.86rem;
+  }
+
+  .itemdex-table tbody td:last-child {
+    border-bottom: none;
+  }
+
+  .itemdex-table tbody td::before {
+    content: attr(data-label);
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6b7280;
+    padding-top: 3px;
+  }
+
+  /* Name row as card header */
+  .itemdex-table tbody td.itemdex-name {
+    grid-template-columns: 1fr;
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%) !important;
+    border-bottom: 1px solid rgba(74, 85, 104, 0.12);
+    padding: 12px 14px 10px;
+    font-size: 1.02rem;
+  }
+
+  .itemdex-table tbody td.itemdex-name::before {
+    display: none;
+  }
+
+  .itemdex-table tbody td.itemdex-image-cell {
+    grid-template-columns: 92px auto;
+    align-items: center;
+  }
+
+  .itemdex-image {
+    width: 42px;
+    height: 42px;
+  }
+
+  .itemdex-desc,
+  .itemdex-usage {
+    max-width: none;
+  }
+
+  .itemdex-empty {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 20px 8px !important;
+  }
+}

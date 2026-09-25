@@ -545,7 +545,7 @@ function EditProfile() {
             </section>
           )}
 
-          <section className="edit-profile-actions">
+          <section className="edit-profile-actions"><button type="button" className="edit-profile-btn" onClick={() => navigate("/login?mode=security")}>Email và mật khẩu cấp 2</button>
             <button type="submit" className="edit-profile-btn edit-profile-btn--primary" disabled={saving}>
               {saving ? 'Đang cập nhật...' : 'Cập nhật thông tin'}
             </button>

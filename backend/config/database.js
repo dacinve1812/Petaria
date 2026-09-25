@@ -1,23 +1,12 @@
 const mysql = require('mysql2');
-
+// Use the same environment as server.js; never embed database credentials in source.
 const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: 'X1nCh4o0127!',
-  database: 'petaria',
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'petaria',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
 });
-
-const db = pool.promise();
-
-// Kiểm tra kết nối
-pool.getConnection((err, connection) => {
-  if (err) {
-  } else {
-    connection.release();
-  }
-});
-
-module.exports = db;
+module.exports = pool.promise();

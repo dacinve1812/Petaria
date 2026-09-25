@@ -3,10 +3,32 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
 import './AdminNpcBossManagement.css';
 import './EditPetTypes.css';
+import AvailablePetSpeciesTable from './AvailablePetSpeciesTable';
 
 const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 const ITEMS_PER_PAGE = 30;
 const authHeaders = (token) => (token ? { Authorization: `Bearer ${token}` } : {});
+const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legend', 'mythic'];
+const PET_TYPES = [
+  'normal', 'fire', 'water', 'grass', 'electric', 'ice', 'fighting', 'poison',
+  'ground', 'flying', 'psychic', 'bug', 'rock', 'ghost', 'dragon', 'dark', 'steel', 'fairy',
+];
+const STAT_KEYS = ['base_hp', 'base_mp', 'base_str', 'base_def', 'base_intelligence', 'base_spd'];
+
+function sumStats(row) {
+  return STAT_KEYS.reduce((s, k) => s + (Number(row?.[k]) || 0), 0);
+}
+
+function evolveToText(raw) {
+  if (raw == null || raw === '') return '';
+  return typeof raw === 'string' ? raw : JSON.stringify(raw);
+}
+
+function typeOptions(current) {
+  const extra = String(current || '').trim();
+  const list = extra && !PET_TYPES.includes(extra) ? [extra, ...PET_TYPES] : PET_TYPES;
+  return list;
+}
 
 function EditPetTypes() {
   const navigate = useNavigate();
@@ -20,6 +42,9 @@ function EditPetTypes() {
   const [sortBy, setSortBy] = useState('name');
   const [rarityFilter, setRarityFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [quickEditId, setQuickEditId] = useState(null);
+  const [quickDraft, setQuickDraft] = useState(null);
+  const [quickSaving, setQuickSaving] = useState(false);
 
   useEffect(() => {
     if (!isLoading && (!user || !user.isAdmin)) navigate('/login');
@@ -102,30 +127,80 @@ function EditPetTypes() {
     }
   };
 
+  const startQuickEdit = (row) => {
+    setQuickEditId(row.id);
+    setQuickDraft({
+      id: row.id,
+      name: row.name ?? '',
+      image: row.image ?? '',
+      type: row.type ?? '',
+      description: row.description ?? '',
+      rarity: row.rarity || 'common',
+      base_hp: row.base_hp ?? 0,
+      base_mp: row.base_mp ?? 0,
+      base_str: row.base_str ?? 0,
+      base_def: row.base_def ?? 0,
+      base_intelligence: row.base_intelligence ?? 0,
+      base_spd: row.base_spd ?? 0,
+      evolve_to: evolveToText(row.evolve_to),
+      evolve_min_level: row.evolve_min_level ?? 1,
+      evolve_item_id: row.evolve_item_id != null ? String(row.evolve_item_id) : '',
+    });
+  };
+
+  const cancelQuickEdit = () => {
+    setQuickEditId(null);
+    setQuickDraft(null);
+  };
+
+  const patchQuick = (key, value) => {
+    setQuickDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
+  };
+
+  const saveQuickEdit = async () => {
+    if (!quickDraft || quickDraft.id == null) return;
+    setQuickSaving(true);
+    try {
+      await saveRow(quickDraft, { isEdit: true });
+      showMsg('Đã cập nhật.');
+      cancelQuickEdit();
+      loadAll();
+    } catch (e) {
+      showMsg(e.message || 'Lỗi lưu', 'error');
+    } finally {
+      setQuickSaving(false);
+    }
+  };
+
+  const saveRow = async (payload, { isEdit }) => {
+    const url = isEdit
+      ? `${API_BASE}/api/admin/pet-species/${payload.id}`
+      : `${API_BASE}/api/admin/pet-species`;
+    const method = isEdit ? 'PUT' : 'POST';
+    const body = { ...payload };
+    if (body.evolve_to !== undefined && body.evolve_to !== null && body.evolve_to !== '') {
+      try {
+        body.evolve_to = typeof body.evolve_to === 'string' ? JSON.parse(body.evolve_to) : body.evolve_to;
+      } catch (_) {
+        body.evolve_to = null;
+      }
+    } else body.evolve_to = null;
+    delete body.id;
+    delete body.created_at;
+    const r = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', ...authHeaders(user.token) },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.message || 'Lỗi lưu');
+    return data;
+  };
+
   const saveModal = async (payload) => {
     try {
       const isEdit = modal.mode === 'edit' && payload.id != null;
-      const url = isEdit
-        ? `${API_BASE}/api/admin/pet-species/${payload.id}`
-        : `${API_BASE}/api/admin/pet-species`;
-      const method = isEdit ? 'PUT' : 'POST';
-      const body = { ...payload };
-      if (body.evolve_to !== undefined && body.evolve_to !== null && body.evolve_to !== '') {
-        try {
-          body.evolve_to = typeof body.evolve_to === 'string' ? JSON.parse(body.evolve_to) : body.evolve_to;
-        } catch (_) {
-          body.evolve_to = null;
-        }
-      } else body.evolve_to = null;
-      delete body.id;
-      delete body.created_at;
-      const r = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json', ...authHeaders(user.token) },
-        body: JSON.stringify(body),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data.message || 'Lỗi lưu');
+      await saveRow(payload, { isEdit });
       showMsg(isEdit ? 'Đã cập nhật.' : 'Đã thêm.');
       setModal(null);
       loadAll();
@@ -189,7 +264,7 @@ function EditPetTypes() {
           </select>
           <select value={rarityFilter} onChange={(e) => { setRarityFilter(e.target.value); setCurrentPage(1); }} className="pet-species-rarity">
             <option value="">Tất cả độ hiếm</option>
-            {['common', 'uncommon', 'rare', 'epic', 'legend', 'mythic'].map((r) => (
+            {RARITIES.map((r) => (
               <option key={r} value={r}>{r}</option>
             ))}
           </select>
@@ -199,6 +274,7 @@ function EditPetTypes() {
           <table className="data-table">
             <thead>
               <tr>
+                <th className="col-actions">Thao tác</th>
                 <th>id</th>
                 <th>Hình</th>
                 <th>name</th>
@@ -213,17 +289,35 @@ function EditPetTypes() {
                 <th>base_intelligence</th>
                 <th>base_spd</th>
                 <th>evolve_to</th>
-                <th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
-              {paginated.map((r) => (
-                <tr key={r.id}>
+              {paginated.map((r) => {
+                const editing = quickEditId === r.id && quickDraft;
+                const d = editing ? quickDraft : r;
+                return (
+                <tr key={r.id} className={editing ? 'quick-edit-row' : undefined}>
+                  <td className="col-actions">
+                    {editing ? (
+                      <div className="cell-actions">
+                        <button type="button" className="btn-save-row" disabled={quickSaving} onClick={saveQuickEdit}>
+                          {quickSaving ? '...' : 'Lưu'}
+                        </button>
+                        <button type="button" className="btn-cancel-row" disabled={quickSaving} onClick={cancelQuickEdit}>Hủy</button>
+                      </div>
+                    ) : (
+                      <div className="cell-actions">
+                        <button type="button" className="btn-quick-edit" onClick={() => startQuickEdit(r)}>Quick Edit</button>
+                        <button type="button" className="btn-edit" onClick={() => setModal({ mode: 'edit', row: r })}>Sửa</button>
+                        <button type="button" className="btn-delete" onClick={() => deleteRow(r.id)}>Xóa</button>
+                      </div>
+                    )}
+                  </td>
                   <td>{r.id}</td>
                   <td className="pet-species-thumb-cell">
-                    {r.image ? (
+                    {d.image ? (
                       <img
-                        src={`/images/pets/${r.image}`}
+                        src={`/images/pets/${encodeURIComponent(d.image)}`}
                         alt=""
                         className="pet-species-thumb"
                         onError={(e) => { e.target.src = '/images/pets/default.png'; e.target.onerror = null; }}
@@ -232,30 +326,47 @@ function EditPetTypes() {
                       <span className="pet-species-thumb-empty">—</span>
                     )}
                   </td>
-                  <td>{r.name}</td>
-                  <td>{r.image}</td>
-                  <td>{r.type ?? '-'}</td>
-                  <td>{r.rarity ?? '-'}</td>
-                  <td className="pet-species-total-cell">
-                    {(Number(r.base_hp) || 0) + (Number(r.base_str) || 0) + (Number(r.base_def) || 0) + (Number(r.base_spd) || 0) + (Number(r.base_intelligence) || 0)}
-                  </td>
-                  <td>{r.base_hp ?? '-'}</td>
-                  <td>{r.base_mp ?? '-'}</td>
-                  <td>{r.base_str ?? '-'}</td>
-                  <td>{r.base_def ?? '-'}</td>
-                  <td>{r.base_intelligence ?? '-'}</td>
-                  <td>{r.base_spd ?? '-'}</td>
-                  <td title={typeof r.evolve_to === 'string' ? r.evolve_to : (r.evolve_to ? JSON.stringify(r.evolve_to) : '')}>
-                    {r.evolve_to ? (typeof r.evolve_to === 'string' ? r.evolve_to.slice(0, 15) : JSON.stringify(r.evolve_to).slice(0, 15)) + (String(r.evolve_to).length > 15 ? '…' : '') : '-'}
+                  <td>
+                    {editing ? <input className="avail-input" value={d.name} onChange={(e) => patchQuick('name', e.target.value)} /> : r.name}
                   </td>
                   <td>
-                    <div className="cell-actions">
-                      <button className="btn-edit" onClick={() => setModal({ mode: 'edit', row: r })}>Sửa</button>
-                      <button className="btn-delete" onClick={() => deleteRow(r.id)}>Xóa</button>
-                    </div>
+                    {editing ? <input className="avail-input avail-input-image" value={d.image} onChange={(e) => patchQuick('image', e.target.value)} /> : r.image}
+                  </td>
+                  <td>
+                    {editing ? (
+                      <select className="avail-input" value={d.type || ''} onChange={(e) => patchQuick('type', e.target.value)}>
+                        <option value="">—</option>
+                        {typeOptions(d.type).map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    ) : (r.type ?? '-')}
+                  </td>
+                  <td>
+                    {editing ? (
+                      <select className="avail-input" value={d.rarity || 'common'} onChange={(e) => patchQuick('rarity', e.target.value)}>
+                        {RARITIES.map((x) => <option key={x} value={x}>{x}</option>)}
+                      </select>
+                    ) : (r.rarity ?? '-')}
+                  </td>
+                  <td className="pet-species-total-cell">{sumStats(d)}</td>
+                  {STAT_KEYS.map((k) => (
+                    <td key={k}>
+                      {editing ? (
+                        <input className="avail-input avail-input-num" type="number" value={d[k]} onChange={(e) => patchQuick(k, e.target.value)} />
+                      ) : (r[k] ?? '-')}
+                    </td>
+                  ))}
+                  <td title={evolveToText(d.evolve_to)}>
+                    {editing ? (
+                      <input className="avail-input avail-input-sm" value={d.evolve_to} onChange={(e) => patchQuick('evolve_to', e.target.value)} placeholder="[2,3]" />
+                    ) : (
+                      r.evolve_to
+                        ? (evolveToText(r.evolve_to).slice(0, 15) + (evolveToText(r.evolve_to).length > 15 ? '…' : ''))
+                        : '-'
+                    )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -267,6 +378,13 @@ function EditPetTypes() {
           </div>
         )}
       </div>
+
+      <AvailablePetSpeciesTable
+        token={user.token}
+        existingList={list}
+        onAdded={loadAll}
+        showMsg={showMsg}
+      />
 
       {modal && <ModalPetSpecies modal={modal} onClose={() => setModal(null)} onSave={saveModal} />}
     </div>
@@ -319,11 +437,16 @@ function ModalPetSpecies({ modal, onClose, onSave }) {
         <form onSubmit={handleSubmit}>
           <div className="form-row"><label>name *</label><input value={form.name} onChange={(e) => update('name', e.target.value)} required /></div>
           <div className="form-row"><label>image *</label><input value={form.image} onChange={(e) => update('image', e.target.value)} required /></div>
-          <div className="form-row"><label>type</label><input value={form.type} onChange={(e) => update('type', e.target.value)} placeholder="fire, water..." /></div>
+          <div className="form-row"><label>type</label>
+            <select value={form.type} onChange={(e) => update('type', e.target.value)}>
+              <option value="">—</option>
+              {typeOptions(form.type).map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
           <div className="form-row"><label>description</label><textarea value={form.description} onChange={(e) => update('description', e.target.value)} rows={2} /></div>
           <div className="form-row"><label>rarity</label>
             <select value={form.rarity} onChange={(e) => update('rarity', e.target.value)}>
-              {['common', 'uncommon', 'rare', 'epic', 'legend', 'mythic'].map((r) => <option key={r} value={r}>{r}</option>)}
+              {RARITIES.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
           <div className="form-row"><label>base_hp, base_mp, base_str, base_def, base_intelligence, base_spd</label></div>

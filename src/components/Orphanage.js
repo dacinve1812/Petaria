@@ -72,12 +72,20 @@ function Orphanage() {
     }, [navigate]);
 
     useEffect(() => {
+        if (userId) {
+            fetchUserPets();
+        }
+    }, [userId]);
+
+    useEffect(() => {
         if (userId && currentMode === 'adopt') {
             fetchOrphanagePets();
         } else if (userId && currentMode === 'release') {
             fetchUserPets();
         }
     }, [userId, currentMode]);
+
+    const hasExistingPets = userPets.length > 0;
 
     const fetchOrphanagePets = async () => {
         setLoading(true);
@@ -125,6 +133,37 @@ function Orphanage() {
         }
     };
 
+    const handleEnterAdoptMode = async () => {
+        setError(null);
+        setLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/users/${userId}/pets`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (response.status === 401) {
+                handleTokenExpiration();
+                return;
+            }
+            if (!response.ok) {
+                setError('Không kiểm tra được thú cưng hiện có');
+                return;
+            }
+            const data = await response.json();
+            const pets = asOwnedList(data, 'pets');
+            setUserPets(pets);
+            if (pets.length > 0) {
+                return;
+            }
+            setCurrentMode('adopt');
+        } catch (err) {
+            console.error('Error checking pets before adopt:', err);
+            setError('Network error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSelectPet = (pet) => {
         setSelectedPet(pet);
     };
@@ -141,6 +180,10 @@ function Orphanage() {
     };
 
     const handleAdoptPet = async () => {
+        if (hasExistingPets) {
+            setError('! Bạn không thể nhận nuôi thêm thú cưng nữa !');
+            return;
+        }
         if (selectedPet && petName && userId) {
             try {
                 const token = localStorage.getItem('token');
@@ -167,8 +210,9 @@ function Orphanage() {
                     
                     // Update localStorage hasPet status
                     localStorage.setItem('hasPet', 'true');
-                    
+                    await fetchUserPets();
                     setAdoptSuccessOpen(true);
+                    setCurrentMode('main');
                 } else if (response.status === 401) {
                     handleTokenExpiration();
                 } else {
@@ -259,10 +303,20 @@ function Orphanage() {
                 <p>Xin chào mừng bạn đã đến với Trung tâm thú cưng, tại đây bạn có thể nhân nuôi thú cưng cho riêng mình hoặc phóng thích thú cưng của mình.</p>
             </div>
 
+            {error && <p className="orphanage-error">{error}</p>}
+
+            {hasExistingPets && (
+                <p className="orphanage-error">
+                    ! Bạn không thể nhận nuôi thêm thú cưng nữa !
+                </p>
+            )}
+
             <div className="action-buttons">
                 <button 
                     className="adopt-button"
-                    onClick={() => setCurrentMode('adopt')}
+                    onClick={() => void handleEnterAdoptMode()}
+                    disabled={loading || hasExistingPets}
+                    title={hasExistingPets ? 'Bạn đã có thú cưng' : undefined}
                 >
                     Nhân nuôi thú!
                 </button>
@@ -286,7 +340,11 @@ function Orphanage() {
 
             {error && <p className="orphanage-error">{error}</p>}
 
-            {loading ? (
+            {hasExistingPets ? (
+                <div className="orphanage-no-pets">
+                    <p>Bạn đã có thú cưng. Chỉ được nhận nuôi khi chưa có thú nào.</p>
+                </div>
+            ) : loading ? (
                 <div className="orphanage-loading">Đang tải...</div>
             ) : (
                 <div className="orphanage-pet-list">
@@ -305,7 +363,7 @@ function Orphanage() {
                 </div>
             )}
 
-            {selectedPet && (
+            {!hasExistingPets && selectedPet && (
                 <div className="orphanage-adopt-form">
                     <h3>Chọn tên cho thú cưng:</h3>
                     <input 

@@ -88,7 +88,7 @@ function Sidebar({ userId, handleLogout, isAdmin: isAdminProp, className = 'side
               </a>
             </li>
             <li><a href="/management"><img src="/images/buttons/management.png" alt="management"/></a></li>
-            <li><a href="/"><img src="/images/buttons/analyze.png" alt="analysis"/></a></li>
+            <li><a href="/statistics"><img src="/images/buttons/analyze.png" alt="analysis"/></a></li>
           </ul>
         </nav>
         <div className="user-info">

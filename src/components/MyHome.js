@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import TemplatePage from './template/TemplatePage';
 import './MyHome.css';
@@ -8,6 +8,58 @@ import GameModalButton from './ui/GameModalButton';
 import { resolveAssetPath } from '../utils/pathUtils';
 import { asOwnedList, normalizeOwnedCapacity } from '../utils/inventoryApi';
 
+// Số hàng mỗi trang. pageSize = ROWS * số cột thực tế -> luôn full hàng.
+const PET_ROWS_PER_PAGE = 4;
+const SPIRIT_ROWS_PER_PAGE = 3;
+
+// Khớp .pets-grid trong MyHome.css
+function getPetsColumns(contentWidth, windowWidth) {
+  if (windowWidth <= 340) return 2;
+  if (windowWidth <= 768) return 3;
+  const gap = windowWidth >= 1024 ? 20 : 15;
+  const track = 180;
+  return Math.max(1, Math.floor((contentWidth + gap) / (track + gap)));
+}
+
+// Khớp .spirit-grid trong global.css
+function getSpiritGridMetrics(windowWidth) {
+  if (windowWidth <= 481) return { track: 100, gap: 12 };
+  if (windowWidth <= 768) return { track: 150, gap: 12 };
+  return { track: 180, gap: 15 };
+}
+
+function useGridColumns(kind) {
+  const containerRef = useRef(null);
+  const [columnsPerRow, setColumnsPerRow] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return undefined;
+
+    const measure = () => {
+      const styles = window.getComputedStyle(el);
+      const paddingX =
+        parseFloat(styles.paddingLeft || '0') + parseFloat(styles.paddingRight || '0');
+      const contentWidth = el.clientWidth - paddingX;
+      const w = window.innerWidth;
+      let cols;
+      if (kind === 'pets') {
+        cols = getPetsColumns(contentWidth, w);
+      } else {
+        const { track, gap } = getSpiritGridMetrics(w);
+        cols = Math.max(1, Math.floor((contentWidth + gap) / (track + gap)));
+      }
+      setColumnsPerRow((prev) => (prev === cols ? prev : cols));
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [kind]);
+
+  return { containerRef, columnsPerRow };
+}
 
 function MyHome({isLoggedIn, onLogoutSuccess }) {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; 
@@ -322,7 +374,8 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
 function PetManagement({ userPets, slotCount = 0, maxSlots = 1000, isLoading, imageLoadErrors, setImageLoadErrors, searchTerm }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortOption, setSortOption] = useState('level');
-  const pageSize = 20;
+  const { containerRef, columnsPerRow } = useGridColumns('pets');
+  const pageSize = columnsPerRow > 0 ? columnsPerRow * PET_ROWS_PER_PAGE : 20;
 
   // Filter and search logic
   const filteredPets = userPets
@@ -340,8 +393,18 @@ function PetManagement({ userPets, slotCount = 0, maxSlots = 1000, isLoading, im
       return 0;
     });
 
-  const totalPages = Math.ceil(filteredPets.length / pageSize);
+  const totalPages = Math.max(1, Math.ceil(filteredPets.length / pageSize));
   const paginatedPets = filteredPets.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortOption]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   return (
     <>
@@ -369,6 +432,7 @@ function PetManagement({ userPets, slotCount = 0, maxSlots = 1000, isLoading, im
             </div>
           </div>
         </div>
+      <div className="pets-grid-measure" ref={containerRef}>
       {isLoading ? (
         <div className="loading-message">
           <p>Loading...</p>
@@ -426,6 +490,7 @@ function PetManagement({ userPets, slotCount = 0, maxSlots = 1000, isLoading, im
             <p>Bạn chưa có thú cưng nào.</p>
           </div>
         )}
+      </div>
       
 
       {/* Pagination */}
@@ -460,7 +525,8 @@ function SpiritManagement({ userSpirits, slotCount = 0, maxSlots = 500, spiritUs
   const [selectedPet, setSelectedPet] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedSpiritDetail, setSelectedSpiritDetail] = useState(null);
-  const pageSize = 12;
+  const { containerRef, columnsPerRow } = useGridColumns('spirits');
+  const pageSize = columnsPerRow > 0 ? columnsPerRow * SPIRIT_ROWS_PER_PAGE : 12;
 
   // Filter and search logic
   const filteredSpirits = userSpirits
@@ -484,12 +550,18 @@ function SpiritManagement({ userSpirits, slotCount = 0, maxSlots = 500, spiritUs
       return 0;
     });
 
-  const totalPages = Math.ceil(filteredSpirits.length / pageSize);
+  const totalPages = Math.max(1, Math.ceil(filteredSpirits.length / pageSize));
   const paginatedSpirits = filteredSpirits.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, filterRarity, sortOption]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const handleEquipSpirit = async (userSpiritId, petId) => {
     try {
@@ -583,20 +655,10 @@ function SpiritManagement({ userSpirits, slotCount = 0, maxSlots = 500, spiritUs
     setShowDetailModal(true);
   };
 
-  if (isLoading) {
-    return (
-      <div className="spirit-management">
-        <div className="loading-message">
-          <p>Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       {/* Spirit Container */}
-      <div className="spirit-container">
+      <div className="spirit-container" ref={containerRef}>
         <div className="spirit-header">
           <div
             className={`collection-slot-usage${slotCount >= maxSlots ? ' collection-slot-usage--full' : ''}`}
@@ -637,7 +699,11 @@ function SpiritManagement({ userSpirits, slotCount = 0, maxSlots = 500, spiritUs
           </div>
         </div>
         
-        {paginatedSpirits.length > 0 ? (
+        {isLoading ? (
+          <div className="loading-message">
+            <p>Loading...</p>
+          </div>
+        ) : paginatedSpirits.length > 0 ? (
           <div className="spirit-grid">
             {paginatedSpirits.map((spirit) => (
               <div key={spirit.id} className={`spirit-card ${spirit.is_equipped ? 'equipped' : ''}`}>

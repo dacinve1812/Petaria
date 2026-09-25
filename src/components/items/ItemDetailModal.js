@@ -79,6 +79,7 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   const [userOwnedQuantity, setUserOwnedQuantity] = useState(0);
   const [fetchedEquipmentData, setFetchedEquipmentData] = useState(null);
   const [purchaseQuantity, setPurchaseQuantity] = useState(1);
+  const [showSourcePanel, setShowSourcePanel] = useState(false);
 
   // Set item details directly from inventory API (now includes description)
   useEffect(() => {
@@ -87,6 +88,7 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
       setSellQuantity(1);
       setGameDialog(null);
       setShowActionDropdown(false);
+      setShowSourcePanel(false);
       setDropdownPointerGuard(false);
       setAction('');
       if (dropdownGuardTimerRef.current) {
@@ -414,7 +416,6 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
       });
       const result = await res.json();
       if (res.ok) {
-        alert(result.message || 'Đã gỡ vật phẩm khỏi thú cưng!');
         if (typeof onUpdateItem === 'function') {
           onUpdateItem({ ...item, is_equipped: 0, equipped_pet_id: null, pet_name: null });
         }
@@ -817,11 +818,30 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
             ×
           </button>
           
-          <img 
-            src={`/images/equipments/${displayItem.image_url}`} 
-            alt={displayItem.name || displayItem.item_name || ''} 
-            className="inventory-item-modal-image" 
-          />
+          <div className="inventory-item-modal-header-media">
+            <img 
+              src={
+                String(displayItem.image_url || '').startsWith('/') ||
+                String(displayItem.image_url || '').startsWith('http')
+                  ? displayItem.image_url
+                  : `/images/equipments/${displayItem.image_url}`
+              }
+              alt={displayItem.name || displayItem.item_name || ''} 
+              className="inventory-item-modal-image" 
+            />
+            {mode === 'item-hunt' && (
+              <button
+                type="button"
+                className="inventory-item-modal-source-btn"
+                onClick={() => setShowSourcePanel((v) => !v)}
+              >
+                <span className="inventory-item-modal-source-btn__icon" aria-hidden>
+                  ⌕
+                </span>
+                Source
+              </button>
+            )}
+          </div>
           
           <div className="inventory-item-modal-header-info">
             <h3 className="inventory-item-modal-name">
@@ -844,9 +864,15 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
                 Độ bền: {getDurabilityDisplay()}
               </div>
             )}
-            {item.type !== 'equipment' && (
+            {item.type !== 'equipment' && mode !== 'item-hunt' && (
               <div className="inventory-item-modal-quantity-value">
                 Sở hữu: {mode === 'shop' ? userOwnedQuantity : item.quantity}
+              </div>
+            )}
+            {mode === 'item-hunt' && (
+              <div className="inventory-item-modal-quantity-value">
+                Sở hữu: {item.owned ?? item.quantity ?? 0}
+                {item.qty != null ? ` / cần ${item.qty}` : ''}
               </div>
             )}
           </div>
@@ -903,9 +929,11 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
               </div>
             </div>
           )}
+
         </div>
 
         {/* Footer */}
+        {mode !== 'item-hunt' && (
         <div
           className={`inventory-item-modal-footer${
             mode === 'shop' ? ' inventory-item-modal-footer--shop-game' : ''
@@ -1013,6 +1041,7 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Pet Selection Modal */}
@@ -1094,6 +1123,46 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
           <p>
             Tính năng <strong>{gameDialog.label}</strong> sẽ được cập nhật sau.
           </p>
+        </GameDialogModal>
+      )}
+
+      {mode === 'item-hunt' && showSourcePanel && (
+        <GameDialogModal
+          isOpen
+          onClose={() => setShowSourcePanel(false)}
+          className="game-dialog-modal--global-item item-source-modal"
+          title="Source"
+          mode="alert"
+          tone="info"
+          confirmLabel="Đóng"
+          onConfirm={() => setShowSourcePanel(false)}
+          closeOnOverlayClick
+          contentClassName="item-detail-game-dialog-body"
+        >
+          <div className="inventory-item-source-panel__list">
+            <button
+              type="button"
+              className="inventory-item-source-row"
+              onClick={() => {
+                onClose();
+                navigate('/shop/general');
+              }}
+            >
+              <span>Shop</span>
+              <span className="inventory-item-source-row__go">≫</span>
+            </button>
+            <button
+              type="button"
+              className="inventory-item-source-row"
+              onClick={() => {
+                onClose();
+                navigate('/auction');
+              }}
+            >
+              <span>Đấu giá</span>
+              <span className="inventory-item-source-row__go">≫</span>
+            </button>
+          </div>
         </GameDialogModal>
       )}
     </div>

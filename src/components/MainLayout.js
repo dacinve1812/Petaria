@@ -90,6 +90,9 @@ function MainLayout() {
         if (pathname.startsWith('/exhibition')) {
             return 'PHÒNG TRIỂN LÃM';
         }
+        if (pathname.startsWith('/tasks/item-hunt')) {
+            return 'TRUY TÌM VẬT PHẨM';
+        }
         if (pathname.startsWith('/tasks')) {
             return 'NHIỆM VỤ';
         }
@@ -136,6 +139,8 @@ function MainLayout() {
             '/quest': 'NHIỆM VỤ',
             '/tasks': 'NHIỆM VỤ',
             '/management': 'QUẢN LÝ',
+            '/statistics': 'THỐNG KÊ',
+            '/system/items': 'HỆ THỐNG VẬT PHẨM',
             '/title': 'DANH HIỆU',
             '/exhibition': 'PHÒNG TRIỂN LÃM',
             '/buddies': 'BẠN BÈ',
@@ -167,7 +172,7 @@ function MainLayout() {
         <NavigationMenu className={isScrolledDown ? 'hidden' : ''} />
         
         {/* Main Content Area - Similar to cf-sub */}
-        <div id="peta-sub">
+        <div id="peta-sub" className={/^\/battle\/(match|arena\/select|select|arena\/arenabattle)$/.test(location.pathname) ? "classic-layout" : ""}>
             <section className="container">
                 <h1 className="peta-sectiontitle">
                     {getPageTitle(location.pathname)}

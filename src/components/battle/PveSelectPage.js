@@ -48,11 +48,7 @@ function PveSelectPage() {
             <h3>Arena</h3>
             <p>Đấu từng quái vật NPC</p>
           </div>
-          <div className="battle-mode-card" onClick={() => navigate('/battle/champion')}>
-            <img src="/images/icons/champion_icon.png" alt="Champion" />
-            <h3>Champion Challenge</h3>
-            <p>Đánh theo tổ đội (3v3, 5v5...)</p>
-          </div>
+
           <div className="battle-mode-card" onClick={() => alert('Training Camp - Coming soon')}>
             <img src="/images/icons/training_icon.png" alt="Training" />
             <h3>Training Camp</h3>

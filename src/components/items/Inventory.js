@@ -1,5 +1,5 @@
 // Updated Inventory.js to show equipped items with toggle and note
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ItemCard from './ItemCard';
 import ItemDetailModal from './ItemDetailModal';
@@ -9,6 +9,18 @@ import { resolveAssetPath } from '../../utils/pathUtils';
 import { normalizeInventoryResponse } from '../../utils/inventoryApi';
 
 const INVENTORY_FILTERS = ['all', 'food', 'consumable', 'equipment', 'booster', 'misc'];
+
+// Số hàng hiển thị mỗi trang. pageSize thực tế = ROWS_PER_PAGE * số cột đang render.
+const ROWS_PER_PAGE = 4;
+
+// Khớp với các breakpoint của .inventory-item-grid trong global.css
+// (track = chiều rộng mỗi card, gap = khoảng cách giữa các card).
+function getGridMetrics(windowWidth) {
+  if (windowWidth <= 480) return { track: 90, gap: 8 };
+  if (windowWidth <= 768) return { track: 100, gap: 10 };
+  if (windowWidth >= 1024) return { track: 140, gap: 16 };
+  return { track: 120, gap: 12 };
+}
 
 function filterFromPath(pathname) {
   const segment = pathname.replace(/^\/inventory\/?/, '').split('/')[0];
@@ -29,7 +41,10 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showEquipped, setShowEquipped] = useState(false);
-  const pageSize = 24;
+  const containerRef = useRef(null);
+  const [columnsPerRow, setColumnsPerRow] = useState(0);
+  // pageSize = số cột thực tế * số hàng mỗi trang -> mỗi trang luôn là các hàng đầy đủ.
+  const pageSize = columnsPerRow > 0 ? columnsPerRow * ROWS_PER_PAGE : 24;
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = localStorage.getItem('isAdmin') === 'true';
@@ -39,6 +54,27 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   useEffect(() => {
     setCurrentPage(1);
   }, [filterType]);
+
+  // Đo số cột thực tế của grid để pageSize luôn là bội số của số cột.
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return undefined;
+
+    const measure = () => {
+      const styles = window.getComputedStyle(el);
+      const paddingX =
+        parseFloat(styles.paddingLeft || '0') + parseFloat(styles.paddingRight || '0');
+      const contentWidth = el.clientWidth - paddingX;
+      const { track, gap } = getGridMetrics(window.innerWidth);
+      const cols = Math.max(1, Math.floor((contentWidth + gap) / (track + gap)));
+      setColumnsPerRow((prev) => (prev === cols ? prev : cols));
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -117,8 +153,16 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
     return 0;
   });
 
-  const totalPages = Math.ceil(sortedItems.length / pageSize);
+  const totalPages = Math.max(1, Math.ceil(sortedItems.length / pageSize));
   const paginatedItems = sortedItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // Khi số cột thay đổi (đổi kích thước màn hình) khiến số trang giảm,
+  // đảm bảo currentPage không vượt quá tổng số trang.
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const updateSingleItemInState = (updatedItem) => {
     if (updatedItem === null) {
@@ -194,7 +238,7 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
         {/* Main content */}
         <div className="inventory-main">
           {/* Items grid */}
-          <div className="inventory-container">
+          <div className="inventory-container" ref={containerRef}>
             {paginatedItems.length > 0 ? (
               <div className="inventory-item-grid" key={animationKey}>
                 {paginatedItems.map((item, index) => (

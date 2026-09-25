@@ -1,0 +1,248 @@
+.abbg-page .abbg-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.abbg-page .abbg-toolbar button {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.abbg-page .abbg-toolbar button:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.abbg-status {
+  font-size: 13px;
+  color: #475569;
+}
+
+.abbg-layout {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.abbg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.abbg-list__item {
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+}
+
+.abbg-list__item strong {
+  display: block;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.abbg-list__item span {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.abbg-list__item.is-active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.abbg-editor {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.abbg-editor h2 {
+  margin: 0 0 4px;
+  font-size: 1.2rem;
+}
+
+.abbg-editor h2 em {
+  font-style: normal;
+  font-weight: 500;
+  color: #64748b;
+  font-size: 0.85em;
+}
+
+.abbg-hint {
+  margin: 0 0 14px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.abbg-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.abbg-mini__label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.abbg-mini--desktop .abbg-mini__frame {
+  width: 240px;
+  height: 135px;
+}
+
+.abbg-mini--mobile .abbg-mini__frame {
+  width: 100px;
+  height: 178px;
+}
+
+.abbg-mini__frame {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #94a3b8;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.abbg-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.abbg-color-swatch {
+  width: 42px;
+  height: 36px;
+  padding: 2px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.abbg-color-row input[type='text'] {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.abbg-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  cursor: pointer;
+  user-select: none;
+}
+
+.abbg-check input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.abbg-field input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
+.abbg-mini__chrome {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6%;
+  pointer-events: none;
+}
+
+.abbg-mini__bar {
+  height: 10%;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.abbg-mini__field {
+  flex: 1;
+  margin: 6% 0;
+  border-radius: 6px;
+  border: 1px dashed rgba(248, 250, 252, 0.35);
+}
+
+.abbg-mini__log {
+  height: 14%;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.abbg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.abbg-field span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.abbg-field input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 13px;
+}
+
+.abbg-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.abbg-note,
+.abbg-path-hint {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.abbg-path-hint {
+  margin-top: 16px;
+}
+
+@media (max-width: 720px) {
+  .abbg-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .abbg-field-row {
+    grid-template-columns: 1fr;
+  }
+}

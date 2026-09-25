@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-06T04:16:04.499Z",
+  "backgrounds": [
+    {
+      "id": "arena-1v1",
+      "desktopUrl": "/images/background/arena-background-landscape-1.png",
+      "mobileUrl": "/images/background/arena-background.png",
+      "desktopPosition": "center bottom",
+      "mobilePosition": "center 120%",
+      "backgroundColor": "#ffffff"
+    },
+    {
+      "id": "arena-3v3",
+      "desktopUrl": "/images/background/arena-background-landscape-1.png",
+      "mobileUrl": "/images/background/arena-background.png",
+      "desktopPosition": "center bottom",
+      "mobilePosition": "center 120%",
+      "backgroundColor": "#0f172a"
+    },
+    {
+      "id": "arena-5v5",
+      "desktopUrl": "/images/background/arena-background-landscape-1.png",
+      "mobileUrl": "/images/background/arena-background.png",
+      "desktopPosition": "center bottom",
+      "mobilePosition": "center 120%",
+      "backgroundColor": "#0f172a"
+    },
+    {
+      "id": "hunting",
+      "desktopUrl": "/images/background/battlefield1.png",
+      "mobileUrl": "/images/background/battlefield1.png",
+      "desktopPosition": "center 90%",
+      "mobilePosition": "center bottom",
+      "backgroundColor": "#0f172a"
+    }
+  ]
+}

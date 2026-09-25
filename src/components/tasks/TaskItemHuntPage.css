@@ -1,0 +1,460 @@
+.item-hunt-page {
+  --ih-orange: #ff8a1f;
+  --ih-orange-deep: #e67100;
+  --ih-ink: #223149;
+  --ih-muted: #5f708b;
+}
+
+.item-hunt-header {
+  position: relative;
+}
+
+.item-hunt-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.item-hunt-title-row h2 {
+  margin: 0;
+  text-align: center;
+  color: var(--ih-ink);
+}
+
+.item-hunt-help-btn {
+  flex-shrink: 0;
+}
+
+.item-hunt-lore-list {
+  margin: 0;
+  padding-left: 20px;
+  text-align: left;
+  line-height: 1.6;
+}
+
+.item-hunt-lore-list li {
+  margin-bottom: 6px;
+}
+
+.item-hunt-error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fdecea;
+  color: #b71c1c;
+  font-weight: 600;
+}
+
+.item-hunt-loading {
+  text-align: center;
+  color: var(--ih-muted);
+  padding: 20px;
+}
+
+.item-hunt-cooldown {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff7e6;
+  border: 1px solid #ffd59a;
+  color: #8a4b00;
+  text-align: center;
+}
+
+.item-hunt-timer {
+  text-align: center;
+  font-size: 1.05rem;
+  color: var(--ih-ink);
+  margin-bottom: 8px;
+}
+
+.item-hunt-tier-badge {
+  text-align: center;
+  color: var(--ih-muted);
+  margin-bottom: 14px;
+}
+
+.item-hunt-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.item-hunt-btn {
+  min-height: 42px;
+  min-width: 150px;
+  border: none;
+  border-radius: 999px;
+  padding: 0 20px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease;
+}
+
+.item-hunt-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.item-hunt-btn--primary {
+  background: linear-gradient(180deg, #ff9e3d 0%, var(--ih-orange) 100%);
+  color: #1c1c1c;
+  box-shadow: 0 4px 12px rgba(255, 138, 31, 0.35);
+}
+
+.item-hunt-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.item-hunt-btn--danger {
+  background: linear-gradient(180deg, #ff9e3d 0%, var(--ih-orange) 100%);
+  color: #1c1c1c;
+  box-shadow: 0 4px 12px rgba(255, 138, 31, 0.25);
+}
+
+.item-hunt-section {
+  background: #fff;
+  border: 1px solid #d7deea;
+  border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(9, 23, 57, 0.06);
+  padding: 16px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.item-hunt-section h3 {
+  margin: 0 0 14px;
+  color: var(--ih-ink);
+}
+
+.item-hunt-item-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+
+.item-hunt-item-card {
+  width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: none;
+}
+
+.item-hunt-item-card img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.item-hunt-item-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ih-ink);
+  line-height: 1.25;
+  min-height: 2.4em;
+}
+
+.item-hunt-item-progress {
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.item-hunt-item-progress.is-missing {
+  color: #d32f2f;
+}
+
+.item-hunt-item-progress.is-enough {
+  color: #2e7d32;
+}
+
+.item-hunt-item-qty {
+  font-weight: 800;
+  color: var(--ih-ink);
+}
+
+.item-hunt-rarity {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.item-hunt-rarity--common {
+  color: #4b5563;
+  background: rgba(107, 114, 128, 0.15);
+}
+
+.item-hunt-rarity--rare {
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.item-hunt-rarity--epic {
+  color: #6b21a8;
+  background: rgba(168, 85, 247, 0.15);
+}
+
+.item-hunt-rarity--legendary {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.2);
+}
+
+.item-hunt-hint {
+  margin: 12px 0 0;
+  font-size: 0.82rem;
+  color: var(--ih-muted);
+}
+
+.item-hunt-item-card--clickable {
+  cursor: pointer;
+  border: none;
+  font: inherit;
+  text-align: center;
+  appearance: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.item-hunt-item-card--clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: none;
+}
+
+.item-hunt-item-card--clickable:focus-visible {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
+}
+
+/* Tier select cards */
+.item-hunt-tier-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+  margin-top: 40px;
+}
+
+.item-hunt-tier-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.item-hunt-tier-card {
+  position: relative;
+  border-radius: 18px;
+  min-height: 170px;
+  padding: 16px 14px 18px;
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(20, 30, 50, 0.18);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.item-hunt-tier-card::before {
+  content: '';
+  position: absolute;
+  inset: auto -20% -40% -20%;
+  height: 70%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+.item-hunt-tier-card::after {
+  content: '';
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+}
+
+.item-hunt-tier-card--easy {
+  background: linear-gradient(145deg, #4caf66 0%, #2e8b4f 55%, #1f6b3a 100%);
+}
+
+.item-hunt-tier-card--medium {
+  background: linear-gradient(145deg, #4f8fe8 0%, #2f6fd0 55%, #1e4fa8 100%);
+}
+
+.item-hunt-tier-card--hard {
+  background: linear-gradient(145deg, #e45a5a 0%, #c62828 55%, #8e1b1b 100%);
+}
+
+.item-hunt-tier-card--special {
+  background: linear-gradient(145deg, #b388ff 0%, #7c4dff 55%, #5e35b1 100%);
+}
+
+.item-hunt-tier-chip {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.item-hunt-tier-title {
+  position: relative;
+  z-index: 1;
+  font-size: 1.55rem;
+  font-weight: 900;
+  line-height: 1.1;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.item-hunt-tier-sub {
+  position: relative;
+  z-index: 1;
+  margin-top: 4px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  opacity: 0.95;
+}
+
+.item-hunt-tier-meta {
+  position: relative;
+  z-index: 1;
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.75rem;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+.item-hunt-tier-accept {
+  width: 100%;
+  border-radius: 12px;
+}
+
+.item-hunt-result {
+  text-align: center;
+}
+
+.item-hunt-result-row {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+@media (max-width: 1024px) {
+  .item-hunt-tier-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .item-hunt-tier-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .item-hunt-title-row h2 {
+    font-size: 1.15rem;
+  }
+
+  /* Tier card gọn hơn: bố cục ngang, chữ to & dễ đọc */
+  .item-hunt-tier-wrap {
+    gap: 8px;
+  }
+
+  .item-hunt-tier-card {
+    min-height: 0;
+    padding: 14px 14px 14px 16px;
+    border-radius: 16px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'chip chip'
+      'title meta'
+      'sub meta';
+    align-items: center;
+    gap: 2px 10px;
+  }
+
+  .item-hunt-tier-card::after {
+    width: 80px;
+    height: 80px;
+    top: -20px;
+    right: -20px;
+  }
+
+  .item-hunt-tier-chip {
+    position: static;
+    grid-area: chip;
+    justify-self: start;
+    margin-bottom: 6px;
+    font-size: 0.6rem;
+    padding: 3px 9px;
+  }
+
+  .item-hunt-tier-title {
+    grid-area: title;
+    font-size: 1.5rem;
+  }
+
+  .item-hunt-tier-sub {
+    grid-area: sub;
+    margin-top: 0;
+    font-size: 0.82rem;
+  }
+
+  .item-hunt-tier-meta {
+    grid-area: meta;
+    margin-top: 0;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    font-size: 0.8rem;
+    text-align: right;
+  }
+
+  .item-hunt-tier-accept {
+    min-height: 46px;
+    font-size: 1rem;
+  }
+
+  .item-hunt-item-card {
+    width: 100px;
+  }
+
+  .item-hunt-item-card img {
+    width: 60px;
+    height: 60px;
+  }
+
+  .item-hunt-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .item-hunt-btn {
+    width: 100%;
+  }
+}

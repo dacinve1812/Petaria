@@ -4,8 +4,6 @@ import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { UserContext } from '../../UserContext';
 import TemplatePage from '../template/TemplatePage';
-import GameModalButton from '../ui/GameModalButton';
-import { BattleBannerOverlay, BattleResultDimOverlay } from './BattleOverlays';
 import BattleFxOverlay from './BattleFxOverlay';
 import {
   BATTLE_FX_ATTACK_ANIM_ID,
@@ -13,17 +11,36 @@ import {
   getBattleFxByNumId,
   loadBattleFxCatalogAsync,
 } from '../../data/battleFxCatalog';
+import {
+  loadBattleBackgroundCatalogAsync,
+  resolveBattleBackgroundKey,
+  getBackgroundById,
+  sceneBackgroundStyle,
+} from '../../data/battleBackgroundCatalog';
 import { getDisplayName } from '../../utils/userDisplay';
 import { getActiveHuntingMap } from '../../utils/huntingSessionStorage';
+import { dispatchCurrencyUpdate } from '../../utils/currencyEvents';
 import formationSystem from '../../data/formationSystem';
 import { getArenaPose } from '../../data/arenaFieldConfig';
 import '../css/BattlePage.css';
 import '../css/ArenaBattlePage.css';
+import './ClassicBattlePage.css';
 import expTable from '../../data/exp_table_petaria.json';
 
 const { normalizeFormationId } = formationSystem;
 
 const BATTLE_RETURN_KEY = 'petaria-arena-battle-return';
+const CLASSIC_MATCH_KEY = 'petaria-classic-match';
+
+function formatNum(value) {
+  return Number(value || 0).toLocaleString('vi-VN');
+}
+
+function petImgSrc(value, folder = 'pets') {
+  if (!value) return '';
+  if (/^(https?:|\/)/.test(value)) return value;
+  return `/images/${folder}/${value}`;
+}
 
 function normalizeBattleMode(raw) {
   const m = String(raw || '1v1').toLowerCase();
@@ -67,6 +84,13 @@ function unitMaxHp(u) {
 
 function unitHpPct(u) {
   return Math.max(0, Math.min(100, ((Number(u?.current_hp) || 0) / unitMaxHp(u)) * 100));
+}
+
+function hpToneClass(u) {
+  const pct = unitHpPct(u);
+  if (pct > 60) return 'arena-hp--high';
+  if (pct > 30) return 'arena-hp--mid';
+  return 'arena-hp--low';
 }
 
 function sumTeamSpd(units) {
@@ -457,11 +481,6 @@ function MultiBattleArena({
       className={`abm-arena${battleMode === '3v3' ? ' abm-arena--3v3' : ''}`}
       aria-label="Chiến trường"
     >
-      <div className="abm-arena__floor" aria-hidden>
-        <div className="abm-arena__floor-ring" />
-        <div className="abm-arena__floor-glow" />
-        <div className="abm-arena__vanish" />
-      </div>
       <div className="abm-arena__cast">
         {placements.map((p) => (
           <MultiBattleUnit
@@ -665,6 +684,34 @@ function ArenaBattlePage() {
       navigate(returnMeta.returnPath || '/battle/arena');
     }, [navigate, returnMeta.returnPath]);
 
+    const [battleBgEntry, setBattleBgEntry] = useState(null);
+    useEffect(() => {
+      let cancelled = false;
+      const key = resolveBattleBackgroundKey({
+        battleSource: returnMeta.battleSource,
+        battleMode,
+      });
+      loadBattleBackgroundCatalogAsync()
+        .then((cat) => {
+          if (cancelled) return;
+          setBattleBgEntry(getBackgroundById(cat, key));
+        })
+        .catch(() => {
+          if (!cancelled) setBattleBgEntry(getBackgroundById(null, key));
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [returnMeta.battleSource, battleMode]);
+
+    const arenaSceneBgStyle = useMemo(() => {
+      const key = resolveBattleBackgroundKey({
+        battleSource: returnMeta.battleSource,
+        battleMode,
+      });
+      return sceneBackgroundStyle(battleBgEntry || getBackgroundById(null, key));
+    }, [battleBgEntry, returnMeta.battleSource, battleMode]);
+
     const [player, setPlayer] = useState(() => {
       if (fromMatch && initialMatchState?.player) return { ...initialMatchState.player, current_def_dmg: initialMatchState.player.current_def_dmg ?? 0 };
       return { ...playerPet, current_hp: playerPet?.current_hp || playerPet?.final_stats?.hp, current_def_dmg: 0 };
@@ -684,6 +731,21 @@ function ArenaBattlePage() {
         : []
     );
     const [turn, setTurn] = useState(fromMatch ? (initialMatchState?.turn_count ?? 0) : 0);
+    const turnRef = React.useRef(turn);
+    turnRef.current = turn;
+    const [matchId, setMatchId] = useState(() => {
+      const id = initialMatchState?.matchId || null;
+      if (id) {
+        try {
+          sessionStorage.setItem(CLASSIC_MATCH_KEY, id);
+        } catch {
+          /* ignore */
+        }
+      }
+      return id;
+    });
+    const matchIdRef = React.useRef(matchId);
+    matchIdRef.current = matchId;
     const turnLimit = turnLimitForMode(battleMode);
     const [turnNumber, setTurnNumber] = useState(() => {
       const tc = Number(initialMatchState?.turn_count);
@@ -952,14 +1014,6 @@ function ArenaBattlePage() {
     const [autoMode, setAutoMode] = useState(false);
     const [isBlitzMode, setIsBlitzMode] = useState(false);
     const [battleEnded, setBattleEnded] = useState(false);
-    const [startBannerVisible, setStartBannerVisible] = useState(() => {
-      const tc = initialMatchState?.turn_count ?? 0;
-      const histLen = initialMatchState?.history?.length ?? 0;
-      if (fromMatch && (tc > 0 || histLen > 1)) return false;
-      return true;
-    });
-    /** null | 'finish' | 'result' — sau khi battleEnded: FINISH 2s rồi màn kết quả */
-    const [postBattlePhase, setPostBattlePhase] = useState(null);
       const [equippedItems, setEquippedItems] = useState(() => {
         if (fromMatch && Array.isArray(initialMatchState?.equipment)) {
           return initialMatchState.equipment.map((e) => ({ ...e, image_url: e.image_url || '' }));
@@ -975,8 +1029,6 @@ function ArenaBattlePage() {
     lifeFxRef.current = lifeFx;
     /** Chặn useEffect auto-end trong lúc phát death finale */
     const endPresentationLockRef = React.useRef(false);
-    /** Đã hold 1s sau death → bỏ banner FINISH dài, vào result ngay */
-    const skipLongFinishRef = React.useRef(false);
     const [finaleSlowMo, setFinaleSlowMo] = useState(false);
     const [floatTexts, setFloatTexts] = useState([]);
     const floatTimersRef = React.useRef([]);
@@ -1158,14 +1210,13 @@ function ArenaBattlePage() {
         await playDeathFx(unitId, { finale });
         if (finale) {
           await waitRaw(FINALE_HOLD_MS);
-          skipLongFinishRef.current = true;
         }
       },
       [playDeathFx, isLastPetKo, waitRaw]
     );
 
     const battleUiLocked =
-      actionLocked || battleEnded || startBannerVisible || !isPlayerActing;
+      actionLocked || battleEnded || !isPlayerActing;
 
     const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
     const userName = getDisplayName(user, user?.name || 'Người chơi');
@@ -1398,14 +1449,38 @@ function ArenaBattlePage() {
       };
     }, [infoItemId]);
 
+    const applyServerReward = useCallback((reward) => {
+      if (!reward || typeof reward !== 'object') return;
+      setBattleReward({
+        expGained: Number(reward.expGained) || 0,
+        levelUp: !!reward.levelUp,
+        newLevel: reward.newLevel ?? null,
+        loot: Array.isArray(reward.loot) ? reward.loot : [],
+      });
+      dispatchCurrencyUpdate();
+    }, []);
+
     const sendMatchTurn = async (payload) => {
+      const body = {
+        ...payload,
+        matchId: matchIdRef.current,
+        expectedTurn: turnRef.current,
+      };
       const res = await fetch(`${API_BASE_URL}/api/arena/match/turn`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || 'Turn failed');
+      if (data.matchId) {
+        setMatchId(data.matchId);
+        try {
+          sessionStorage.setItem(CLASSIC_MATCH_KEY, data.matchId);
+        } catch {
+          /* ignore */
+        }
+      }
       if (data.finished) endPresentationLockRef.current = true;
       const nextPlayer = { ...data.player, current_def_dmg: data.player?.current_def_dmg ?? 0 };
       const nextEnemy = { ...data.enemy, current_def_dmg: data.enemy?.current_def_dmg ?? 0 };
@@ -1414,9 +1489,11 @@ function ArenaBattlePage() {
       setPlayer(nextPlayer);
       setEnemy(nextEnemy);
       setLog(Array.isArray(data.history) ? data.history : []);
-      if (Array.isArray(data.equipment)) setEquippedItems(data.equipment.map((e) => ({ ...e, image_url: e.image_url || '' })));
-      setTurn(data.turn_count ?? 0);
-      // battleEnded / result: settle sau death FX (settleMatchFinish)
+      if (Array.isArray(data.equipment)) {
+        setEquippedItems(data.equipment.map((e) => ({ ...e, image_url: e.image_url || '' })));
+      }
+      setTurn(data.turn_count ?? turnRef.current);
+      if (data.finished && data.reward) applyServerReward(data.reward);
       return data;
     };
 
@@ -1432,7 +1509,7 @@ function ArenaBattlePage() {
         await playDeathFx(data.player.id, { finale: true });
       }
       await waitRaw(FINALE_HOLD_MS);
-      skipLongFinishRef.current = true;
+      if (data.reward) applyServerReward(data.reward);
       setResultEffect(data.result || (eHp <= 0 ? 'win' : 'lose'));
       setBattleEnded(true);
       return true;
@@ -2505,7 +2582,7 @@ function ArenaBattlePage() {
     // Tự động xử lý khi đầu queue là enemy (local only — Redis đã resolve trong match/turn)
     useEffect(() => {
       if (isRedisMatch) return;
-      if (battleEnded || startBannerVisible || chipLeaving) return;
+      if (battleEnded || chipLeaving) return;
       if (!speedQueue.length || isPlayerActing) return;
       if (enemyAutoRef.current || actionLockedRef.current) return;
 
@@ -2533,7 +2610,6 @@ function ArenaBattlePage() {
       actingUnit?.queueKey,
       isPlayerActing,
       battleEnded,
-      startBannerVisible,
       chipLeaving,
       isRedisMatch,
       speedQueue.length,
@@ -2541,7 +2617,7 @@ function ArenaBattlePage() {
 
     // Redis: nếu queue mở đầu bằng enemy (SPD), kéo chip enemy xuống cuối 1 lần — không combat local
     useEffect(() => {
-      if (!isRedisMatch || battleEnded || startBannerVisible || chipLeaving) return;
+      if (!isRedisMatch || battleEnded || chipLeaving) return;
       if (!speedQueue.length || isPlayerActing) return;
       if (enemyAutoRef.current || actionLockedRef.current) return;
       enemyAutoRef.current = true;
@@ -2560,22 +2636,11 @@ function ArenaBattlePage() {
       actingUnit?.queueKey,
       isPlayerActing,
       battleEnded,
-      startBannerVisible,
       chipLeaving,
       speedQueue.length,
     ]);
-  
-    useEffect(() => {
-      if (turn > 0 || log.length > 1) setStartBannerVisible(false);
-    }, [turn, log]);
 
-    useEffect(() => {
-      if (!startBannerVisible) return undefined;
-      const t = window.setTimeout(() => setStartBannerVisible(false), 1800);
-      return () => window.clearTimeout(t);
-    }, [startBannerVisible]);
-
-    /** Battle entry: flash hiện cùng lúc với banner start (~1.8s) */
+    /** Battle entry flash (~1.8s) */
     useEffect(() => {
       if (entrySpawnDoneRef.current) return undefined;
       const hasUnits =
@@ -2586,26 +2651,10 @@ function ArenaBattlePage() {
 
       entrySpawnDoneRef.current = true;
       setEntrySpawn(true);
-      // Cùng timing banner start (không chia battle-pace)
       window.setTimeout(() => setEntrySpawn(false), 1800);
       return undefined;
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [playerSquad.length, enemySquad.length, player?.id, enemy?.id]);
-
-    useEffect(() => {
-      if (!battleEnded) {
-        setPostBattlePhase(null);
-        return undefined;
-      }
-      if (skipLongFinishRef.current) {
-        skipLongFinishRef.current = false;
-        setPostBattlePhase('result');
-        return undefined;
-      }
-      setPostBattlePhase('finish');
-      const t = window.setTimeout(() => setPostBattlePhase('result'), 1800);
-      return () => window.clearTimeout(t);
-    }, [battleEnded]);
 
     const gainExpIfVictory = async () => {
         if (!battleEnded || resultEffect !== 'win') return;
@@ -2703,18 +2752,12 @@ function ArenaBattlePage() {
 
       useEffect(() => {
         if (!battleEnded) return;
+        // Redis: reward đã từ match/turn|terminate (server finalize). Client claim = 410.
+        if (isRedisMatch) return;
         if (resultEffect === 'win' && player.current_hp > 0) {
           gainExpIfVictory();
         }
-        if (!isRedisMatch) savePlayerHP();
-        // Redis match: khi trận kết thúc luôn gọi terminate để xóa key, tránh 400 ACTIVE_MATCH khi khiêu chiến lại
-        if (isRedisMatch) {
-          fetch(`${API_BASE_URL}/api/arena/match/terminate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
-          }).catch(() => {}); // 404 = key đã xóa, bỏ qua
-        }
-        // Item hỏng sẽ bị xóa khỏi inventory ngay khi durability về 0, nên không cần unequip-broken nữa.
+        savePlayerHP();
       }, [battleEnded, resultEffect, isRedisMatch]);
 
       const handleFleeBattle = async () => {
@@ -2722,15 +2765,17 @@ function ArenaBattlePage() {
         if (!window.confirm('Bỏ chạy sẽ kết thúc trận và tính là thua. Tiếp tục?')) return;
         setActionLocked(true);
         try {
-          await fetch(`${API_BASE_URL}/api/arena/match/terminate`, {
+          const res = await fetch(`${API_BASE_URL}/api/arena/match/terminate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+            body: JSON.stringify({ matchId: matchIdRef.current }),
           });
+          const data = await res.json().catch(() => ({}));
+          if (data.reward) applyServerReward(data.reward);
         } catch (err) {
           console.error('Bỏ chạy / terminate:', err);
         }
         setLog((prev) => [...prev.slice(-49), { text: 'Bạn đã bỏ chạy! Trận đấu kết thúc.', type: 'default' }]);
-        setIsRedisMatch(false);
         setResultEffect('lose');
         setBattleEnded(true);
         setActionLocked(false);
@@ -2744,6 +2789,7 @@ function ArenaBattlePage() {
           await fetch(`${API_BASE_URL}/api/arena/match/terminate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+            body: JSON.stringify({ matchId: matchIdRef.current }),
           });
         } catch (err) {
           console.error('Terminate match:', err);
@@ -2776,19 +2822,17 @@ function ArenaBattlePage() {
         setAutoMode(false);
         setIsBlitzMode(false);
         setBattleEnded(false);
-        setPostBattlePhase(null);
         setAttackAnimation('');
         setBattleFx(null);
         setLifeFx({});
         setFloatTexts([]);
         setFinaleSlowMo(false);
         endPresentationLockRef.current = false;
-        skipLongFinishRef.current = false;
         entrySpawnDoneRef.current = false;
         setEntrySpawn(true);
         setResultEffect('');
         setActionLocked(false);
-        setStartBannerVisible(true);
+        setBattleReward({ expGained: 0, levelUp: false, newLevel: null, loot: [] });
       
         // ✅ Gọi lại API lấy item trang bị
         fetch(`${API_BASE_URL}/api/pets/${newPlayer.id}/equipment`)
@@ -2815,53 +2859,74 @@ function ArenaBattlePage() {
       ];
 
     const outcomeWin = resultEffect === 'win';
+    const rewardLoot = Array.isArray(battleReward.loot) ? battleReward.loot : [];
+    const rewardPeta = rewardLoot
+      .filter((x) => Number(x.item_id) === 0)
+      .reduce((s, x) => s + Number(x.quantity || 0), 0);
+    const rewardItems = rewardLoot.filter((x) => Number(x.item_id) !== 0);
+
+    if (battleEnded) {
+      return (
+        <TemplatePage showSearch={false} showTabs={false}>
+          <main className="classic-battle">
+            <section className="classic-result" aria-labelledby="arena-result-title">
+              <img
+                className="classic-result-pet"
+                src={petImgSrc(player?.image)}
+                alt={player?.name || ''}
+              />
+              <h1 id="arena-result-title">{outcomeWin ? 'Chiến thắng!' : 'Thất bại'}</h1>
+              <p>
+                {outcomeWin
+                  ? `Xin chúc mừng, bạn đã đánh bại ${enemy?.name || 'đối thủ'}!`
+                  : `${player?.name || 'Pet của bạn'} đã kết thúc trận đấu với ${enemy?.name || 'đối thủ'}.`}
+              </p>
+              {outcomeWin && (
+                <p>
+                  <strong>{formatNum(battleReward.expGained)}</strong> EXP
+                  {rewardPeta > 0 ? (
+                    <>
+                      {' '}
+                      · <strong>{formatNum(rewardPeta)}</strong> peta
+                    </>
+                  ) : null}
+                </p>
+              )}
+              {battleReward.levelUp && battleReward.newLevel != null && (
+                <p className="classic-level">Thú cưng lên cấp {formatNum(battleReward.newLevel)}!</p>
+              )}
+              {rewardItems.length > 0 && (
+                <p>
+                  Vật phẩm:{' '}
+                  {rewardItems
+                    .map((x) => `${x.name || x.item_name || 'Item'} × ${formatNum(x.quantity)}`)
+                    .join(', ')}
+                </p>
+              )}
+              <button type="button" onClick={goBackAfterBattle}>
+                {returnMeta.returnLabel ||
+                  (returnMeta.battleSource === 'hunting' ? 'Trở lại bản đồ' : 'Trở lại đấu trường')}
+              </button>
+            </section>
+          </main>
+        </TemplatePage>
+      );
+    }
 
     return (
         <TemplatePage showSearch={false} showTabs={false}>
-        <BattleBannerOverlay
-          open={startBannerVisible && !battleEnded}
-          imageSrc="/images/banner/start-layout.png"
-          alt="Start"
-          dimOpacity={0.5}
-        />
-        <BattleBannerOverlay
-          open={postBattlePhase === 'finish'}
-          imageSrc="/images/banner/finish-layout.png"
-          alt="Finish"
-          dimOpacity={0.5}
-        />
-        <BattleResultDimOverlay
-          open={postBattlePhase === 'result'}
-          outcome={outcomeWin ? 'win' : 'lose'}
-          dimOpacity={0.2}
-          rewards={battleReward.loot || []}
-          petProgress={[
-            {
-              id: player?.id || 'arena-player',
-              name: player?.name || userName,
-              image: player?.image || '',
-              expGained: battleReward.expGained || 0,
-              levelUp: !!battleReward.levelUp,
-              newLevel: battleReward.newLevel,
-            },
-          ]}
-          expGained={battleReward.expGained || 0}
-          levelUp={!!battleReward.levelUp}
-          newLevel={battleReward.newLevel}
-          footer={
-            <GameModalButton type="button" variant="primary" showIcon={false} onClick={goBackAfterBattle}>
-              {returnMeta.returnLabel || 'Trở lại'}
-            </GameModalButton>
-          }
-        />
         <div
-          className={`arena-battle-container${battleEnded ? ' arena-battle-container--ended' : ''}${isMulti ? ' arena-battle-container--multi' : ''}${finaleSlowMo ? ' arena-battle-container--finale-slow' : ''}`}
+          className={`arena-battle-container${isMulti ? ' arena-battle-container--themed arena-battle-container--multi' : ' arena-battle-container--1v1'}${finaleSlowMo ? ' arena-battle-container--finale-slow' : ''}`}
           style={{
             '--battle-pace': String(
               finaleSlowMo ? Math.max(0.25, Number(battleSpeed) / FINALE_SLOW_MULT) : battleSpeed
             ),
           }}
         >
+          <div
+            className={`arena-battle-scene${isMulti ? ' arena-battle-scene--bg' : ''}`}
+            style={isMulti ? arenaSceneBgStyle : undefined}
+          >
           {/* Top: [Avatar + Speed] [HP bar + Name] | VS | [HP bar + Name] [Avatar + Speed] */}
           <header className="arena-battle-header">
             <div className="arena-header-player">
@@ -2909,7 +2974,7 @@ function ArenaBattlePage() {
             </div>
           </header>
 
-          {/* Middle: 1v1 classic blocks | multi formation + speed bar */}
+          {/* Middle: multi formation | 1v1 classic pets (size giữ) + speed bar */}
           {isMulti ? (
             <div className="abm-stage">
               <MultiBattleArena
@@ -2932,6 +2997,7 @@ function ArenaBattlePage() {
               />
             </div>
           ) : (
+            <>
             <div className="arena-battle-pets">
               {(() => {
                 const pLife = lifeFx[String(player?.id)] || 'alive';
@@ -2952,6 +3018,7 @@ function ArenaBattlePage() {
                   pLife === 'finale-death' ? 'arena-pet--finale-death' : '',
                   pLife === 'death' ? 'arena-pet--death' : '',
                   pLife === 'gone' ? 'arena-pet--hidden' : '',
+                  actingUnit && String(actingUnit.id) === String(player?.id) ? 'arena-pet--lead' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -2972,10 +3039,23 @@ function ArenaBattlePage() {
                     <span className={`abm-unit__fx abm-unit__fx--${battleFx.effect}`} aria-hidden />
                   ) : null}
                 </div>
-                <p className="arena-pet-name">{player?.name} <span className="arena-pet-level">Lv.{player?.level ?? 1}</span></p>
+                <p className="arena-pet-name">
+                  {player?.name}
+                  {player?.level != null ? (
+                    <span className="arena-pet-level"> Lv.{player.level}</span>
+                  ) : null}
+                </p>
                 <div className="arena-pet-stats">
-                  <div className="arena-stats-row">HP: <span className={`arena-hp-value arena-hp--${getHpClass(player?.current_hp, player?.final_stats?.hp)}`}>{player?.current_hp ?? 0}/{player?.final_stats?.hp ?? 0}</span></div>
-                  <div className="arena-stats-row">STR: {player?.final_stats?.str ?? player?.str ?? 0} · DEF: {player?.final_stats?.def ?? player?.def ?? 0}</div>
+                  <div className="arena-stats-row">
+                    HP:{' '}
+                    <span className={`arena-hp-value ${hpToneClass(player)}`}>
+                      {Math.max(0, Math.floor(Number(player?.current_hp) || 0))}/
+                      {unitMaxHp(player)}
+                    </span>
+                  </div>
+                  <div className="arena-stats-row">
+                    STR: {player?.final_stats?.str ?? '—'} · DEF: {player?.final_stats?.def ?? '—'}
+                  </div>
                 </div>
               </div>
               <div
@@ -2991,6 +3071,7 @@ function ArenaBattlePage() {
                   eLife === 'finale-death' ? 'arena-pet--finale-death' : '',
                   eLife === 'death' ? 'arena-pet--death' : '',
                   eLife === 'gone' ? 'arena-pet--hidden' : '',
+                  actingUnit && String(actingUnit.id) === String(enemy?.id) ? 'arena-pet--lead' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -3011,16 +3092,36 @@ function ArenaBattlePage() {
                     <span className={`abm-unit__fx abm-unit__fx--${battleFx.effect}`} aria-hidden />
                   ) : null}
                 </div>
-                <p className="arena-pet-name">{enemy?.name} <span className="arena-pet-level">Lv.{enemy?.level ?? 1}</span></p>
+                <p className="arena-pet-name">
+                  {enemy?.name}
+                  {enemy?.level != null ? (
+                    <span className="arena-pet-level"> Lv.{enemy.level}</span>
+                  ) : null}
+                </p>
                 <div className="arena-pet-stats">
-                  <div className="arena-stats-row">HP: <span className={`arena-hp-value arena-hp--${getHpClass(enemy?.current_hp, enemy?.final_stats?.hp)}`}>{enemy?.current_hp ?? 0}/{enemy?.final_stats?.hp ?? 0}</span></div>
-                  <div className="arena-stats-row">STR: {enemy?.final_stats?.str ?? enemy?.str ?? 0} · DEF: {enemy?.final_stats?.def ?? enemy?.def ?? 0}</div>
+                  <div className="arena-stats-row">
+                    HP:{' '}
+                    <span className={`arena-hp-value ${hpToneClass(enemy)}`}>
+                      {Math.max(0, Math.floor(Number(enemy?.current_hp) || 0))}/
+                      {unitMaxHp(enemy)}
+                    </span>
+                  </div>
+                  <div className="arena-stats-row">
+                    STR: {enemy?.final_stats?.str ?? '—'} · DEF: {enemy?.final_stats?.def ?? '—'}
+                  </div>
                 </div>
               </div>
                   </>
                 );
               })()}
             </div>
+              <SpeedOrderBar
+                units={speedQueue}
+                leaving={chipLeaving}
+                battleSpeed={battleSpeed}
+                onBattleSpeedChange={setBattleSpeed}
+              />
+            </>
           )}
 
           {/* Battle log - scrollable */}
@@ -3033,6 +3134,7 @@ function ArenaBattlePage() {
               })}
               <div ref={logEndRef} />
             </div>
+          </div>
           </div>
 
           {/* Equipment - flex wrap; click item = trigger action directly */}
@@ -3054,15 +3156,14 @@ function ArenaBattlePage() {
                 };
                 const handlePointerDown = (e) => {
                   e.stopPropagation();
-                  e.preventDefault();
                   if (battleUiLocked || disabled) return;
-                  // Keep receiving pointer events even if finger moves a bit
                   try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
                   longPressTriggeredRef.current = false;
                   setInfoItemId(null);
                   setHoldingItemId(item.id);
                   if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
                   holdTimerRef.current = setTimeout(() => {
+                    holdTimerRef.current = null;
                     setHoldingItemId(null);
                     openItemInfo(item.id);
                     longPressTriggeredRef.current = true;
@@ -3071,25 +3172,23 @@ function ArenaBattlePage() {
                 const handlePointerUp = (e) => {
                   e.stopPropagation();
                   try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
-                  cancelHold();
+                  const wasLongPress = longPressTriggeredRef.current;
+                  const shortTap = holdTimerRef.current != null;
+                  if (holdTimerRef.current) {
+                    clearTimeout(holdTimerRef.current);
+                    holdTimerRef.current = null;
+                  }
+                  setHoldingItemId(null);
+                  if (wasLongPress) return;
+                  if (shortTap && !battleUiLocked && !disabled) {
+                    handleClick();
+                  }
                 };
                 return (
                   <div
                     key={item.id}
                     ref={(el) => { if (el) equipItemElsRef.current[item.id] = el; }}
                     className={`arena-equipment-item ${disabled || battleUiLocked ? 'disabled' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (battleUiLocked) return;
-                      // If info is open, keep it open (close by clicking outside modal)
-                      if (infoItemId === item.id) return;
-                      // Long-press is for info only (never use item)
-                      if (longPressTriggeredRef.current) {
-                        longPressTriggeredRef.current = false;
-                        return;
-                      }
-                      handleClick();
-                    }}
                     role="button"
                     tabIndex={disabled || battleUiLocked ? -1 : 0}
                     onKeyDown={(e) => !disabled && !battleUiLocked && (e.key === 'Enter' || e.key === ' ') && handleClick()}

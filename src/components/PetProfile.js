@@ -7,6 +7,7 @@ import ItemDetailModal from './items/ItemDetailModal';
 import SpiritDetailModal from './spirit/SpiritDetailModal';
 import GameModalButton from './ui/GameModalButton';
 import GameDialogModal from './ui/GameDialogModal';
+import PetEquipPickerModal, { MAX_EQUIP_SLOTS } from './PetEquipPickerModal';
 import expTable from '../data/exp_table_petaria.json';
 
 /** Chuẩn hóa dòng từ GET /api/pets/:id/equipment → shape dùng chung với ItemDetailModal (inventory). */
@@ -149,6 +150,7 @@ function PetProfile() {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameDraft, setRenameDraft] = useState('');
   const [renameSaving, setRenameSaving] = useState(false);
+  const [equipPickerKind, setEquipPickerKind] = useState(null); // 'spirit' | 'item' | null
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -212,21 +214,24 @@ function PetProfile() {
       .catch((err) => console.error('Error loading equipped items:', err));
   }, [pet?.id, API_BASE_URL]);
 
+  const refreshEquippedSpirits = useCallback(() => {
+    if (!pet?.id || !API_BASE_URL) return;
+    fetch(`${API_BASE_URL}/api/pets/${pet.id}/spirits`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setEquippedSpirits(data);
+        else {
+          console.warn('Expected array but got:', data);
+          setEquippedSpirits([]);
+        }
+      })
+      .catch((err) => console.error('Error loading equipped spirits:', err));
+  }, [pet?.id, API_BASE_URL]);
+
   useEffect(() => {
     if (pet?.id) {
       refreshEquippedItems();
-
-      // Fetch equipped spirits
-      fetch(`${API_BASE_URL}/api/pets/${pet.id}/spirits`)
-        .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data)) setEquippedSpirits(data);
-          else {
-            console.warn('Expected array but got:', data);
-            setEquippedSpirits([]);
-          }
-        })
-        .catch(err => console.error('Error loading equipped spirits:', err));
+      refreshEquippedSpirits();
 
       // Fetch hunger status
       fetch(`${API_BASE_URL}/api/pets/${pet.id}/hunger-status`)
@@ -236,7 +241,7 @@ function PetProfile() {
         })
         .catch(err => console.error('Error loading hunger status:', err));
     }
-  }, [pet?.id, API_BASE_URL, refreshEquippedItems]);
+  }, [pet?.id, API_BASE_URL, refreshEquippedItems, refreshEquippedSpirits]);
 
   // const handleLogout = () => {
   //   localStorage.removeItem('token');
@@ -267,18 +272,8 @@ function PetProfile() {
         body: JSON.stringify({ userSpiritId })
       });
       if (response.ok) {
-        // Refresh equipped spirits
-        const spiritsResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/spirits`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        if (spiritsResponse.ok) {
-          const spiritsData = await spiritsResponse.json();
-          if (Array.isArray(spiritsData)) setEquippedSpirits(spiritsData);
-        }
+        refreshEquippedSpirits();
         await refreshPetDetails();
-        alert('Tháo linh thú thành công!');
         // Close modal after successful unequip
         setShowSpiritDetail(false);
         setSelectedSpirit(null);
@@ -295,6 +290,19 @@ function PetProfile() {
   const openItemDetail = (item) => {
     setSelectedItem(item);
     setShowItemDetail(true);
+  };
+
+  const openEquipPicker = (kind) => {
+    const ownsPet =
+      currentUserId != null && pet?.owner_id != null && Number(currentUserId) === Number(pet.owner_id);
+    if (!ownsPet) return;
+    setEquipPickerKind(kind);
+  };
+
+  const handleEquippedFromPicker = () => {
+    refreshEquippedSpirits();
+    refreshEquippedItems();
+    refreshPetDetails();
   };
 
   /** Chỉ số intrinsic: cột str/def/… (IV+level+booster) + *_added (phần added hiển thị đỏ qua .bonus-stats). Bonus linh thú/trận đấu không cộng ở đây — xem API battle-stats khi đánh. */
@@ -431,49 +439,153 @@ function PetProfile() {
             <h2>{pet.name || pet.pet_types_name}</h2>
             <p className="pet-species">Loài: {pet.pet_types_name}</p>
             <p className="equipped-spirits-title">Linh thú trang bị:</p>
-            <div className="equipped-spirits">
-              {equippedSpirits.length === 0 && <p className="equipped-spirits-empty">(Không có linh thú nào)</p>}
-              {equippedSpirits.map((spirit, index) => (
-                <div key={spirit.id} className="equipped-spirit-item">
-                  <img
-                    src={`/images/spirit/${spirit.image_url}`}
-                    alt={spirit.name}
-                    title={`${spirit.name} (${spirit.rarity})`}
-                    className="pet-spirit-image"
-                    onClick={() => openSpiritDetail(spirit)}
-                  />
-                </div>
-              ))}
+            <div
+              className={`equipped-spirits pet-equip-slots${isPetOwner ? '' : ' pet-equip-slots--viewer'}`}
+              aria-label="Ô linh thú trang bị"
+            >
+              {isPetOwner
+                ? Array.from({ length: MAX_EQUIP_SLOTS }, (_, index) => {
+                    const spirit = equippedSpirits[index];
+                    if (spirit) {
+                      return (
+                        <button
+                          key={`spirit-filled-${spirit.id}`}
+                          type="button"
+                          className="pet-equip-slot pet-equip-slot--filled"
+                          onClick={() => openSpiritDetail(spirit)}
+                          title={`${spirit.name} (${spirit.rarity})`}
+                        >
+                          <img
+                            src={`/images/spirit/${spirit.image_url}`}
+                            alt={spirit.name}
+                            className="pet-equip-slot__thumb"
+                          />
+                        </button>
+                      );
+                    }
+                    return (
+                      <button
+                        key={`spirit-empty-${index}`}
+                        type="button"
+                        className="pet-equip-slot pet-equip-slot--empty"
+                        onClick={() => openEquipPicker('spirit')}
+                        title="Thêm linh thú"
+                        aria-label="Thêm linh thú"
+                      >
+                        <img
+                          src="/images/icons/spirit.png"
+                          alt=""
+                          className="pet-equip-slot__placeholder"
+                          aria-hidden
+                        />
+                      </button>
+                    );
+                  })
+                : equippedSpirits.length > 0
+                  ? equippedSpirits.map((spirit) => (
+                      <button
+                        key={`spirit-view-${spirit.id}`}
+                        type="button"
+                        className="pet-equip-slot pet-equip-slot--filled"
+                        onClick={() => openSpiritDetail(spirit)}
+                        title={`${spirit.name} (${spirit.rarity})`}
+                      >
+                        <img
+                          src={`/images/spirit/${spirit.image_url}`}
+                          alt={spirit.name}
+                          className="pet-equip-slot__thumb"
+                        />
+                      </button>
+                    ))
+                  : (
+                    <p className="equipped-spirits-empty">(Không có linh thú nào)</p>
+                  )}
             </div>
             
             <p className="equipped-items-title">Vật phẩm trang bị:</p>
-            <div className="equipped-items">
-              {equippedItems.length === 0 && <p className="equipped-items-empty">(Không có item nào)</p>}
-              {equippedItems.map((item, index) => (
-                <div key={item.id} className="equipped-item">
-                  {(() => {
-                    const isPermanentDurability =
-                      String(item.durability_mode || '').toLowerCase() === 'unbreakable' ||
-                      Number(item.max_durability || 0) >= 999999;
-                    const modeKey = String(item.durability_mode || '').toLowerCase();
-                    const isRandomDurability = modeKey === 'unknown' || modeKey === 'random';
-                    const durabilityLabel = isPermanentDurability
-                      ? 'Vĩnh viễn'
-                      : isRandomDurability
-                        ? 'Ngẫu Nhiên'
-                      : `${item.durability_left ?? 0}/${item.max_durability ?? 0}`;
+            <div
+              className={`equipped-items pet-equip-slots${isPetOwner ? '' : ' pet-equip-slots--viewer'}`}
+              aria-label="Ô vật phẩm trang bị"
+            >
+              {isPetOwner
+                ? Array.from({ length: MAX_EQUIP_SLOTS }, (_, index) => {
+                    const item = equippedItems[index];
+                    if (item) {
+                      const isPermanentDurability =
+                        String(item.durability_mode || '').toLowerCase() === 'unbreakable' ||
+                        Number(item.max_durability || 0) >= 999999;
+                      const modeKey = String(item.durability_mode || '').toLowerCase();
+                      const isRandomDurability = modeKey === 'unknown' || modeKey === 'random';
+                      const durabilityLabel = isPermanentDurability
+                        ? 'Vĩnh viễn'
+                        : isRandomDurability
+                          ? 'Ngẫu Nhiên'
+                          : `${item.durability_left ?? 0}/${item.max_durability ?? 0}`;
+                      return (
+                        <button
+                          key={`item-filled-${item.id}`}
+                          type="button"
+                          className="pet-equip-slot pet-equip-slot--filled"
+                          onClick={() => openItemDetail(item)}
+                          title={`${item.item_name} (Độ bền: ${durabilityLabel})`}
+                        >
+                          <img
+                            src={`/images/equipments/${item.image_url}`}
+                            alt={item.item_name}
+                            className="pet-equip-slot__thumb"
+                          />
+                        </button>
+                      );
+                    }
                     return (
-                  <img
-                    src={`/images/equipments/${item.image_url}`}
-                    alt={item.item_name}
-                    title={`${item.item_name} (Độ bền: ${durabilityLabel})`}
-                    className="equipped-item-image"
-                    onClick={() => openItemDetail(item)}
-                  />
+                      <button
+                        key={`item-empty-${index}`}
+                        type="button"
+                        className="pet-equip-slot pet-equip-slot--empty"
+                        onClick={() => openEquipPicker('item')}
+                        title="Thêm vật phẩm"
+                        aria-label="Thêm vật phẩm"
+                      >
+                        <img
+                          src="/images/icons/sword.png"
+                          alt=""
+                          className="pet-equip-slot__placeholder"
+                          aria-hidden
+                        />
+                      </button>
                     );
-                  })()}
-                </div>
-              ))}
+                  })
+                : equippedItems.length > 0
+                  ? equippedItems.map((item) => {
+                      const isPermanentDurability =
+                        String(item.durability_mode || '').toLowerCase() === 'unbreakable' ||
+                        Number(item.max_durability || 0) >= 999999;
+                      const modeKey = String(item.durability_mode || '').toLowerCase();
+                      const isRandomDurability = modeKey === 'unknown' || modeKey === 'random';
+                      const durabilityLabel = isPermanentDurability
+                        ? 'Vĩnh viễn'
+                        : isRandomDurability
+                          ? 'Ngẫu Nhiên'
+                          : `${item.durability_left ?? 0}/${item.max_durability ?? 0}`;
+                      return (
+                        <button
+                          key={`item-view-${item.id}`}
+                          type="button"
+                          className="pet-equip-slot pet-equip-slot--filled"
+                          onClick={() => openItemDetail(item)}
+                          title={`${item.item_name} (Độ bền: ${durabilityLabel})`}
+                        >
+                          <img
+                            src={`/images/equipments/${item.image_url}`}
+                            alt={item.item_name}
+                            className="pet-equip-slot__thumb"
+                          />
+                        </button>
+                      );
+                    })
+                  : (
+                    <p className="equipped-items-empty">(Không có item nào)</p>
+                  )}
             </div>
           </div>
         </div>
@@ -504,7 +616,7 @@ function PetProfile() {
             setSelectedSpirit(null);
           }}
         >
-          {currentUserId === pet.owner_id && (
+          {isPetOwner && (
             <GameModalButton
               type="button"
               variant="confirm"
@@ -564,6 +676,17 @@ function PetProfile() {
           </div>
         </div>
       )}
+
+      <PetEquipPickerModal
+        isOpen={Boolean(equipPickerKind)}
+        kind={equipPickerKind || 'item'}
+        petId={pet.id}
+        petName={pet.name || pet.pet_types_name}
+        userId={currentUserId}
+        apiBaseUrl={API_BASE_URL}
+        onClose={() => setEquipPickerKind(null)}
+        onEquipped={handleEquippedFromPicker}
+      />
     </>
   );
 }

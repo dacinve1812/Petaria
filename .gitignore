@@ -33,3 +33,7 @@ NUL.css
 nul.css
 Nul.css
 
+# Local verification outputs (not game assets)
+/work/classic-build/
+/work/tmp/
+/work/classic-build.log

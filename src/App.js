@@ -6,6 +6,8 @@ import HomePage from './components/HomePage';
 import Auth from './components/Auth';
 import Orphanage from './components/Orphanage';
 import MyHome from './components/MyHome';
+import StatisticsPage from './components/StatisticsPage';
+import SystemItemsPage from './components/SystemItemsPage';
 import Admin from './components/admin/Admin';
 import AdminMailTest from './components/admin/AdminMailTest';
 import UserProfile from './components/UserProfile';
@@ -26,7 +28,7 @@ import PveSelectPage from './components/battle/PveSelectPage';
 import ArenaBattlePage from './components/battle/ArenaBattlePage';
 import ArenaFieldConfigPage from './components/battle/ArenaFieldConfigPage';
 import BattlePetSelectPage from './components/battle/BattlePetSelectPage';
-import ChampionChallengePage from './components/battle/ChampionChallengePage';
+
 import AdminSpiritEditor from './components/admin/AdminSpiritEditor';
 import SiteManagement from './components/admin/SiteManagement';
 import AdminSiteAuctionMailPage from './components/admin/AdminSiteAuctionMailPage';
@@ -57,6 +59,8 @@ import AdminNpcBossManagement from './components/admin/AdminNpcBossManagement';
 import AdminTitlesManagement from './components/admin/AdminTitlesManagement';
 import AdminAuctionLogs from './components/admin/AdminAuctionLogs';
 import AdminBattleFxPage from './components/admin/AdminBattleFxPage';
+import AdminBattleBackgroundPage from './components/admin/AdminBattleBackgroundPage';
+import AdminImageConverter from './components/admin/AdminImageConverter';
 import AdminSkillManagement from './components/admin/AdminSkillManagement';
 import AuctionList from './components/auction/AuctionList';
 import AuctionDetail from './components/auction/AuctionDetail';
@@ -118,11 +122,15 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePageVer2 /> },
       { path: 'orphanage', element: <Orphanage /> },
+      { path: 'statistics', element: <StatisticsPage /> },
+      { path: 'analyze', element: <Navigate to="/statistics" replace /> },
+      { path: 'system/items', element: <SystemItemsPage /> },
       { path: 'myhome', element: <Navigate to="/myhome/mypet" replace /> },
       { path: 'myhome/mypet', element: <MyHome /> },
       { path: 'myhome/myspirit', element: <MyHome /> },
       { path: 'myhome/spirits', element: <Navigate to="/myhome/myspirit" replace /> },
-      { path: 'my-stuff', element: <MyStuffManagement /> },
+      { path: 'management', element: <MyStuffManagement /> },
+      { path: 'my-stuff', element: <Navigate to="/management" replace /> },
       { path: 'exhibition', element: <ExhibitionRoom /> },
       { path: 'exhibition/:userId', element: <ExhibitionRoom /> },
       { path: 'titles', element: <TitleMyPage /> },
@@ -156,7 +164,7 @@ const router = createBrowserRouter([
       { path: 'admin/hunting-catch-rates', element: <AdminHuntingCatchRates /> },
       { path: 'battle', element: <PveSelectPage /> },
       { path: 'battle/arena', element: <ArenaPage /> },
-      { path: 'battle/champion', element: <ChampionChallengePage /> },
+      { path: 'battle/champion', element: <Navigate to="/battle/arena" replace /> },
       { path: 'battle/select', element: <Navigate to="/battle/arena/select" replace /> },
       { path: 'battle/arena/select', element: <BattlePetSelectPage /> },
       { path: 'battle/match', element: <ArenaBattlePage /> },
@@ -182,6 +190,8 @@ const router = createBrowserRouter([
       { path: 'admin/skills', element: <AdminSkillManagement /> },
       { path: 'admin/auction-logs', element: <AdminAuctionLogs /> },
       { path: 'admin/battle-fx', element: <AdminBattleFxPage /> },
+      { path: 'admin/battle-backgrounds', element: <AdminBattleBackgroundPage /> },
+      { path: 'admin/image-converter', element: <AdminImageConverter /> },
       { path: 'dev-dashboard', element: <DevDashboard /> },
       { path: 'map-tool', element: <MapCoordinateTool /> },
       { path: 'bank', element: <Bank /> },

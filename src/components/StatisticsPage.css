@@ -1,0 +1,532 @@
+.statistics-page {
+  --stats-gold: #e8b84a;
+  --stats-gold-deep: #c9922e;
+  --stats-ink: #434850;
+  --stats-accent: #c62828;
+  --stats-link: #434850;
+  --stats-panel: #fffdf6;
+  --stats-line: rgba(201, 146, 46, 0.55);
+  --stats-table-bg: #eef1f5;
+  --stats-header-bg: #4a5568;
+  --stats-row-gap: 8px;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 8px 10px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.stats-loading,
+.stats-error {
+  text-align: center;
+  padding: 24px 12px;
+  font-size: 0.95rem;
+}
+
+.stats-error {
+  color: #b71c1c;
+}
+
+/* ===== Overview ===== */
+.stats-overview {
+  border: 2px solid var(--stats-gold-deep);
+  background: var(--stats-panel);
+  overflow: hidden;
+}
+
+.stats-overview-banner {
+  background: linear-gradient(180deg, #ffe566 0%, #f5c842 100%);
+  text-align: center;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--stats-gold-deep);
+}
+
+.stats-overview-banner h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--stats-ink);
+  letter-spacing: 0.02em;
+}
+
+.stats-overview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.stats-overview-col {
+  padding: 14px 18px 18px;
+}
+
+.stats-overview-col + .stats-overview-col {
+  border-left: 2px solid var(--stats-line);
+}
+
+.stats-overview-col h3 {
+  margin: 0 0 10px;
+  color: var(--stats-accent);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.stats-overview-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.stats-overview-list li {
+  color: var(--stats-link);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.stats-overview-list strong {
+  color: var(--stats-ink);
+  font-weight: 700;
+}
+
+.stats-pet-link {
+  color: var(--stats-link);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.stats-highlight-value {
+  color: var(--stats-ink);
+  font-weight: 700;
+}
+
+/* ===== Ranking tables ===== */
+.stats-rank-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stats-rank-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #3a2a12;
+  padding-left: 4px;
+}
+
+.stats-rank-table {
+  border-radius: 14px;
+  background: var(--stats-table-bg);
+  box-shadow: 0 6px 18px rgba(40, 48, 64, 0.1);
+  padding: 0 0 12px;
+  overflow: hidden;
+}
+
+.stats-rank-header {
+  display: grid;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 8px;
+  background: var(--stats-header-bg);
+  color: #f7fafc;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.stats-rank-header-cell {
+  padding: 10px 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+  text-align: center;
+}
+
+.stats-rank-header-cell:last-child {
+  border-right: none;
+}
+
+.stats-rank-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--stats-row-gap);
+  padding: 10px 10px 2px;
+}
+
+.stats-rank-row {
+  display: grid;
+  align-items: stretch;
+  min-height: 58px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(30, 40, 60, 0.08);
+  overflow: hidden;
+}
+
+.stats-rank-block--users .stats-rank-header,
+.stats-rank-block--users .stats-rank-row {
+  grid-template-columns: 64px minmax(0, 1.4fr) minmax(0, 1.1fr) minmax(0, 1fr);
+}
+
+.stats-rank-block--pets .stats-rank-header,
+.stats-rank-block--pets .stats-rank-row {
+  grid-template-columns: 64px minmax(0, 1.3fr) minmax(0, 0.9fr) 72px minmax(0, 1fr);
+}
+
+.stats-rank-row.is-empty {
+  opacity: 0.55;
+  background: #f8fafc;
+}
+
+.stats-rank-row.rank-1 {
+  background: linear-gradient(90deg, #ffe7a8 0%, #fff8e8 55%, #ffffff 100%);
+}
+
+.stats-rank-row.rank-2 {
+  background: linear-gradient(90deg, #e4d4ff 0%, #f4efff 55%, #ffffff 100%);
+}
+
+.stats-rank-row.rank-3 {
+  background: linear-gradient(90deg, #f3d0b0 0%, #fff0e4 55%, #ffffff 100%);
+}
+
+.stats-rank-cell {
+  padding: 8px 10px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1c1c1c;
+  font-size: 0.9rem;
+}
+
+.stats-rank-cell--rank {
+  padding: 0 !important;
+  justify-content: stretch;
+  align-items: stretch;
+  align-self: stretch;
+}
+
+.stats-rank-cell--pet,
+.stats-rank-cell--nickname,
+.stats-rank-cell--owner,
+.stats-rank-cell--species,
+.stats-rank-cell--guild {
+  justify-content: flex-start;
+}
+
+/* Rank number panel — background images fill full cell height */
+.stats-rank-num {
+  width: 100%;
+  height: 100%;
+  min-height: 58px;
+  align-self: stretch;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  background-color: #5c6574;
+  background-image: url('/public/images/ranking/bg-rankn.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.stats-rank-row.rank-1 .stats-rank-num {
+  background-image: url('/public/images/ranking/bg-rank1.jpg');
+  background-color: #f08a1a;
+}
+
+.stats-rank-row.rank-2 .stats-rank-num {
+  background-image: url('/public/images/ranking/bg-rank2.jpg');
+  background-color: #7d5ac4;
+}
+
+.stats-rank-row.rank-3 .stats-rank-num {
+  background-image: url('/public/images/ranking/bg-rank3.jpg');
+  background-color: #b56a35;
+}
+
+.stats-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+}
+
+.stats-identity a,
+.stats-rank-cell a {
+  color: #1c1c1c;
+  font-weight: 700;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.stats-identity a:hover,
+.stats-rank-cell a:hover {
+  color: #0d47a1;
+  text-decoration: underline;
+}
+
+.stats-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #ddd;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px #c9a227, 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.stats-rank-row.rank-1 .stats-avatar {
+  box-shadow: 0 0 0 2px #d4a017, 0 0 0 4px rgba(255, 200, 60, 0.35);
+}
+
+.stats-rank-row.rank-2 .stats-avatar {
+  box-shadow: 0 0 0 2px #7a4fc4, 0 0 0 4px rgba(160, 110, 255, 0.3);
+}
+
+.stats-rank-row.rank-3 .stats-avatar {
+  box-shadow: 0 0 0 2px #a85a2e, 0 0 0 4px rgba(210, 120, 60, 0.3);
+}
+
+.stats-guild {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+
+.stats-guild-banner {
+  width: 32px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  background-size: cover, cover;
+  background-position: center top, center;
+  background-repeat: no-repeat;
+}
+
+.stats-guild-name {
+  color: #6b4bb5 !important;
+  font-weight: 700;
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-guild--empty,
+.stats-placeholder {
+  color: #9aa3af;
+  font-weight: 600;
+}
+
+.stats-metric {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.stats-metric--currency {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.stats-metric--currency img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+/* ===== Tablet ===== */
+@media (max-width: 820px) {
+  .stats-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-overview-col + .stats-overview-col {
+    border-left: none;
+    border-top: 2px solid var(--stats-line);
+  }
+
+  .stats-rank-header {
+    font-size: 0.7rem;
+  }
+
+  .stats-rank-cell {
+    font-size: 0.82rem;
+    padding: 8px 6px;
+  }
+
+  .stats-rank-cell--rank {
+    padding: 0 !important;
+  }
+
+  .stats-avatar {
+    width: 34px;
+    height: 34px;
+  }
+
+  .stats-rank-num {
+    font-size: 1.15rem;
+    min-height: 100%;
+    height: 100%;
+  }
+
+  .stats-guild-banner {
+    width: 18px;
+    height: 28px;
+  }
+}
+
+/* ===== Mobile: keep horizontal columns, tighten widths ===== */
+@media (max-width: 640px) {
+  .statistics-page {
+    padding: 6px 6px 28px;
+    gap: 22px;
+  }
+
+  .stats-rank-title {
+    font-size: 1.02rem;
+  }
+
+  .stats-rank-table {
+    border-radius: 12px;
+    padding-bottom: 8px;
+  }
+
+  .stats-rank-header {
+    font-size: 0.62rem;
+    min-height: 32px;
+    padding: 0 4px;
+  }
+
+  .stats-rank-header-cell {
+    padding: 6px 4px;
+  }
+
+  .stats-rank-body {
+    gap: 6px;
+    padding: 8px 6px 2px;
+  }
+
+  .stats-rank-row {
+    min-height: 52px;
+  }
+
+  .stats-rank-cell {
+    padding: 6px 4px;
+    font-size: 0.78rem;
+  }
+
+  .stats-rank-cell--rank {
+    padding: 0 !important;
+  }
+
+  .stats-rank-num {
+    min-height: 100%;
+    height: 100%;
+    font-size: 1.05rem;
+  }
+
+  .stats-identity {
+    gap: 6px;
+  }
+
+  .stats-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
+  .stats-guild {
+    gap: 4px;
+  }
+
+  .stats-guild-banner {
+    width: 14px;
+    height: 22px;
+  }
+
+  .stats-guild-name {
+    font-size: 0.72rem;
+  }
+
+  .stats-metric--currency {
+    gap: 3px;
+    font-size: 0.78rem;
+  }
+
+  .stats-metric--currency img {
+    width: 13px;
+    height: 13px;
+  }
+
+  /* Slightly tighter column fractions on narrow screens */
+  .stats-rank-block--users .stats-rank-row,
+  .stats-rank-block--users .stats-rank-header {
+    grid-template-columns: 44px minmax(0, 1.2fr) minmax(0, 0.95fr) minmax(0, 0.85fr);
+  }
+
+  .stats-rank-block--pets .stats-rank-row,
+  .stats-rank-block--pets .stats-rank-header {
+    grid-template-columns: 44px minmax(0, 1.15fr) minmax(0, 0.75fr) 52px minmax(0, 0.85fr);
+  }
+
+  .stats-rank-block--pets .stats-rank-cell--owner {
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .stats-rank-block--users .stats-rank-row,
+  .stats-rank-block--users .stats-rank-header {
+    grid-template-columns: 38px minmax(0, 1.15fr) minmax(0, 0.9fr) minmax(0, 0.8fr);
+  }
+
+  .stats-rank-block--pets .stats-rank-row,
+  .stats-rank-block--pets .stats-rank-header {
+    grid-template-columns: 38px minmax(0, 1.1fr) minmax(0, 0.7fr) 46px minmax(0, 0.8fr);
+  }
+
+  .stats-rank-num {
+    font-size: 0.95rem;
+    min-height: 100%;
+    height: 100%;
+  }
+
+  .stats-avatar {
+    width: 24px;
+    height: 24px;
+  }
+
+  .stats-identity a,
+  .stats-guild-name {
+    font-size: 0.68rem;
+  }
+
+  .stats-metric--currency {
+    font-size: 0.7rem;
+  }
+
+  .stats-guild-banner {
+    width: 12px;
+    height: 18px;
+  }
+}
