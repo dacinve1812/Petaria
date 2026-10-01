@@ -8,26 +8,6 @@
   padding: var(--spacing-md, 16px);
 }
 
-.arena-header {
-  text-align: center;
-  padding: var(--spacing-md) 0 var(--spacing-lg);
-}
-
-.arena-header h2 {
-  margin: 0 0 var(--spacing-sm);
-  font-size: var(--font-xl);
-  font-weight: 700;
-  color: var(--color-text, #222);
-  font-family: inherit;
-}
-
-.arena-header p {
-  margin: 0;
-  font-size: var(--font-md);
-  color: var(--color-text, #222);
-  opacity: 0.85;
-}
-
 /* Grid: luôn 3 cột */
 .arena-grid {
   display: grid;

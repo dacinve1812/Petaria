@@ -6,10 +6,129 @@ const getRewardImageSrc = (imageUrl) => {
   if (!imageUrl) return '';
   if (imageUrl.startsWith('http')) return imageUrl;
   const clean = imageUrl.replace(/^\/+/, '');
-  if (clean.startsWith('images/equipments/')) return `/${clean}`;
+  if (clean.startsWith('images/')) return `/${clean}`;
   if (clean.startsWith('equipments/')) return `/images/${clean}`;
+  if (clean.startsWith('pets/')) return `/images/${clean}`;
+  if (clean.startsWith('spirit/')) return `/images/${clean}`;
   return `/images/equipments/${clean}`;
 };
+
+/** Phân loại loot: peta / petagold / pet / spirit / item */
+export function classifyBattleLoot(entry) {
+  if (!entry || typeof entry !== 'object') return 'item';
+  const kind = String(entry.kind || entry.type || entry.currency || '').toLowerCase();
+  const name = String(entry.name || entry.label || '').toLowerCase().replace(/\s+/g, '');
+  const itemId = Number(entry.item_id);
+  if (
+    kind === 'petagold' ||
+    kind === 'peta_gold' ||
+    itemId === -1 ||
+    name === 'petagold' ||
+    name.includes('petagold') ||
+    name === 'peta_gold'
+  ) {
+    return 'petagold';
+  }
+  if (kind === 'peta' || itemId === 0 || name === 'peta' || name.includes('vàng(peta)') || name === 'vang(peta)') {
+    return 'peta';
+  }
+  if (kind === 'pet' || kind === 'species' || entry.pet_id != null || entry.species_id != null) {
+    return 'pet';
+  }
+  if (kind === 'spirit' || entry.spirit_id != null || entry.user_spirit_id != null) {
+    return 'spirit';
+  }
+  return 'item';
+}
+
+export function resolveBattleLootVisual(entry) {
+  const cls = classifyBattleLoot(entry);
+  const qty = Number(entry?.quantity ?? entry?.amount ?? entry?.qty ?? 0) || 0;
+  if (cls === 'peta') {
+    return {
+      cls,
+      label: entry?.name || 'Peta',
+      qty,
+      image: '/images/icons/peta.png',
+      iconMod: 'is-peta',
+    };
+  }
+  if (cls === 'petagold') {
+    return {
+      cls,
+      label: entry?.name || 'PetaGold',
+      qty,
+      image: '/images/icons/petagold.png',
+      iconMod: 'is-petagold',
+    };
+  }
+  if (cls === 'pet') {
+    const img = entry?.image || entry?.image_url || entry?.species_image || '';
+    return {
+      cls,
+      label: entry?.name || 'Thú cưng',
+      qty: qty || 1,
+      image: img ? getRewardImageSrc(img.startsWith('pets/') || img.includes('/') ? img : `pets/${img}`) : '/images/icons/bag.svg',
+      iconMod: 'is-pet',
+    };
+  }
+  if (cls === 'spirit') {
+    const img = entry?.image || entry?.image_url || entry?.spirit_image || '';
+    return {
+      cls,
+      label: entry?.name || 'Linh thú',
+      qty: qty || 1,
+      image: img ? getRewardImageSrc(img.startsWith('spirit/') || img.includes('/') ? img : `spirit/${img}`) : '/images/icons/bag.svg',
+      iconMod: 'is-spirit',
+    };
+  }
+  return {
+    cls: 'item',
+    label: entry?.name || (entry?.item_id != null ? `Item #${entry.item_id}` : 'Item'),
+    qty,
+    image: getRewardImageSrc(entry?.image_url || entry?.image) || '/images/equipments/placeholder.png',
+    iconMod: '',
+  };
+}
+
+/** Dải icon loot — dùng chung Result overlay / trang classic-result */
+export function BattleRewardStrip({ rewards = [], className = '', ariaLabel = 'Phần thưởng' }) {
+  if (!Array.isArray(rewards) || rewards.length === 0) return null;
+  return (
+    <div className={`battle-result-overlay__rewards-strip ${className}`.trim()} role="region" aria-label={ariaLabel}>
+      <div className="battle-result-overlay__rewards-list">
+        {rewards.map((r, idx) => {
+          const v = resolveBattleLootVisual(r);
+          const formattedQty = Number(v.qty || 0).toLocaleString();
+          const showQty = v.cls === 'peta' || v.cls === 'petagold' ? v.qty > 0 : v.qty > 1;
+          return (
+            <div className="battle-result-overlay__reward" key={`${v.cls}-${r?.item_id ?? r?.pet_id ?? r?.spirit_id ?? 'x'}-${idx}`}>
+              <div className={`battle-result-overlay__reward-icon ${v.iconMod}`.trim()} aria-hidden>
+                {v.image ? (
+                  <img
+                    className="battle-result-overlay__reward-item-img"
+                    src={v.image}
+                    alt=""
+                    draggable={false}
+                    onError={(e) => {
+                      e.currentTarget.src = '/images/equipments/placeholder.png';
+                    }}
+                  />
+                ) : (
+                  <span>{v.label.slice(0, 1)}</span>
+                )}
+                {showQty ? <span className="battle-result-overlay__reward-qty">{formattedQty}</span> : null}
+              </div>
+              <div className="battle-result-overlay__reward-name" title={v.label}>
+                {v.label}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 /**
  * Full-viewport blocking layer + centered image banner (START / FINISH).
@@ -90,37 +209,7 @@ export function BattleResultDimOverlay({
         {(showRewards || isWin) && (
           <div className="battle-result-overlay__rewards-area">
             {showRewards ? (
-              <div className="battle-result-overlay__rewards-strip" role="region" aria-label="Rewards">
-                <div className="battle-result-overlay__rewards-list">
-                  {rewards.map((r, idx) => {
-                    const qty = r?.quantity ?? 0;
-                    const formattedQty = Number(qty || 0).toLocaleString();
-                    const label = r?.name || (r?.item_id === 0 ? 'Peta' : 'Item');
-                    const isPeta = r?.item_id === 0;
-                    const rewardImage = isPeta ? '/images/icons/peta.png' : getRewardImageSrc(r?.image_url);
-                    return (
-                      <div className="battle-result-overlay__reward" key={`${r?.item_id ?? 'x'}-${idx}`}>
-                        <div className={`battle-result-overlay__reward-icon ${isPeta ? 'is-peta' : ''}`} aria-hidden>
-                          {rewardImage ? (
-                            <img
-                              className="battle-result-overlay__reward-item-img"
-                              src={rewardImage}
-                              alt=""
-                              draggable={false}
-                            />
-                          ) : (
-                            <span>{isPeta ? 'Peta' : 'I'}</span>
-                          )}
-                          {qty > 1 ? <span className="battle-result-overlay__reward-qty">{formattedQty}</span> : null}
-                        </div>
-                        <div className="battle-result-overlay__reward-name" title={label}>
-                          {label}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <BattleRewardStrip rewards={rewards} ariaLabel="Rewards" />
             ) : (
               <div className="battle-result-overlay__rewards-strip battle-result-overlay__rewards-strip--empty" />
             )}

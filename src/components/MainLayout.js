@@ -76,8 +76,33 @@ function MainLayout() {
 
     const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
+    /** Trận + trang chọn đội: ẩn section title; Result/champion lobby hiện peta-sub */
+    const isBattleChromeRoute =
+      /^\/battle\/(match|arena\/select|select|arena\/arenabattle)$/.test(location.pathname);
+    const [battleUi, setBattleUi] = useState({ hideSectionTitle: null, sectionTitle: null });
+
+    useEffect(() => {
+      setBattleUi({ hideSectionTitle: null, sectionTitle: null });
+    }, [location.pathname]);
+
+    useEffect(() => {
+      const onBattleUi = (e) => {
+        const d = e?.detail || {};
+        setBattleUi({
+          hideSectionTitle: d.hideSectionTitle ?? null,
+          sectionTitle: d.sectionTitle ?? null,
+        });
+      };
+      window.addEventListener('petaria-battle-ui', onBattleUi);
+      return () => window.removeEventListener('petaria-battle-ui', onBattleUi);
+    }, []);
+
+    const hideSectionTitle =
+      battleUi.hideSectionTitle != null ? battleUi.hideSectionTitle : isBattleChromeRoute;
+
     // Get page title based on current path
     const getPageTitle = (pathname) => {
+        if (battleUi.sectionTitle) return battleUi.sectionTitle;
         if (pathname.startsWith('/region/')) {
             return 'PETARIA';
         }
@@ -103,12 +128,15 @@ function MainLayout() {
             return 'TRANG BỊ';
         }
         if (pathname.startsWith('/battle/arena/select') || pathname.startsWith('/battle/select')) {
-            return 'CHUẨN BỊ CHIẾN ĐẤU';
+            return 'TEAM';
         }
         if (pathname.startsWith('/battle/match') || pathname.startsWith('/battle/arena/arenabattle')) {
             return 'CHIẾN ĐẤU';
         }
         if (pathname.startsWith('/battle/champion')) {
+            const mode = new URLSearchParams(location.search).get('mode');
+            if (mode === '3v3') return 'THÁCH ĐẤU ELITE';
+            if (mode === '5v5') return 'THÁCH ĐẤU CHAMPION';
             return 'CHAMPION CHALLENGE';
         }
         if (pathname.startsWith('/battle')) {
@@ -172,7 +200,7 @@ function MainLayout() {
         <NavigationMenu className={isScrolledDown ? 'hidden' : ''} />
         
         {/* Main Content Area - Similar to cf-sub */}
-        <div id="peta-sub" className={/^\/battle\/(match|arena\/select|select|arena\/arenabattle)$/.test(location.pathname) ? "classic-layout" : ""}>
+        <div id="peta-sub" className={hideSectionTitle ? "classic-layout" : ""}>
             <section className="container">
                 <h1 className="peta-sectiontitle">
                     {getPageTitle(location.pathname)}

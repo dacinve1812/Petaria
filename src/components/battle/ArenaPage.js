@@ -139,6 +139,12 @@ function ArenaPage() {
   return (
     <TemplatePage showSearch={false} showTabs={false}>
       <div className="arena-page-container">
+        <div className="gv-list-head">
+          <button type="button" className="gv-list-back" onClick={() => navigate('/battle')}>
+            Quay lại
+          </button>
+          <p className="gv-list-head__hint">Chọn một đối thủ để bắt đầu trận chiến</p>
+        </div>
         {arenaGate === 'loading' && (
           <div className="loading" style={{ padding: '2rem', textAlign: 'center' }}>
             Đang kiểm tra trận đấu...
@@ -147,11 +153,6 @@ function ArenaPage() {
 
         {arenaGate === 'list' && (
           <>
-            <div className="arena-header">
-              <h2>Đấu Trường Arena</h2>
-              <p>Chọn một đối thủ để bắt đầu trận chiến</p>
-            </div>
-
             <div className="arena-grid">
               {enemies.length === 0 ? (
                 <p className="arena-empty">Không có đối thủ nào hiện tại.</p>

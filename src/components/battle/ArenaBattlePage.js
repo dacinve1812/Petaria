@@ -26,6 +26,7 @@ import '../css/BattlePage.css';
 import '../css/ArenaBattlePage.css';
 import './ClassicBattlePage.css';
 import expTable from '../../data/exp_table_petaria.json';
+import { BattleRewardStrip } from './BattleOverlays';
 
 const { normalizeFormationId } = formationSystem;
 
@@ -35,6 +36,48 @@ const CLASSIC_MATCH_KEY = 'petaria-classic-match';
 function formatNum(value) {
   return Number(value || 0).toLocaleString('vi-VN');
 }
+
+const LOSE_FLAVOR_TEMPLATES = [
+  (pet, enemy) =>
+    `Tiếc quá, ${pet} của bạn đã bị ${enemy} đánh bại. Hãy trở lại sau nhé!`,
+  (pet, enemy) => `${enemy} mạnh quá, ${pet} không có cơ hội nào.`,
+  (pet, enemy) => `Chúng ta thua rồi, ${pet} làm tốt lắm, hãy nghỉ ngơi nhé.`,
+  (pet, enemy) => `${pet} đã kiệt sức trước ${enemy}. Lần sau sẽ khác thôi!`,
+  (pet, enemy) => `Trận đấu kết thúc — ${enemy} thắng thế. ${pet} cần thêm sức mạnh.`,
+  (pet, enemy) => `Đừng nản lòng! ${pet} chưa đủ mạnh để hạ ${enemy} lần này.`,
+];
+
+function pickLoseFlavor(petName, enemyName) {
+  const pet = petName || 'Pet của bạn';
+  const enemy = enemyName || 'đối thủ';
+  const fn = LOSE_FLAVOR_TEMPLATES[Math.floor(Math.random() * LOSE_FLAVOR_TEMPLATES.length)];
+  return fn(pet, enemy);
+}
+
+const RESULT_POWER_TIPS = [
+  {
+    key: 'equipment',
+    label: 'Nâng cấp vũ khí',
+    hint: 'Equipment',
+    to: '/shop/general/armory',
+    icon: '/images/icons/sword.png',
+  },
+  {
+    key: 'spirit',
+    label: 'Nâng cấp linh thú',
+    hint: 'Linh thú',
+    to: '/myhome/myspirit',
+    icon: '/images/icons/spirit.png',
+  },
+  {
+    key: 'level',
+    label: 'Tăng cấp Level',
+    hint: 'Đấu trường',
+    to: '/battle/arena',
+    icon: '/images/icons/arena.png',
+  },
+];
+
 
 function petImgSrc(value, folder = 'pets') {
   if (!value) return '';
@@ -619,7 +662,7 @@ function ArenaBattlePage() {
         return {
           battleSource: 'champion',
           returnPath: returnPathState || stored?.returnPath || '/battle/champion',
-          returnLabel: 'Về Champion',
+          returnLabel: 'Về Champion Challenge',
         };
       }
 
@@ -668,7 +711,7 @@ function ArenaBattlePage() {
       return {
         battleSource: isHunting ? 'hunting' : 'arena',
         returnPath: path,
-        returnLabel: isHunting ? 'Về đi săn' : 'Về Đấu trường',
+        returnLabel: isHunting ? 'Về đi săn' : 'Về Đấu Trường',
       };
     }, [
       battleSourceState,
@@ -684,6 +727,15 @@ function ArenaBattlePage() {
       navigate(returnMeta.returnPath || '/battle/arena');
     }, [navigate, returnMeta.returnPath]);
 
+    const goPowerTip = useCallback(
+      (path) => {
+        clearStoredBattleReturn();
+        navigate(path);
+      },
+      [navigate]
+    );
+
+    const loseFlavorRef = React.useRef('');
     const [battleBgEntry, setBattleBgEntry] = useState(null);
     useEffect(() => {
       let cancelled = false;
@@ -1014,6 +1066,25 @@ function ArenaBattlePage() {
     const [autoMode, setAutoMode] = useState(false);
     const [isBlitzMode, setIsBlitzMode] = useState(false);
     const [battleEnded, setBattleEnded] = useState(false);
+
+    /** Trận: ẩn peta-sectiontitle; Result: hiện lại + title KẾT QUẢ */
+    useEffect(() => {
+      window.dispatchEvent(
+        new CustomEvent('petaria-battle-ui', {
+          detail: battleEnded
+            ? { hideSectionTitle: false, sectionTitle: 'KẾT QUẢ' }
+            : { hideSectionTitle: true, sectionTitle: null },
+        })
+      );
+      return () => {
+        window.dispatchEvent(
+          new CustomEvent('petaria-battle-ui', {
+            detail: { hideSectionTitle: false, sectionTitle: null },
+          })
+        );
+      };
+    }, [battleEnded]);
+
       const [equippedItems, setEquippedItems] = useState(() => {
         if (fromMatch && Array.isArray(initialMatchState?.equipment)) {
           return initialMatchState.equipment.map((e) => ({ ...e, image_url: e.image_url || '' }));
@@ -1043,6 +1114,8 @@ function ArenaBattlePage() {
     const [infoAnchorRect, setInfoAnchorRect] = useState(null);
     const holdTimerRef = React.useRef(null);
     const longPressTriggeredRef = React.useRef(false);
+    /** Tránh double-fire: pointerup đã dùng item thì bỏ click tiếp theo */
+    const equipPointerUsedRef = React.useRef(false);
     const equipItemElsRef = React.useRef({});
 
     const clearCombatFx = useCallback(() => {
@@ -1263,7 +1336,11 @@ function ArenaBattlePage() {
     };
     const logEndRef = React.useRef(null);
     useEffect(() => {
-      logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      // Chỉ cuộn trong khung log — không kéo cả page xuống bottom
+      const end = logEndRef.current;
+      if (!end) return;
+      const inner = end.closest('.arena-log-inner');
+      if (inner) inner.scrollTop = inner.scrollHeight;
     }, [log]);
   
     const checkBattleEnded = (nextEnemyHp, nextPlayerHp) => {
@@ -2822,6 +2899,7 @@ function ArenaBattlePage() {
         setAutoMode(false);
         setIsBlitzMode(false);
         setBattleEnded(false);
+        loseFlavorRef.current = '';
         setAttackAnimation('');
         setBattleFx(null);
         setLifeFx({});
@@ -2860,18 +2938,18 @@ function ArenaBattlePage() {
 
     const outcomeWin = resultEffect === 'win';
     const rewardLoot = Array.isArray(battleReward.loot) ? battleReward.loot : [];
-    const rewardPeta = rewardLoot
-      .filter((x) => Number(x.item_id) === 0)
-      .reduce((s, x) => s + Number(x.quantity || 0), 0);
-    const rewardItems = rewardLoot.filter((x) => Number(x.item_id) !== 0);
 
     if (battleEnded) {
+      if (!outcomeWin && !loseFlavorRef.current) {
+        loseFlavorRef.current = pickLoseFlavor(player?.name, enemy?.name);
+      }
+      const loseFlavor = loseFlavorRef.current;
       return (
         <TemplatePage showSearch={false} showTabs={false}>
           <main className="classic-battle">
             <section className="classic-result" aria-labelledby="arena-result-title">
               <img
-                className="classic-result-pet"
+                className={`classic-result-pet${outcomeWin ? '' : ' classic-result-pet--lose'}`}
                 src={petImgSrc(player?.image)}
                 alt={player?.name || ''}
               />
@@ -2879,33 +2957,51 @@ function ArenaBattlePage() {
               <p>
                 {outcomeWin
                   ? `Xin chúc mừng, bạn đã đánh bại ${enemy?.name || 'đối thủ'}!`
-                  : `${player?.name || 'Pet của bạn'} đã kết thúc trận đấu với ${enemy?.name || 'đối thủ'}.`}
+                  : loseFlavor}
               </p>
-              {outcomeWin && (
+              {outcomeWin && battleReward.expGained > 0 && (
                 <p>
                   <strong>{formatNum(battleReward.expGained)}</strong> EXP
-                  {rewardPeta > 0 ? (
-                    <>
-                      {' '}
-                      · <strong>{formatNum(rewardPeta)}</strong> peta
-                    </>
-                  ) : null}
                 </p>
               )}
               {battleReward.levelUp && battleReward.newLevel != null && (
                 <p className="classic-level">Thú cưng lên cấp {formatNum(battleReward.newLevel)}!</p>
               )}
-              {rewardItems.length > 0 && (
-                <p>
-                  Vật phẩm:{' '}
-                  {rewardItems
-                    .map((x) => `${x.name || x.item_name || 'Item'} × ${formatNum(x.quantity)}`)
-                    .join(', ')}
-                </p>
+              {outcomeWin && rewardLoot.length > 0 && (
+                <div className="classic-loot">
+                  <p className="classic-loot-label">Bạn nhận được:</p>
+                  <BattleRewardStrip
+                    rewards={rewardLoot}
+                    className="classic-loot-strip"
+                    ariaLabel="Vật phẩm nhận được"
+                  />
+                </div>
               )}
-              <button type="button" onClick={goBackAfterBattle}>
+              {!outcomeWin && (
+                <div className="classic-power-tips" aria-label="Gợi ý nâng sức mạnh">
+                  <p className="classic-power-tips__label">Nâng cao sức mạnh:</p>
+                  <div className="classic-power-tips__row">
+                    {RESULT_POWER_TIPS.map((tip) => (
+                      <button
+                        key={tip.key}
+                        type="button"
+                        className="classic-power-tip"
+                        onClick={() => goPowerTip(tip.to)}
+                        title={tip.label}
+                      >
+                        <span className="classic-power-tip__icon" aria-hidden>
+                          <img src={tip.icon} alt="" draggable={false} />
+                        </span>
+                        <span className="classic-power-tip__hint">{tip.hint}</span>
+                        <span className="classic-power-tip__label">{tip.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <button type="button" className="classic-result__back" onClick={goBackAfterBattle}>
                 {returnMeta.returnLabel ||
-                  (returnMeta.battleSource === 'hunting' ? 'Trở lại bản đồ' : 'Trở lại đấu trường')}
+                  (returnMeta.battleSource === 'hunting' ? 'Trở lại bản đồ' : 'Về Đấu Trường')}
               </button>
             </section>
           </main>
@@ -2997,7 +3093,6 @@ function ArenaBattlePage() {
               />
             </div>
           ) : (
-            <>
             <div className="arena-battle-pets">
               {(() => {
                 const pLife = lifeFx[String(player?.id)] || 'alive';
@@ -3024,7 +3119,12 @@ function ArenaBattlePage() {
                   .join(' ')}
               >
                 <div className="arena-pet-sprite-wrap">
-                  <img src={`/images/pets/${player?.image}`} alt={player?.name} />
+                  <img
+                    src={`/images/pets/${player?.image}`}
+                    alt={player?.name}
+                    draggable={false}
+                    onContextMenu={(e) => e.preventDefault()}
+                  />
                   {floatTextsForUnit(floatTexts, player?.id).map((ft) => (
                     <FloatingCombatText key={ft.id} value={ft.value} kind={ft.kind} />
                   ))}
@@ -3077,7 +3177,12 @@ function ArenaBattlePage() {
                   .join(' ')}
               >
                 <div className="arena-pet-sprite-wrap">
-                  <img src={enemy?.image} alt={enemy?.name} />
+                  <img
+                    src={enemy?.image}
+                    alt={enemy?.name}
+                    draggable={false}
+                    onContextMenu={(e) => e.preventDefault()}
+                  />
                   {floatTextsForUnit(floatTexts, enemy?.id).map((ft) => (
                     <FloatingCombatText key={ft.id} value={ft.value} kind={ft.kind} />
                   ))}
@@ -3115,16 +3220,9 @@ function ArenaBattlePage() {
                 );
               })()}
             </div>
-              <SpeedOrderBar
-                units={speedQueue}
-                leaving={chipLeaving}
-                battleSpeed={battleSpeed}
-                onBattleSpeedChange={setBattleSpeed}
-              />
-            </>
           )}
 
-          {/* Battle log - scrollable */}
+          {isMulti ? (
           <div className="arena-battle-log">
             <div className="arena-log-inner">
               {log.length === 0 && <div className="arena-log-line">Trận đấu bắt đầu!</div>}
@@ -3135,7 +3233,30 @@ function ArenaBattlePage() {
               <div ref={logEndRef} />
             </div>
           </div>
+          ) : null}
           </div>
+
+          <div className={isMulti ? 'arena-battle-controls' : 'arena-battle-panel'}>
+          {!isMulti ? (
+            <>
+              <SpeedOrderBar
+                units={speedQueue}
+                leaving={chipLeaving}
+                battleSpeed={battleSpeed}
+                onBattleSpeedChange={setBattleSpeed}
+              />
+              <div className="arena-battle-log">
+                <div className="arena-log-inner">
+                  {log.length === 0 && <div className="arena-log-line">Trận đấu bắt đầu!</div>}
+                  {log.map((entry, idx) => {
+                    const item = typeof entry === 'string' ? { text: entry, type: 'default' } : entry;
+                    return <div key={idx} className={`arena-log-line arena-log-${item.type}`}>{item.text}</div>;
+                  })}
+                  <div ref={logEndRef} />
+                </div>
+              </div>
+            </>
+          ) : null}
 
           {/* Equipment - flex wrap; click item = trigger action directly */}
           <section className="arena-equipment-section">
@@ -3156,9 +3277,12 @@ function ArenaBattlePage() {
                 };
                 const handlePointerDown = (e) => {
                   e.stopPropagation();
+                  // Chỉ chặn callout trên touch; mouse cần giữ click path
+                  if (e.pointerType === 'touch') e.preventDefault();
                   if (battleUiLocked || disabled) return;
                   try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
                   longPressTriggeredRef.current = false;
+                  equipPointerUsedRef.current = false;
                   setInfoItemId(null);
                   setHoldingItemId(item.id);
                   if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
@@ -3169,7 +3293,7 @@ function ArenaBattlePage() {
                     longPressTriggeredRef.current = true;
                   }, 1000);
                 };
-                const handlePointerUp = (e) => {
+                const finishPointer = (e) => {
                   e.stopPropagation();
                   try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
                   const wasLongPress = longPressTriggeredRef.current;
@@ -3181,6 +3305,7 @@ function ArenaBattlePage() {
                   setHoldingItemId(null);
                   if (wasLongPress) return;
                   if (shortTap && !battleUiLocked && !disabled) {
+                    equipPointerUsedRef.current = true;
                     handleClick();
                   }
                 };
@@ -3191,13 +3316,39 @@ function ArenaBattlePage() {
                     className={`arena-equipment-item ${disabled || battleUiLocked ? 'disabled' : ''}`}
                     role="button"
                     tabIndex={disabled || battleUiLocked ? -1 : 0}
-                    onKeyDown={(e) => !disabled && !battleUiLocked && (e.key === 'Enter' || e.key === ' ') && handleClick()}
+                    onKeyDown={(e) => {
+                      if (disabled || battleUiLocked) return;
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleClick();
+                      }
+                    }}
                     onPointerDown={handlePointerDown}
-                    onPointerUp={handlePointerUp}
-                    onPointerCancel={handlePointerUp}
+                    onPointerUp={finishPointer}
+                    onPointerCancel={finishPointer}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Đã dùng item ở pointerup → bỏ qua click trùng
+                      if (equipPointerUsedRef.current) {
+                        equipPointerUsedRef.current = false;
+                        return;
+                      }
+                      if (longPressTriggeredRef.current) {
+                        longPressTriggeredRef.current = false;
+                        return;
+                      }
+                      if (infoItemId === item.id) return;
+                      handleClick();
+                    }}
                     onContextMenu={(e) => e.preventDefault()}
                   >
-                    <img src={getItemImageSrc(item.image_url)} alt={item.item_name} onError={(e) => { e.target.src = '/images/equipments/placeholder.png'; }} />
+                    <img
+                      src={getItemImageSrc(item.image_url)}
+                      alt={item.item_name}
+                      draggable={false}
+                      onContextMenu={(e) => e.preventDefault()}
+                      onError={(e) => { e.target.src = '/images/equipments/placeholder.png'; }}
+                    />
                     {holdingItemId === item.id && (
                       <svg className="arena-hold-badge" viewBox="0 0 36 36" aria-hidden>
                         <circle className="arena-hold-badge-bg" cx="18" cy="18" r="16" />
@@ -3243,8 +3394,9 @@ function ArenaBattlePage() {
               value={selectedAction}
               onChange={(e) => setSelectedAction(e.target.value)}
               disabled={battleUiLocked}
+              aria-label="Chọn hành động"
             >
-              <option value="">Chọn hành động cho {actingUnit?.name || player?.name}</option>
+              <option value="">Chọn hành động</option>
               {actionOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
@@ -3261,6 +3413,7 @@ function ArenaBattlePage() {
               </button>
             </div>
           )}
+          </div>
         </div>
         </TemplatePage>
       );

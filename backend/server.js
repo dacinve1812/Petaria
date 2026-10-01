@@ -1457,6 +1457,22 @@ async function ensureSiteRegionMapsTable() {
 
 ensureSiteRegionMapsTable();
 
+async function ensureChampionPveTable() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS champion_pve_config (
+        id INT PRIMARY KEY,
+        config JSON NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+  } catch (error) {
+    console.error('ensureChampionPveTable:', error);
+  }
+}
+
+ensureChampionPveTable();
+
 function getForumUploadDir() {
   // Static hosting via CRA `public/` → served as `/images/forum/threads/*`
   return path.resolve(__dirname, '..', 'public', 'images', 'forum', 'threads');
@@ -2191,6 +2207,26 @@ function luckyWheelPrependHistory(gcConfig, username, prizeLine) {
 }
 
 // ---------- Trung tâm giải trí (config công khai) ----------
+app.get('/api/champion-pve', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT config FROM champion_pve_config WHERE id = 1 LIMIT 1');
+    if (!rows.length) return res.json({ stored: false, npcs: null });
+    let stored = rows[0].config;
+    if (typeof stored === 'string') {
+      try {
+        stored = JSON.parse(stored);
+      } catch {
+        stored = null;
+      }
+    }
+    const npcs = stored && Array.isArray(stored.npcs) ? stored.npcs : [];
+    res.json({ stored: true, npcs });
+  } catch (error) {
+    console.error('GET /api/champion-pve', error);
+    res.json({ stored: false, npcs: null });
+  }
+});
+
 app.get('/api/game-center/config', async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -9528,6 +9564,25 @@ app.put('/api/admin/game-center/config', checkAdminRoleItems, async (req, res) =
   }
 });
 
+app.put('/api/admin/champion-pve', checkAdminRoleItems, async (req, res) => {
+  try {
+    const npcs = req.body?.npcs;
+    if (!Array.isArray(npcs)) return res.status(400).json({ error: 'npcs phải là mảng' });
+    if (npcs.length > 80) return res.status(400).json({ error: 'Tối đa 80 NPC' });
+    const payload = JSON.stringify({ npcs });
+    if (payload.length > 500000) return res.status(400).json({ error: 'Dữ liệu quá lớn' });
+    await db.query(
+      `INSERT INTO champion_pve_config (id, config) VALUES (1, ?)
+       ON DUPLICATE KEY UPDATE config = VALUES(config), updated_at = CURRENT_TIMESTAMP`,
+      [payload]
+    );
+    res.json({ success: true, stored: true, npcs });
+  } catch (error) {
+    console.error('PUT /api/admin/champion-pve', error);
+    res.status(500).json({ error: 'Không lưu được Champion PVE' });
+  }
+});
+
 app.put('/api/admin/region-maps/config', checkAdminRoleItems, async (req, res) => {
   try {
     if (!req.body || typeof req.body !== 'object') {
@@ -12840,15 +12895,40 @@ app.post('/api/arena/match/turn', classicAuth, classicBattle.serialize(async (re
         const defDmg = player.current_def_dmg ?? 0;
         if (typeof player === 'object') player.current_def_dmg = defDmg;
         const bossResult = simulateBossTurn(enemy, player, skill);
-        const logMsg = bossResult.isBossDefend
-          ? `${enemy.name} dùng ${skill.name} (Phòng thủ).`
-          : (bossResult.miss ? `${enemy.name} dùng ${skill.name} nhưng trượt!` : `${enemy.name} dùng ${bossResult.moveUsed}, gây ${bossResult.damage || 0} sát thương.`);
+        let logMsg;
+        if (bossResult.isBossDefend) {
+          logMsg = `${enemy.name} dùng ${skill.name} (Phòng thủ).`;
+        } else if (bossResult.miss) {
+          logMsg = `${enemy.name} dùng ${skill.name} nhưng trượt!`;
+        } else if (bossResult.reflectedDamage > 0) {
+          logMsg = `${bossResult.attacker} đánh, ${bossResult.defender} phản đòn ${bossResult.reflectedDamage} sát thương!`;
+        } else {
+          logMsg = `${enemy.name} dùng ${bossResult.moveUsed}, gây ${bossResult.damage || 0} sát thương.`;
+        }
         state.history.push({ text: logMsg, type: 'enemy_attack' });
         if (bossResult.defender_hp_after != null) player.current_hp = bossResult.defender_hp_after;
         if (bossResult.attacker_hp_after != null) enemy.current_hp = bossResult.attacker_hp_after;
         if (bossResult.bossDefDmg != null) enemy.current_def_dmg = bossResult.bossDefDmg;
         if (bossResult.defender_current_def_dmg === 0 && typeof player.current_def_dmg === 'number') player.current_def_dmg = 0;
       }
+    };
+
+    const finishIfDead = async () => {
+      if ((enemy.current_hp ?? 0) <= 0) {
+        state.finished = true;
+        state.result = 'win';
+        await finalizeMatchInMySQL(state, 'player');
+        await redis.del(key);
+        return true;
+      }
+      if ((player.current_hp ?? 0) <= 0) {
+        state.finished = true;
+        state.result = 'lose';
+        await finalizeMatchInMySQL(state, 'enemy');
+        await redis.del(key);
+        return true;
+      }
+      return false;
     };
 
     const runPlayerAction = async () => {
@@ -12930,47 +13010,18 @@ app.post('/api/arena/match/turn', classicAuth, classicBattle.serialize(async (re
 
     if (playerGoesFirst) {
       await runPlayerAction();
-      if ((enemy.current_hp ?? 0) <= 0) {
-        state.finished = true;
-        state.result = 'win';
-        await finalizeMatchInMySQL(state, 'player');
-        await redis.del(key);
-        return res.json(state);
-      }
-      if ((player.current_hp ?? 0) <= 0) {
-        state.finished = true;
-        state.result = 'lose';
-        await finalizeMatchInMySQL(state, 'enemy');
-        await redis.del(key);
-        return res.json(state);
-      }
+      if (await finishIfDead()) return res.json(state);
       await runEnemyTurn();
+      // Shield phản đòn có thể giết enemy trong lượt NPC — phải kết thúc trận
+      if (await finishIfDead()) return res.json(state);
     } else {
       await runEnemyTurn();
-      if ((player.current_hp ?? 0) <= 0) {
-        state.finished = true;
-        state.result = 'lose';
-        await finalizeMatchInMySQL(state, 'enemy');
-        await redis.del(key);
-        return res.json(state);
-      }
+      if (await finishIfDead()) return res.json(state);
       await runPlayerAction();
-      if ((enemy.current_hp ?? 0) <= 0) {
-        state.finished = true;
-        state.result = 'win';
-        await finalizeMatchInMySQL(state, 'player');
-        await redis.del(key);
-        return res.json(state);
-      }
+      if (await finishIfDead()) return res.json(state);
     }
 
-    if ((player.current_hp ?? 0) <= 0) {
-      state.finished = true;
-      state.result = 'lose';
-      await finalizeMatchInMySQL(state, 'enemy');
-      await redis.del(key);
-      return res.json(state);
-    }
+    if (await finishIfDead()) return res.json(state);
 
     await redis.set(key, JSON.stringify(state), { EX: REDIS_MATCH_TTL });
     res.json(state);

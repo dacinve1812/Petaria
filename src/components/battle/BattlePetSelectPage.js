@@ -6,6 +6,7 @@ import GameDialogModal from '../ui/GameDialogModal';
 import { asOwnedList } from '../../utils/inventoryApi';
 import { getDisplayName } from '../../utils/userDisplay';
 import formationSystem from '../../data/formationSystem';
+import { fetchChampionRoster, getChampionFormation, getChampionNpc, championFormationId } from './championNpcs';
 import './BattlePetSelectPage.css';
 
 const {
@@ -274,6 +275,7 @@ function FormationSlot({
       onPointerMove={onPointerMove}
       onPointerCancel={onPointerCancel}
       onPointerLeave={onPointerLeave}
+      onContextMenu={(e) => e.preventDefault()}
       aria-label={
         locked
           ? 'Ô đã khóa'
@@ -297,6 +299,7 @@ function FormationSlot({
             alt=""
             className="bps-slot__img"
             draggable={false}
+            onContextMenu={(e) => e.preventDefault()}
           />
           <span className="bps-slot__lv">Lv.{pet.level ?? '?'}</span>
           <span className="bps-slot__name">{pet.name}</span>
@@ -325,6 +328,14 @@ function BattlePetSelectPage() {
   const slotCount = MODE_SLOT_COUNT[battleMode] || 1;
   const maxDeployCount = MODE_DEPLOY_LIMIT[battleMode] || slotCount;
   const battleSource = prep.battleSource || 'arena';
+  const [championRosterTick, setChampionRosterTick] = useState(0);
+  const liveChampion =
+    battleSource === 'champion'
+      ? getChampionNpc(championRosterTick >= 0 ? prep.enemy?.championNpcId : null)
+      : null;
+  const liveChampionFormation = liveChampion
+    ? getChampionFormation(liveChampion, battleMode)
+    : [];
   const canViewEnemyInfo =
     prep.canViewEnemyInfo != null
       ? Boolean(prep.canViewEnemyInfo)
@@ -332,17 +343,32 @@ function BattlePetSelectPage() {
   const returnPath = prep.returnPath || '/battle/arena';
   const huntingMapId = prep.huntingMapId ?? prep.enemy?.mapId ?? null;
   const bossLevel = prep.bossLevel ?? prep.enemy?.level;
-  const enemyFormation = Array.isArray(prep.enemyFormation)
-    ? prep.enemyFormation
-    : Array.isArray(prep.enemy?.formation)
-      ? prep.enemy.formation
-      : [];
+  const enemyFormation = liveChampionFormation.length
+    ? liveChampionFormation
+    : Array.isArray(prep.enemyFormation)
+      ? prep.enemyFormation
+      : Array.isArray(prep.enemy?.formation)
+        ? prep.enemy.formation
+        : [];
   const enemyFormationId = normalizeFormationId(
-    prep.enemyFormationId || prep.enemy?.formationId || defaultFormationForMode(battleMode),
+    (liveChampion && championFormationId(liveChampion, battleMode)) ||
+      prep.enemyFormationId ||
+      prep.enemy?.formationId ||
+      defaultFormationForMode(battleMode),
     battleMode
   );
 
-  const [enemy, setEnemy] = useState(prep.enemy || null);
+  const [enemy, setEnemy] = useState(() => {
+    if (!liveChampion) return prep.enemy || null;
+    return {
+      ...(prep.enemy || {}),
+      name: liveChampion.name,
+      image: liveChampion.portrait,
+      level: Number(liveChampion.level) || 1,
+      isChampionNpc: true,
+      championNpcId: liveChampion.npcId,
+    };
+  });
   const [enemyDetail, setEnemyDetail] = useState(null);
   const [userPets, setUserPets] = useState([]);
   const [slots, setSlots] = useState(() => Array(slotCount).fill(null));
@@ -427,6 +453,30 @@ function BattlePetSelectPage() {
     if (isLoading) return;
     if (!user) navigate('/login');
   }, [isLoading, user, navigate]);
+
+  useEffect(() => {
+    if (battleSource !== 'champion') return undefined;
+    let cancel = false;
+    fetchChampionRoster({ force: true })
+      .then(() => {
+        if (cancel) return;
+        setChampionRosterTick((n) => n + 1);
+        const npc = getChampionNpc(prep.enemy?.championNpcId);
+        if (!npc) return;
+        setEnemy((prev) => ({
+          ...(prev || {}),
+          name: npc.name,
+          image: npc.portrait,
+          level: Number(npc.level) || 1,
+          isChampionNpc: true,
+          championNpcId: npc.npcId,
+        }));
+      })
+      .catch(() => {});
+    return () => {
+      cancel = true;
+    };
+  }, [battleSource, prep.enemy?.championNpcId]);
 
   useEffect(() => {
     setSlots(Array(slotCount).fill(null));
@@ -1588,15 +1638,6 @@ function BattlePetSelectPage() {
             <h1 className="bps-header__title">Chuẩn bị chiến đấu</h1>
             <p className="bps-header__mode">{modeLabel}</p>
           </div>
-          <button
-            type="button"
-            className="bps-mobile-toggle"
-            onClick={() =>
-              setMobileSide((s) => (s === 'player' ? 'enemy' : 'player'))
-            }
-          >
-            {mobileSide === 'player' ? 'Xem đối thủ' : 'Xem đội bạn'}
-          </button>
         </header>
 
         <section className="bps-stage" aria-label="Đội hình">
@@ -1655,6 +1696,16 @@ function BattlePetSelectPage() {
           </div>
         </section>
 
+        <button
+          type="button"
+          className="bps-mobile-toggle"
+          onClick={() =>
+            setMobileSide((s) => (s === 'player' ? 'enemy' : 'player'))
+          }
+        >
+          {mobileSide === 'player' ? 'Enemy >>' : '<< Your team'}
+        </button>
+
         {dupHint ? <p className="bps-dup-hint">{dupHint}</p> : null}
 
         <section
@@ -1702,8 +1753,14 @@ function BattlePetSelectPage() {
                     onPointerCancel={handleRosterPointerUp}
                     onPointerMove={handleRosterPointerMove}
                     onPointerLeave={handleRosterPointerUp}
+                    onContextMenu={(e) => e.preventDefault()}
                   >
-                    <img src={petImageSrc(pet.image)} alt={pet.name} />
+                    <img
+                      src={petImageSrc(pet.image)}
+                      alt={pet.name}
+                      draggable={false}
+                      onContextMenu={(e) => e.preventDefault()}
+                    />
                     <span className="bps-pet-card__lv">Lv.{pet.level}</span>
                     <span className="bps-pet-card__name">{pet.name}</span>
                     {holding ? <HoldRing /> : null}
@@ -1982,6 +2039,8 @@ function BattlePetSelectPage() {
                 src={petImageSrc(petInfoDetail.image)}
                 alt={petInfoDetail.name || ''}
                 className="bps-petinfo__img"
+                draggable={false}
+                onContextMenu={(e) => e.preventDefault()}
               />
               <div className="bps-petinfo__meta">
                 <strong>{petInfoDetail.name}</strong>
@@ -2015,6 +2074,8 @@ function BattlePetSelectPage() {
                       <img
                         src={equipmentImageSrc(item.image_url)}
                         alt={item.item_name || ''}
+                        draggable={false}
+                        onContextMenu={(e) => e.preventDefault()}
                         onError={(e) => {
                           e.currentTarget.src = '/images/icons/bag.svg';
                         }}
@@ -2040,6 +2101,8 @@ function BattlePetSelectPage() {
                       <img
                         src={spiritImageSrc(spirit.image_url)}
                         alt={spirit.name || ''}
+                        draggable={false}
+                        onContextMenu={(e) => e.preventDefault()}
                         onError={(e) => {
                           e.currentTarget.src = '/images/icons/bag.svg';
                         }}

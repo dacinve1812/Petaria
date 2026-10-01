@@ -82,6 +82,7 @@ function Admin() {
             <li><Link to="/admin/skills">Hệ thống Skill</Link></li>
             <li><Link to="/admin/battle-fx">Battle FX / Skill Animations</Link></li>
             <li><Link to="/admin/battle-backgrounds">Battle Arena Backgrounds</Link></li>
+            <li><Link to="/admin/pve">Quản lý PVE</Link></li>
             <li><Link to="/admin/image-converter">Chuyển đổi ảnh sang WebP</Link></li>
             <li>
               <button

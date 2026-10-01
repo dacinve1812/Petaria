@@ -1,0 +1,167 @@
+.admin-pve .pve-block {
+  margin-bottom: 18px;
+}
+
+.admin-pve .pve-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.admin-pve .pve-head h2,
+.admin-pve .pve-block h2 {
+  margin: 0 0 10px;
+  font-size: 1.15rem;
+}
+
+.admin-pve .pve-head h2 {
+  margin: 0;
+}
+
+.admin-pve .btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.admin-pve .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.admin-pve .btn-primary {
+  background: #28a745;
+  color: #fff;
+}
+
+.admin-pve .btn-secondary {
+  background: #6c757d;
+  color: #fff;
+}
+
+.admin-pve .btn-danger {
+  background: #dc3545;
+  color: #fff;
+}
+
+.admin-pve .pve-input--species {
+  min-width: 140px;
+}
+
+.admin-pve .pve-pet-bar {
+  margin-bottom: 8px;
+}
+
+.admin-pve .pve-note {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.admin-pve .pve-drop {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-top: 10px;
+  background: #fff;
+}
+
+.admin-pve .pve-drop summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  font-weight: 700;
+  background: #1e293b;
+  color: #fff;
+  border-radius: 8px;
+}
+
+.admin-pve .pve-drop[open] summary {
+  border-radius: 8px 8px 0 0;
+}
+
+.admin-pve .pve-drop--npc {
+  margin-top: 8px;
+}
+
+.admin-pve .pve-drop--npc summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+.admin-pve .pve-summary-meta {
+  margin-left: auto;
+  font-weight: 600;
+  color: #c45c26;
+  font-size: 0.85rem;
+}
+
+.admin-pve .pve-thumb--summary {
+  width: 36px;
+  height: 36px;
+  margin: 0;
+}
+
+.admin-pve .pve-npc-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+
+.admin-pve .pve-npc-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.admin-pve .pve-drop__body {
+  padding: 12px;
+}
+
+.admin-pve .section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.admin-pve .pve-thumb {
+  display: block;
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  margin-bottom: 4px;
+}
+
+.admin-pve .pve-input {
+  width: 140px;
+  max-width: 100%;
+  padding: 4px 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.admin-pve .pve-input--name {
+  width: 110px;
+}
+
+.admin-pve .pve-input--short {
+  width: 88px;
+}
+
+.admin-pve .pve-input--slot {
+  width: 128px;
+}

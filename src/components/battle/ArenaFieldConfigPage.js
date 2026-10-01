@@ -241,7 +241,7 @@ function ArenaFieldConfigPage() {
           </div>
           <div className="afc-header__actions">
             <Link className="afc-link" to="/battle/champion">
-              Champion
+              Champion Challenge
             </Link>
             <Link className="afc-link" to="/battle">
               Battle hub

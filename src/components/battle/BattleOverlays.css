@@ -213,6 +213,116 @@
     linear-gradient(180deg, rgba(220, 180, 90, 0.28), rgba(0, 0, 0, 0.18));
 }
 
+.battle-result-overlay__reward-icon.is-petagold {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 230, 140, 0.65), rgba(0, 0, 0, 0.1)),
+    linear-gradient(180deg, rgba(230, 170, 40, 0.35), rgba(0, 0, 0, 0.18));
+}
+
+.battle-result-overlay__reward-icon.is-pet,
+.battle-result-overlay__reward-icon.is-spirit {
+  background:
+    radial-gradient(circle at 30% 25%, rgba(180, 220, 255, 0.35), rgba(0, 0, 0, 0.12)),
+    linear-gradient(180deg, rgba(120, 160, 200, 0.22), rgba(0, 0, 0, 0.18));
+}
+
+/* Light theme strip trên trang classic-result — chỉ icon, không nền/border */
+.classic-loot-strip.battle-result-overlay__rewards-strip {
+  min-height: 0;
+  margin: 10px auto 6px;
+  max-width: 420px;
+  padding: 4px 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  border: none;
+}
+
+.classic-loot-strip .battle-result-overlay__rewards-list {
+  gap: 10px;
+}
+
+.classic-loot-strip .battle-result-overlay__reward {
+  width: 64px;
+  color: #243528;
+}
+
+.classic-loot-strip .battle-result-overlay__reward-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 4px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.classic-loot-strip .battle-result-overlay__reward-icon.is-peta,
+.classic-loot-strip .battle-result-overlay__reward-icon.is-petagold,
+.classic-loot-strip .battle-result-overlay__reward-icon.is-pet,
+.classic-loot-strip .battle-result-overlay__reward-icon.is-spirit {
+  background: transparent;
+}
+
+.classic-loot-strip .battle-result-overlay__reward-item-img {
+  filter: none;
+  width: 100%;
+  height: 100%;
+}
+
+.classic-loot-strip .battle-result-overlay__reward-qty {
+  right: -6px;
+  bottom: -6px;
+  min-width: 26px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 10px;
+  background: rgba(37, 69, 27, 0.88);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.classic-loot-strip .battle-result-overlay__reward-name {
+  opacity: 1;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+@media (max-width: 540px) {
+  .classic-loot-strip.battle-result-overlay__rewards-strip {
+    max-width: 100%;
+    margin: 8px auto 4px;
+  }
+
+  .classic-loot-strip .battle-result-overlay__rewards-list {
+    gap: 8px;
+  }
+
+  .classic-loot-strip .battle-result-overlay__reward {
+    width: 48px;
+  }
+
+  .classic-loot-strip .battle-result-overlay__reward-icon {
+    width: 36px;
+    height: 36px;
+    margin-bottom: 3px;
+  }
+
+  .classic-loot-strip .battle-result-overlay__reward-qty {
+    right: -5px;
+    bottom: -5px;
+    min-width: 22px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 9px !important;
+  }
+
+  .classic-loot-strip .battle-result-overlay__reward-name {
+    font-size: 10px !important;
+  }
+}
+
 .battle-result-overlay__reward-qty {
   position: absolute;
   right: -8px;

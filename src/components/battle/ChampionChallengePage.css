@@ -1,134 +1,567 @@
-/* Champion Challenge — tái dùng cảm giác Arena, layout đơn giản */
+/* Giải Vương — banner hạng đấu (mobile xếp dọc, desktop 2 cột) */
 
-.champion-page .champion-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 24px;
-  max-width: 88.75rem;
-  margin: 0 auto;
+.champion-page {
+  background: transparent;
 }
 
-.champion-card {
+.gv-modes {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #fff;
-  gap: 8px;
+  gap: 16px;
+  width: 100%;
+  max-width: 480px;
+  margin: 8px auto 0;
+  padding: 12px 4px 0;
 }
 
-.champion-card__portrait-wrap {
-  width: 140px;
-  height: 140px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.gv-banner {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 132px;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: #1c2838;
+  cursor: pointer;
+  text-align: left;
+  overflow: visible;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14);
 }
 
-.champion-card__portrait {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+.gv-banner:focus-visible {
+  outline: 2px solid #4b75a2;
+  outline-offset: 3px;
 }
 
-.champion-card__name {
-  margin: 0;
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: #1e293b;
+.gv-banner__art {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
-.champion-card__level {
-  margin: 0;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #c45c26;
+.gv-banner__art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 16, 32, 0.05) 18%, rgba(8, 16, 32, 0.72) 100%);
 }
 
-.champion-card__desc {
-  margin: 0;
-  font-size: 0.85rem;
-  line-height: 1.45;
-  color: #64748b;
-  max-width: 28ch;
-}
-
-.champion-card__formation-preview {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-top: 6px;
-}
-
-.champion-mini-pet {
+.gv-banner__copy {
+  position: absolute;
+  z-index: 1;
+  left: 14px;
+  right: 14px;
+  bottom: 12px;
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 2px;
-  width: 56px;
 }
 
-.champion-mini-pet img {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #f8fafc;
+.gv-banner__title {
+  color: #fff;
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  white-space: pre-line;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
-.champion-mini-pet span {
-  font-size: 0.65rem;
+.gv-banner__mode {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.95rem;
   font-weight: 700;
-  color: #64748b;
 }
 
-.champion-card__actions {
+.gv-banner__status {
+  position: absolute;
+  z-index: 1;
+  top: 12px;
+  right: 12px;
+  color: #ffe08a;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+}
+
+.gv-list-head {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-  margin-top: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 980px;
+  margin: 0 auto 14px;
 }
 
-.champion-card__actions .arena-card-challenge {
-  width: 100%;
+.gv-list-head__hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+  text-align: right;
 }
 
-.champion-card__btn-5v5 {
-  background: #1e293b !important;
-}
-
-.champion-card__btn-5v5:hover:not(:disabled) {
-  background: #0f172a !important;
-}
-
-.champion-back-wrap {
-  text-align: center;
-  margin-top: 28px;
-}
-
-.champion-back-btn {
+.gv-list-back {
   border: 1px solid #e2e8f0;
   background: #f8fafc;
   color: #334155;
   font-weight: 600;
   font-size: 0.9rem;
-  padding: 10px 16px;
+  padding: 8px 14px;
   border-radius: 8px;
   cursor: pointer;
 }
 
-.champion-back-btn:hover {
+.gv-list-back:hover {
   background: #e2e8f0;
 }
 
-@media (max-width: 600px) {
-  .champion-page .champion-grid {
-    grid-template-columns: 1fr;
+.gv-npc-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.gv-npc {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 8px 12px;
+  align-items: start;
+  padding: 10px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.gv-npc__portrait {
+  width: 84px;
+  height: 108px;
+  object-fit: contain;
+  object-position: center bottom;
+  grid-row: 1;
+  grid-column: 1;
+  background: transparent;
+  border-radius: 12px;
+}
+
+.gv-npc__body {
+  grid-column: 2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gv-npc__name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #1e293b;
+  line-height: 1.15;
+}
+
+.gv-npc__meta {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #c45c26;
+}
+
+.gv-npc__element {
+  margin-left: 8px;
+  color: #3f6212;
+  font-weight: 700;
+}
+
+.gv-npc--psychic .gv-npc__element {
+  color: #6d28d9;
+}
+
+.gv-npc--fire .gv-npc__element {
+  color: #c2410c;
+}
+
+.gv-npc__desc {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.gv-npc__pets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gv-mini-pet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 52px;
+}
+
+.gv-mini-pet img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.gv-mini-pet span {
+  max-width: 52px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: #64748b;
+  text-align: center;
+}
+
+.gv-npc__heading--poster,
+.gv-npc__recm {
+  display: none;
+}
+
+.gv-npc__fight {
+  width: 100%;
+}
+
+@media (min-width: 900px) {
+  .gv-modes {
+    max-width: 980px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+    padding-top: 16px;
   }
+
+  .gv-banner {
+    height: 228px;
+    border-radius: 18px;
+  }
+
+  .gv-banner__art {
+    border-radius: 18px;
+  }
+
+  .gv-banner__copy {
+    left: 18px;
+    right: 18px;
+    bottom: 16px;
+  }
+
+  .gv-banner__title {
+    font-size: 2rem;
+  }
+
+  .gv-banner__mode {
+    font-size: 1.15rem;
+  }
+
+  .gv-banner__status {
+    top: 14px;
+    right: 14px;
+    bottom: auto;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(8, 16, 32, 0.38);
+  }
+
+  .gv-list-head,
+  .gv-npc-list {
+    max-width: 980px;
+  }
+
+  .gv-npc-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .gv-npc {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    padding: 14px 14px 16px;
+  }
+
+  .gv-npc__portrait {
+    width: 100%;
+    height: 190px;
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .gv-npc__body {
+    grid-column: 1;
+    width: 100%;
+    align-items: center;
+  }
+
+  .gv-npc__pets {
+    justify-content: center;
+  }
+
+  .gv-mini-pet {
+    width: 64px;
+  }
+
+  .gv-mini-pet img {
+    width: 48px;
+    height: 48px;
+  }
+
+  .gv-mini-pet span {
+    max-width: 64px;
+    font-size: 0.65rem;
+  }
+}
+
+/* Ảnh giữ khung chữ nhật. Chữ + nút đè lên đáy, không cộng thêm chiều cao. */
+.gv-npc--poster-pets,
+.gv-npc--poster {
+  display: block;
+  position: relative;
+  height: 250px;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  border: none;
+  box-shadow: none;
+  text-align: left;
+  background: transparent;
+}
+
+.gv-npc--poster-pets .gv-npc__portrait,
+.gv-npc--poster .gv-npc__portrait {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+  object-position: center 6%;
+  transform: scale(1.08);
+  transform-origin: center 10%;
+  background: transparent;
+  border-radius: 0;
+  pointer-events: none;
+}
+
+.gv-npc--poster-pets::after,
+.gv-npc--poster::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    #ffffff 0%,
+    rgba(255, 255, 255, 0.94) 22%,
+    rgba(255, 255, 255, 0.45) 46%,
+    rgba(255, 255, 255, 0) 68%
+  );
+}
+
+.gv-npc--poster-pets .gv-npc__body,
+.gv-npc--poster .gv-npc__body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  width: auto;
+  align-items: stretch;
+  gap: 4px;
+  padding: 8px 10px;
+}
+
+.gv-npc--poster-pets .gv-npc__fight,
+.gv-npc--poster .gv-npc__fight {
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.gv-npc--poster-pets .gv-npc__heading--classic,
+.gv-npc--poster .gv-npc__heading--classic {
+  display: none;
+}
+
+.gv-npc--poster-pets .gv-npc__heading--poster,
+.gv-npc--poster .gv-npc__heading--poster {
+  display: block;
+}
+
+.gv-npc--poster-pets .gv-npc__name,
+.gv-npc--poster .gv-npc__name {
+  font-size: 1.15rem;
+}
+
+.gv-npc--poster-pets .gv-npc__recm,
+.gv-npc--poster .gv-npc__recm {
+  display: block;
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.gv-npc--poster .gv-npc__pets {
+  display: none;
+}
+
+.gv-npc--cover .gv-npc__portrait {
+  object-fit: cover;
+  object-position: center 28%;
+  transform: none;
+}
+
+.gv-npc--poster-pets .gv-npc__pets {
+  gap: 2px;
+  justify-content: flex-start;
+}
+
+.gv-npc__pets--wrapped,
+.gv-npc--poster-pets .gv-npc__pets--wrapped {
+  justify-content: center;
+}
+
+.gv-npc--poster-pets .gv-mini-pet img {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.gv-npc__body--inline-pets .gv-npc__poster-main {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  --gv-pet: 32px;
+}
+
+.gv-npc__body--inline-pets .gv-npc__heading--poster {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.gv-npc__body--inline-pets .gv-npc__pets {
+  flex: 1 1 auto;
+  max-width: 58%;
+  justify-content: flex-end;
+  align-content: center;
+}
+
+.gv-npc__body--inline-pets .gv-npc__pets--wrapped {
+  justify-content: center;
+}
+
+.gv-npc__body--inline-pets .gv-npc__pets--five {
+  flex: 0 0 auto;
+  width: calc(var(--gv-pet) * 3 + 2px * 2);
+  max-width: none;
+  margin-left: auto;
+  justify-content: center;
+}
+
+.gv-npc__body--inline-pets .gv-npc__pets--five .gv-mini-pet {
+  flex: 0 0 var(--gv-pet);
+}
+
+.gv-npc__body--inline-pets .gv-mini-pet {
+  width: var(--gv-pet);
+}
+
+.gv-npc__body--inline-pets .gv-mini-pet img {
+  width: var(--gv-pet);
+  height: var(--gv-pet);
+}
+
+.gv-npc__body--inline-pets .gv-mini-pet span {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .gv-npc__body--inline-pets .gv-npc__heading--poster {
+    flex: 1 0 100%;
+  }
+
+  .gv-npc__body--inline-pets .gv-npc__pets {
+    flex: 1 0 100%;
+    max-width: 100%;
+    margin-left: 0;
+    justify-content: start;
+  }
+
+  .gv-npc__body--inline-pets .gv-npc__pets--five {
+    /* flex: 0 0 auto; */
+    /* width: calc(var(--gv-pet) * 3 + 2px * 2); */
+    max-width: none;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+@media (min-width: 900px) {
+  .gv-npc--poster-pets,
+  .gv-npc--poster {
+    height: 380px;
+    padding: 0;
+  }
+
+  .gv-npc__body--inline-pets .gv-npc__poster-main {
+    --gv-pet: 46px;
+  }
+
+  .gv-npc--poster-pets .gv-npc__portrait,
+  .gv-npc--poster .gv-npc__portrait {
+    transform: scale(1);
+    object-position: center 18%;
+  }
+
+  .gv-npc--cover .gv-npc__portrait {
+    transform: scale(0.92);
+    object-position: center 36%;
+  }
+
+  .gv-npc--poster-pets .gv-npc__name,
+  .gv-npc--poster .gv-npc__name {
+    font-size: 1.55rem;
+  }
+
+  .gv-npc--poster-pets .gv-npc__meta,
+  .gv-npc--poster .gv-npc__meta {
+    font-size: 0.95rem;
+  }
+
+  .gv-npc--poster-pets .gv-npc__fight,
+  .gv-npc--poster .gv-npc__fight {
+    padding: 6px 14px;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 375px) {
+  .gv-npc__body--inline-pets .gv-npc__pets--five .gv-mini-pet {
+    flex: 0 0 20px;
+  }
+  .gv-npc__body--inline-pets .gv-mini-pet img {
+    width: 25px;
+    height: 25px;
+}
 }

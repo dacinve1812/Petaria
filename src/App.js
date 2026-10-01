@@ -28,6 +28,8 @@ import PveSelectPage from './components/battle/PveSelectPage';
 import ArenaBattlePage from './components/battle/ArenaBattlePage';
 import ArenaFieldConfigPage from './components/battle/ArenaFieldConfigPage';
 import BattlePetSelectPage from './components/battle/BattlePetSelectPage';
+import ChampionChallengePage from './components/battle/ChampionChallengePage';
+import AdminPvePage from './components/admin/AdminPvePage';
 
 import AdminSpiritEditor from './components/admin/AdminSpiritEditor';
 import SiteManagement from './components/admin/SiteManagement';
@@ -164,7 +166,7 @@ const router = createBrowserRouter([
       { path: 'admin/hunting-catch-rates', element: <AdminHuntingCatchRates /> },
       { path: 'battle', element: <PveSelectPage /> },
       { path: 'battle/arena', element: <ArenaPage /> },
-      { path: 'battle/champion', element: <Navigate to="/battle/arena" replace /> },
+      { path: 'battle/champion', element: <ChampionChallengePage /> },
       { path: 'battle/select', element: <Navigate to="/battle/arena/select" replace /> },
       { path: 'battle/arena/select', element: <BattlePetSelectPage /> },
       { path: 'battle/match', element: <ArenaBattlePage /> },
@@ -191,6 +193,7 @@ const router = createBrowserRouter([
       { path: 'admin/auction-logs', element: <AdminAuctionLogs /> },
       { path: 'admin/battle-fx', element: <AdminBattleFxPage /> },
       { path: 'admin/battle-backgrounds', element: <AdminBattleBackgroundPage /> },
+      { path: 'admin/pve', element: <AdminPvePage /> },
       { path: 'admin/image-converter', element: <AdminImageConverter /> },
       { path: 'dev-dashboard', element: <DevDashboard /> },
       { path: 'map-tool', element: <MapCoordinateTool /> },
