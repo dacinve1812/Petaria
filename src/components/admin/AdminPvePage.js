@@ -203,8 +203,13 @@ function patchFormation(roster, npcId, mode, formationId) {
       : npc
   );
 }
+function defaultInMode(npc, mode) {
+  const modes = Array.isArray(npc?.modes) ? npc.modes : ['3v3', '5v5'];
+  return modes.includes(mode);
+}
+
 function resetMode(roster, mode) {
-  const defaults = championRosterDefaults();
+  const defaults = championRosterDefaults().filter((npc) => defaultInMode(npc, mode));
   const next = roster.map((npc) => {
     const base = defaults.find((n) => n.npcId === npc.npcId);
     if (!base) return npc;
@@ -413,7 +418,7 @@ function AdminPvePage() {
           onSave={save}
           onRestore={() => restoreMode('5v5')}
         />
-        <p className="pve-note">Mặc định lấy từ {CHAMPION_NPCS.length} NPC trong mã. Lưu ghi vào database, Giải Vương đọc bản đó.</p>
+        <p className="pve-note">3v3 mặc định có {CHAMPION_NPCS.length} trainer trong mã. 5v5 chưa có đội mặc định. Lưu ghi vào database, Champion Challenge đọc bản đó.</p>
       </section>
     </div>
   );

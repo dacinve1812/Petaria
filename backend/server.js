@@ -11168,7 +11168,7 @@ app.get('/api/pets/:petId/equipment', async (req, res) => {
     const [rows] = await pool.promise().query(
       `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, it.description, it.type, it.rarity,
               i.durability_left,
-              ed.equipment_type, ed.magic_value AS power, ed.power_min, ed.power_max,
+              ed.equipment_type, ed.slot_type, ed.magic_value AS power, ed.power_min, ed.power_max,
               ed.durability_max AS max_durability, ed.durability_mode, i.is_broken
        FROM inventory i
        JOIN items it ON i.item_id = it.id
@@ -12740,7 +12740,7 @@ app.post('/api/arena/match/start', classicAuth, classicBattle.serialize(async (r
     };
 
     const [equipRows] = await db.query(
-      `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, i.durability_left, ed.power_min, ed.power_max, ed.equipment_type, ed.magic_value, ed.durability_max, ed.durability_mode
+      `SELECT i.id, i.item_id, it.name AS item_name, it.image_url, i.durability_left, ed.power_min, ed.power_max, ed.equipment_type, ed.slot_type, ed.magic_value, ed.durability_max, ed.durability_mode
        FROM inventory i JOIN items it ON i.item_id = it.id LEFT JOIN equipment_data ed ON it.id = ed.item_id
        WHERE i.equipped_pet_id = ? AND i.is_equipped = 1`,
       [petId]
@@ -12754,7 +12754,8 @@ app.post('/api/arena/match/start', classicAuth, classicBattle.serialize(async (r
       max_durability: e.durability_max != null ? parseInt(e.durability_max, 10) : 1,
       power_min: e.power_min != null ? parseInt(e.power_min, 10) : 0,
       power_max: e.power_max != null ? parseInt(e.power_max, 10) : 0,
-      equipment_type: e.equipment_type || 'weapon',
+      equipment_type: e.equipment_type || (String(e.slot_type || '').toLowerCase() === 'shield' ? 'shield' : 'weapon'),
+      slot_type: e.slot_type || '',
       magic_value: e.magic_value != null ? parseInt(e.magic_value, 10) : 0,
       durability_mode: e.durability_mode || 'fixed',
       is_permanent_durability: (e.durability_mode || '').toLowerCase() === 'unbreakable' || (e.durability_max != null && parseInt(e.durability_max, 10) >= 999999),

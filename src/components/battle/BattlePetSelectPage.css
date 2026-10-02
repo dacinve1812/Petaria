@@ -188,6 +188,29 @@
   min-height: 28px;
 }
 
+.bps-side__speed-row--actions {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bps-formation-btn {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.bps-formation-btn:hover {
+  border-color: #fdba74;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
 .bps-clear-slots {
   position: absolute;
   top: -10px;
@@ -331,55 +354,6 @@
   width: 140px;
   max-width: 140px;
   min-height: 180px;
-}
-
-/* Formation orb — bên phải board */
-.bps-formation-orb {
-  position: relative;
-  flex: 0 0 auto;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(148, 163, 184, 0.65);
-  background: radial-gradient(
-    circle at 35% 30%,
-    rgba(255, 255, 255, 0.95),
-    rgba(226, 232, 240, 0.75)
-  );
-  box-shadow:
-    0 2px 8px rgba(15, 23, 42, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  padding: 0;
-  color: #475569;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.bps-formation-orb:hover {
-  transform: scale(1.05);
-  box-shadow:
-    0 0 12px rgba(245, 158, 11, 0.45),
-    0 2px 8px rgba(15, 23, 42, 0.12);
-  border-color: #f59e0b;
-}
-
-.bps-formation-orb__icon {
-  width: 26px;
-  height: 26px;
-  display: block;
-}
-
-.bps-formation-orb__label {
-  font-size: 0.58rem;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0.02em;
-  color: #64748b;
 }
 
 /* Formation slot — cùng size mọi ô */
@@ -777,7 +751,7 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 10px 6px 8px;
+  padding: 10px 2px 8px;
   border: 2px solid #e2e8f0;
   border-radius: 12px;
   background: #fff;
@@ -867,7 +841,7 @@
   align-items: center;
   justify-content: space-between;
   /* gap: 6px 8px; */
-  padding: 5px 8px;
+  padding: 5px 2px;
   border-radius: 8px;
   background: #f1f5f9;
   min-width: 0;
@@ -1064,33 +1038,37 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  min-height: 56px;
   justify-content: center;
+  gap: 8px;
+  min-height: 52px;
 }
 
 .bps-fdiag__row {
   display: flex;
-  gap: 6px;
+  flex-direction: row;
+  align-items: center;
   justify-content: center;
-}
-
-.bps-fdiag__row--back {
-  transform: scale(0.92);
-  opacity: 0.95;
+  gap: 6px;
 }
 
 .bps-fdiag__unit {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
+  width: 15px;
+  height: 15px;
+  border-radius: 2px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.58rem;
+  transform: rotate(45deg);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.28);
+  flex-shrink: 0;
+}
+
+.bps-fdiag__num {
+  transform: rotate(-45deg);
+  font-size: 0.52rem;
   font-weight: 800;
+  line-height: 1;
   color: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .bps-fdiag__unit--back {
@@ -1099,7 +1077,6 @@
 
 .bps-fdiag__unit--front {
   background: #3b82f6;
-  border-radius: 4px 4px 40% 40%;
 }
 
 .bps-slot__plus {
@@ -1388,9 +1365,9 @@
   .bps-stage {
     flex-direction: column;
     align-items: center;
-    min-height: 200px;
-    padding: 6px 0;
-    gap: 10px;
+    min-height: 174px;
+    padding: 4px 0;
+    gap: 8px;
   }
 
   .bps-stage__vs {
@@ -1408,13 +1385,15 @@
   .bps-side--player,
   .bps-side--enemy,
   .bps-side--panel {
-    max-width: 300px;
+    max-width: 261px;
+    min-height: 0;
+    padding: 10px 10px 14px;
   }
 
   .bps-board {
-    max-width: 200px;
-    min-height: 260px;
-    gap: 10px;
+    max-width: 174px;
+    min-height: 226px;
+    gap: 8px;
   }
 
   .bps-board--single {
@@ -1422,19 +1401,16 @@
   }
 
   .bps-slot {
-    width: 76px;
-    max-width: 76px;
+    width: 66px;
+    max-width: 66px;
+    padding: 6px 5px;
+    border-radius: 12px;
   }
 
   .bps-board--single .bps-slot {
-    width: 130px;
-    max-width: 130px;
-    min-height: 160px;
-  }
-
-  .bps-formation-orb {
-    width: 46px;
-    height: 46px;
+    width: 113px;
+    max-width: 113px;
+    min-height: 139px;
   }
 
   .bps-formation-grid {

@@ -1,9 +1,11 @@
 /**
- * Giải Vương — NPC test đội hình 3v3 / 5v5.
+ * Champion Challenge — thang 3v3.
  * Cả user và NPC: không mang pet trùng species trong cùng formation.
+ * 5v5 để sau; các NPC này chỉ thuộc mode 3v3.
  *
- * Mốc test: Erika ~Lv.10, Sabrina >30, Lance >50.
- * Sprite lửa (Arcanine, Rapidash, Magmar, Ninetales, Charizard) chưa có trong public/images/pets.
+ * Stat: IV 31. STR/DEF lấy chỉ số tấn công hoặc phòng thủ cao hơn
+ * (vật lý hoặc đặc biệt) để một hệ số vẫn đúng vai pet.
+ * Medicham dùng STR 120 vì Pure Power.
  */
 
 import formationSystem from '../../data/formationSystem';
@@ -59,76 +61,85 @@ function unit(slotKey, name, image, level, hp, str, def, spd) {
  *   description: string,
  *   formations: { '3v3': ChampionFormationPet[], '5v5': ChampionFormationPet[] }
  * }>} */
+function gymNpc(npcId, name, element, elementLabel, level, pets) {
+  return {
+    npcId,
+    name,
+    portrait: `/images/character/${name}.png`,
+    level,
+    element,
+    elementLabel,
+    description: npcId === 'drake' || npcId === 'caitlin' ? 'Hạng Elite' : 'Hạng Gym',
+    modes: ['3v3'],
+    formationIds: { '3v3': '2-1', '5v5': '3-2' },
+    formations: {
+      '3v3': pets,
+      '5v5': [],
+    },
+  };
+}
+
 export const CHAMPION_NPCS = [
-  {
-    npcId: 'erika',
-    name: 'Erika',
-    portrait: '/images/character/Erika.png',
-    level: 12,
-    element: 'grass',
-    elementLabel: 'Cỏ',
-    description: 'Mốc test khoảng Lv.10.',
-    formations: {
-      '3v3': [
-        unit('e1', 'Vileplume', 'Vileplume.png', 12, 168, 26, 22, 20),
-        unit('e2', 'Victreebel', 'Victreebel.png', 11, 150, 28, 16, 34),
-        unit('e3', 'Tangela', 'Tangela.png', 10, 176, 20, 26, 12),
-      ],
-      '5v5': [
-        unit('e1', 'Vileplume', 'Vileplume.png', 12, 168, 26, 22, 20),
-        unit('e2', 'Victreebel', 'Victreebel.png', 11, 150, 28, 16, 34),
-        unit('e3', 'Tangela', 'Tangela.png', 10, 176, 20, 26, 12),
-        unit('e4', 'Exeggutor', 'Exeggutor.png', 12, 190, 30, 24, 16),
-        unit('e5', 'Venusaur', 'Venusaur.png', 13, 210, 28, 26, 24),
-      ],
-    },
-  },
-  {
-    npcId: 'sabrina',
-    name: 'Sabrina',
-    portrait: '/images/character/Sabrina.png',
-    level: 35,
-    element: 'psychic',
-    elementLabel: 'Siêu năng',
-    description: 'Mốc test trên Lv.30.',
-    formations: {
-      '3v3': [
-        unit('e1', 'Alakazam', 'Alakazam.png', 36, 340, 72, 38, 52),
-        unit('e2', 'Mr. Mime', 'MrMime.png', 34, 360, 58, 52, 30),
-        unit('e3', 'Espeon', 'Espeon.png', 33, 320, 64, 40, 44),
-      ],
-      '5v5': [
-        unit('e1', 'Alakazam', 'Alakazam.png', 36, 340, 72, 38, 52),
-        unit('e2', 'Mr. Mime', 'MrMime.png', 34, 360, 58, 52, 30),
-        unit('e3', 'Espeon', 'Espeon.png', 33, 320, 64, 40, 44),
-        unit('e4', 'Slowbro', 'Slowbro.png', 32, 480, 52, 62, 16),
-        unit('e5', 'Mega Alakazam', 'Alakazam_Mega.png', 38, 380, 88, 42, 60),
-      ],
-    },
-  },
-  {
-    npcId: 'lance',
-    name: 'Lance',
-    portrait: '/images/character/Lance.jpg',
-    level: 55,
-    element: 'dragon',
-    elementLabel: 'Rồng',
-    description: 'Mốc test trên Lv.50.',
-    formations: {
-      '3v3': [
-        unit('e1', 'Arcanine', 'Arcanine.png', 55, 640, 100, 72, 44),
-        unit('e2', 'Rapidash', 'Rapidash.png', 52, 560, 92, 64, 64),
-        unit('e3', 'Magmar', 'Magmar.png', 50, 580, 98, 60, 28),
-      ],
-      '5v5': [
-        unit('e1', 'Arcanine', 'Arcanine.png', 55, 640, 100, 72, 44),
-        unit('e2', 'Rapidash', 'Rapidash.png', 52, 560, 92, 64, 64),
-        unit('e3', 'Magmar', 'Magmar.png', 50, 580, 98, 60, 28),
-        unit('e4', 'Ninetales', 'Ninetales.png', 54, 540, 94, 66, 52),
-        unit('e5', 'Charizard', 'Charizard.png', 58, 720, 112, 76, 36),
-      ],
-    },
-  },
+  gymNpc('erika', 'Erika', 'grass', 'Cỏ', 22, [
+    unit('e1', 'Vileplume', 'Vileplume.png', 24, 385, 65, 55, 36),
+    unit('e2', 'Victreebel', 'Victreebel.png', 22, 370, 58, 42, 42),
+    unit('e3', 'Tangela', 'Tangela.png', 20, 310, 51, 57, 35),
+  ]),
+  gymNpc('sabrina', 'Sabrina', 'psychic', 'Siêu năng', 40, [
+    unit('e1', 'Alakazam', 'Alakazam.png', 42, 555, 131, 97, 118),
+    unit('e2', 'Mr. Mime', 'MrMime.png', 40, 470, 97, 113, 89),
+    unit('e3', 'Espeon', 'Espeon.png', 38, 545, 115, 88, 100),
+  ]),
+  gymNpc('blaine', 'Blaine', 'fire', 'Lửa', 58, [
+    unit('e1', 'Arcanine', 'Arcanine.png', 60, 980, 155, 119, 137),
+    unit('e2', 'Rapidash', 'Rapidash.png', 58, 805, 138, 115, 144),
+    unit('e3', 'Magmar', 'Magmar.png', 56, 780, 134, 117, 126),
+  ]),
+  gymNpc('bugsy', 'Bugsy', 'bug', 'Bọ', 78, [
+    unit('e1', 'Scizor', 'Scizor.png', 80, 1130, 237, 189, 133),
+    unit('e2', 'Heracross', 'Heracross.png', 78, 1180, 224, 177, 161),
+    unit('e3', 'Ariados', 'Ariados.png', 76, 1075, 165, 134, 89),
+  ]),
+  gymNpc('jasmine', 'Jasmine', 'steel', 'Thép', 100, [
+    unit('e1', 'Steelix', 'Steelix.png', 102, 1480, 210, 444, 97),
+    unit('e2', 'Magneton', 'Magneton.png', 100, 1205, 276, 226, 176),
+    unit('e3', 'Skarmory', 'Skarmory.png', 98, 1325, 192, 309, 172),
+  ]),
+  gymNpc('brawly', 'Brawly', 'fighting', 'Giác đấu', 125, [
+    unit('e1', 'Hariyama', 'Hariyama.png', 128, 2730, 351, 198, 172),
+    unit('e2', 'Machamp', 'Machamp.png', 125, 1990, 368, 256, 181),
+    unit('e3', 'Medicham', 'Medicham.png', 122, 1580, 335, 225, 238),
+  ]),
+  gymNpc('winona', 'Winona', 'flying', 'Bay', 152, [
+    unit('e1', 'Altaria', 'Altaria.png', 155, 2225, 270, 378, 301),
+    unit('e2', 'Skarmory', 'Skarmory.png', 152, 2030, 295, 477, 264),
+    unit('e3', 'Pelipper', 'Pelipper.png', 148, 1905, 332, 346, 243),
+  ]),
+  gymNpc('drake', 'Drake', 'dragon', 'Rồng', 185, [
+    unit('e1', 'Salamence', 'Salamance.png', 190, 3095, 576, 367, 443),
+    unit('e2', 'Flygon', 'Flygon.png', 185, 2740, 432, 358, 432),
+    unit('e3', 'Kingdra', 'Kingdra.png', 180, 2575, 402, 402, 366),
+  ]),
+  gymNpc('byron', 'Byron', 'steel', 'Thép', 215, [
+    unit('e1', 'Bastiodon', 'Bastiodon.png', 218, 2785, 299, 805, 203),
+    unit('e2', 'Steelix', 'Steelix.png', 215, 3070, 437, 931, 200),
+    unit('e3', 'Aggron', 'Aggron.png', 210, 2895, 532, 826, 280),
+  ]),
+  gymNpc('volkner', 'Volkner', 'electric', 'Điện', 248, [
+    unit('e1', 'Luxray', 'Luxray.png', 252, 3715, 687, 481, 435),
+    unit('e2', 'Electivire', 'Electivire.png', 248, 3530, 691, 503, 553),
+    unit('e3', 'Raichu', 'Raichu.png', 244, 3110, 519, 471, 617),
+  ]),
+  gymNpc('drayden', 'Drayden', 'dragon', 'Rồng', 285, [
+    unit('e1', 'Haxorus', 'Haxorus.png', 290, 4150, 947, 616, 657),
+    unit('e2', 'Druddigon', 'Druddigon.png', 285, 4110, 777, 606, 366),
+    unit('e3', 'Hydreigon', 'Hydreigon.png', 280, 4460, 791, 595, 640),
+  ]),
+  gymNpc('caitlin', 'Caitlin', 'psychic', 'Siêu năng', 330, [
+    unit('e1', 'Gothitelle', 'Gothitelle.png', 338, 4625, 751, 853, 549),
+    unit('e2', 'Reuniclus', 'Reuniclus.png', 330, 5840, 932, 668, 305),
+    unit('e3', 'Musharna', 'Musharna.png', 322, 5890, 793, 716, 291),
+  ]),
 ];
 
 export function getChampionNpc(npcId) {

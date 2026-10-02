@@ -105,8 +105,32 @@ function isWeaponEquipmentType(type) {
   return t === 'weapon' || t.endsWith('weapon') || t.includes('weapon');
 }
 
-function isShieldEquipmentType(type) {
-  return String(type || '').toLowerCase() === 'shield';
+function isShieldEquipmentType(typeOrItem) {
+  if (typeOrItem && typeof typeOrItem === 'object') {
+    return [typeOrItem.equipment_type, typeOrItem.slot_type].some(
+      (value) => String(value || '').trim().toLowerCase() === 'shield'
+    );
+  }
+  return String(typeOrItem || '').trim().toLowerCase() === 'shield';
+}
+
+function shieldHpValue(defDmg) {
+  const hp = Number(defDmg);
+  return Number.isFinite(hp) && hp > 0 ? Math.floor(hp) : 0;
+}
+
+function shieldHpFromLogText(text) {
+  const matched = String(text || '').match(/shield\s+(\d+)/i);
+  return matched ? shieldHpValue(matched[1]) : 0;
+}
+
+function withShield(unit, defDmg) {
+  const value = shieldHpValue(defDmg);
+  return {
+    ...unit,
+    current_def_dmg: value,
+    shield_hold: true,
+  };
 }
 
 function catalogFxWaitMs(animationId) {
@@ -361,6 +385,23 @@ function floatMiss() {
 
 
 /** Ô pet multi: HP + status icons phía trên, Lv phía dưới — không hiện tên/stats */
+function PetShieldOverlay({ active, side }) {
+  if (!active) return null;
+  return (
+    <img
+      className={`arena-pet-shield arena-pet-shield--${side === 'enemy' ? 'enemy' : 'player'}`}
+      src="/images/skill-animation/shield.png"
+      alt=""
+      aria-hidden
+      draggable={false}
+    />
+  );
+}
+
+function unitHasShield(unit) {
+  return unit?.shield_hold === true || Number(unit?.current_def_dmg) > 0;
+}
+
 function MultiBattleUnit({
   unit,
   side,
@@ -421,12 +462,15 @@ function MultiBattleUnit({
         <div className="abm-unit__lv">Lv.{unit.level ?? '?'}</div>
       </div>
       <div className="abm-unit__sprite-wrap">
-        <img
-          src={battlePetImg(unit.image)}
-          alt={unit.name || ''}
-          className="abm-unit__sprite"
-          draggable={false}
-        />
+        <div className="arena-pet-sprite-frame arena-pet-sprite-frame--fill">
+          <img
+            src={battlePetImg(unit.image)}
+            alt={unit.name || ''}
+            className="abm-unit__sprite"
+            draggable={false}
+          />
+          <PetShieldOverlay active={unitHasShield(unit)} side={side} />
+        </div>
         {floatTexts.map((ft) => (
           <FloatingCombatText key={ft.id} value={ft.value} kind={ft.kind} />
         ))}
@@ -766,11 +810,11 @@ function ArenaBattlePage() {
 
     const [player, setPlayer] = useState(() => {
       if (fromMatch && initialMatchState?.player) return { ...initialMatchState.player, current_def_dmg: initialMatchState.player.current_def_dmg ?? 0 };
-      return { ...playerPet, current_hp: playerPet?.current_hp || playerPet?.final_stats?.hp, current_def_dmg: 0 };
+      return { ...playerPet, current_hp: playerPet?.current_hp || playerPet?.final_stats?.hp, current_def_dmg: 0, shield_hold: false };
     });
     const [enemy, setEnemy] = useState(() => {
       if (fromMatch && initialMatchState?.enemy) return { ...initialMatchState.enemy, current_def_dmg: initialMatchState.enemy.current_def_dmg ?? 0 };
-      return { ...enemyPet, current_hp: enemyPet?.current_hp || enemyPet?.final_stats?.hp, current_def_dmg: 0 };
+      return { ...enemyPet, current_hp: enemyPet?.current_hp || enemyPet?.final_stats?.hp, current_def_dmg: 0, shield_hold: false };
     });
     const [playerSquad, setPlayerSquad] = useState(() =>
       Array.isArray(playerTeamState) && playerTeamState.length
@@ -1559,8 +1603,23 @@ function ArenaBattlePage() {
         }
       }
       if (data.finished) endPresentationLockRef.current = true;
-      const nextPlayer = { ...data.player, current_def_dmg: data.player?.current_def_dmg ?? 0 };
-      const nextEnemy = { ...data.enemy, current_def_dmg: data.enemy?.current_def_dmg ?? 0 };
+      const histBefore = Array.isArray(log) ? log.length : 0;
+      const freshHistory = (Array.isArray(data.history) ? data.history : []).slice(histBefore);
+      const defenseEntry = [...freshHistory].reverse().find((entry) => entry?.type === 'defense');
+      const defenseHp = shieldHpFromLogText(defenseEntry?.text);
+      const serverPlayerDef = Number(data.player?.current_def_dmg) || 0;
+      const serverEnemyDef = Number(data.enemy?.current_def_dmg) || 0;
+      const playerShieldHp = serverPlayerDef > 0 ? serverPlayerDef : defenseHp;
+      const nextPlayer = {
+        ...data.player,
+        current_def_dmg: playerShieldHp,
+        shield_hold: !!defenseEntry || playerShieldHp > 0,
+      };
+      const nextEnemy = {
+        ...data.enemy,
+        current_def_dmg: serverEnemyDef,
+        shield_hold: serverEnemyDef > 0,
+      };
       playerRef.current = nextPlayer;
       enemyRef.current = nextEnemy;
       setPlayer(nextPlayer);
@@ -1610,6 +1669,23 @@ function ArenaBattlePage() {
         const type = String(entry?.type || '');
 
         if (type === 'defense') {
+          const shieldHp = shieldHpFromLogText(entry?.text);
+          setPlayer((prev) => {
+            const next = withShield(prev, shieldHp > 0 ? shieldHp : prev?.current_def_dmg);
+            playerRef.current = next;
+            return next;
+          });
+          if (useSquadCombat) {
+            setPlayerSquad((prev) => {
+              const next = prev.map((u) =>
+                String(u.id) === String(playerId)
+                  ? withShield(u, shieldHp > 0 ? shieldHp : u?.current_def_dmg)
+                  : u
+              );
+              playerSquadRef.current = next;
+              return next;
+            });
+          }
           await playCombatFx({
             attackerId: playerId,
             hitId: playerId,
@@ -1639,6 +1715,26 @@ function ArenaBattlePage() {
             });
           } else {
             const hitId = beat.reflected ? enemyId : playerId;
+            const playerWasHit = !beat.miss && !beat.reflected;
+            if (playerWasHit) {
+              const finalDef = Number(data.player?.current_def_dmg) || 0;
+              setPlayer((prev) => {
+                const next = { ...prev, current_def_dmg: finalDef, shield_hold: finalDef > 0 };
+                playerRef.current = next;
+                return next;
+              });
+              if (useSquadCombat) {
+                setPlayerSquad((prev) => {
+                  const next = prev.map((u) =>
+                    String(u.id) === String(playerId)
+                      ? { ...u, current_def_dmg: finalDef, shield_hold: finalDef > 0 }
+                      : u
+                  );
+                  playerSquadRef.current = next;
+                  return next;
+                });
+              }
+            }
             await playCombatFx({
               attackerId: enemyId,
               hitId,
@@ -1786,7 +1882,7 @@ function ArenaBattlePage() {
                 ? {
                     ...u,
                     current_hp: result.defender_hp_after ?? Math.max(0, (Number(u.current_hp) || 0) - (result.damage || 0)),
-                    current_def_dmg: 0,
+                    current_def_dmg: 0, shield_hold: false,
                   }
                 : u
             );
@@ -1860,7 +1956,7 @@ function ArenaBattlePage() {
           const next = {
             ...prev,
             current_hp: result.defender_hp_after ?? Math.max(0, prev.current_hp - result.damage),
-            current_def_dmg: 0,
+            current_def_dmg: 0, shield_hold: false,
           };
           enemyRef.current = next;
           return next;
@@ -1924,12 +2020,36 @@ function ArenaBattlePage() {
       }
     };
   
+    const applyActorShield = (defDmg) => {
+      const actingId =
+        useSquadCombat && actingUnit?.side === 'player' ? actingUnit.id : player?.id;
+      if (useSquadCombat && actingUnit?.side === 'player') {
+        setPlayerSquad((prev) => {
+          const next = prev.map((u) =>
+            String(u.id) === String(actingId) ? withShield(u, defDmg) : u
+          );
+          playerSquadRef.current = next;
+          return next;
+        });
+      }
+      setPlayer((prev) => {
+        if (useSquadCombat && String(prev?.id) !== String(actingId)) {
+          playerRef.current = prev;
+          return prev;
+        }
+        const next = withShield(prev, defDmg);
+        playerRef.current = next;
+        return next;
+      });
+    };
+
     const handleDefend = async (shieldItem) => {
       if (battleUiLocked) return;
-      if (!shieldItem || shieldItem.equipment_type !== 'shield' || !isItemUsableByDurability(shieldItem)) return;
+      if (!shieldItem || !isShieldEquipmentType(shieldItem) || !isItemUsableByDurability(shieldItem)) return;
       setActionLocked(true);
-      const powerMin = shieldItem.power_min != null ? shieldItem.power_min : 0;
-      const powerMax = shieldItem.power_max != null ? shieldItem.power_max : 0;
+      const powerMin = shieldItem.power_min != null ? shieldItem.power_min : (shieldItem.power ?? 0);
+      const powerMax = shieldItem.power_max != null ? shieldItem.power_max : (shieldItem.power ?? powerMin);
+      applyActorShield(0);
       if (isRedisMatch) {
         try {
           const histBefore = Array.isArray(log) ? log.length : 0;
@@ -1943,6 +2063,11 @@ function ArenaBattlePage() {
           });
         } catch (err) {
           console.error('Match turn (defend_shield):', err);
+          setPlayer((prev) => {
+            const next = { ...prev, current_def_dmg: 0, shield_hold: false };
+            playerRef.current = next;
+            return next;
+          });
           setActionLocked(false);
         }
         return;
@@ -1971,17 +2096,7 @@ function ArenaBattlePage() {
             `${actingPlayer.name} sử dụng Phòng thủ, thiết lập shield ${result.defDmg ?? 0} HP phòng ngự.`,
           'defense'
         );
-        if (useSquadCombat) {
-          setPlayerSquad((prev) =>
-            prev.map((u) =>
-              String(u.id) === String(actingPlayer.id)
-                ? { ...u, current_def_dmg: result.defDmg ?? 0 }
-                : u
-            )
-          );
-        } else {
-          setPlayer((prev) => ({ ...prev, current_def_dmg: result.defDmg ?? 0 }));
-        }
+        applyActorShield(result.defDmg);
         await playCombatFx({
           attackerId: actingPlayer.id,
           hitId: actingPlayer.id,
@@ -2011,6 +2126,11 @@ function ArenaBattlePage() {
         await advanceQueueAfterPlayer({ redisCombined: false, ended });
       } catch (err) {
         console.error('Lỗi khi phòng thủ:', err);
+        setPlayer((prev) => {
+          const next = { ...prev, current_def_dmg: 0, shield_hold: false };
+          playerRef.current = next;
+          return next;
+        });
         setActionLocked(false);
       }
     };
@@ -2113,7 +2233,7 @@ function ArenaBattlePage() {
                     current_hp:
                       result.defender_hp_after ??
                       Math.max(0, (Number(u.current_hp) || 0) - (result.damage || 0)),
-                    current_def_dmg: 0,
+                    current_def_dmg: 0, shield_hold: false,
                   }
                 : u
             );
@@ -2157,7 +2277,7 @@ function ArenaBattlePage() {
           const next = {
             ...prev,
             current_hp: result.defender_hp_after ?? Math.max(0, prev.current_hp - result.damage),
-            current_def_dmg: 0,
+            current_def_dmg: 0, shield_hold: false,
           };
           enemyRef.current = next;
           return next;
@@ -2232,7 +2352,7 @@ function ArenaBattlePage() {
         });
         const result = await res.json();
         appendLog(result.logMessage || `${player.name} sử dụng Phòng thủ vật lý, thiết lập shield ${result.defDmg ?? 0} HP phòng ngự.`, 'defense');
-        setPlayer((prev) => ({ ...prev, current_def_dmg: result.defDmg ?? 0 }));
+        applyActorShield(result.defDmg);
         await playCombatFx({
           attackerId: player.id,
           hitId: player.id,
@@ -2317,7 +2437,7 @@ function ArenaBattlePage() {
             );
             nextEnemySquad = nextEnemySquad.map((u) =>
               String(u.id) === String(attacker.id)
-                ? { ...u, current_def_dmg: result.bossDefDmg ?? 0 }
+                ? withShield(u, result.bossDefDmg)
                 : u
             );
             setEnemySquad(nextEnemySquad);
@@ -2335,7 +2455,7 @@ function ArenaBattlePage() {
             );
             nextPlayerSquad = nextPlayerSquad.map((u) =>
               String(u.id) === String(target.id)
-                ? { ...u, current_def_dmg: 0 }
+                ? { ...u, current_def_dmg: 0, shield_hold: false }
                 : u
             );
             nextEnemySquad = nextEnemySquad.map((u) =>
@@ -2373,7 +2493,7 @@ function ArenaBattlePage() {
             );
             nextPlayerSquad = nextPlayerSquad.map((u) =>
               String(u.id) === String(target.id)
-                ? { ...u, current_hp: newHp, current_def_dmg: 0 }
+                ? { ...u, current_hp: newHp, current_def_dmg: 0, shield_hold: false }
                 : u
             );
             setPlayerSquad(nextPlayerSquad);
@@ -2436,7 +2556,11 @@ function ArenaBattlePage() {
           });
         } else if (result.isBossDefend) {
           appendLog(`${result.attacker} sử dụng Phòng thủ, thiết lập shield ${result.bossDefDmg ?? 0} HP phòng ngự.`, 'defense');
-          setEnemy((prev) => ({ ...prev, current_def_dmg: result.bossDefDmg ?? 0 }));
+          setEnemy((prev) => {
+            const next = withShield(prev, result.bossDefDmg);
+            enemyRef.current = next;
+            return next;
+          });
           await playCombatFx({
             attackerId: latestEnemy?.id,
             hitId: latestEnemy?.id,
@@ -2447,7 +2571,7 @@ function ArenaBattlePage() {
         } else if (result.reflectedDamage > 0) {
           appendLog(`${result.attacker} đánh, ${result.defender} phản đòn ${result.reflectedDamage} sát thương!`, 'player_attack');
           setPlayer((prev) => {
-            const next = { ...prev, current_hp: result.defender_hp_after ?? prev.current_hp, current_def_dmg: 0 };
+            const next = { ...prev, current_hp: result.defender_hp_after ?? prev.current_hp, current_def_dmg: 0, shield_hold: false };
             playerRef.current = next;
             return next;
           });
@@ -2475,7 +2599,7 @@ function ArenaBattlePage() {
             'enemy_attack'
           );
           setPlayer((prev) => {
-            const next = { ...prev, current_hp: newPlayerHp, current_def_dmg: 0 };
+            const next = { ...prev, current_hp: newPlayerHp, current_def_dmg: 0, shield_hold: false };
             playerRef.current = next;
             return next;
           });
@@ -2889,9 +3013,9 @@ function ArenaBattlePage() {
         const newPlayer = { 
           ...player, 
           current_hp: player.current_hp || player.final_stats?.hp,
-          current_def_dmg: 0,
+          current_def_dmg: 0, shield_hold: false,
         };
-        const newEnemy = { ...enemyPet, current_hp: enemyPet?.current_hp ?? enemyPet?.final_stats?.hp, current_def_dmg: 0 };
+        const newEnemy = { ...enemyPet, current_hp: enemyPet?.current_hp ?? enemyPet?.final_stats?.hp, current_def_dmg: 0, shield_hold: false };
         setPlayer(newPlayer);
         setEnemy(newEnemy);
         setTurn(0);
@@ -3119,12 +3243,16 @@ function ArenaBattlePage() {
                   .join(' ')}
               >
                 <div className="arena-pet-sprite-wrap">
-                  <img
-                    src={`/images/pets/${player?.image}`}
-                    alt={player?.name}
-                    draggable={false}
-                    onContextMenu={(e) => e.preventDefault()}
-                  />
+                  <div className="arena-pet-sprite-frame">
+                    <img
+                      className="arena-pet-figure"
+                      src={`/images/pets/${player?.image}`}
+                      alt={player?.name}
+                      draggable={false}
+                      onContextMenu={(e) => e.preventDefault()}
+                    />
+                    <PetShieldOverlay active={unitHasShield(player)} side="player" />
+                  </div>
                   {floatTextsForUnit(floatTexts, player?.id).map((ft) => (
                     <FloatingCombatText key={ft.id} value={ft.value} kind={ft.kind} />
                   ))}
@@ -3177,12 +3305,16 @@ function ArenaBattlePage() {
                   .join(' ')}
               >
                 <div className="arena-pet-sprite-wrap">
-                  <img
-                    src={enemy?.image}
-                    alt={enemy?.name}
-                    draggable={false}
-                    onContextMenu={(e) => e.preventDefault()}
-                  />
+                  <div className="arena-pet-sprite-frame">
+                    <img
+                      className="arena-pet-figure"
+                      src={enemy?.image}
+                      alt={enemy?.name}
+                      draggable={false}
+                      onContextMenu={(e) => e.preventDefault()}
+                    />
+                    <PetShieldOverlay active={unitHasShield(enemy)} side="enemy" />
+                  </div>
                   {floatTextsForUnit(floatTexts, enemy?.id).map((ft) => (
                     <FloatingCombatText key={ft.id} value={ft.value} kind={ft.kind} />
                   ))}
@@ -3267,7 +3399,7 @@ function ArenaBattlePage() {
             </h3>
             <div className="arena-equipment-grid">
               {equippedItems.map((item) => {
-                const isShield = isShieldEquipmentType(item.equipment_type);
+                const isShield = isShieldEquipmentType(item);
                 const magicVal = item.magic_value ?? item.power ?? 0;
                 const disabled = !isItemUsableByDurability(item);
                 const handleClick = () => {

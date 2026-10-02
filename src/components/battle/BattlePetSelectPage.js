@@ -183,37 +183,23 @@ function FormationStatRows({ formationId, level }) {
   );
 }
 
-/** Mini sơ đồ — số = thứ tự skill khi SPD hòa (front dưới→trên, rồi back dưới→trên). */
+/** Sơ đồ nhìn từ trên: lưng ở trên, mặt ở dưới. */
 function FormationDiagram({ formationId }) {
   const nums = getDiagramSkillNumbers(formationId);
-  return (
-    <div className="bps-fdiag" aria-hidden>
-      <div className="bps-fdiag__row bps-fdiag__row--back">
-        {nums.back.map((n, i) => (
-          <span key={`b-${i}`} className="bps-fdiag__unit bps-fdiag__unit--back">
-            {n}
-          </span>
-        ))}
-      </div>
-      <div className="bps-fdiag__row bps-fdiag__row--front">
-        {nums.front.map((n, i) => (
-          <span key={`f-${i}`} className="bps-fdiag__unit bps-fdiag__unit--front">
-            {n}
-          </span>
-        ))}
-      </div>
+  const tiles = (list, line) => (
+    <div className={`bps-fdiag__row bps-fdiag__row--${line}`}>
+      {list.map((n, i) => (
+        <span key={`${line}-${i}`} className={`bps-fdiag__unit bps-fdiag__unit--${line}`}>
+          <span className="bps-fdiag__num">{n}</span>
+        </span>
+      ))}
     </div>
   );
-}
-
-function FormationOrbIcon() {
   return (
-    <svg className="bps-formation-orb__icon" viewBox="0 0 32 32" aria-hidden>
-      <circle cx="16" cy="10" r="3.2" fill="#ef4444" />
-      <circle cx="10" cy="16" r="3.2" fill="#3b82f6" />
-      <circle cx="22" cy="16" r="3.2" fill="#3b82f6" />
-      <circle cx="16" cy="22" r="3.2" fill="#ef4444" />
-    </svg>
+    <div className="bps-fdiag" aria-hidden>
+      {tiles(nums.back, 'back')}
+      {tiles(nums.front, 'front')}
+    </div>
   );
 }
 
@@ -1533,24 +1519,12 @@ function BattlePetSelectPage() {
       );
     }
     return (
-      <div className="bps-board-wrap">
-        <div
-          className={`bps-board bps-board--player bps-board--f${formationId}`}
-          data-formation={formationId}
-        >
-          {renderLine('player', 'back', lineIndices.back, slots, false)}
-          {renderLine('player', 'front', lineIndices.front, slots, false)}
-        </div>
-        <button
-          type="button"
-          className="bps-formation-orb"
-          onClick={openFormationModal}
-          title={`Đội hình: ${formation.name}`}
-          aria-label={`Chọn đội hình (hiện tại ${formation.label})`}
-        >
-          <FormationOrbIcon />
-          <span className="bps-formation-orb__label">{formation.label}</span>
-        </button>
+      <div
+        className={`bps-board bps-board--player bps-board--f${formationId}`}
+        data-formation={formationId}
+      >
+        {renderLine('player', 'back', lineIndices.back, slots, false)}
+        {renderLine('player', 'front', lineIndices.front, slots, false)}
       </div>
     );
   };
@@ -1659,7 +1633,18 @@ function BattlePetSelectPage() {
             <div className="bps-side__header">
               <div className="bps-side__label">{playerSideLabel}</div>
             </div>
-            <div className="bps-side__speed-row">
+            <div className={`bps-side__speed-row${isMulti ? ' bps-side__speed-row--actions' : ''}`}>
+              {isMulti ? (
+                <button
+                  type="button"
+                  className="bps-formation-btn"
+                  onClick={openFormationModal}
+                  title={`Đội hình: ${formation.name}`}
+                  aria-label={`Chọn đội hình (hiện tại ${formation.label})`}
+                >
+                  Formation
+                </button>
+              ) : null}
               <SpeedBadge value={speedTotal} title="Tổng tốc độ đội hình" />
             </div>
             {isMulti ? (
