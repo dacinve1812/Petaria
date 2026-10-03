@@ -1,11 +1,12 @@
 /**
- * Champion Challenge — thang 3v3.
- * Cả user và NPC: không mang pet trùng species trong cùng formation.
- * 5v5 để sau; các NPC này chỉ thuộc mode 3v3.
+ * Champion Challenge.
+ * 3v3: Gym / Elite, Lv.22 → Lv.330.
+ * 5v5: nhà vô địch, Lv.200 → Lv.1000. Mỗi đội đúng 5 pet.
  *
  * Stat: IV 31. STR/DEF lấy chỉ số tấn công hoặc phòng thủ cao hơn
- * (vật lý hoặc đặc biệt) để một hệ số vẫn đúng vai pet.
- * Medicham dùng STR 120 vì Pure Power.
+ * (vật lý hoặc đặc biệt). Medicham STR 120 (Pure Power).
+ * Pikachu STR 110 (Light Ball). Aegislash lấy STR dạng kiếm và DEF dạng khiên.
+ * Mega Gardevoir / Mega Garchomp dùng chỉ số mega.
  */
 
 import formationSystem from '../../data/formationSystem';
@@ -79,6 +80,24 @@ function gymNpc(npcId, name, element, elementLabel, level, pets) {
   };
 }
 
+function championNpc(npcId, name, element, elementLabel, level, pets) {
+  return {
+    npcId,
+    name,
+    portrait: `/images/character/${name}.png`,
+    level,
+    element,
+    elementLabel,
+    description: 'Hạng Champion',
+    modes: ['5v5'],
+    formationIds: { '3v3': '2-1', '5v5': '3-2' },
+    formations: {
+      '3v3': [],
+      '5v5': pets,
+    },
+  };
+}
+
 export const CHAMPION_NPCS = [
   gymNpc('erika', 'Erika', 'grass', 'Cỏ', 22, [
     unit('e1', 'Vileplume', 'Vileplume.png', 24, 385, 65, 55, 36),
@@ -139,6 +158,69 @@ export const CHAMPION_NPCS = [
     unit('e1', 'Gothitelle', 'Gothitelle.png', 338, 4625, 751, 853, 549),
     unit('e2', 'Reuniclus', 'Reuniclus.png', 330, 5840, 932, 668, 305),
     unit('e3', 'Musharna', 'Musharna.png', 322, 5890, 793, 716, 291),
+  ]),
+  championNpc('blue', 'Blue', 'flying', 'Bay', 200, [
+    unit('e1', 'Pidgeot', 'Pidgeot.png', 208, 3135, 402, 381, 489),
+    unit('e2', 'Gyarados', 'Gyarados.png', 204, 3320, 578, 476, 398),
+    unit('e3', 'Exeggutor', 'Exeggutor.png', 200, 3260, 567, 407, 287),
+    unit('e4', 'Rhydon', 'Rhydon.png', 196, 3390, 575, 536, 222),
+    unit('e5', 'Alakazam', 'Alakazam.png', 192, 2360, 582, 429, 525),
+  ]),
+  championNpc('iris', 'Iris', 'dragon', 'Rồng', 300, [
+    unit('e1', 'Haxorus', 'Haxorus.png', 312, 4460, 1019, 663, 707),
+    unit('e2', 'Hydreigon', 'Hydreigon.png', 306, 4865, 864, 650, 699),
+    unit('e3', 'Druddigon', 'Druddigon.png', 300, 4325, 818, 638, 386),
+    unit('e4', 'Archeops', 'Archeops.png', 294, 4180, 919, 478, 742),
+    unit('e5', 'Aggron', 'Aggron.png', 288, 3950, 727, 1131, 382),
+  ]),
+  championNpc('alder', 'Alder', 'bug', 'Bọ', 400, [
+    unit('e1', 'Volcarona', 'Volcarona.png', 416, 6310, 1257, 1007, 965),
+    unit('e2', 'Bouffalant', 'Bouffalant.png', 408, 6595, 1029, 906, 580),
+    unit('e3', 'Druddigon', 'Druddigon.png', 400, 5750, 1089, 849, 513),
+    unit('e4', 'Vanilluxe', 'Vanilluxe.png', 392, 5400, 988, 871, 745),
+    unit('e5', 'Escavalier', 'Escavalier.png', 384, 5250, 1160, 930, 277),
+  ]),
+  championNpc('lance', 'Lance', 'dragon', 'Rồng', 500, [
+    unit('e1', 'Dragonite', 'Dragonite.png', 520, 8185, 1559, 1206, 998),
+    unit('e2', 'Dragonite', 'Dragonite.png', 510, 8030, 1529, 1183, 979),
+    unit('e3', 'Charizard', 'Charizard.png', 500, 7225, 1250, 1010, 1160),
+    unit('e4', 'Aerodactyl', 'Aerodactyl.png', 490, 7175, 1185, 891, 1430),
+    unit('e5', 'Gyarados', 'Gyarados.png', 480, 7750, 1353, 1113, 931),
+  ]),
+  championNpc('diantha', 'Diantha', 'fairy', 'Tiên', 600, [
+    unit('e1', 'Mega Gardevoir', 'Gardevoir_Mega.png', 624, 8380, 2257, 1883, 1446),
+    unit('e2', 'Hawlucha', 'Hawlucha.png', 612, 8830, 1320, 1112, 1639),
+    unit('e3', 'Tyrantrum', 'Tyrantrum.png', 600, 8900, 1643, 1619, 1043),
+    unit('e4', 'Goodra', 'Goodra.png', 588, 9190, 1480, 1951, 1128),
+    unit('e5', 'Gourgeist', 'Gourgeist.png', 576, 7565, 1220, 1589, 1151),
+  ]),
+  championNpc('steven', 'Steven', 'steel', 'Thép', 700, [
+    unit('e1', 'Metagross', 'Metagross.png', 728, 10640, 2196, 2123, 1249),
+    unit('e2', 'Skarmory', 'Skarmory.png', 714, 9365, 1368, 2225, 1225),
+    unit('e3', 'Aggron', 'Aggron.png', 700, 9535, 1762, 2742, 922),
+    unit('e4', 'Claydol', 'Claydol.png', 686, 8655, 1178, 1864, 1246),
+    unit('e5', 'Cradily', 'Cradily.png', 672, 10230, 1301, 1651, 791),
+  ]),
+  championNpc('cynthia', 'Cynthia', 'dragon', 'Rồng', 800, [
+    unit('e1', 'Mega Garchomp', 'Garchomp_MegaEvolution.png', 832, 14485, 3091, 2176, 1793),
+    unit('e2', 'Milotic', 'Milotic.png', 816, 13145, 1889, 2297, 1579),
+    unit('e3', 'Lucario', 'Lucario.png', 800, 10890, 2093, 1373, 1693),
+    unit('e4', 'Roserade', 'Roserade.png', 784, 9885, 2208, 1894, 1659),
+    unit('e5', 'Spiritomb', 'Spiritomb.png', 768, 8920, 1656, 1901, 780),
+  ]),
+  championNpc('leon', 'Leon', 'fire', 'Lửa', 900, [
+    unit('e1', 'Charizard', 'Charizard.png', 936, 13480, 2335, 1886, 2167),
+    unit('e2', 'Aegislash', 'Aegislash.png', 918, 11570, 3043, 2859, 1391),
+    unit('e3', 'Dragapult', 'Dragapult.png', 900, 13865, 2444, 1634, 2840),
+    unit('e4', 'Haxorus', 'Haxorus.png', 882, 12530, 2871, 1866, 1989),
+    unit('e5', 'Seismitoad', 'Seismitoad.png', 864, 14780, 1914, 1568, 1551),
+  ]),
+  championNpc('red', 'Red', 'electric', 'Điện', 1000, [
+    unit('e1', 'Pikachu', 'Pikachu.png', 1040, 10500, 2615, 1367, 2199),
+    unit('e2', 'Charizard', 'Charizard.png', 1020, 14685, 2544, 2055, 2361),
+    unit('e3', 'Venusaur', 'Venusaur.png', 1000, 14600, 2315, 2315, 1915),
+    unit('e4', 'Blastoise', 'Blastoise.png', 980, 14210, 1974, 2366, 1837),
+    unit('e5', 'Snorlax', 'Snorlax.png', 960, 21695, 2414, 2414, 878),
   ]),
 ];
 

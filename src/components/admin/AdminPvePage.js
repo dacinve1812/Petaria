@@ -418,7 +418,11 @@ function AdminPvePage() {
           onSave={save}
           onRestore={() => restoreMode('5v5')}
         />
-        <p className="pve-note">3v3 mặc định có {CHAMPION_NPCS.length} trainer trong mã. 5v5 chưa có đội mặc định. Lưu ghi vào database, Champion Challenge đọc bản đó.</p>
+        <p className="pve-note">
+          3v3 mặc định có {CHAMPION_NPCS.filter((npc) => (npc.modes || []).includes('3v3')).length} trainer.
+          5v5 có {CHAMPION_NPCS.filter((npc) => (npc.modes || []).includes('5v5')).length} nhà vô địch, từ Lv.200 đến Lv.1000.
+          Lưu ghi vào database, Champion Challenge đọc bản đó.
+        </p>
       </section>
     </div>
   );

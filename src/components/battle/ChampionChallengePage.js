@@ -4,6 +4,7 @@ import { UserContext } from '../../UserContext';
 import TemplatePage from '../template/TemplatePage';
 import GameDialogModal from '../ui/GameDialogModal';
 import { championFormationId, championNpcInMode, fetchChampionRoster, getChampionFormation, readChampionRoster } from './championNpcs';
+import { resumeMatchState } from './resumeArenaMatch';
 import '../css/ArenaPage.css';
 import './ChampionChallengePage.css';
 
@@ -51,6 +52,7 @@ function ChampionChallengePage() {
   const [roster, setRoster] = useState(() => readChampionRoster());
   const [errorModal, setErrorModal] = useState('');
   const [starting, setStarting] = useState(false);
+  const [resumeMatch, setResumeMatch] = useState(null);
 
   const modeParam = searchParams.get('mode');
   const mode = modeParam === '5v5' ? '5v5' : modeParam === '3v3' ? '3v3' : null;
@@ -76,6 +78,44 @@ function ChampionChallengePage() {
     if (isLoading) return;
     if (!user) navigate('/login');
   }, [isLoading, user, navigate]);
+
+  useEffect(() => {
+    if (!user?.token) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/arena/match/status`, {
+          headers: { Authorization: `Bearer ${user.token}` },
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled && data?.active !== false && data?.player) setResumeMatch(data);
+      } catch {
+        /* vẫn vào danh sách nếu không kiểm tra được */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.token]);
+
+  const goToResumeBattle = () => {
+    const next = resumeMatchState(resumeMatch);
+    if (!next) return;
+    try {
+      sessionStorage.setItem(
+        'petaria-arena-battle-return',
+        JSON.stringify({
+          battleSource: next.battleSource,
+          returnPath: next.returnPath,
+          huntingMapId: next.huntingMapId || null,
+        })
+      );
+    } catch {
+      /* ignore */
+    }
+    navigate('/battle/match', { state: next });
+  };
 
   const openMode = (nextMode) => {
     navigate(`/battle/champion?mode=${nextMode}`);
@@ -155,6 +195,22 @@ function ChampionChallengePage() {
         ) : (
           <ModeHub onOpen={openMode} onBack={() => navigate('/battle')} />
         )}
+
+        <GameDialogModal
+          isOpen={Boolean(resumeMatch)}
+          onClose={() => navigate('/battle')}
+          title="Match in progress"
+          mode="confirm"
+          cancelLabel="Cancel"
+          confirmLabel="Confirm"
+          onCancel={() => navigate('/battle')}
+          onConfirm={goToResumeBattle}
+          closeOnOverlayClick={false}
+        >
+          <p style={{ margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
+            Bạn đang trong trận đấu, tiếp tục trận đấu?
+          </p>
+        </GameDialogModal>
 
         <GameDialogModal
           isOpen={Boolean(errorModal)}

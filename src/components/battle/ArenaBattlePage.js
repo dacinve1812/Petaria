@@ -677,19 +677,30 @@ function ArenaBattlePage() {
       playerTeam: playerTeamState,
       enemyTeam: enemyTeamState,
     } = location.state || {};
-    const fromMatch = !!initialMatchState && !!useRedisMatchFromState;
-    const battleMode = normalizeBattleMode(
-      battleModeState || initialMatchState?.battleMode || '1v1'
+    const squadMatch = initialMatchState?.squad === true ? initialMatchState : null;
+    const fromMatch = !!initialMatchState && !!useRedisMatchFromState && !squadMatch;
+    const openedWithSquad =
+      !!squadMatch || (Array.isArray(playerTeamState) && playerTeamState.length > 0);
+    const [battleMode, setBattleMode] = useState(() =>
+      normalizeBattleMode(battleModeState || initialMatchState?.battleMode || '1v1')
     );
     const isMulti = battleMode === '3v3' || battleMode === '5v5';
-    const formationId = normalizeFormationId(
-      formationIdState || (battleMode === '3v3' ? '2-1' : '3-2'),
-      battleMode
+    const [formationId, setFormationId] = useState(() =>
+      normalizeFormationId(
+        formationIdState || initialMatchState?.formationId || (battleMode === '3v3' ? '2-1' : '3-2'),
+        battleMode
+      )
     );
-    const enemyFormationId = normalizeFormationId(
-      enemyFormationIdState || formationIdState || (battleMode === '3v3' ? '2-1' : '3-2'),
-      battleMode
+    const [enemyFormationId, setEnemyFormationId] = useState(() =>
+      normalizeFormationId(
+        enemyFormationIdState ||
+          initialMatchState?.enemyFormationId ||
+          formationIdState ||
+          (battleMode === '3v3' ? '2-1' : '3-2'),
+        battleMode
+      )
     );
+    const [squadPersist, setSquadPersist] = useState(() => !!squadMatch);
 
     const returnMeta = useMemo(() => {
       const match = initialMatchState;
@@ -809,24 +820,30 @@ function ArenaBattlePage() {
     }, [battleBgEntry, returnMeta.battleSource, battleMode]);
 
     const [player, setPlayer] = useState(() => {
-      if (fromMatch && initialMatchState?.player) return { ...initialMatchState.player, current_def_dmg: initialMatchState.player.current_def_dmg ?? 0 };
+      if ((fromMatch || squadMatch) && initialMatchState?.player) return { ...initialMatchState.player, current_def_dmg: initialMatchState.player.current_def_dmg ?? 0 };
       return { ...playerPet, current_hp: playerPet?.current_hp || playerPet?.final_stats?.hp, current_def_dmg: 0, shield_hold: false };
     });
     const [enemy, setEnemy] = useState(() => {
-      if (fromMatch && initialMatchState?.enemy) return { ...initialMatchState.enemy, current_def_dmg: initialMatchState.enemy.current_def_dmg ?? 0 };
+      if ((fromMatch || squadMatch) && initialMatchState?.enemy) return { ...initialMatchState.enemy, current_def_dmg: initialMatchState.enemy.current_def_dmg ?? 0 };
       return { ...enemyPet, current_hp: enemyPet?.current_hp || enemyPet?.final_stats?.hp, current_def_dmg: 0, shield_hold: false };
     });
     const [playerSquad, setPlayerSquad] = useState(() =>
-      Array.isArray(playerTeamState) && playerTeamState.length
-        ? playerTeamState
-        : []
+      Array.isArray(squadMatch?.playerSquad) && squadMatch.playerSquad.length
+        ? squadMatch.playerSquad
+        : Array.isArray(playerTeamState) && playerTeamState.length
+          ? playerTeamState
+          : []
     );
     const [enemySquad, setEnemySquad] = useState(() =>
-      Array.isArray(enemyTeamState) && enemyTeamState.length
-        ? enemyTeamState
-        : []
+      Array.isArray(squadMatch?.enemySquad) && squadMatch.enemySquad.length
+        ? squadMatch.enemySquad
+        : Array.isArray(enemyTeamState) && enemyTeamState.length
+          ? enemyTeamState
+          : []
     );
-    const [turn, setTurn] = useState(fromMatch ? (initialMatchState?.turn_count ?? 0) : 0);
+    const [turn, setTurn] = useState(
+      squadMatch ? (squadMatch.turn_count ?? 0) : fromMatch ? (initialMatchState?.turn_count ?? 0) : 0
+    );
     const turnRef = React.useRef(turn);
     turnRef.current = turn;
     const [matchId, setMatchId] = useState(() => {
@@ -847,9 +864,11 @@ function ArenaBattlePage() {
       const tc = Number(initialMatchState?.turn_count);
       return Number.isFinite(tc) && tc > 0 ? Math.min(tc, turnLimitForMode(battleMode)) : 1;
     });
-    const [speedQueue, setSpeedQueue] = useState([]);
+    const [speedQueue, setSpeedQueue] = useState(() =>
+      Array.isArray(squadMatch?.speedQueue) ? squadMatch.speedQueue : []
+    );
     const [chipLeaving, setChipLeaving] = useState(false);
-    const speedQueueRef = React.useRef([]);
+    const speedQueueRef = React.useRef(Array.isArray(squadMatch?.speedQueue) ? squadMatch.speedQueue : []);
     const chipAnimRef = React.useRef(null);
     const enemyAutoRef = React.useRef(false);
     const [battleSpeed, setBattleSpeed] = useState(1);
@@ -1106,7 +1125,9 @@ function ArenaBattlePage() {
         })
         .catch((err) => console.error('Load full boss for action_pattern:', err));
     }, [enemyPet?.id, enemyPet?.isBoss, fromMatch, initialMatchState?.enemy]);
-    const [log, setLog] = useState(() => (fromMatch && Array.isArray(initialMatchState?.history) ? initialMatchState.history : []));
+    const [log, setLog] = useState(() => (
+      (squadMatch || fromMatch) && Array.isArray(initialMatchState?.history) ? initialMatchState.history : []
+    ));
     const [autoMode, setAutoMode] = useState(false);
     const [isBlitzMode, setIsBlitzMode] = useState(false);
     const [battleEnded, setBattleEnded] = useState(false);
@@ -2662,12 +2683,10 @@ function ArenaBattlePage() {
   const [redisMatchRestored, setRedisMatchRestored] = useState(false);
   /** Chỉ gọi battle-stats/equipment sau khi đã biết có/không match Redis — tránh ghi đè current_hp = max HP */
   const [redisStatusChecked, setRedisStatusChecked] = useState(
-    () => !!fromMatch || isChampionBattle || useSquadCombat
+    () => !!fromMatch || openedWithSquad
   );
   useEffect(() => {
-    if (fromMatch || redisMatchRestored) return;
-    // Champion / multi local: không restore Redis match
-    if (isChampionBattle || useSquadCombat || battleSourceState === 'champion') {
+    if (fromMatch || redisMatchRestored || openedWithSquad) {
       setRedisStatusChecked(true);
       return;
     }
@@ -2687,29 +2706,49 @@ function ArenaBattlePage() {
         }
         const data = await res.json();
         if (cancelled) return;
-        if (data?.player) {
-          setPlayer({ ...data.player, current_def_dmg: data.player.current_def_dmg ?? 0 });
-          setEnemy({ ...data.enemy, current_def_dmg: data.enemy.current_def_dmg ?? 0 });
-          setTurn(data.turn_count ?? 0);
-          setLog(Array.isArray(data.history) ? data.history : []);
-          if (Array.isArray(data.equipment)) {
-            setEquippedItems(data.equipment.map((e) => ({ ...e, image_url: e.image_url || '' })));
-          }
-          try {
-            sessionStorage.setItem(
-              BATTLE_RETURN_KEY,
-              JSON.stringify({
-                battleSource: data.battleSource || 'arena',
-                returnPath: data.returnPath || '/battle/arena',
-                huntingMapId: data.huntingMapId || null,
-              })
-            );
-          } catch {
-            /* ignore */
-          }
-          setRedisMatchRestored(true);
-          setIsRedisMatch(true);
+        if (data?.active === false || !data?.player) return;
+        try {
+          sessionStorage.setItem(
+            BATTLE_RETURN_KEY,
+            JSON.stringify({
+              battleSource: data.battleSource || 'arena',
+              returnPath: data.returnPath || '/battle/arena',
+              huntingMapId: data.huntingMapId || null,
+            })
+          );
+        } catch {
+          /* ignore */
         }
+        if (data.squad && Array.isArray(data.playerSquad)) {
+          const mode = normalizeBattleMode(data.battleMode);
+          const queue = Array.isArray(data.speedQueue) ? data.speedQueue : [];
+          speedQueueRef.current = queue;
+          setSpeedQueue(queue);
+          setPlayerSquad(data.playerSquad);
+          setEnemySquad(Array.isArray(data.enemySquad) ? data.enemySquad : []);
+          setPlayer({ ...data.player, current_def_dmg: data.player.current_def_dmg ?? 0 });
+          setEnemy({ ...data.enemy, current_def_dmg: data.enemy?.current_def_dmg ?? 0 });
+          setTurn(data.turn_count ?? 0);
+          setTurnNumber(Math.max(1, Number(data.turn_count) || 1));
+          setLog(Array.isArray(data.history) ? data.history : []);
+          setMatchId(data.matchId || null);
+          setBattleMode(mode);
+          setFormationId(normalizeFormationId(data.formationId, mode));
+          setEnemyFormationId(normalizeFormationId(data.enemyFormationId, mode));
+          setSquadPersist(true);
+          setIsRedisMatch(false);
+          setRedisMatchRestored(true);
+          return;
+        }
+        setPlayer({ ...data.player, current_def_dmg: data.player.current_def_dmg ?? 0 });
+        setEnemy({ ...data.enemy, current_def_dmg: data.enemy.current_def_dmg ?? 0 });
+        setTurn(data.turn_count ?? 0);
+        setLog(Array.isArray(data.history) ? data.history : []);
+        if (Array.isArray(data.equipment)) {
+          setEquippedItems(data.equipment.map((e) => ({ ...e, image_url: e.image_url || '' })));
+        }
+        setRedisMatchRestored(true);
+        setIsRedisMatch(true);
       } catch (err) {
         if (!playerPet) navigate('/battle/arena', { replace: true });
       } finally {
@@ -2726,9 +2765,43 @@ function ArenaBattlePage() {
     navigate,
     playerPet,
     API_BASE_URL,
-    isChampionBattle,
-    useSquadCombat,
-    battleSourceState,
+    openedWithSquad,
+  ]);
+
+  useEffect(() => {
+    if (!squadPersist || battleEnded || !matchId || !user?.token) return undefined;
+    const timer = setTimeout(() => {
+      const players = playerSquadRef.current || [];
+      const enemies = enemySquadRef.current || [];
+      if (!players.length || !enemies.length) return;
+      fetch(`${API_BASE_URL}/api/arena/match/squad/sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({
+          matchId: matchIdRef.current,
+          turn_count: turnRef.current,
+          playerSquad: players,
+          enemySquad: enemies,
+          speedQueue: speedQueueRef.current,
+          history: log,
+        }),
+      }).catch((err) => console.error('Không lưu snapshot trận:', err));
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [
+    squadPersist,
+    battleEnded,
+    matchId,
+    user?.token,
+    API_BASE_URL,
+    playerSquad,
+    enemySquad,
+    speedQueue,
+    log,
+    turn,
   ]);
 
       useEffect(() => {
@@ -2951,18 +3024,42 @@ function ArenaBattlePage() {
         }
       };
 
+      const squadHpSavedRef = React.useRef(false);
       useEffect(() => {
         if (!battleEnded) return;
         // Redis: reward đã từ match/turn|terminate (server finalize). Client claim = 410.
         if (isRedisMatch) return;
+        if (useSquadCombat) {
+          if (squadHpSavedRef.current) return;
+          const units = (playerSquadRef.current || []).filter((unit) => Number(unit?.id) > 0);
+          if (!units.length || !user?.token) return;
+          squadHpSavedRef.current = true;
+          const lost = resultEffect !== 'win';
+          fetch(`${API_BASE_URL}/api/arena/squad/finish`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${user.token}`,
+            },
+            body: JSON.stringify({
+              result: lost ? 'lose' : 'win',
+              matchId: matchIdRef.current,
+              pets: units.map((unit) => ({
+                id: Number(unit.id),
+                current_hp: lost ? 0 : Math.max(0, Math.floor(Number(unit.current_hp) || 0)),
+              })),
+            }),
+          }).catch((err) => console.error('Không lưu máu đội sau trận:', err));
+          return;
+        }
         if (resultEffect === 'win' && player.current_hp > 0) {
           gainExpIfVictory();
         }
         savePlayerHP();
-      }, [battleEnded, resultEffect, isRedisMatch]);
+      }, [battleEnded, resultEffect, isRedisMatch, useSquadCombat, user?.token, API_BASE_URL]);
 
       const handleFleeBattle = async () => {
-        if (!isRedisMatch || battleEnded || battleUiLocked) return;
+        if ((!isRedisMatch && !squadPersist) || battleEnded || battleUiLocked) return;
         if (!window.confirm('Bỏ chạy sẽ kết thúc trận và tính là thua. Tiếp tục?')) return;
         setActionLocked(true);
         try {
@@ -2983,7 +3080,7 @@ function ArenaBattlePage() {
       };
 
       const handleLeaveBattle = async (e) => {
-        if (!isRedisMatch || battleEnded) return;
+        if ((!isRedisMatch && !squadPersist) || battleEnded) return;
         e?.preventDefault?.();
         if (!window.confirm('Nếu bạn rời đi, trận đấu sẽ tính là THUA.')) return;
         try {
@@ -3000,14 +3097,14 @@ function ArenaBattlePage() {
       };
 
       useEffect(() => {
-        if (!isRedisMatch || battleEnded) return;
+        if ((!isRedisMatch && !squadPersist) || battleEnded) return;
         const onBeforeUnload = (e) => {
           e.preventDefault();
           e.returnValue = '';
         };
         window.addEventListener('beforeunload', onBeforeUnload);
         return () => window.removeEventListener('beforeunload', onBeforeUnload);
-      }, [isRedisMatch, battleEnded]);
+      }, [isRedisMatch, squadPersist, battleEnded]);
 
       const resetBattle = () => {
         const newPlayer = { 
@@ -3062,6 +3159,16 @@ function ArenaBattlePage() {
 
     const outcomeWin = resultEffect === 'win';
     const rewardLoot = Array.isArray(battleReward.loot) ? battleReward.loot : [];
+
+    if (!redisStatusChecked && !openedWithSquad && !fromMatch) {
+      return (
+        <TemplatePage showSearch={false} showTabs={false}>
+          <div className="arena-battle-container">
+            <p className="loading" style={{ padding: '2rem', textAlign: 'center' }}>Đang khôi phục trận đấu...</p>
+          </div>
+        </TemplatePage>
+      );
+    }
 
     if (battleEnded) {
       if (!outcomeWin && !loseFlavorRef.current) {
@@ -3538,7 +3645,7 @@ function ArenaBattlePage() {
             </button>
           </div>
 
-          {isRedisMatch && !battleEnded && (
+          {(isRedisMatch || squadPersist) && !battleEnded && (
             <div className="arena-flee-row">
               <button type="button" className="arena-flee-btn" onClick={handleFleeBattle} disabled={battleUiLocked}>
                 Bỏ chạy

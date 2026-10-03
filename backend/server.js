@@ -731,6 +731,88 @@ app.put('/api/users/:userId/role',classicAuth,async(req,res)=>{
 for (const route of ['/api/pets/:id/gain-exp','/api/pets/:petId/update-hp','/api/arena/claim-loot','/api/pets/:petId/update-hunger-after-battle']) {
   app.post(route,classicAuth,(req,res)=>res.status(410).json({message:'Kết quả và phần thưởng được server tự lưu khi kết thúc trận.'}));
 }
+
+function battleHpCap(pet) {
+  let fsHp = null;
+  if (pet.final_stats) {
+    try {
+      const fs = typeof pet.final_stats === 'string' ? JSON.parse(pet.final_stats) : pet.final_stats;
+      if (fs && fs.hp != null) fsHp = Number(fs.hp);
+    } catch (_) {}
+  }
+  const caps = [pet.max_hp, pet.hp, fsHp]
+    .map((raw) => Number(raw))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  return caps.length ? Math.min(...caps) : null;
+}
+
+/** 3v3/5v5 local: thua thì pet tham chiến về 0 máu, thắng thì lưu máu còn lại. */
+app.post('/api/arena/squad/finish', classicAuth, async (req, res) => {
+  const result = req.body?.result === 'win' ? 'win' : req.body?.result === 'lose' ? 'lose' : null;
+  const pets = Array.isArray(req.body?.pets) ? req.body.pets : [];
+  if (!result || pets.length < 1 || pets.length > 5) {
+    return res.status(400).json({ message: 'Kết quả trận không hợp lệ.' });
+  }
+  const requested = [];
+  const seen = new Set();
+  for (const pet of pets) {
+    const id = Number(pet?.id);
+    if (!Number.isInteger(id) || id <= 0 || seen.has(id)) {
+      return res.status(400).json({ message: 'Danh sách pet không hợp lệ.' });
+    }
+    seen.add(id);
+    requested.push({ id, current_hp: Math.max(0, Math.floor(Number(pet?.current_hp) || 0)) });
+  }
+
+  let conn;
+  try {
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+    const [rows] = await conn.query(
+      `SELECT id, max_hp, hp, final_stats FROM pets WHERE owner_id = ? AND id IN (${requested.map(() => '?').join(',')}) FOR UPDATE`,
+      [req.classicUserId, ...requested.map((pet) => pet.id)]
+    );
+    if (rows.length !== requested.length) {
+      await conn.rollback();
+      return res.status(403).json({ message: 'Pet không thuộc về bạn.' });
+    }
+    const byId = new Map(rows.map((row) => [Number(row.id), row]));
+    const saved = [];
+    for (const pet of requested) {
+      const cap = battleHpCap(byId.get(pet.id));
+      const nextHp = result === 'lose' ? 0 : (cap == null ? pet.current_hp : Math.min(pet.current_hp, cap));
+      await conn.query('UPDATE pets SET current_hp = ? WHERE id = ? AND owner_id = ?', [nextHp, pet.id, req.classicUserId]);
+      saved.push({ id: pet.id, current_hp: nextHp });
+    }
+    await conn.commit();
+    try {
+      const redis = getRedis();
+      if (redis) {
+        const key = REDIS_MATCH_PREFIX + req.classicUserId;
+        const raw = await redis.get(key);
+        if (raw) {
+          const match = JSON.parse(raw);
+          const sameMatch = !req.body?.matchId || req.body.matchId === match.matchId;
+          if (match.squad && sameMatch) {
+            await redis.set(key + ':closed', match.matchId || '1', { EX: 120 });
+            await redis.del(key);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('squad finish redis clear:', err);
+    }
+    res.json({ success: true, result, pets: saved });
+  } catch (error) {
+    if (conn) {
+      try { await conn.rollback(); } catch (_) {}
+    }
+    console.error('POST /api/arena/squad/finish', error);
+    res.status(500).json({ message: 'Không lưu được máu pet.' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
 app.post('/api/formations/enhance',classicAuth,(req,res)=>res.status(403).json({message:'Đội hình nhiều pet chưa mở.'}));
 
 app.get('/api/arena/match/result/:id',classicAuth,async(req,res)=>{
@@ -12826,6 +12908,207 @@ app.get('/api/arena/match/status', classicAuth, classicBattle.serialize(async (r
   }
 }));
 
+function squadUnitHp(unit) {
+  return Math.max(0, Math.floor(Number(unit?.current_hp) || 0));
+}
+
+function slimSquadUnit(unit) {
+  if (!unit || typeof unit !== 'object') return null;
+  const stats = unit.final_stats && typeof unit.final_stats === 'object' ? {
+    hp: Number(unit.final_stats.hp) || 0,
+    str: Number(unit.final_stats.str) || 0,
+    def: Number(unit.final_stats.def) || 0,
+    spd: Number(unit.final_stats.spd) || 0,
+  } : undefined;
+  return {
+    id: unit.id,
+    name: String(unit.name || ''),
+    image: String(unit.image || ''),
+    level: Number(unit.level) || 1,
+    slotIndex: Number(unit.slotIndex) || 0,
+    side: unit.side === 'enemy' ? 'enemy' : 'player',
+    current_hp: squadUnitHp(unit),
+    current_def_dmg: Math.max(0, Math.floor(Number(unit.current_def_dmg) || 0)),
+    shield_hold: unit.shield_hold === true,
+    final_stats: stats,
+    spd: Number(unit.spd ?? stats?.spd) || 0,
+    skills: Array.isArray(unit.skills) ? unit.skills.slice(0, 8) : undefined,
+    action_pattern: Array.isArray(unit.action_pattern) ? unit.action_pattern.slice(0, 12) : undefined,
+    queueKey: unit.queueKey ? String(unit.queueKey) : undefined,
+  };
+}
+
+function sameSquadIds(prev, next) {
+  if (!Array.isArray(prev) || !Array.isArray(next) || prev.length !== next.length) return false;
+  return prev.every((unit, index) => String(unit.id) === String(next[index]?.id));
+}
+
+/** 3v3/5v5: mở trận và giữ trên Redis để reconnect. */
+app.post('/api/arena/match/squad/start', classicAuth, classicBattle.serialize(async (req, res) => {
+  const userId = req.classicUserId;
+  const redis = getRedis();
+  if (!redis) return res.status(503).json({ message: 'Match service temporarily unavailable' });
+  const battleMode = req.body?.battleMode === '5v5' ? '5v5' : req.body?.battleMode === '3v3' ? '3v3' : null;
+  if (!battleMode) return res.status(400).json({ message: 'Chế độ trận không hợp lệ.' });
+  const cap = battleMode === '3v3' ? 3 : 5;
+  const playerSquad = Array.isArray(req.body?.playerSquad) ? req.body.playerSquad.map(slimSquadUnit).filter(Boolean) : [];
+  const enemySquad = Array.isArray(req.body?.enemySquad) ? req.body.enemySquad.map(slimSquadUnit).filter(Boolean) : [];
+  if (playerSquad.length < 1 || playerSquad.length > cap || enemySquad.length < 1 || enemySquad.length > cap) {
+    return res.status(400).json({ message: 'Đội hình không hợp lệ.' });
+  }
+  const ids = playerSquad.map((unit) => Number(unit.id));
+  if (ids.some((id) => !Number.isInteger(id) || id <= 0) || new Set(ids).size !== ids.length) {
+    return res.status(400).json({ message: 'Danh sách pet không hợp lệ.' });
+  }
+
+  try {
+    const key = REDIS_MATCH_PREFIX + userId;
+    const existing = await redis.get(key);
+    if (existing) {
+      const matchData = JSON.parse(existing);
+      if (!matchData.matchId) {
+        await classicBattle.register(matchData);
+        await redis.set(key, JSON.stringify(matchData), { EX: REDIS_MATCH_TTL });
+      }
+      return res.status(400).json({
+        code: 'ACTIVE_MATCH',
+        message: 'Bạn đang có trận đấu dang dở. Hãy quay lại tiếp tục.',
+        match: matchData,
+      });
+    }
+    await redis.del(key + ':closed');
+
+    const [rows] = await db.query(
+      `SELECT id, name, level, current_hp, max_hp, hp, final_stats FROM pets WHERE owner_id = ? AND id IN (${ids.map(() => '?').join(',')})`,
+      [userId, ...ids]
+    );
+    if (rows.length !== ids.length) return res.status(403).json({ message: 'Pet không thuộc về bạn.' });
+    const byId = new Map(rows.map((row) => [Number(row.id), row]));
+    for (const unit of playerSquad) {
+      const row = byId.get(Number(unit.id));
+      const capHp = battleHpCap(row);
+      const dbHp = row.current_hp != null ? Number(row.current_hp) : capHp;
+      if (!Number.isFinite(dbHp) || dbHp <= 0) {
+        return res.status(400).json({ message: `${row.name || 'Pet'} đã hết máu, không thể vào trận.` });
+      }
+      unit.current_hp = dbHp;
+      unit.side = 'player';
+      if (capHp && unit.final_stats) unit.final_stats.hp = capHp;
+    }
+    enemySquad.forEach((unit) => { unit.side = 'enemy'; });
+
+    const lead = playerSquad[0];
+    const foe = req.body?.enemy && typeof req.body.enemy === 'object' ? req.body.enemy : {};
+    const enemy = {
+      id: foe.id != null ? String(foe.id) : 'champion',
+      name: String(foe.name || 'Đối thủ'),
+      image: String(foe.image || ''),
+      level: Number(foe.level) || 1,
+      isChampionNpc: true,
+      championNpcId: foe.championNpcId ? String(foe.championNpcId) : null,
+      current_hp: enemySquad.reduce((sum, unit) => sum + squadUnitHp(unit), 0),
+      current_def_dmg: 0,
+      final_stats: {
+        hp: enemySquad.reduce((sum, unit) => sum + (Number(unit.final_stats?.hp) || 0), 0),
+        str: 1,
+        def: 1,
+        spd: enemySquad.reduce((sum, unit) => sum + (Number(unit.spd) || 0), 0),
+      },
+    };
+    const matchState = {
+      squad: true,
+      userId,
+      pet_id: Number(lead.id),
+      boss_id: 0,
+      boss_level: enemy.level,
+      battleSource: 'champion',
+      battleMode,
+      formationId: String(req.body?.formationId || (battleMode === '3v3' ? '2-1' : '3-2')),
+      enemyFormationId: String(req.body?.enemyFormationId || (battleMode === '3v3' ? '2-1' : '3-2')),
+      returnPath: String(req.body?.returnPath || `/battle/champion?mode=${battleMode}`),
+      player: { ...lead, current_def_dmg: 0 },
+      enemy,
+      playerSquad,
+      enemySquad,
+      speedQueue: [],
+      equipment: [],
+      turn_count: 0,
+      history: [],
+      finished: false,
+      result: null,
+    };
+    await classicBattle.register(matchState);
+    await redis.set(key, JSON.stringify(matchState), { EX: REDIS_MATCH_TTL });
+    res.json(matchState);
+  } catch (err) {
+    console.error('POST /api/arena/match/squad/start', err);
+    res.status(500).json({ message: 'Không lưu được trận đấu.' });
+  }
+}));
+
+/** Cập nhật snapshot sau mỗi lượt để reconnect đúng máu và hàng tốc độ. */
+app.post('/api/arena/match/squad/sync', classicAuth, classicBattle.serialize(async (req, res) => {
+  const redis = getRedis();
+  if (!redis) return res.status(503).json({ message: 'Match service temporarily unavailable' });
+  const key = REDIS_MATCH_PREFIX + req.classicUserId;
+  try {
+    const raw = await redis.get(key);
+    if (!raw) return res.status(404).json({ message: 'Match not found' });
+    const state = JSON.parse(raw);
+    if (!state.squad || state.finished) return res.status(409).json({ message: 'Trận đấu đã kết thúc.' });
+    if (req.body?.matchId !== state.matchId) return res.status(409).json({ message: 'Trận đấu đã thay đổi.' });
+    const nextTurn = Math.max(0, Math.floor(Number(req.body?.turn_count) || 0));
+    if (nextTurn < (Number(state.turn_count) || 0)) return res.status(409).json({ message: 'Lượt đấu đã thay đổi.' });
+    const playerSquad = Array.isArray(req.body?.playerSquad) ? req.body.playerSquad.map(slimSquadUnit).filter(Boolean) : [];
+    const enemySquad = Array.isArray(req.body?.enemySquad) ? req.body.enemySquad.map(slimSquadUnit).filter(Boolean) : [];
+    if (!sameSquadIds(state.playerSquad, playerSquad) || !sameSquadIds(state.enemySquad, enemySquad)) {
+      return res.status(409).json({ message: 'Đội hình trận đấu không khớp.' });
+    }
+    playerSquad.forEach((unit, index) => {
+      unit.current_hp = Math.min(squadUnitHp(unit), squadUnitHp(state.playerSquad[index]));
+      unit.side = 'player';
+    });
+    enemySquad.forEach((unit, index) => {
+      unit.current_hp = Math.min(squadUnitHp(unit), squadUnitHp(state.enemySquad[index]));
+      unit.side = 'enemy';
+    });
+    const speedQueue = Array.isArray(req.body?.speedQueue)
+      ? req.body.speedQueue.slice(0, 10).map((unit) => ({
+          id: unit?.id,
+          side: unit?.side === 'enemy' ? 'enemy' : 'player',
+          queueKey: unit?.queueKey ? String(unit.queueKey) : `${unit?.side || 'player'}-${unit?.id}`,
+          name: String(unit?.name || ''),
+          image: String(unit?.image || ''),
+          spd: Number(unit?.spd) || 0,
+          current_hp: squadUnitHp(unit),
+        }))
+      : state.speedQueue;
+    const history = Array.isArray(req.body?.history)
+      ? req.body.history.slice(-80).map((entry) => (
+          typeof entry === 'string'
+            ? { text: entry, type: 'default' }
+            : { text: String(entry?.text || ''), type: String(entry?.type || 'default') }
+        ))
+      : state.history;
+    state.playerSquad = playerSquad;
+    state.enemySquad = enemySquad;
+    state.speedQueue = speedQueue;
+    state.history = history;
+    state.turn_count = nextTurn;
+    state.player = { ...state.player, ...playerSquad.find((unit) => String(unit.id) === String(state.pet_id)) || playerSquad[0] };
+    state.enemy = {
+      ...state.enemy,
+      current_hp: enemySquad.reduce((sum, unit) => sum + squadUnitHp(unit), 0),
+    };
+    if (await redis.get(key + ':closed')) return res.status(409).json({ message: 'Trận đấu đã kết thúc.' });
+    await redis.set(key, JSON.stringify(state), { EX: REDIS_MATCH_TTL });
+    res.json({ success: true, matchId: state.matchId, turn_count: state.turn_count });
+  } catch (err) {
+    console.error('POST /api/arena/match/squad/sync', err);
+    res.status(500).json({ message: 'Không lưu được trận đấu.' });
+  }
+}));
+
 // POST /api/arena/match/terminate — User rời đi: force loss, lưu HP pet, xóa Redis
 app.post('/api/arena/match/terminate', classicAuth, classicBattle.serialize(async (req, res) => {
   const userId = getUserIdFromToken(req);
@@ -12840,6 +13123,22 @@ app.post('/api/arena/match/terminate', classicAuth, classicBattle.serialize(asyn
     if (!data) return res.status(404).json({ message: 'No active match' });
     const matchState = JSON.parse(data);
     if(req.body.matchId !== matchState.matchId) return res.status(409).json({message:'Trận đấu đã thay đổi.'});
+    if (matchState.squad && Array.isArray(matchState.playerSquad)) {
+      for (const unit of matchState.playerSquad) {
+        const id = Number(unit?.id);
+        if (Number.isInteger(id) && id > 0) {
+          await db.query('UPDATE pets SET current_hp = 0 WHERE id = ? AND owner_id = ?', [id, userId]);
+        }
+      }
+      matchState.finished = true;
+      matchState.result = 'lose';
+      if (matchState.matchId) {
+        await db.query('UPDATE arena_match_receipts SET result_json=?,finished_at=NOW() WHERE match_id=? AND user_id=?', [JSON.stringify(matchState), matchState.matchId, userId]);
+      }
+      await redis.set(key + ':closed', matchState.matchId || '1', { EX: 120 });
+      await redis.del(key);
+      return res.json(matchState);
+    }
     await classicBattle.finalize(matchState, 'flee');
     await redis.del(key);
     res.json(matchState);
@@ -13694,6 +13993,7 @@ async function petHasActiveArenaMatch(userId, petId) {
     const data = await redis.get(key);
     if (!data) return false;
     const state = JSON.parse(data);
+    if (Array.isArray(state.playerSquad) && state.playerSquad.some((unit) => Number(unit.id) === Number(petId))) return true;
     return Number(state.pet_id) === Number(petId);
   } catch (_) {
     return false;

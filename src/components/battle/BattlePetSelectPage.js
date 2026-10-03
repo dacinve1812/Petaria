@@ -7,6 +7,7 @@ import { asOwnedList } from '../../utils/inventoryApi';
 import { getDisplayName } from '../../utils/userDisplay';
 import formationSystem from '../../data/formationSystem';
 import { fetchChampionRoster, getChampionFormation, getChampionNpc, championFormationId } from './championNpcs';
+import { resumeMatchState } from './resumeArenaMatch';
 import './BattlePetSelectPage.css';
 
 const {
@@ -1285,47 +1286,47 @@ function BattlePetSelectPage() {
         huntingMapId: huntingMapId ?? null,
       };
 
-      // Champion 3v3/5v5: combat local theo đội hình — không Redis / không Arena boss
+      // Champion 3v3/5v5: lưu Redis như 1v1 để mất kết nối vẫn vào lại trận
       if (isChampion) {
         try {
           sessionStorage.setItem('petaria-arena-battle-return', JSON.stringify(meta));
         } catch {
           /* ignore */
         }
-        const leadPet = {
-          ...lead,
-          current_hp: lead.current_hp ?? lead.final_stats?.hp ?? lead.hp,
-          current_def_dmg: 0,
-        };
-        navigate('/battle/match', {
-          state: {
-            playerPet: leadPet,
-            enemyPet: {
-              ...enemy,
+        const res = await fetch(`${API_BASE_URL}/api/arena/match/squad/start`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${user.token}`,
+          },
+          body: JSON.stringify({
+            battleMode,
+            battleSource: 'champion',
+            returnPath: returnPath || '/battle/champion',
+            formationId,
+            enemyFormationId,
+            playerSquad: playerTeam,
+            enemySquad: enemyTeam,
+            enemy: {
+              id: enemy.id,
               name: enemy.name,
               image: enemy.image,
               level: enemy.level,
               isChampionNpc: true,
-              current_hp: enemyTeam.reduce((s, u) => s + (Number(u.current_hp) || 0), 0),
-              final_stats: {
-                hp: enemyTeam.reduce((s, u) => s + (Number(u.final_stats?.hp) || 0), 0),
-                str: 1,
-                def: 1,
-                spd: enemyTeam.reduce((s, u) => s + (Number(u.spd) || 0), 0),
-              },
-              current_def_dmg: 0,
+              championNpcId: enemy.championNpcId,
             },
-            useRedisMatch: false,
-            battleSource: 'champion',
-            returnPath: returnPath || '/battle/champion',
-            battleMode,
-            formationId,
-            enemyFormationId,
-            playerTeam,
-            enemyTeam,
-            formationPetIds,
-          },
+          }),
         });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.squad) {
+          navigate('/battle/match', { state: resumeMatchState(data) });
+          return;
+        }
+        if (res.status === 400 && data.code === 'ACTIVE_MATCH' && data.match) {
+          navigate('/battle/match', { state: resumeMatchState(data.match) });
+          return;
+        }
+        setErrorModal(data.message || 'Không thể bắt đầu trận đấu.');
         return;
       }
 

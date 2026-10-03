@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../../UserContext';
 import TemplatePage from '../template/TemplatePage';
 import GameDialogModal from '../ui/GameDialogModal';
+import { resumeMatchState } from './resumeArenaMatch';
 import '../css/ArenaPage.css';
 
 function ArenaPage() {
@@ -110,30 +111,21 @@ function ArenaPage() {
 
   const goToResumeBattle = () => {
     if (!resumeMatch?.player) return;
+    const next = resumeMatchState(resumeMatch);
+    if (!next) return;
     try {
       sessionStorage.setItem(
         'petaria-arena-battle-return',
         JSON.stringify({
-          battleSource: resumeMatch.battleSource || 'arena',
-          returnPath: resumeMatch.returnPath || '/battle/arena',
-          huntingMapId: resumeMatch.huntingMapId || null,
+          battleSource: next.battleSource,
+          returnPath: next.returnPath,
+          huntingMapId: next.huntingMapId || null,
         })
       );
     } catch {
       /* ignore */
     }
-    navigate('/battle/match', {
-      state: {
-        matchState: resumeMatch,
-        playerPet: resumeMatch.player,
-        enemyPet: resumeMatch.enemy,
-        useRedisMatch: true,
-        battleSource: resumeMatch.battleSource || 'arena',
-        returnPath: resumeMatch.returnPath || '/battle/arena',
-        fromHunting: resumeMatch.battleSource === 'hunting',
-        battleMode: resumeMatch.battleMode || '1v1',
-      },
-    });
+    navigate('/battle/match', { state: next });
   };
 
   return (
