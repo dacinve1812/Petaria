@@ -60,6 +60,18 @@ function WorldMapPage() {
     }
   };
 
+  // useEffect(() => {
+  //   const root = document.documentElement;
+  //   const prevRoot = root.style.overscrollBehaviorX;
+  //   const prevBody = document.body.style.overscrollBehaviorX;
+  //   root.style.overscrollBehaviorX = 'none';
+  //   document.body.style.overscrollBehaviorX = 'none';
+  //   return () => {
+  //     root.style.overscrollBehaviorX = prevRoot;
+  //     document.body.style.overscrollBehaviorX = prevBody;
+  //   };
+  // }, []);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;

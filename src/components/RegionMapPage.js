@@ -39,8 +39,6 @@ function RegionMapPage() {
   );
 
   const [loadedNaturalSize, setLoadedNaturalSize] = useState({ width: 0, height: 0 });
-  const [renderWidth, setRenderWidth] = useState(780);
-  const [slotHeight, setSlotHeight] = useState(520);
 
   const naturalWidth =
     Number(regionConfig?.naturalSize?.width) || Number(loadedNaturalSize.width) || 2100;
@@ -49,7 +47,6 @@ function RegionMapPage() {
     Number(regionConfig?.naturalSize?.height) ||
     Number(loadedNaturalSize.height) ||
     1399;
-  const mapAspect = naturalWidth / naturalHeight;
 
   const mapButtons = useMemo(() => buildButtons(regionConfig), [regionConfig]);
   const areaRects = useMemo(
@@ -59,48 +56,19 @@ function RegionMapPage() {
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
-
-    const recalcLayout = () => {
-      const vv = window.visualViewport;
-      const layoutHeight = vv && vv.height ? vv.height : window.innerHeight;
-      const rect = el.getBoundingClientRect();
-      const measured = Math.max(220, Math.floor(layoutHeight - rect.top - 2));
-      const REGION_LIKE_TOP = 200;
-      const synthetic = Math.max(220, Math.floor(layoutHeight - REGION_LIKE_TOP - 2));
-      const available = Math.max(measured, synthetic);
-
-      const isNarrow = window.matchMedia('(max-width: 499px)').matches;
-      let nextW = Math.max(360, Math.round(available * mapAspect));
-      if (isNarrow) {
-        nextW = Math.max(280, Math.round(available * mapAspect));
-      }
-
-      setRenderWidth(nextW);
-      setSlotHeight(Math.round(nextW / mapAspect));
-
-      window.requestAnimationFrame(() => {
-        const isMobile = window.matchMedia('(max-width: 900px)').matches;
-        if (isMobile) {
-          const centerX = Math.max(0, Math.round((el.scrollWidth - el.clientWidth) / 2));
-          el.scrollLeft = centerX;
-        } else {
-          el.scrollLeft = 0;
-        }
-      });
+    if (!el || !regionConfig) return undefined;
+    const narrow = window.matchMedia('(max-width: 900px)').matches;
+    if (!narrow) {
+      el.scrollLeft = 0;
+      return undefined;
+    }
+    const center = () => {
+      el.scrollLeft = Math.max(0, Math.round((el.scrollWidth - el.clientWidth) / 2));
     };
-
-    recalcLayout();
-    window.addEventListener('resize', recalcLayout);
-    window.addEventListener('orientationchange', recalcLayout);
-    const vv = window.visualViewport;
-    if (vv) vv.addEventListener('resize', recalcLayout);
-    return () => {
-      window.removeEventListener('resize', recalcLayout);
-      window.removeEventListener('orientationchange', recalcLayout);
-      if (vv) vv.removeEventListener('resize', recalcLayout);
-    };
-  }, [mapAspect]);
+    center();
+    const frame = window.requestAnimationFrame(center);
+    return () => window.cancelAnimationFrame(frame);
+  }, [regionId, regionConfig]);
 
   if (!regionConfig) {
     return (
@@ -147,7 +115,6 @@ function RegionMapPage() {
     <div
       className="regionmap-page"
       style={{
-        '--regionmap-render-width': `${renderWidth}px`,
         '--regionmap-natural-w': naturalWidth,
         '--regionmap-natural-h': naturalHeight,
       }}
@@ -157,10 +124,7 @@ function RegionMapPage() {
         <p>{regionConfig.description || 'Khu vuc dang duoc cap nhat noi dung.'}</p>
       </div>
 
-      <div
-        className="regionmap-map-slot regionmap-mobile-slot"
-        style={{ '--regionmap-slot-height': `${slotHeight}px` }}
-      >
+      <div className="regionmap-map-slot regionmap-mobile-slot">
         <div ref={scrollRef} className="regionmap-scroll-x">
           <div className="regionmap-canvas-wrap">
             <img

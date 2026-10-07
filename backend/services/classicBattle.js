@@ -16,7 +16,7 @@ function validateAction(state, body) {
   return null;
 }
 
-function createClassicBattle({ db, calculateLoot, calculateBattleExpGain, titleService }) {
+function createClassicBattle({ db, calculateLoot, calculateBattleExpGain, titleService, recordArenaTrainingUnlock }) {
   // MySQL advisory locks serialize all processes, and are released on disconnect.
   function serialize(handler) {
     return async (req,res) => {
@@ -64,6 +64,13 @@ function createClassicBattle({ db, calculateLoot, calculateBattleExpGain, titleS
       let level = Number(pet.level);
       while (expTable[level + 1] && newExp >= expTable[level + 1]) level++;
       let hp = winner === 'enemy' ? 0 : Math.max(0, Math.floor(state.player.current_hp || 0));
+      if (win && state.battleSource === 'arena' && typeof recordArenaTrainingUnlock === 'function') {
+        const remainHp = Math.max(0, Math.floor(Number(state.player && state.player.current_hp) || 0));
+        const maxHp = Math.max(0, Math.floor(Number(state.player && state.player.final_stats && state.player.final_stats.hp) || Number(pet.hp) || 0));
+        if (maxHp > 0 && remainHp / maxHp > 0.5) {
+          await recordArenaTrainingUnlock(conn, pet.id, state.boss_id);
+        }
+      }
       await conn.query(`UPDATE pets SET current_exp=?,level=?,current_hp=?,battles_won=COALESCE(battles_won,0)+?,battles_lost=COALESCE(battles_lost,0)+? WHERE id=?`, [newExp, level, hp, win ? 1 : 0, win ? 0 : 1, pet.id]);
       let stats = state.player.final_stats;
       if (level > pet.level) stats = (await refreshPetIntrinsicStats(conn, pet.id)).merged;

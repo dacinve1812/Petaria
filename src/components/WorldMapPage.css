@@ -1,7 +1,10 @@
 .worldmap-page {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   color: #d9e4ff;
   height: var(--worldmap-view-height, 60dvh);
+  overflow-x: clip;
 }
 
 .worldmap-header {
@@ -33,12 +36,16 @@
 
 .worldmap-scroll-x {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   height: 100%;
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior-x: none;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  touch-action: pan-x;
 }
 
 .worldmap-scroll-x::-webkit-scrollbar {
@@ -67,7 +74,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  touch-action: pan-x pan-y;
+  touch-action: pan-x;
 }
 
 .worldmap-area {
@@ -78,7 +85,7 @@
   stroke-linejoin: round;
   stroke-linecap: round;
   transition: fill 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease, filter 0.2s ease;
-  touch-action: pan-x pan-y;
+  touch-action: pan-x;
 }
 
 .worldmap-area:hover,

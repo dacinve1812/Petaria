@@ -297,6 +297,43 @@ div {
   justify-content: center;
 }
 
+.sgw-nav-account {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  line-height: 1.15;
+}
+
+.sgw-nav-hello-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sgw-nav-currency {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: #ddd;
+  font-weight: 400;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.sgw-nav-currency .user-info-currency-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.sgw-nav-currency img {
+  width: 12px;
+  height: 12px;
+  object-fit: contain;
+}
+
 .sgw-dropdown-trigger {
   display: flex;
   align-items: center;

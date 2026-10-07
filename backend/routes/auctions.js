@@ -6,6 +6,7 @@ const titleService = require('../titleService');
 const { appendAuctionAdminLog } = require('../services/auctionAdminLog');
 const { buildAuctionMail } = require('../services/auctionMailTemplateService');
 const { ensureAuctionMultiAssetSchema } = require('../services/auctionMultiAssetSchema');
+const { TRAINING_LOCK_MESSAGE } = require('../services/trainingCamp');
 
 const MAIL_SENDER_NAME = 'Hệ thống';
 const MAIL_EXPIRE_DAYS = 30;
@@ -782,12 +783,16 @@ router.post('/', auth, async (req, res) => {
       }
       assetRefId = pid;
       const [petRows] = await conn.query(
-        'SELECT id FROM pets WHERE id = ? AND owner_id = ? AND (is_listed = 0 OR is_listed IS NULL)',
+        'SELECT id, activity_status FROM pets WHERE id = ? AND owner_id = ? AND (is_listed = 0 OR is_listed IS NULL)',
         [assetRefId, seller_id]
       );
       if (!petRows.length) {
         await conn.rollback();
         return res.status(400).json({ message: 'Pet not found, not yours, or already listed' });
+      }
+      if (String(petRows[0].activity_status || '') === 'training') {
+        await conn.rollback();
+        return res.status(400).json({ message: TRAINING_LOCK_MESSAGE });
       }
       const [eqRows] = await conn.query(
         `SELECT

@@ -710,7 +710,14 @@ app.use(async(req,res,next)=>{
 });
 app.use(require('./routes/classicAuth').createClassicAuth({db,getUserIdFromToken}));
 const { createClassicBattle, validateAction } = require('./services/classicBattle');
-const classicBattle = createClassicBattle({db,calculateLoot,calculateBattleExpGain,titleService});
+const trainingCampService = require('./services/trainingCamp');
+const classicBattle = createClassicBattle({
+  db,
+  calculateLoot,
+  calculateBattleExpGain,
+  titleService,
+  recordArenaTrainingUnlock: trainingCampService.recordArenaTrainingUnlock,
+});
 const classicAuth = async (req,res,next) => {
   const id=getUserIdFromToken(req);
   if (!id) return res.status(401).json({message:'Vui lòng đăng nhập.'});
@@ -1131,6 +1138,11 @@ const auctionRoutes = require('./routes/auctions');
 app.use('/api/auctions', auctionRoutes);
 const itemHuntRoutes = require('./routes/itemHunt');
 app.use('/api/tasks/item-hunt', itemHuntRoutes);
+app.use('/api/training-camp', classicAuth, require('./routes/trainingCamp').createTrainingCampRouter({
+  db,
+  getRedis,
+  matchPrefix: REDIS_MATCH_PREFIX,
+}));
 const { ensureAuctionMultiAssetSchema } = require('./services/auctionMultiAssetSchema');
 ensureAuctionMultiAssetSchema().catch((err) =>
   console.warn('ensureAuctionMultiAssetSchema:', err && err.message)
@@ -8349,6 +8361,10 @@ app.post('/api/pets/:uuid/evolve', async (req, res) => {
       return res.status(404).json({ message: 'Pet not found' });
     }
     const pet = pRows[0];
+    if (String(pet.activity_status || '') === 'training') {
+      await conn.rollback();
+      return res.status(400).json({ message: trainingCampService.TRAINING_LOCK_MESSAGE });
+    }
     const petId = pet.id;
     const allowed = parseSpeciesEvolveTo(pet.evolve_to);
     if (!allowed.includes(targetSpeciesId)) {
@@ -8495,12 +8511,16 @@ app.delete('/api/pets/:uuid/release', async (req, res) => {
     await conn.beginTransaction();
 
     const [rows] = await conn.query(
-      'SELECT id FROM pets WHERE uuid = ? AND owner_id = ? LIMIT 1',
+      'SELECT id, activity_status FROM pets WHERE uuid = ? AND owner_id = ? LIMIT 1',
       [uuid, userId]
     );
     if (!rows.length) {
       await conn.rollback();
       return res.status(404).json({ message: 'Pet not found' });
+    }
+    if (String(rows[0].activity_status || '') === 'training') {
+      await conn.rollback();
+      return res.status(400).json({ message: trainingCampService.TRAINING_LOCK_MESSAGE });
     }
     const petId = rows[0].id;
 
@@ -8567,8 +8587,12 @@ app.post('/api/pets/release-all', async (req, res) => {
     conn = await db.getConnection();
     await conn.beginTransaction();
 
-    const [petRows] = await conn.query('SELECT id FROM pets WHERE owner_id = ?', [userId]);
+    const [petRows] = await conn.query('SELECT id, activity_status FROM pets WHERE owner_id = ?', [userId]);
     const ids = (petRows || []).map((p) => p.id).filter((id) => id != null);
+    if ((petRows || []).some((pet) => String(pet.activity_status || '') === 'training')) {
+      await conn.rollback();
+      return res.status(400).json({ message: trainingCampService.TRAINING_LOCK_MESSAGE });
+    }
     if (ids.length === 0) {
       await conn.query('UPDATE users SET hasPet = FALSE WHERE id = ?', [userId]);
       await conn.commit();
@@ -11184,6 +11208,10 @@ app.post('/api/pets/:petId/equip-item', async (req, res) => {
       await conn.rollback();
       return res.status(400).json({ message: 'Thú cưng quá mệt mỏi (HP = 0). Hãy cho ăn/nghỉ ngơi để hồi phục trước khi trang bị.' });
     }
+    if (String(petRows[0].activity_status || '') === 'training') {
+      await conn.rollback();
+      return res.status(400).json({ message: trainingCampService.TRAINING_LOCK_MESSAGE });
+    }
 
     // 3. Kiểm tra số item đã được gắn (kể cả broken — broken vẫn chiếm slot đến khi gỡ)
     const [equippedCount] = await conn.query(
@@ -11292,6 +11320,13 @@ app.post('/api/inventory/:id/unequip', async (req, res) => {
     }
 
     const petId = rows[0].equipped_pet_id;
+    if (petId) {
+      const [[trainingPet]] = await conn.query('SELECT activity_status FROM pets WHERE id = ?', [petId]);
+      if (trainingPet && String(trainingPet.activity_status || '') === 'training') {
+        await conn.rollback();
+        return res.status(400).json({ message: trainingCampService.TRAINING_LOCK_MESSAGE });
+      }
+    }
 
     // Cập nhật trạng thái: tháo khỏi pet
     await conn.query(
@@ -12744,6 +12779,9 @@ app.post('/api/arena/match/start', classicAuth, classicBattle.serialize(async (r
     if (currentHp <= 0) {
       return res.status(400).json({ message: 'Thú cưng quá mệt mỏi, hãy cho ăn/nghỉ ngơi để hồi phục.' });
     }
+    if (String(pet.activity_status || '') === 'training') {
+      return res.status(400).json({ message: trainingCampService.TRAINING_LOCK_MESSAGE });
+    }
 
     const key = REDIS_MATCH_PREFIX + userId;
     const existing = await redis.get(key);
@@ -12979,13 +13017,16 @@ app.post('/api/arena/match/squad/start', classicAuth, classicBattle.serialize(as
     await redis.del(key + ':closed');
 
     const [rows] = await db.query(
-      `SELECT id, name, level, current_hp, max_hp, hp, final_stats FROM pets WHERE owner_id = ? AND id IN (${ids.map(() => '?').join(',')})`,
+      `SELECT id, name, level, current_hp, max_hp, hp, final_stats, activity_status FROM pets WHERE owner_id = ? AND id IN (${ids.map(() => '?').join(',')})`,
       [userId, ...ids]
     );
     if (rows.length !== ids.length) return res.status(403).json({ message: 'Pet không thuộc về bạn.' });
     const byId = new Map(rows.map((row) => [Number(row.id), row]));
     for (const unit of playerSquad) {
       const row = byId.get(Number(unit.id));
+      if (String(row.activity_status || '') === 'training') {
+        return res.status(400).json({ message: `${row.name || 'Pet'} đang huấn luyện tại Trại huấn luyện.` });
+      }
       const capHp = battleHpCap(row);
       const dbHp = row.current_hp != null ? Number(row.current_hp) : capHp;
       if (!Number.isFinite(dbHp) || dbHp <= 0) {
@@ -13363,16 +13404,9 @@ app.post('/api/arena/simulate-full', (req, res) => {
 });
 
 
-function randomIntInclusive(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-// EXP battle mới:
 // - Boss / quái: Exp = Level enemy * R, với R random 300..500
 function calculateBattleExpGain(enemyLevel) {
-  const lvl = Math.max(1, parseInt(enemyLevel, 10) || 1);
-  const r = randomIntInclusive(300, 500);
-  return lvl * r;
+  return require('./services/trainingCampLogic').calculateArenaVictoryExp(enemyLevel);
 }
 
 // ✅ API cộng EXP khi thắng trận
@@ -14332,10 +14366,14 @@ app.post('/api/mails/gift', async (req, res) => {
         await conn.rollback();
         return res.status(400).json({ error: 'pet_id không hợp lệ' });
       }
-      const [pRows] = await conn.query(`SELECT id, owner_id, level FROM pets WHERE id = ? FOR UPDATE`, [pid]);
+      const [pRows] = await conn.query(`SELECT id, owner_id, level, activity_status FROM pets WHERE id = ? FOR UPDATE`, [pid]);
       if (!pRows.length || Number(pRows[0].owner_id) !== senderId) {
         await conn.rollback();
         return res.status(400).json({ error: 'Pet không thuộc về bạn' });
+      }
+      if (String(pRows[0].activity_status || '') === 'training') {
+        await conn.rollback();
+        return res.status(400).json({ error: trainingCampService.TRAINING_LOCK_MESSAGE });
       }
       if (Number(pRows[0].level) < 20) {
         await conn.rollback();
@@ -14831,11 +14869,14 @@ app.post('/api/spirits/equip', async (req, res) => {
   try {
     // Kiểm tra xem pet có phải của user không
     const [petCheck] = await db.query(`
-      SELECT owner_id FROM pets WHERE id = ?
+      SELECT owner_id, activity_status FROM pets WHERE id = ?
     `, [petId]);
     
     if (petCheck.length === 0) {
       return res.status(404).json({ error: 'Pet không tồn tại' });
+    }
+    if (String(petCheck[0].activity_status || '') === 'training') {
+      return res.status(400).json({ error: trainingCampService.TRAINING_LOCK_MESSAGE });
     }
 
     // Kiểm tra xem user spirit có tồn tại và thuộc về user không
@@ -14899,6 +14940,12 @@ app.post('/api/spirits/unequip', async (req, res) => {
     }
 
     const petId = userSpiritCheck[0].equipped_pet_id;
+    if (petId != null) {
+      const [[trainingPet]] = await db.query('SELECT activity_status FROM pets WHERE id = ?', [petId]);
+      if (trainingPet && String(trainingPet.activity_status || '') === 'training') {
+        return res.status(400).json({ error: trainingCampService.TRAINING_LOCK_MESSAGE });
+      }
+    }
 
     if (petId != null) {
       const c = await db.getConnection();
@@ -15439,6 +15486,9 @@ app.post('/api/pets/:petId/use-item', async (req, res) => {
     const [petRows] = await db.query('SELECT * FROM pets WHERE id = ? AND owner_id = ?', [petId, userId]);
     if (!petRows.length) {
       return res.status(404).json({ message: 'Pet not found' });
+    }
+    if (String(petRows[0].activity_status || '') === 'training') {
+      return res.status(400).json({ message: trainingCampService.TRAINING_LOCK_MESSAGE });
     }
 
     // 2. Kiểm tra inventory có item không
@@ -16912,7 +16962,13 @@ app.post('/api/restaurant/feed', async (req, res) => {
     await huntingCatch.loadCatchConfig(db);
     console.log('[db] hunting_catch_config loaded');
   } catch (e) {
-    console.error('loadCatchConfig on startup:', e);
+    console.error('[db] hunting_catch_config:', e && e.message);
+  }
+  try {
+    await trainingCampService.ensureTrainingCampSchema(db);
+    console.log('[db] training camp schema ready');
+  } catch (e) {
+    console.error('[db] training camp schema:', e && e.message);
   }
   httpServer.listen(port, () => {
     console.log(`Server is running on port ${port}`);

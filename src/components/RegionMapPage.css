@@ -1,5 +1,8 @@
 .regionmap-page {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
   background-color: white;
 }
 
@@ -20,10 +23,21 @@
   font-size: var(--font-md);
 }
 
+.regionmap-map-slot {
+  /* 100px = hai thanh nav cố định. 22rem = title + khoảng cách + header vùng.
+     svh không đổi khi thanh địa chỉ Safari ẩn/hiện. */
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: calc(100svh - 100px - 8rem);
+  min-height: 240px;
+}
+
 .regionmap-scroll-x {
   width: 100%;
-  height: auto;
-  min-height: 0;
+  max-width: 100%;
+  min-width: 0;
+  height: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
@@ -37,10 +51,9 @@
 
 .regionmap-canvas-wrap {
   position: relative;
-  width: var(--regionmap-render-width, 100%);
-  min-width: var(--regionmap-render-width, 100%);
-  height: auto;
-  aspect-ratio: var(--regionmap-natural-w, 1) / var(--regionmap-natural-h, 1);
+  height: 100%;
+  width: calc((100svh - 100px - 8rem) * var(--regionmap-natural-w, 1536) / var(--regionmap-natural-h, 1024));
+  min-width: calc((100svh - 100px - 8rem) * var(--regionmap-natural-w, 1536) / var(--regionmap-natural-h, 1024));
   margin: 0 auto;
   overflow: visible;
   box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.5);
@@ -138,19 +151,4 @@
 .regionmap-not-found p {
   margin: 0 0 12px;
   color: #aebede;
-}
-
-/* Mobile: khung cố định theo chiều cao → scroll ngang, không thu nhỏ ảnh theo width viewport */
-@media (max-width: 499px) {
-  .regionmap-mobile-slot {
-    height: var(--regionmap-slot-height, min(65dvh, 520px));
-    min-height: 240px;
-    box-sizing: border-box;
-  }
-
-  .regionmap-mobile-slot .regionmap-scroll-x {
-    height: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
 }

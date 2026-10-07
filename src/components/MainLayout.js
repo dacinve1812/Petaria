@@ -139,6 +139,9 @@ function MainLayout() {
             if (mode === '5v5') return 'THÁCH ĐẤU CHAMPION';
             return 'CHAMPION CHALLENGE';
         }
+        if (pathname.startsWith('/battle/training')) {
+            return 'TRẠI HUẤN LUYỆN';
+        }
         if (pathname.startsWith('/battle')) {
             return 'ĐẤU TRƯỜNG';
         }
@@ -194,7 +197,11 @@ function MainLayout() {
         <GameCenterAlertsProvider>
        
         {/* Top Navigation Bar */}
-        <TopNavigation className={isScrolledDown ? 'hidden' : ''} onOpenSidebar={() => setSidebarOpen(true)} />
+        <TopNavigation
+          className={isScrolledDown ? 'hidden' : ''}
+          sidebarOpen={sidebarOpen}
+          onOpenSidebar={() => setSidebarOpen(true)}
+        />
         
         {/* Second Navigation Menu */}
         <NavigationMenu className={isScrolledDown ? 'hidden' : ''} />

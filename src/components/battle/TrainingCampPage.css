@@ -1,0 +1,168 @@
+.tc-page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 16px 16px 40px;
+  color: #222;
+}
+
+.tc-head {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.tc-head p,
+.tc-hint,
+.tc-muted {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.tc-back,
+.tc-text-btn,
+.tc-primary {
+  font-family: inherit;
+}
+
+.tc-back,
+.tc-text-btn {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.tc-text-btn {
+  margin-top: 8px;
+}
+
+.tc-error,
+.tc-notice {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.tc-error {
+  background: #fff1f2;
+  color: #9f1239;
+}
+
+.tc-notice {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.tc-slots {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tc-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px;
+}
+
+.tc-card h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.tc-setup-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.tc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.tc-field select {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-weight: 500;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #222;
+}
+
+.tc-card-draft .tc-setup-head .tc-text-btn {
+  margin-top: 0;
+}
+
+.tc-pair {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+  justify-content: space-around;
+}
+
+.tc-pair figure {
+  margin: 0;
+  text-align: center;
+  font-size: 0.82rem;
+}
+
+.tc-pair img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+
+.tc-bar {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 99px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.tc-bar span {
+  display: block;
+  height: 100%;
+  background: #4b75a2;
+}
+
+.tc-primary {
+  margin-top: 10px;
+  border: 1px solid #4b75a2;
+  background: #4b75a2;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tc-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 720px) {
+  .tc-slots {
+    grid-template-columns: 1fr;
+  }
+
+  .tc-head {
+    flex-direction: column;
+  }
+}

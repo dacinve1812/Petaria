@@ -29,6 +29,7 @@ import ArenaBattlePage from './components/battle/ArenaBattlePage';
 import ArenaFieldConfigPage from './components/battle/ArenaFieldConfigPage';
 import BattlePetSelectPage from './components/battle/BattlePetSelectPage';
 import ChampionChallengePage from './components/battle/ChampionChallengePage';
+import TrainingCampPage from './components/battle/TrainingCampPage';
 import AdminPvePage from './components/admin/AdminPvePage';
 
 import AdminSpiritEditor from './components/admin/AdminSpiritEditor';
@@ -167,6 +168,7 @@ const router = createBrowserRouter([
       { path: 'battle', element: <PveSelectPage /> },
       { path: 'battle/arena', element: <ArenaPage /> },
       { path: 'battle/champion', element: <ChampionChallengePage /> },
+      { path: 'battle/training', element: <TrainingCampPage /> },
       { path: 'battle/select', element: <Navigate to="/battle/arena/select" replace /> },
       { path: 'battle/arena/select', element: <BattlePetSelectPage /> },
       { path: 'battle/match', element: <ArenaBattlePage /> },

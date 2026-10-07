@@ -55,7 +55,7 @@ function PveSelectPage() {
             <p>Thách Đấu Elite 3vs3 · Thách Đấu Champion 5vs5</p>
           </div>
 
-          <div className="battle-mode-card" onClick={() => alert('Training Camp - Coming soon')}>
+          <div className="battle-mode-card" onClick={() => navigate('/battle/training')}>
             <img src="/images/icons/training_icon.png" alt="Training" />
             <h3>Training Camp</h3>
             <p>Gửi pet nhận EXP theo thời gian</p>
