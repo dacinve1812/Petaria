@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useRegionMapsConfig } from '../hooks/useRegionMapsConfig';
 import { AlertExclamationBadge } from './ui/AlertExclamationBadge';
 import { useGameCenterAlerts } from './entertainment/GameCenterAlertsContext';
+import useIsMobile from '../hooks/useIsMobile';
 import './RegionMapPage.css';
 
 function buildButtons(mapConfig) {
@@ -37,27 +38,42 @@ function RegionMapPage() {
     () => (regions || []).find((item) => item.id === regionId) || null,
     [regionId, regions]
   );
+  const isMobile = useIsMobile(600);
+  const displayConfig = useMemo(() => {
+    if (!regionConfig) return null;
+    const imageSrc = String(regionConfig.imageSrc || '').replace(/zone-(\d+)\.png/i, 'zone_$1.png');
+    const base = imageSrc === regionConfig.imageSrc ? regionConfig : { ...regionConfig, imageSrc };
+    const mobile = base.mobile;
+    if (!isMobile || !mobile?.imageSrc) return base;
+    return {
+      ...regionConfig,
+      imageSrc: mobile.imageSrc,
+      naturalSize: mobile.naturalSize || regionConfig.naturalSize,
+      originalCoordinates: Array.isArray(mobile.originalCoordinates) ? mobile.originalCoordinates : [],
+      mapButtons: Array.isArray(mobile.mapButtons) ? mobile.mapButtons : [],
+    };
+  }, [isMobile, regionConfig]);
 
   const [loadedNaturalSize, setLoadedNaturalSize] = useState({ width: 0, height: 0 });
 
   const naturalWidth =
-    Number(regionConfig?.naturalSize?.width) || Number(loadedNaturalSize.width) || 2100;
+    Number(displayConfig?.naturalSize?.width) || Number(loadedNaturalSize.width) || 2100;
   const naturalHeight =
-    Number(regionConfig?.originalHeight) ||
-    Number(regionConfig?.naturalSize?.height) ||
+    Number(displayConfig?.naturalSize?.height) ||
+    Number(displayConfig?.originalHeight) ||
     Number(loadedNaturalSize.height) ||
     1399;
 
-  const mapButtons = useMemo(() => buildButtons(regionConfig), [regionConfig]);
+  const mapButtons = useMemo(() => buildButtons(displayConfig), [displayConfig]);
   const areaRects = useMemo(
-    () => (Array.isArray(regionConfig?.originalCoordinates) ? regionConfig.originalCoordinates : []),
-    [regionConfig]
+    () => (Array.isArray(displayConfig?.originalCoordinates) ? displayConfig.originalCoordinates : []),
+    [displayConfig]
   );
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !regionConfig) return undefined;
-    const narrow = window.matchMedia('(max-width: 900px)').matches;
+    const narrow = window.matchMedia('(max-width: 599px)').matches;
     if (!narrow) {
       el.scrollLeft = 0;
       return undefined;
@@ -113,7 +129,7 @@ function RegionMapPage() {
 
   return (
     <div
-      className="regionmap-page"
+      className={isMobile ? 'regionmap-page regionmap-page--mobile' : 'regionmap-page'}
       style={{
         '--regionmap-natural-w': naturalWidth,
         '--regionmap-natural-h': naturalHeight,
@@ -130,7 +146,7 @@ function RegionMapPage() {
             <img
               ref={imageRef}
               className="regionmap-base-image"
-              src={regionConfig.imageSrc}
+              src={displayConfig.imageSrc}
               alt={regionConfig.name}
               draggable={false}
               onLoad={() => {

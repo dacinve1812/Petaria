@@ -6,13 +6,17 @@ import { useGameCenterAlerts } from './entertainment/GameCenterAlertsContext';
 import './HomePage.css';
 import './RegionMapPage.css';
 import castleMapPreset from '../config/homepage-castle-map.json';
+import useIsMobile from '../hooks/useIsMobile';
 
-function buildMapButtons() {
-  const originalCoordinates = Array.isArray(castleMapPreset.originalCoordinates)
-    ? castleMapPreset.originalCoordinates
-    : [];
-  if (Array.isArray(castleMapPreset.mapButtons) && castleMapPreset.mapButtons.length) {
-    return castleMapPreset.mapButtons;
+function isCastleNight(date = new Date()) {
+  const hour = date.getHours();
+  return hour >= 18 || hour < 6;
+}
+
+function buildMapButtons(coordinates, buttons) {
+  const originalCoordinates = Array.isArray(coordinates) ? coordinates : [];
+  if (Array.isArray(buttons) && buttons.length) {
+    return buttons;
   }
   return originalCoordinates.map((area) => ({
     id: area.id,
@@ -32,21 +36,40 @@ function HomePage() {
   const [renderWidth, setRenderWidth] = useState(780);
   const [slotHeight, setSlotHeight] = useState(520);
 
-  const mapImageSrc = castleMapPreset.imageSrc || '/castle2.png';
+  const isMobile = useIsMobile(600);
+  const [isNight, setIsNight] = useState(() => isCastleNight());
+  const mobilePreset = castleMapPreset.mobile || {};
+  const mobileImageSrc = isNight
+    ? (mobilePreset.nightImageSrc || '/castle2_night_mobile.png')
+    : (mobilePreset.imageSrc || '/castle2_mobile.png');
+  const mapImageSrc = isMobile
+    ? mobileImageSrc
+    : (castleMapPreset.imageSrc || '/castle2.png');
 
   const originalCoordinates = useMemo(
-    () => (Array.isArray(castleMapPreset.originalCoordinates) ? castleMapPreset.originalCoordinates : []),
-    []
+    () => {
+      const source = isMobile ? mobilePreset.originalCoordinates : castleMapPreset.originalCoordinates;
+      return Array.isArray(source) ? source : [];
+    },
+    [isMobile, mobilePreset.originalCoordinates]
   );
-  const mapButtons = useMemo(() => buildMapButtons(), []);
+  const mapButtons = useMemo(
+    () => buildMapButtons(
+      isMobile ? mobilePreset.originalCoordinates : castleMapPreset.originalCoordinates,
+      isMobile ? mobilePreset.mapButtons : castleMapPreset.mapButtons
+    ),
+    [isMobile, mobilePreset.originalCoordinates, mobilePreset.mapButtons]
+  );
 
-  const naturalWidth =
-    Number(castleMapPreset?.naturalSize?.width) || Number(loadedNaturalSize.width) || 1632;
-  const naturalHeight =
-    Number(castleMapPreset?.naturalSize?.height) ||
-    Number(castleMapPreset.originalHeight) ||
-    Number(loadedNaturalSize.height) ||
-    1200;
+  const naturalWidth = isMobile
+    ? (Number(mobilePreset.naturalSize?.width) || Number(loadedNaturalSize.width) || 1087)
+    : (Number(castleMapPreset?.naturalSize?.width) || Number(loadedNaturalSize.width) || 1632);
+  const naturalHeight = isMobile
+    ? (Number(mobilePreset.naturalSize?.height) || Number(loadedNaturalSize.height) || 1447)
+    : (Number(castleMapPreset?.naturalSize?.height) ||
+      Number(castleMapPreset.originalHeight) ||
+      Number(loadedNaturalSize.height) ||
+      1200);
   const mapAspect = naturalWidth / naturalHeight;
 
   useEffect(() => {
@@ -84,13 +107,8 @@ function HomePage() {
       setSlotHeight(Math.round(nextW / mapAspect));
 
       window.requestAnimationFrame(() => {
-        const isMobile = window.matchMedia('(max-width: 900px)').matches;
-        if (isMobile) {
-          const centerX = Math.max(0, Math.round((el.scrollWidth - el.clientWidth) / 2));
-          el.scrollLeft = centerX;
-        } else {
-          el.scrollLeft = 0;
-        }
+        const narrow = window.matchMedia('(max-width: 599px)').matches;
+        if (!narrow) el.scrollLeft = 0;
       });
     };
 
@@ -105,6 +123,25 @@ function HomePage() {
       if (visualVp) visualVp.removeEventListener('resize', recalcLayout);
     };
   }, [mapAspect]);
+
+  useEffect(() => {
+    if (!isMobile) return undefined;
+    const el = mapScrollRef.current;
+    if (!el) return undefined;
+    const center = () => {
+      el.scrollLeft = Math.max(0, Math.round((el.scrollWidth - el.clientWidth) / 2));
+    };
+    center();
+    const frame = window.requestAnimationFrame(center);
+    return () => window.cancelAnimationFrame(frame);
+  }, [isMobile, naturalWidth, naturalHeight]);
+
+  useEffect(() => {
+    const update = () => setIsNight(isCastleNight());
+    update();
+    const timer = window.setInterval(update, 60000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -130,7 +167,7 @@ function HomePage() {
         <div className="kinh-thanh-intro">
           <h2 className="kinh-thanh-title">KINH THÀNH PETARIA</h2>
           <p className="kinh-thanh-desc">
-            Chào mừng các bạn đến với Kinh thành của Vương quốc Petaria. Bạn sẽ tiến hành hầu hết các hoạt động trên Petaria tại đây, trong Kinh thành có các địa điểm như sau: Nhà (Bảng điều khiển cá nhân), Trung tâm mua sắm, Đấu giá, Sông Healia, Ngân hàng, Nhà hàng, Viện mồ côi, Bưu điện, Trại huấn luyện, Bảng quảng cáo, Phòng chat, Diễn đàn và các liên kết đến: Trung tâm giải trí, Bản đồ Thế giới...
+            Chào mừng các bạn đến với Kinh thành của Vương quốc Petaria. Bạn sẽ tiến hành hầu hết các hoạt động trên Petaria tại đây, trong Kinh thành có các địa điểm như sau: Nhà Của Tôi, Trung tâm mua sắm, Đấu giá, Sông Healia, Ngân hàng, Nhà hàng, Viện mồ côi, Bưu điện, Diễn đàn và các liên kết đến: Trung tâm giải trí, Bản đồ Thế giới...
           </p>
         </div>
         <PetNotice />

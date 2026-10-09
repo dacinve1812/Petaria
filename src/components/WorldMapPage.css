@@ -88,10 +88,55 @@
   touch-action: pan-x;
 }
 
+@media (max-width: 599px) {
+  .worldmap-page.worldmap-page--mobile {
+    display: flex;
+    flex-direction: column;
+    height: calc(100svh - 100px - 8rem);
+    min-height: 240px;
+    overflow: hidden;
+    container-type: size;
+  }
+
+  .worldmap-page--mobile .worldmap-scroll-x {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    display: flex;
+    justify-content: safe center;
+    touch-action: pan-x pan-y;
+  }
+
+  .worldmap-page--mobile .worldmap-canvas-wrap {
+    flex: 0 0 auto;
+    height: 100%;
+    width: calc(100cqh * var(--worldmap-natural-w, 1086) / var(--worldmap-natural-h, 1448));
+    min-width: calc(100cqh * var(--worldmap-natural-w, 1086) / var(--worldmap-natural-h, 1448));
+    max-width: none;
+    margin: 0;
+  }
+
+  .worldmap-page--mobile .worldmap-base-image {
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+  }
+}
+
 .worldmap-area:hover,
 .worldmap-area--active {
   /* fill: rgba(255, 204, 64, 0.16); */
   stroke: #ffd45c;
   stroke-width: 4.5;
   filter: url(#worldmap-gold-glow);
+}
+
+.worldmap-area--box,
+.worldmap-area--box:hover,
+.worldmap-area--box.worldmap-area--active {
+  fill: rgba(255, 255, 255, 0.001);
+  stroke: none;
+  filter: none;
 }

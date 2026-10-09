@@ -8,6 +8,16 @@
     "width": 2396,
     "height": 1760
   },
+  "mobile": {
+    "imageSrc": "/castle2_mobile.png",
+    "nightImageSrc": "/castle2_night_mobile.png",
+    "naturalSize": {
+      "width": 1087,
+      "height": 1447
+    },
+    "originalCoordinates": [],
+    "mapButtons": []
+  },
   "originalCoordinates": [
     {
       "id": 1,

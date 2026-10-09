@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './WorldMapPage.css';
 import zonePointsData from '../config/worldmap-zone-points.json';
 import { useRegionMapsConfig } from '../hooks/useRegionMapsConfig';
+import useIsMobile from '../hooks/useIsMobile';
 
 function getOverlayPath(area) {
   return `/worldmap/${area.row}-${area.col}.png`;
@@ -12,7 +13,14 @@ function WorldMapPage() {
   const navigate = useNavigate();
   const MAP_WIDTH = zonePointsData.width || 2100;
   const MAP_HEIGHT = zonePointsData.height || 1399;
-  const mapAspect = MAP_WIDTH / MAP_HEIGHT;
+  const isMobile = useIsMobile(600);
+  const mobileMap = zonePointsData.mobile || {};
+  const frameWidth = isMobile ? (mobileMap.width || 1086) : MAP_WIDTH;
+  const frameHeight = isMobile ? (mobileMap.height || 1448) : MAP_HEIGHT;
+  const mapAspect = frameWidth / frameHeight;
+  const mapImageSrc = isMobile
+    ? (mobileMap.imageSrc || '/worldmap/worldmap_mobile.png')
+    : (zonePointsData.baseImage || '/worldmap/worldmap.png');
   const { regions } = useRegionMapsConfig();
   const zoneMeta = useMemo(() => {
     const map = {};
@@ -27,15 +35,16 @@ function WorldMapPage() {
 
   const areas = useMemo(
     () =>
-      (zonePointsData.zones || []).map((z) => ({
+      ((isMobile ? mobileMap.zones : zonePointsData.zones) || []).map((z) => ({
         id: z.id,
         row: z.row,
         col: z.col,
         points: z.pointsString,
-        name: zoneMeta[z.id]?.name || `Zone ${z.id}`,
-        to: zoneMeta[z.id]?.to || null,
+        box: Array.isArray(z.box) ? z.box : null,
+        name: z.name || zoneMeta[z.id]?.name || `Zone ${z.id}`,
+        to: z.to || zoneMeta[z.id]?.to || null,
       })),
-    [zoneMeta]
+    [isMobile, mobileMap.zones, zoneMeta]
   );
 
   const [hoveredId, setHoveredId] = useState(null);
@@ -82,13 +91,8 @@ function WorldMapPage() {
       setViewHeight(available);
       setRenderWidth(nextWidth);
 
-      const isMobile = window.matchMedia('(max-width: 900px)').matches;
-      if (isMobile) {
-        const centerX = Math.max(0, Math.round((el.scrollWidth - el.clientWidth) / 2));
-        el.scrollLeft = centerX;
-      } else {
-        el.scrollLeft = 0;
-      }
+      if (window.matchMedia('(max-width: 599px)').matches) return;
+      el.scrollLeft = 0;
     };
     recalcLayout();
     window.addEventListener('resize', recalcLayout);
@@ -99,12 +103,26 @@ function WorldMapPage() {
     };
   }, [mapAspect]);
 
+  useEffect(() => {
+    if (!isMobile) return undefined;
+    const el = scrollRef.current;
+    if (!el) return undefined;
+    const center = () => {
+      el.scrollLeft = Math.max(0, Math.round((el.scrollWidth - el.clientWidth) / 2));
+    };
+    center();
+    const frame = window.requestAnimationFrame(center);
+    return () => window.cancelAnimationFrame(frame);
+  }, [isMobile, frameWidth, frameHeight]);
+
   return (
     <div
-      className="worldmap-page"
+      className={isMobile ? 'worldmap-page worldmap-page--mobile' : 'worldmap-page'}
       style={{
         '--worldmap-view-height': `${viewHeight}px`,
         '--worldmap-render-width': `${renderWidth}px`,
+        '--worldmap-natural-w': frameWidth,
+        '--worldmap-natural-h': frameHeight,
       }}
     >
 
@@ -112,11 +130,11 @@ function WorldMapPage() {
         <div className="worldmap-canvas-wrap">
           <img
             className="worldmap-base-image"
-            src={zonePointsData.baseImage || '/worldmap/worldmap.png'}
+            src={mapImageSrc}
             alt="Petaria world map"
             draggable={false}
           />
-          {activeArea && isOverlayAvailable && (
+          {!isMobile && activeArea && isOverlayAvailable && (
             <img
               className="worldmap-overlay-image"
               src={overlaySrc}
@@ -132,7 +150,7 @@ function WorldMapPage() {
 
           <svg
             className="worldmap-hit-layer"
-            viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
+            viewBox={`0 0 ${frameWidth} ${frameHeight}`}
             preserveAspectRatio="xMidYMid meet"
             shapeRendering="geometricPrecision"
             onMouseLeave={() => setHoveredId(null)}
@@ -144,19 +162,41 @@ function WorldMapPage() {
                 <feDropShadow dx="0" dy="2" stdDeviation="4.2" floodColor="#8f5a00" floodOpacity="0.6" />
               </filter>
             </defs>
-            {areas.map((area) => (
-              <polygon
-                key={area.id}
-                points={area.points}
-                className={
-                  'worldmap-area ' +
-                  (activeId === area.id ? 'worldmap-area--active' : '')
-                }
-                onMouseEnter={() => setHoveredId(area.id)}
-                onTouchStart={() => setHoveredId(area.id)}
-                onClick={() => handleAreaClick(area)}
-              />
-            ))}
+            {areas.map((area) => {
+              const className =
+                'worldmap-area ' +
+                (area.box ? 'worldmap-area--box ' : '') +
+                (activeId === area.id ? 'worldmap-area--active' : '');
+              const handlers = {
+                onMouseEnter: () => setHoveredId(area.id),
+                onTouchStart: () => setHoveredId(area.id),
+                onClick: () => handleAreaClick(area),
+              };
+              if (area.box) {
+                const [x1, y1, x2, y2] = area.box;
+                return (
+                  <rect
+                    key={area.id}
+                    x={Math.min(x1, x2)}
+                    y={Math.min(y1, y2)}
+                    width={Math.abs(x2 - x1)}
+                    height={Math.abs(y2 - y1)}
+                    className={className}
+                    {...handlers}
+                  >
+                    <title>{area.name}</title>
+                  </rect>
+                );
+              }
+              return (
+                <polygon
+                  key={area.id}
+                  points={area.points}
+                  className={className}
+                  {...handlers}
+                />
+              );
+            })}
           </svg>
         </div>
       </div>
