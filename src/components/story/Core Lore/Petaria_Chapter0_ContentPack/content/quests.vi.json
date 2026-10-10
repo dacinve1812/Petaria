@@ -1,0 +1,163 @@
+[
+  {
+    "id": "CH0_Q01",
+    "chapter_id": "CH0",
+    "title_vi": "Chào Mừng Đến Kinh Đô",
+    "category": "GUIDE",
+    "required_for_chapter": false,
+    "prerequisite_flags": [],
+    "completion_event": "INTRO_ACKNOWLEDGED",
+    "scene_ids": [
+      "CH0_ARI_WELCOME"
+    ],
+    "reward_refs": [],
+    "repeatable": false,
+    "dismissible_guide": true
+  },
+  {
+    "id": "CH0_Q02",
+    "chapter_id": "CH0",
+    "title_vi": "Người Bạn Đầu Tiên",
+    "category": "MAIN",
+    "required_for_chapter": true,
+    "prerequisite_flags": [],
+    "completion_event": "STARTER_ADOPTED",
+    "scene_ids": [
+      "CH0_ELINA_INTRO",
+      "CH0_ELINA_CONFIRM"
+    ],
+    "reward_refs": [
+      "starter_pet_once",
+      "starter_care_pack_once"
+    ],
+    "repeatable": false,
+    "dismissible_guide": false
+  },
+  {
+    "id": "CH0_Q03",
+    "chapter_id": "CH0",
+    "title_vi": "Ngôi Nhà Đầu Tiên",
+    "category": "GUIDE",
+    "required_for_chapter": false,
+    "prerequisite_flags": [
+      "STARTER_ADOPTED"
+    ],
+    "completion_event": "PET_PROFILE_VIEWED",
+    "scene_ids": [
+      "CH0_HOME",
+      "CH0_HOME_DONE"
+    ],
+    "reward_refs": [
+      "food_small_optional"
+    ],
+    "repeatable": false,
+    "dismissible_guide": true
+  },
+  {
+    "id": "CH0_Q04",
+    "chapter_id": "CH0",
+    "title_vi": "Dòng Sông Healia",
+    "category": "GUIDE",
+    "required_for_chapter": false,
+    "prerequisite_flags": [
+      "STARTER_ADOPTED"
+    ],
+    "completion_event": "HEAL_SERVICE_USED",
+    "scene_ids": [
+      "CH0_HEALIA",
+      "CH0_HEALIA_DONE"
+    ],
+    "reward_refs": [
+      "healing_potion_optional"
+    ],
+    "repeatable": false,
+    "dismissible_guide": true
+  },
+  {
+    "id": "CH0_Q05",
+    "chapter_id": "CH0",
+    "title_vi": "Hành Trang Phiêu Lưu",
+    "category": "GUIDE",
+    "required_for_chapter": false,
+    "prerequisite_flags": [
+      "STARTER_ADOPTED"
+    ],
+    "completion_event": "STARTER_SUPPLIES_CLAIMED",
+    "scene_ids": [
+      "CH0_SHOP",
+      "CH0_SHOP_DONE"
+    ],
+    "reward_refs": [
+      "capture_net_optional"
+    ],
+    "repeatable": false,
+    "dismissible_guide": true
+  },
+  {
+    "id": "CH0_Q06",
+    "chapter_id": "CH0",
+    "title_vi": "Thử Thách Đầu Đời",
+    "category": "MAIN",
+    "required_for_chapter": true,
+    "prerequisite_flags": [
+      "STARTER_ADOPTED"
+    ],
+    "completion_event": "ARENA_FIRST_WIN",
+    "route": [
+      "/battle",
+      "/battle/arena"
+    ],
+    "encounter_key": "ARENA_NPC_LEVEL_1",
+    "scene_ids": [
+      "CH0_ARENA_INTRO",
+      "CH0_ARENA_LOSE",
+      "CH0_ARENA_WIN"
+    ],
+    "reward_refs": [
+      "training_exp",
+      "training_peta"
+    ],
+    "repeatable": false,
+    "dismissible_guide": false
+  },
+  {
+    "id": "CH0_Q07",
+    "chapter_id": "CH0",
+    "title_vi": "Lá Thư Chưa Có Người Nhận",
+    "category": "MAIN",
+    "required_for_chapter": true,
+    "prerequisite_flags": [
+      "ARENA_FIRST_WIN"
+    ],
+    "completion_event": "LETTER_QUEST_ACCEPTED",
+    "scene_ids": [
+      "CH0_ROWAN_INTRO",
+      "CH0_ROWAN_ACCEPTED"
+    ],
+    "reward_refs": [
+      "sealed_letter_quest_item"
+    ],
+    "repeatable": false,
+    "dismissible_guide": false
+  },
+  {
+    "id": "CH0_Q08",
+    "chapter_id": "CH0",
+    "title_vi": "Con Đường Phía Nam",
+    "category": "MAIN",
+    "required_for_chapter": true,
+    "prerequisite_flags": [
+      "STARTER_ADOPTED",
+      "ARENA_FIRST_WIN",
+      "LETTER_QUEST_ACCEPTED"
+    ],
+    "completion_event": "FLOWER_REGION_ENTERED",
+    "scene_ids": [
+      "CH0_PORT",
+      "CH0_DEPART"
+    ],
+    "reward_refs": [],
+    "repeatable": false,
+    "dismissible_guide": false
+  }
+]

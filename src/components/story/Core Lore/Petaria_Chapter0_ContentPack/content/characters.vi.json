@@ -1,0 +1,58 @@
+[
+  {
+    "id": "NARRATOR",
+    "name_vi": "Người kể chuyện",
+    "role": "narrator",
+    "voice": "Ấm áp, huyền ảo, ngắn gọn",
+    "narrative_note": "Không tiết lộ Thiên Mạch trong Chapter 0",
+    "portrait_key": null
+  },
+  {
+    "id": "ARI",
+    "name_vi": "Ari",
+    "role": "guide",
+    "voice": "Tươi vui, nhanh nhẹn, đôi lúc trêu đùa",
+    "narrative_note": "Người hướng dẫn tại Kinh Đô; không cưỡng ép tutorial",
+    "portrait_key": "portrait_ari"
+  },
+  {
+    "id": "ELINA",
+    "name_vi": "Cô Elina",
+    "role": "orphanage_keeper",
+    "voice": "Dịu dàng nhưng nghiêm túc về chăm sóc Pet",
+    "narrative_note": "Trại Mồ Côi; nhận Pet đầu tiên",
+    "portrait_key": "portrait_elina"
+  },
+  {
+    "id": "BRAM",
+    "name_vi": "Bram",
+    "role": "merchant",
+    "voice": "Thân thiện, thực tế, hơi hài hước",
+    "narrative_note": "Giới thiệu shop; không ép dùng Peta",
+    "portrait_key": "portrait_bram"
+  },
+  {
+    "id": "ROWAN",
+    "name_vi": "Rowan",
+    "role": "postmaster",
+    "voice": "Cẩn thận, tận tụy, đôi khi lo âu",
+    "narrative_note": "Giao thư cho Mira; foreshadow đường phía Nam",
+    "portrait_key": "portrait_rowan"
+  },
+  {
+    "id": "PLAYER",
+    "name_vi": "Người chơi",
+    "role": "player",
+    "voice": "Câu thoại theo lựa chọn",
+    "narrative_note": "Tên được runtime thay vào nếu có",
+    "portrait_key": null
+  },
+  {
+    "id": "MIRA",
+    "name_vi": "Bà Mira",
+    "role": "village_caretaker",
+    "voice": "Nhân hậu, từng trải",
+    "narrative_note": "Chỉ được nhắc tới ở Chapter 0; gặp ở Chapter 1",
+    "portrait_key": "portrait_mira"
+  }
+]

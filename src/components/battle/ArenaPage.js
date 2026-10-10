@@ -6,11 +6,13 @@ import TemplatePage from '../template/TemplatePage';
 import GameDialogModal from '../ui/GameDialogModal';
 import { resumeMatchState } from './resumeArenaMatch';
 import '../css/ArenaPage.css';
+import { useChapter0 } from '../story/Chapter0/Chapter0Context';
 
 function ArenaPage() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const { user, isLoading } = React.useContext(UserContext);
   const navigate = useNavigate();
+  const { story } = useChapter0();
   const [enemies, setEnemies] = useState([]);
   /** 'loading' | 'list' | 'resume' — có trận Redis đang dở thì chặn list, chỉ hiện dialog */
   const [arenaGate, setArenaGate] = useState('loading');
@@ -149,8 +151,14 @@ function ArenaPage() {
               {enemies.length === 0 ? (
                 <p className="arena-empty">Không có đối thủ nào hiện tại.</p>
               ) : (
-                enemies.map(enemy => (
-                  <article key={enemy.id} className="arena-card">
+                enemies.map(enemy => {
+                  const named = /pinbell|hải ly|hai ly/i.test(String(enemy.name || ''));
+                  const firstLevel = !enemies.some((item) => /pinbell|hải ly|hai ly/i.test(String(item.name || '')))
+                    && Number(enemy.level) === 1
+                    && enemies.find((item) => Number(item.level) === 1)?.id === enemy.id;
+                  const markNpc = story?.guidance?.lock === 'arena-npc' && (named || firstLevel);
+                  return (
+                  <article key={enemy.id} className="arena-card" data-story-target={markNpc ? 'arena-npc' : undefined}>
                     <div className="arena-card-image-wrap">
                       <img src={imageSrc(enemy.image)} alt={enemy.name} className="arena-card-image" />
                     </div>
@@ -168,7 +176,8 @@ function ArenaPage() {
                       Thách đấu
                     </button>
                   </article>
-                ))
+                  );
+                })
               )}
             </div>
           </>

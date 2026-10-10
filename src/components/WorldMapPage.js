@@ -4,6 +4,7 @@ import './WorldMapPage.css';
 import zonePointsData from '../config/worldmap-zone-points.json';
 import { useRegionMapsConfig } from '../hooks/useRegionMapsConfig';
 import useIsMobile from '../hooks/useIsMobile';
+import { useChapter0 } from './story/Chapter0/Chapter0Context';
 
 function getOverlayPath(area) {
   return `/worldmap/${area.row}-${area.col}.png`;
@@ -22,6 +23,7 @@ function WorldMapPage() {
     ? (mobileMap.imageSrc || '/worldmap/worldmap_mobile.png')
     : (zonePointsData.baseImage || '/worldmap/worldmap.png');
   const { regions } = useRegionMapsConfig();
+  const { story } = useChapter0();
   const zoneMeta = useMemo(() => {
     const map = {};
     (regions || []).forEach((region) => {
@@ -115,6 +117,20 @@ function WorldMapPage() {
     return () => window.cancelAnimationFrame(frame);
   }, [isMobile, frameWidth, frameHeight]);
 
+  const worldLocked = story?.enrolled
+    && !story?.completed
+    && !story?.flags?.LETTER_QUEST_ACCEPTED
+    && (story?.flags?.HEAL_SERVICE_USED || story?.flags?.LETTER_DECLINED);
+
+  if (worldLocked) {
+    return (
+      <div className="worldmap-page" style={{ padding: 24, textAlign: 'center' }}>
+        <p>Biển vẫn chưa mở. Hãy nhận lá thư của Rowan trước khi ra khơi.</p>
+        <button type="button" onClick={() => navigate('/home-ver2')}>Về Kinh thành</button>
+      </div>
+    );
+  }
+
   return (
     <div
       className={isMobile ? 'worldmap-page worldmap-page--mobile' : 'worldmap-page'}
@@ -166,6 +182,7 @@ function WorldMapPage() {
               const className =
                 'worldmap-area ' +
                 (area.box ? 'worldmap-area--box ' : '') +
+                (story?.guidance?.worldRegion === area.id ? 'worldmap-area--story ' : '') +
                 (activeId === area.id ? 'worldmap-area--active' : '');
               const handlers = {
                 onMouseEnter: () => setHoveredId(area.id),

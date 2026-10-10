@@ -1143,6 +1143,8 @@ app.use('/api/training-camp', classicAuth, require('./routes/trainingCamp').crea
   getRedis,
   matchPrefix: REDIS_MATCH_PREFIX,
 }));
+app.use('/api/story/chapter0', classicAuth, require('./routes/chapter0').createChapter0Router({ db }));
+const chapter0Story = require('./services/chapter0Story');
 const { ensureAuctionMultiAssetSchema } = require('./services/auctionMultiAssetSchema');
 ensureAuctionMultiAssetSchema().catch((err) =>
   console.warn('ensureAuctionMultiAssetSchema:', err && err.message)
@@ -8762,6 +8764,7 @@ app.post('/api/adopt-pet', async (req, res) => {
     }
 
     orphanagePets = orphanagePets.filter(pet => pet.tempId !== tempId);
+    await chapter0Story.markStarterAdopted(db, tokenUserId);
     res.json({ message: 'Pet adopted successfully', uuid: petUuid });
   } catch (error) {
     console.error('Error adopting pet:', error);
@@ -12814,6 +12817,21 @@ app.post('/api/arena/match/start', classicAuth, classicBattle.serialize(async (r
     const bossFinalStats = useFormula
       ? calculateBossFinalStats(row, combatLevel)
       : rawBossFinalStats(row);
+    if (battleSource === 'arena' && templateLevel === 1) {
+      try {
+        const storyState = await chapter0Story.loadState(db, req.classicUserId);
+        const firstFight = storyState?.enrolled
+          && !storyState.completed
+          && !storyState.flags?.ARENA_FIRST_WIN
+          && !storyState.arenaResult;
+        if (firstFight) {
+          bossFinalStats.hp = 5;
+          if (bossFinalStats.max_hp != null) bossFinalStats.max_hp = 5;
+        }
+      } catch (err) {
+        console.error('chapter0 first arena hp:', err.message || err);
+      }
+    }
     const [skillRows] = await db.query(
       `SELECT s.id, s.name, s.type, s.power_min, s.power_max, s.accuracy, s.mana_cost FROM boss_skills bs JOIN skills s ON bs.skill_id = s.id WHERE bs.boss_template_id = ? ORDER BY bs.sort_order ASC`,
       [bossId]
@@ -13259,6 +13277,7 @@ app.post('/api/arena/match/turn', classicAuth, classicBattle.serialize(async (re
         state.finished = true;
         state.result = 'win';
         await finalizeMatchInMySQL(state, 'player');
+        await chapter0Story.markArenaResult(db, state.userId, true, state.battleSource);
         await redis.del(key);
         return true;
       }
@@ -13266,6 +13285,7 @@ app.post('/api/arena/match/turn', classicAuth, classicBattle.serialize(async (re
         state.finished = true;
         state.result = 'lose';
         await finalizeMatchInMySQL(state, 'enemy');
+        await chapter0Story.markArenaResult(db, state.userId, false, state.battleSource);
         await redis.del(key);
         return true;
       }
@@ -16865,6 +16885,7 @@ app.post('/api/healia-river/heal', async (req, res) => {
       );
     }
 
+    await chapter0Story.markHealed(db, userId);
     res.json({
       success: true,
       isFullHeal,
@@ -16894,7 +16915,68 @@ app.post('/api/healia-river/heal', async (req, res) => {
 // ========================================
 // RESTAURANT API (Nhà hàng - cho thú cưng ăn, hồi hunger_status)
 // ========================================
-// POST /api/restaurant/feed - Tốn 1 Peta, hồi đói tối đa + tâm trạng
+const RESTAURANT_FREE_PER_DAY = 2;
+const RESTAURANT_NORMAL_COST_PER_PET = 2000;
+
+function restaurantToday() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+}
+
+async function ensureRestaurantSchema() {
+  const alters = [
+    'ALTER TABLE users ADD COLUMN restaurant_normal_day VARCHAR(10) NULL',
+    'ALTER TABLE users ADD COLUMN restaurant_normal_free_used INT NOT NULL DEFAULT 0',
+  ];
+  for (const sql of alters) {
+    try {
+      await db.query(sql);
+    } catch (err) {
+      const msg = String(err && err.message || '');
+      if (err && err.code !== 'ER_DUP_FIELDNAME' && !msg.includes('Duplicate column')) throw err;
+    }
+  }
+}
+
+function normalFreeLeft(user, today) {
+  const day = user.restaurant_normal_day ? String(user.restaurant_normal_day).slice(0, 10) : '';
+  const used = day === today ? Number(user.restaurant_normal_free_used) || 0 : 0;
+  return Math.max(0, RESTAURANT_FREE_PER_DAY - used);
+}
+
+// GET /api/restaurant/status — lượt miễn phí Bình Dân và số thú
+app.get('/api/restaurant/status', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Cần đăng nhập để sử dụng Nhà hàng.' });
+  try {
+    await ensureRestaurantSchema();
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const userId = decoded.userId;
+    const [userRows] = await db.query(
+      'SELECT peta, restaurant_normal_day, restaurant_normal_free_used FROM users WHERE id = ?',
+      [userId]
+    );
+    if (!userRows.length) return res.status(401).json({ error: 'Người dùng không tồn tại.' });
+    const [petRows] = await db.query('SELECT id FROM pets WHERE owner_id = ?', [userId]);
+    const today = restaurantToday();
+    const freeLeft = normalFreeLeft(userRows[0], today);
+    const petCount = petRows.length;
+    res.json({
+      peta: Number(userRows[0].peta) || 0,
+      petCount,
+      normal: {
+        freeLeft,
+        freePerDay: RESTAURANT_FREE_PER_DAY,
+        costPerPet: RESTAURANT_NORMAL_COST_PER_PET,
+        nextCost: freeLeft > 0 ? 0 : petCount * RESTAURANT_NORMAL_COST_PER_PET,
+      },
+    });
+  } catch (err) {
+    console.error('Restaurant status error:', err);
+    res.status(500).json({ error: 'Lỗi server khi tải Nhà hàng.' });
+  }
+});
+
+// POST /api/restaurant/feed — Bình Dân: 2 lần miễn phí/ngày, sau đó 2.000 Peta/thú
 app.post('/api/restaurant/feed', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) {
@@ -16902,25 +16984,36 @@ app.post('/api/restaurant/feed', async (req, res) => {
   }
 
   try {
+    await ensureRestaurantSchema();
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
     const userId = decoded.userId;
+    const menuType = String(req.body?.menuType || 'normal');
+    if (menuType !== 'normal') {
+      return res.status(400).json({ error: 'Menu này sẽ được mở sau.' });
+    }
 
-    const [userRows] = await db.query('SELECT id, peta FROM users WHERE id = ?', [userId]);
+    const [userRows] = await db.query(
+      'SELECT id, peta, restaurant_normal_day, restaurant_normal_free_used FROM users WHERE id = ?',
+      [userId]
+    );
     if (userRows.length === 0) {
       return res.status(401).json({ error: 'Người dùng không tồn tại.' });
     }
     const user = userRows[0];
     const petaBalance = Number(user.peta) || 0;
-    if (petaBalance < 1) {
-      return res.status(400).json({ error: 'Bạn không đủ Peta. Cần 1 Peta để dùng menu.' });
-    }
-
-    const [petRows] = await db.query(
-      'SELECT id FROM pets WHERE owner_id = ?',
-      [userId]
-    );
+    const [petRows] = await db.query('SELECT id FROM pets WHERE owner_id = ?', [userId]);
     if (petRows.length === 0) {
       return res.status(400).json({ error: 'Bạn chưa có thú cưng nào để cho ăn.' });
+    }
+
+    const today = restaurantToday();
+    const freeLeft = normalFreeLeft(user, today);
+    const isFree = freeLeft > 0;
+    const cost = isFree ? 0 : petRows.length * RESTAURANT_NORMAL_COST_PER_PET;
+    if (!isFree && petaBalance < cost) {
+      return res.status(400).json({
+        error: `Bạn không đủ Peta. Cần ${cost.toLocaleString('vi-VN')} Peta (${petRows.length} thú × ${RESTAURANT_NORMAL_COST_PER_PET.toLocaleString('vi-VN')}).`,
+      });
     }
 
     const HUNGER_BATTLES_RESET = 0;
@@ -16934,19 +17027,42 @@ app.post('/api/restaurant/feed', async (req, res) => {
       );
     }
 
-    await db.query('UPDATE users SET peta = peta - 1 WHERE id = ?', [userId]);
-
-    try {
-      await titleService.recordPetaSpent(db, userId, 1);
-    } catch (e) {
-      console.error('title spend (restaurant):', e);
+    const usedToday = isFree
+      ? (String(user.restaurant_normal_day || '').slice(0, 10) === today
+        ? (Number(user.restaurant_normal_free_used) || 0) + 1
+        : 1)
+      : (String(user.restaurant_normal_day || '').slice(0, 10) === today
+        ? Number(user.restaurant_normal_free_used) || 0
+        : 0);
+    if (cost > 0) {
+      await db.query(
+        'UPDATE users SET peta = peta - ?, restaurant_normal_day = ?, restaurant_normal_free_used = ? WHERE id = ?',
+        [cost, today, usedToday, userId]
+      );
+      try {
+        await titleService.recordPetaSpent(db, userId, cost);
+      } catch (e) {
+        console.error('title spend (restaurant):', e);
+      }
+    } else {
+      await db.query(
+        'UPDATE users SET restaurant_normal_day = ?, restaurant_normal_free_used = ? WHERE id = ?',
+        [today, usedToday, userId]
+      );
     }
+
+    const freeAfter = Math.max(0, RESTAURANT_FREE_PER_DAY - usedToday);
+    const message = isFree
+      ? `Miễn phí. Còn ${freeAfter} lượt Bình Dân miễn phí hôm nay.`
+      : `Đã trừ ${cost.toLocaleString('vi-VN')} Peta cho ${petRows.length} thú cưng.`;
 
     res.json({
       success: true,
-      message: 'Tất cả thú cưng đã được cho ăn no và tinh thần phấn chấn hơn!',
-      petaRemaining: petaBalance - 1,
-      petsFed: petRows.length
+      message: `${message} Tất cả thú cưng đã được cho ăn no.`,
+      petaRemaining: petaBalance - cost,
+      petsFed: petRows.length,
+      cost,
+      freeLeft: freeAfter,
     });
   } catch (err) {
     console.error('Restaurant feed error:', err);

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useContext, useCallback, useMemo } from 're
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { UserContext } from '../../UserContext';
+import { useChapter0 } from '../story/Chapter0/Chapter0Context';
 import TemplatePage from '../template/TemplatePage';
 import BattleFxOverlay from './BattleFxOverlay';
 import {
@@ -662,6 +663,7 @@ function ArenaBattlePage() {
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useContext(UserContext) || {};
+    const { story, postEvent } = useChapter0();
     const {
       playerPet,
       enemyPet,
@@ -1176,6 +1178,16 @@ function ArenaBattlePage() {
     const [battleReward, setBattleReward] = useState({ expGained: 0, levelUp: false, newLevel: null, loot: [] });
     const [holdingItemId, setHoldingItemId] = useState(null);
     const [infoItemId, setInfoItemId] = useState(null);
+    const weaponInfoSeenRef = React.useRef(false);
+    useEffect(() => {
+      if (story?.guidance?.lock !== 'battle-weapon') return undefined;
+      if (infoItemId) weaponInfoSeenRef.current = true;
+      if (!infoItemId && weaponInfoSeenRef.current) {
+        weaponInfoSeenRef.current = false;
+        void postEvent({ type: 'BATTLE_WEAPON_HELD' });
+      }
+      return undefined;
+    }, [infoItemId, story?.guidance?.lock, postEvent]);
     const [infoAnchorRect, setInfoAnchorRect] = useState(null);
     const holdTimerRef = React.useRef(null);
     const longPressTriggeredRef = React.useRef(false);
@@ -3147,6 +3159,7 @@ function ArenaBattlePage() {
 
       const handleGo = () => {
         if (!selectedAction || battleUiLocked) return;
+        if (story?.guidance?.lock === 'battle-go') void postEvent({ type: 'BATTLE_GO_DONE' });
         if (selectedAction === 'normal_attack') handleNormalAttack();
         else if (selectedAction === 'basic_defend') handleBasicDefend();
         setSelectedAction('');
@@ -3511,6 +3524,7 @@ function ArenaBattlePage() {
                 const disabled = !isItemUsableByDurability(item);
                 const handleClick = () => {
                   if (battleUiLocked || disabled) return;
+                  if (story?.guidance?.lock === 'battle-click') void postEvent({ type: 'BATTLE_WEAPON_CLICKED' });
                   if (isShield) handleDefend(item);
                   else handleAttackWithItem(item);
                 };
@@ -3553,6 +3567,13 @@ function ArenaBattlePage() {
                     key={item.id}
                     ref={(el) => { if (el) equipItemElsRef.current[item.id] = el; }}
                     className={`arena-equipment-item ${disabled || battleUiLocked ? 'disabled' : ''}`}
+                    data-story-target={
+                      equippedItems[0]?.id === item.id
+                      && (story?.guidance?.lock === 'battle-weapon' || story?.guidance?.lock === 'battle-click'
+                        || (story?.guidance?.marks || []).includes('battle-weapon'))
+                        ? (story?.guidance?.lock === 'battle-click' ? 'battle-click' : 'battle-weapon')
+                        : undefined
+                    }
                     role="button"
                     tabIndex={disabled || battleUiLocked ? -1 : 0}
                     onKeyDown={(e) => {
@@ -3630,8 +3651,19 @@ function ArenaBattlePage() {
           <div className="arena-action-row">
             <select
               className="arena-action-select"
+              data-story-target={
+                story?.guidance?.lock === 'battle-action' || (story?.guidance?.marks || []).includes('battle-action')
+                  ? 'battle-action'
+                  : undefined
+              }
               value={selectedAction}
-              onChange={(e) => setSelectedAction(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedAction(value);
+                if (story?.guidance?.lock === 'battle-action' && (value === 'normal_attack' || value === 'basic_defend')) {
+                  void postEvent({ type: 'BATTLE_ACTION_PICKED' });
+                }
+              }}
               disabled={battleUiLocked}
               aria-label="Chọn hành động"
             >
@@ -3640,7 +3672,17 @@ function ArenaBattlePage() {
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
-            <button type="button" className="arena-action-go" onClick={handleGo} disabled={!selectedAction || battleUiLocked}>
+            <button
+              type="button"
+              className="arena-action-go"
+              data-story-target={
+                story?.guidance?.lock === 'battle-go' || (story?.guidance?.marks || []).includes('battle-go')
+                  ? 'battle-go'
+                  : undefined
+              }
+              onClick={handleGo}
+              disabled={!selectedAction || battleUiLocked}
+            >
               Go!
             </button>
           </div>

@@ -140,3 +140,11 @@
   stroke: none;
   filter: none;
 }
+
+.worldmap-area--story,
+.worldmap-area--box.worldmap-area--story {
+  fill: rgba(255, 210, 90, 0.28);
+  stroke: #ffd25a;
+  stroke-width: 4;
+  filter: none;
+}

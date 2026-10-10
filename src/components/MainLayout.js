@@ -11,6 +11,9 @@ import EncounterModalContainer from './EncounterModalContainer';
 import { Outlet } from 'react-router-dom';
 import { NarrativeDialogProvider } from './ui/NarrativeDialogContext';
 import NarrativeHost from './ui/NarrativeHost';
+import { Chapter0Provider } from './story/Chapter0/Chapter0Context';
+import Chapter0Dialog from './story/Chapter0/Chapter0Dialog';
+import StoryLock from './story/ui/StoryLock';
 import { GameCenterAlertsProvider } from './entertainment/GameCenterAlertsContext';
 import '../styles/global.css';
 import { resolveAssetPath } from '../utils/pathUtils';
@@ -28,6 +31,11 @@ function MainLayout() {
     const isScrolledDown = useScrollAnimation(100); // 100px threshold
 
     // Cho sidebar wide viewport: bỏ padding-top khi top nav đã ẩn để không lộ khoảng trống
+    useEffect(() => {
+        document.body.classList.toggle('sidebar-is-open', sidebarOpen);
+        return () => document.body.classList.remove('sidebar-is-open');
+    }, [sidebarOpen]);
+
     useEffect(() => {
         if (isScrolledDown) {
             document.body.classList.add('nav-scrolled-hidden');
@@ -195,6 +203,7 @@ function MainLayout() {
 
     return (
         <GameCenterAlertsProvider>
+        <Chapter0Provider>
        
         {/* Top Navigation Bar */}
         <TopNavigation
@@ -216,6 +225,8 @@ function MainLayout() {
                   <main className="container_fixed" id="peta-body">
                       <Outlet />
                       <NarrativeHost />
+                      <Chapter0Dialog />
+                      <StoryLock />
                   </main>
                 </NarrativeDialogProvider>
             </section>
@@ -243,6 +254,7 @@ function MainLayout() {
         <GlobalChatBox />
         <EncounterModalContainer />
         <Footer />
+        </Chapter0Provider>
         </GameCenterAlertsProvider>
     );
 }

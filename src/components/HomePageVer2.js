@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GlobalBanner from './GlobalBanner';
-import PetNotice from './PetNotice';
 import './HomePageVer2.css';
 import { resolveAssetPath } from '../utils/pathUtils';
 import { DEFAULT_CONTENT_BLOCKS, CONTENT_BLOCK_KEYS, LIST_BLOCK_KEYS } from '../data/homePageContentBlocks';

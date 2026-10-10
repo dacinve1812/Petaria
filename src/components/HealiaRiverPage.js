@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useUser } from '../UserContext';
 import TemplatePage from './template/TemplatePage';
 import '../styles/global.css';
+import { dispatchStoryRefresh } from './story/Chapter0/Chapter0Context';
 
 function HealiaRiverPage() {
   const { user, isLoading } = useUser();
@@ -74,6 +75,7 @@ function HealiaRiverPage() {
 
       if (response.ok) {
         setHealResult(data);
+        dispatchStoryRefresh();
         // Refresh status after healing
         setTimeout(() => {
           checkStatus();

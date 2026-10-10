@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import PetNotice from './PetNotice';
-import { AlertExclamationBadge } from './ui/AlertExclamationBadge';
-import { useGameCenterAlerts } from './entertainment/GameCenterAlertsContext';
 import './HomePage.css';
 import './RegionMapPage.css';
 import castleMapPreset from '../config/homepage-castle-map.json';
 import useIsMobile from '../hooks/useIsMobile';
+import { AlertExclamationBadge } from './ui/AlertExclamationBadge';
+import { useGameCenterAlerts } from './entertainment/GameCenterAlertsContext';
+import { useChapter0 } from './story/Chapter0/Chapter0Context';
+import { Chapter0CapitalSpots } from './story/Chapter0/Chapter0Spots';
 
 function isCastleNight(date = new Date()) {
   const hour = date.getHours();
@@ -37,6 +38,7 @@ function HomePage() {
   const [slotHeight, setSlotHeight] = useState(520);
 
   const isMobile = useIsMobile(600);
+  const { story } = useChapter0();
   const [isNight, setIsNight] = useState(() => isCastleNight());
   const mobilePreset = castleMapPreset.mobile || {};
   const mobileImageSrc = isNight
@@ -81,7 +83,7 @@ function HomePage() {
       const layoutHeight = vv && vv.height ? vv.height : window.innerHeight;
       const rect = el.getBoundingClientRect();
       const measured = Math.max(220, Math.floor(layoutHeight - rect.top - 2));
-      /** Giống desktop: bù khi intro + PetNotice đẩy map xuống (mobile không còn chỉ ~220px chiều cao). */
+      /** Bù khi intro đẩy map xuống, để mobile không còn chỉ còn khoảng 220px chiều cao. */
       const REGION_LIKE_MAP_TOP = 200;
       const syntheticAvailable = Math.max(220, Math.floor(layoutHeight - REGION_LIKE_MAP_TOP - 2));
       const available = Math.max(measured, syntheticAvailable);
@@ -170,7 +172,6 @@ function HomePage() {
             Chào mừng các bạn đến với Kinh thành của Vương quốc Petaria. Bạn sẽ tiến hành hầu hết các hoạt động trên Petaria tại đây, trong Kinh thành có các địa điểm như sau: Nhà Của Tôi, Trung tâm mua sắm, Đấu giá, Sông Healia, Ngân hàng, Nhà hàng, Viện mồ côi, Bưu điện, Diễn đàn và các liên kết đến: Trung tâm giải trí, Bản đồ Thế giới...
           </p>
         </div>
-        <PetNotice />
         <div
           className="castle-map-region-root regionmap-mobile-slot"
           style={{
@@ -225,6 +226,16 @@ function HomePage() {
                     pathNorm === '/game-center' ||
                     String(btn.label || '').trim() === 'Giải Trí';
                   const showAlert = isGameCenter && hasAnyAlert;
+                  const capital = story?.guidance?.capital;
+                  const storyTarget = !isMobile && (
+                    (capital === 'OFFICIAL_SHOP' && Number(btn.id) === Number(story.shopHotspotId || 1))
+                    || (capital === 'POST_OFFICE' && Number(btn.id) === Number(story.postOfficeHotspotId || 6))
+                    || (capital === 'HEALIA' && Number(btn.id) === 3)
+                    || (capital === 'ORPHANAGE' && Number(btn.id) === 4)
+                    || (capital === 'RESTAURANT' && Number(btn.id) === 5)
+                    || (capital === 'ENTERTAINMENT' && Number(btn.id) === 8)
+                    || (capital === 'MY_HOME' && Number(btn.id) === 9)
+                  );
                   return (
                   <span
                     key={`btn-${btn.id}-${idx}`}
@@ -236,7 +247,8 @@ function HomePage() {
                   >
                     <button
                       type="button"
-                      className="regionmap-button"
+                      className={`regionmap-button${storyTarget ? ' regionmap-button--story' : ''}`}
+                      data-story-target={storyTarget ? story.guidance?.lock : undefined}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleAreaClick(btn.path);
@@ -255,6 +267,12 @@ function HomePage() {
                   );
                 })}
               </div>
+
+              <Chapter0CapitalSpots
+                naturalWidth={naturalWidth}
+                naturalHeight={naturalHeight}
+                isMobile={isMobile}
+              />
             </div>
           </div>
         </div>

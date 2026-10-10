@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "notes": [
+    "Every reward is a symbolic reference. Map to existing item definitions and economic balances only after codebase review.",
+    "All grants server-authoritative and idempotent.",
+    "The letter is a non-tradable quest item, not spendable player currency."
+  ],
+  "rewards": {
+    "starter_pet_once": {
+      "kind": "PET_GRANT",
+      "config_ref": "existing_orphanage_adopt",
+      "once_per_account": true,
+      "note": "Một Pet bất kỳ trong danh sách nhận nuôi hiện có. Bộ lọc starter cấu hình sau. Không tạo loài mới."
+    },
+    "starter_care_pack_once": {
+      "kind": "BUNDLE",
+      "config_ref": "BALANCE_CH0_STARTER_PACK",
+      "once_per_account": true
+    },
+    "food_small_optional": {
+      "kind": "ITEM",
+      "config_ref": "BALANCE_CH0_FOOD_REWARD",
+      "once_per_account": true
+    },
+    "healing_potion_optional": {
+      "kind": "ITEM",
+      "config_ref": "BALANCE_CH0_HEALIA_REWARD",
+      "once_per_account": true
+    },
+    "capture_net_optional": {
+      "kind": "ITEM",
+      "config_ref": "BALANCE_CH0_SHOP_REWARD",
+      "once_per_account": true
+    },
+    "training_exp": {
+      "kind": "PET_EXP",
+      "config_ref": "EXISTING_ARENA_LEVEL_1_WIN",
+      "once_per_encounter_key": true,
+      "note": "Phần thưởng trận Arena NPC cấp 1 đang có. Chưa chốt số. Không phát từ Trại huấn luyện. Tên khóa giữ lại để khỏi đổi quest."
+    },
+    "training_peta": {
+      "kind": "CURRENCY",
+      "config_ref": "EXISTING_ARENA_LEVEL_1_WIN",
+      "once_per_account": true,
+      "note": "Cùng nguồn với EXP trận Arena. Chưa chốt có thưởng Peta riêng hay chỉ lấy thưởng Arena hiện có."
+    },
+    "sealed_letter_quest_item": {
+      "kind": "QUEST_ITEM",
+      "config_ref": "CH0_LETTER_TO_MIRA",
+      "once_per_account": true,
+      "tradeable": false,
+      "discardable": false
+    }
+  }
+}

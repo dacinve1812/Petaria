@@ -1,0 +1,874 @@
+[
+  {
+    "id": "CH0_OPENING",
+    "chapter_id": "CH0",
+    "type": "NARRATION",
+    "location_id": "CAPITAL",
+    "trigger": "FIRST_ELIGIBLE_LOGIN",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "p1",
+        "kind": "panel",
+        "art_key": "opening_01_world",
+        "speaker_id": "NARRATOR",
+        "text_vi": "Giữa biển trời bao la tồn tại Petaria — vương quốc nơi con người và những sinh vật kỳ diệu cùng chung sống."
+      },
+      {
+        "id": "p2",
+        "kind": "panel",
+        "art_key": "opening_02_regions",
+        "speaker_id": "NARRATOR",
+        "text_vi": "Từ cánh đồng hoa rực rỡ đến miền tuyết trắng, từ rừng sâu đến đại dương, mỗi vùng đất đều lưu giữ những truyền thuyết riêng."
+      },
+      {
+        "id": "p3",
+        "kind": "panel",
+        "art_key": "opening_03_life",
+        "speaker_id": "NARRATOR",
+        "text_vi": "Có người mở cửa hàng, có người chăm sóc Pet, có người mong trở thành anh hùng. Và cũng có người chỉ muốn tìm một nơi để gọi là nhà."
+      },
+      {
+        "id": "p4",
+        "kind": "panel",
+        "art_key": "opening_04_capital",
+        "speaker_id": "NARRATOR",
+        "text_vi": "Hôm nay, một hành trình mới bắt đầu tại Centre Island — Kinh Đô Petaria."
+      },
+      {
+        "id": "ending",
+        "kind": "action",
+        "action": "SHOW_CHAPTER_TITLE",
+        "title_vi": "CHƯƠNG 0 — NGƯỜI PHIÊU LƯU TẬP SỰ"
+      }
+    ]
+  },
+  {
+    "id": "CH0_ARI_WELCOME",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "CAPITAL",
+    "anchor_location_id": "MY_HOME",
+    "anchor_note": "Ari đứng trong ô spotlight MY_HOME trên bản đồ Kinh thành.",
+    "trigger": "ON_CAPITAL_FIRST_ENTRY",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "A! Cuối cùng cũng gặp được cậu. Cậu là cư dân mới đến Centre Island hôm nay phải không?"
+      },
+      {
+        "id": "l2",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Ta là Ari, hướng dẫn viên của Kinh Đô. Thành phố này rộng lắm — lạc đường một lần là chuyện bình thường!"
+      },
+      {
+        "id": "c1",
+        "kind": "choice",
+        "prompt_vi": "Cậu muốn bắt đầu thế nào?",
+        "options": [
+          {
+            "id": "TRAIN",
+            "text_vi": "Tôi muốn trở thành nhà huấn luyện!",
+            "response_vi": "Thế thì trước tiên cậu cần một Pet đồng hành."
+          },
+          {
+            "id": "RICH",
+            "text_vi": "Tôi muốn kiếm thật nhiều Peta!",
+            "response_vi": "Có chí hướng đấy! Nhưng một người bạn đồng hành cũng rất đáng quý."
+          },
+          {
+            "id": "EXPLORE",
+            "text_vi": "Tôi muốn khám phá mọi vùng đất.",
+            "response_vi": "Tuyệt! Petaria còn rộng hơn những gì cậu thấy trên bản đồ."
+          }
+        ],
+        "affects_progress": false
+      },
+      {
+        "id": "l3",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Trước hết, đến Trại Mồ Côi nhé. Cô Elina đang chăm sóc những Pet chờ được nhận nuôi. Cậu bấm vào chỗ ta đang chỉ là tới."
+      },
+      {
+        "id": "guide",
+        "kind": "action",
+        "action": "HIGHLIGHT_MAP_LOCATION",
+        "location_id": "ORPHANAGE",
+        "interaction": "PLAYER_CLICK"
+      }
+    ]
+  },
+  {
+    "id": "CH0_ELINA_INTRO",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "ORPHANAGE",
+    "trigger": "ON_LOCATION_ENTER",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ELINA",
+        "text_vi": "Chào cháu. Cháu đến tìm một người bạn đồng hành đầu tiên phải không?"
+      },
+      {
+        "id": "l2",
+        "kind": "line",
+        "speaker_id": "ELINA",
+        "text_vi": "Những Pet ở đây đang chờ một người bạn. Mỗi bé một tính cách, nhưng đều mong gặp người biết chăm sóc mình."
+      },
+      {
+        "id": "l3",
+        "kind": "line",
+        "speaker_id": "ELINA",
+        "text_vi": "Cháu cứ chọn một bé trong số những Pet đang chờ. Không cần chọn theo sức mạnh. Hãy chọn người bạn mà cháu muốn cùng trưởng thành."
+      },
+      {
+        "id": "select",
+        "kind": "action",
+        "action": "OPEN_EXISTING_ADOPTION",
+        "pet_source": "CURRENT_ORPHANAGE_LIST",
+        "starter_filter": "CONFIGURE_LATER"
+      }
+    ]
+  },
+  {
+    "id": "CH0_ELINA_CONFIRM",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "ORPHANAGE",
+    "trigger": "SERVER_STARTER_ADOPTED",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ELINA",
+        "text_vi": "Nhìn xem, người bạn nhỏ của cháu đang rất vui đấy!"
+      },
+      {
+        "id": "l2",
+        "kind": "line",
+        "speaker_id": "ELINA",
+        "text_vi": "Cô chỉ mong cháu nhớ: chiến thắng thật đáng tự hào, nhưng biết chăm sóc một người bạn còn quan trọng hơn."
+      },
+      {
+        "id": "l3",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Hai người hợp nhau thật! Về nhà xem thông tin Pet nào."
+      },
+      {
+        "id": "l4",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Mở mục Đặc trưng rồi chọn Thú cưng. Hoặc bấm chữ Petaria để về Kinh thành, rồi vào My Home. Cậu phải về nhà trước khi đi tiếp."
+      },
+      {
+        "id": "guide",
+        "kind": "action",
+        "action": "HIGHLIGHT_MAP_LOCATION",
+        "location_id": "MY_HOME",
+        "interaction": "PLAYER_CLICK"
+      }
+    ]
+  },
+  {
+    "id": "CH0_HOME",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "MY_HOME",
+    "trigger": "ON_OPTIONAL_GUIDE",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Chào mừng về nhà! Đây là nơi cậu quản lý Pet, kiểm tra hành trang và chuẩn bị cho những chuyến đi xa."
+      },
+      {
+        "id": "l2",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Hãy mở hồ sơ của Pet. Cậu sẽ thấy HP, MP, cấp độ và các chỉ số chiến đấu. Chưa cần nhớ hết ngay đâu!"
+      },
+      {
+        "id": "open",
+        "kind": "action",
+        "action": "OPEN_PET_PROFILE"
+      }
+    ]
+  },
+  {
+    "id": "CH0_HOME_DONE",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "MY_HOME",
+    "trigger": "SERVER_PET_PROFILE_VIEWED",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Thấy không? Mỗi Pet đều có điểm mạnh riêng. Dành thời gian tìm hiểu sẽ giúp cả hai phối hợp tốt hơn."
+      }
+    ]
+  },
+  {
+    "id": "CH0_HEALIA",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "HEALIA",
+    "trigger": "ON_OPTIONAL_GUIDE",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Đây là Sông Healia. Những người chăm Pet đã tìm đến dòng nước này từ rất lâu rồi."
+      },
+      {
+        "id": "l2",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Khi Pet bị thương, cậu có thể trở lại đây để hồi phục. Hôm nay hãy thử một lần nhé."
+      },
+      {
+        "id": "open",
+        "kind": "action",
+        "action": "OPEN_HEAL_SERVICE"
+      }
+    ]
+  },
+  {
+    "id": "CH0_HEALIA_DONE",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "HEALIA",
+    "trigger": "SERVER_HEAL_SERVICE_USED",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Tốt rồi! Dù Pet đang khỏe, biết chỗ nghỉ ngơi cũng rất quan trọng."
+      }
+    ]
+  },
+  {
+    "id": "CH0_GO_SHOP",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "CAPITAL",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Chúng ta đã về Kinh thành. Giờ hãy đến Cửa hàng để nhận gói hỗ trợ cho người mới."
+      },
+      {
+        "id": "l2",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Trên bản đồ, bấm nút Mua Sắm. Ta sẽ đợi cậu ở đó."
+      }
+    ]
+  },
+  {
+    "id": "CH0_SHOP",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "OFFICIAL_SHOP",
+    "trigger": "ON_OPTIONAL_GUIDE",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "BRAM",
+        "text_vi": "Khách mới à? Chào mừng đến Trung Tâm Mua Sắm!"
+      },
+      {
+        "id": "l2",
+        "kind": "line",
+        "speaker_id": "BRAM",
+        "text_vi": "Đi săn thì nhớ mang thức ăn và đồ hồi phục. Nhưng hôm nay cậu không phải tiêu Peta đâu."
+      },
+      {
+        "id": "l3",
+        "kind": "line",
+        "speaker_id": "BRAM",
+        "text_vi": "Ta có một gói hỗ trợ cho người mới. Nhận thử rồi kiểm tra hành trang nhé!"
+      },
+      {
+        "id": "claim",
+        "kind": "action",
+        "action": "OPEN_TUTORIAL_SUPPLIES_CLAIM"
+      }
+    ]
+  },
+  {
+    "id": "CH0_SHOP_DONE",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "OFFICIAL_SHOP",
+    "trigger": "SERVER_SUPPLIES_CLAIMED",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "BRAM",
+        "text_vi": "Khi đủ kinh nghiệm, cậu còn có thể xem chợ trời và cửa hàng của những cư dân khác. Giao thương cũng là một phần của Petaria!"
+      }
+    ]
+  },
+  {
+    "id": "CH0_ARENA_INTRO",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "BATTLE_HUB",
+    "trigger": "ON_MAIN_QUEST",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Có Pet rồi thì ra Đấu trường thử một trận nhé. Vào mục Đấu trường, rồi chọn Arena."
+      },
+      {
+        "id": "l2",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Quan sát HP và MP, chọn kỹ năng phù hợp rồi xem Pet phản ứng thế nào. Đối thủ đầu tiên còn non lắm."
+      },
+      {
+        "id": "l3",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Trong đó còn có Trại huấn luyện — nơi gửi Pet nhận kinh nghiệm theo thời gian. Hôm nay chưa cần tới. Khi nào muốn Pet lớn lên lúc cậu nghỉ, hãy quay lại sau."
+      },
+      {
+        "id": "nav",
+        "kind": "action",
+        "action": "HIGHLIGHT_NAV",
+        "path": "/battle"
+      },
+      {
+        "id": "mode",
+        "kind": "action",
+        "action": "HIGHLIGHT_BATTLE_MODE",
+        "path": "/battle/arena"
+      },
+      {
+        "id": "start",
+        "kind": "action",
+        "action": "START_ARENA_BATTLE",
+        "encounter_key": "ARENA_NPC_LEVEL_1",
+        "expected_result": "WIN",
+        "scripted_win": false
+      }
+    ]
+  },
+  {
+    "id": "CH0_ARENA_LOSE",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "ARENA",
+    "trigger": "SERVER_ARENA_BATTLE_LOST",
+    "replayable": true,
+    "blocking": false,
+    "fallback_only": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Cậu đã cố gắng lắm rồi. Hãy cho Pet đi hồi phục sức khỏe ở Sông Healia. Bấm chữ Petaria để về Kinh thành, rồi vào Sông Healia."
+      },
+      {
+        "id": "retry",
+        "kind": "action",
+        "action": "OFFER_BATTLE_RETRY",
+        "encounter_key": "ARENA_NPC_LEVEL_1"
+      }
+    ]
+  },
+  {
+    "id": "CH0_ARENA_WIN",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "ARENA",
+    "trigger": "SERVER_ARENA_FIRST_WIN",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Làm tốt lắm! Pet đã khá tốn sức. Hãy đến Sông Healia để hồi phục. Bấm chữ Petaria về Kinh thành, rồi vào Sông Healia."
+      },
+      {
+        "id": "guide",
+        "kind": "action",
+        "action": "HIGHLIGHT_MAP_LOCATION",
+        "location_id": "HEALIA",
+        "interaction": "PLAYER_CLICK"
+      }
+    ]
+  },
+  {
+    "id": "CH0_ROWAN_INTRO",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "POST_OFFICE",
+    "trigger": "ON_MAIN_QUEST",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ROWAN",
+        "text_vi": "Chào cậu! Ta là Rowan, phụ trách tuyến thư phía Nam của Bưu Điện Kinh Đô."
+      },
+      {
+        "id": "l2",
+        "kind": "line",
+        "speaker_id": "ROWAN",
+        "text_vi": "Ta có một lá thư cần được giao tận tay bà Mira ở Làng Nhân Ái, phía Cánh Đồng Vạn Hoa."
+      },
+      {
+        "id": "l3",
+        "kind": "line",
+        "speaker_id": "ROWAN",
+        "text_vi": "Dạo gần đây thư đi tuyến ấy thường đến muộn. Có người bảo cứ đi mãi lại quay về chỗ cũ."
+      },
+      {
+        "id": "l4",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Chắc họ không quen Đường Hoa thôi! Tuyến đó có gì khó đâu."
+      },
+      {
+        "id": "l5",
+        "kind": "line",
+        "speaker_id": "ROWAN",
+        "text_vi": "Kỳ lạ là vài người trong số họ đã đi tuyến này hàng chục năm…"
+      },
+      {
+        "id": "accept",
+        "kind": "choice",
+        "prompt_vi": "Cậu có nhận chuyến thư này không?",
+        "options": [
+          {
+            "id": "YES",
+            "text_vi": "Tôi nhận nhiệm vụ.",
+            "response_vi": "Cảm ơn cậu. Hãy trao tận tay bà Mira, đừng đưa cho người khác nhé."
+          },
+          {
+            "id": "LATER",
+            "text_vi": "Để tôi chuẩn bị thêm.",
+            "response_vi": "Không vội. Khi sẵn sàng, quay lại gặp ta."
+          }
+        ],
+        "affects_progress": false
+      },
+      {
+        "id": "accept_action",
+        "kind": "action",
+        "action": "OFFER_SERVER_QUEST_ACCEPT",
+        "quest_id": "CH0_Q07",
+        "only_if_choice": "YES"
+      }
+    ]
+  },
+  {
+    "id": "CH0_ROWAN_RETRY",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "POST_OFFICE",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ROWAN",
+        "text_vi": "Cậu quay lại rồi. Ta vẫn đang giữ lá thư cho bà Mira. Cậu suy nghĩ thế nào, có muốn giúp ta không?"
+      },
+      {
+        "id": "accept",
+        "kind": "choice",
+        "prompt_vi": "Cậu có nhận chuyến thư này không?",
+        "options": [
+          {
+            "id": "YES",
+            "text_vi": "Tôi nhận nhiệm vụ.",
+            "response_vi": "Cảm ơn cậu. Hãy trao tận tay bà Mira, đừng đưa cho người khác nhé."
+          },
+          {
+            "id": "LATER",
+            "text_vi": "Để tôi chuẩn bị thêm.",
+            "response_vi": "Không sao. Ta vẫn ở Bưu Điện khi cậu sẵn sàng."
+          }
+        ],
+        "affects_progress": false
+      },
+      {
+        "id": "accept_action",
+        "kind": "action",
+        "action": "OFFER_SERVER_QUEST_ACCEPT",
+        "quest_id": "CH0_Q07",
+        "only_if_choice": "YES"
+      }
+    ]
+  },
+  {
+    "id": "CH0_ROWAN_ACCEPTED",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "POST_OFFICE",
+    "trigger": "SERVER_LETTER_ACCEPTED",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ROWAN",
+        "text_vi": "Thư đã được niêm phong. Hãy giữ cẩn thận; ta sẽ chờ tin từ Làng Nhân Ái."
+      },
+      {
+        "id": "l2",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Vậy là chuyến phiêu lưu đầu tiên bắt đầu rồi! Ra bến tàu trên Kinh thành. Ta sẽ chỉ cậu đường xuống phía Nam."
+      },
+      {
+        "id": "guide",
+        "kind": "action",
+        "action": "HIGHLIGHT_MAP_LOCATION",
+        "location_id": "CAPITAL_PORT",
+        "interaction": "PLAYER_CLICK",
+        "marker": "green_box"
+      }
+    ]
+  },
+  {
+    "id": "CH0_PORT",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "CAPITAL_PORT",
+    "marker": "green_box",
+    "trigger": "LETTER_ACCEPTED_AND_PORT_VISITED",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Đây là bến tàu. Ngoài Centre Island là những vùng đất rộng lớn. Có nơi đầy hoa, có nơi tuyết rơi quanh năm!"
+      },
+      {
+        "id": "l2",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Nhiệm vụ của cậu là đến Làng Nhân Ái trước. Cánh Đồng Vạn Hoa nằm về phía Nam."
+      },
+      {
+        "id": "l3",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Nhớ giữ sức cho Pet. Và… khi nào có dịp, quay về Kinh Đô kể ta nghe chuyến đi nhé!"
+      },
+      {
+        "id": "map",
+        "kind": "action",
+        "action": "OPEN_WORLD_MAP",
+        "focus_region_id": "FLOWER_FIELDS",
+        "region_route": "/region/3-1",
+        "direction_vi": "phía Nam"
+      }
+    ]
+  },
+  {
+    "id": "CH0_DEPART",
+    "chapter_id": "CH0",
+    "type": "CHAPTER",
+    "location_id": "WORLD_MAP",
+    "trigger": "SERVER_FLOWER_REGION_ENTERED",
+    "completes_chapter": true,
+    "letter_delivery": "CHAPTER_1",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "title",
+        "kind": "chapter_card",
+        "title_vi": "CHƯƠNG 1",
+        "subtitle_vi": "CÁNH ĐỒNG VẠN HOA — NHỮNG HẠT GIỐNG THẤT LẠC",
+        "art_key": "chapter1_flower_arrival"
+      },
+      {
+        "id": "line",
+        "kind": "line",
+        "speaker_id": "NARRATOR",
+        "text_vi": "Ngoài khơi Centre Island, những cánh đồng hoa trải dài dưới nắng. Và ở đâu đó giữa những con đường quen thuộc, một điều bất thường đang chờ được phát hiện."
+      }
+    ]
+  },
+  {
+    "id": "CH0_PET_STATS",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "MY_HOME",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Đây là hồ sơ của người bạn nhỏ. Sức khỏe, sức mạnh và các chỉ số cho cậu biết bé ấy đang khỏe đến đâu."
+      },
+      {
+        "id": "l2",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Nhìn xuống Tình trạng và Tâm trạng. Bấm vào chữ tình trạng — ta sẽ chỉ cậu cách chăm sóc."
+      }
+    ]
+  },
+  {
+    "id": "CH0_PET_RESTAURANT",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "MY_HOME",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Khi thú cưng đói hoặc mệt, cậu có thể đưa bé đến Nhà hàng. Bấm chữ Nhà hàng trong khung này."
+      }
+    ]
+  },
+  {
+    "id": "CH0_RESTAURANT",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "CAPITAL",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Ở Nhà hàng, cậu cho thú cưng ăn để hồi phục tình trạng. Hãy chọn menu Bình Dân."
+      }
+    ]
+  },
+  {
+    "id": "CH0_RESTAURANT_DONE",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "CAPITAL",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Ăn xong rồi! Muốn về Kinh thành, bấm chữ Petaria ở góc trái phía trên."
+      }
+    ]
+  },
+  {
+    "id": "CH0_INVENTORY",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "CAPITAL",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Đây là túi của cậu. Các tab All, Food, Consumable, Equipment… giúp cậu tìm đồ cho nhanh."
+      },
+      {
+        "id": "l2",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Bấm tab Equipment. Ta sẽ chỉ cậu cách mặc trang bị cho thú cưng."
+      }
+    ]
+  },
+  {
+    "id": "CH0_INVENTORY_EQUIP",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "CAPITAL",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Mở một món trang bị, chọn Trang bị cho thú cưng, rồi chọn người bạn nhỏ của cậu. Cậu phải mặc xong mới đi tiếp được."
+      }
+    ]
+  },
+  {
+    "id": "CH0_GEAR_READY",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "CAPITAL",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Thú cưng đã được trang bị vũ khí rồi. Trông bé ấy sẵn sàng hơn hẳn!"
+      },
+      {
+        "id": "l2",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Giờ hãy bắt đầu trận chiến đầu tiên. Mở Đặc trưng, chọn Đấu trường, rồi vào Arena."
+      }
+    ]
+  },
+  {
+    "id": "CH0_ARENA_SPEED",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "ARENA",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Ô tốc độ cho biết ai đánh trước. Tốc độ cao hơn sẽ được ra đòn trước."
+      }
+    ]
+  },
+  {
+    "id": "CH0_ARENA_HOLD",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "ARENA",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Giữ vào hình thú trên đội hình để xem thông tin. Hãy giữ hình thú của cậu, rồi đóng khung thông tin."
+      }
+    ]
+  },
+  {
+    "id": "CH0_ARENA_UNSLOT",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "ARENA",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Cậu có thể tháo thú bằng cách nhấn hai lần vào thú, hoặc bấm dấu gỡ hết. Xong thì bấm Bắt đầu trận đấu."
+      }
+    ]
+  },
+  {
+    "id": "CH0_BATTLE_ACTION",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "ARENA",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Hãy chọn hành động: Tấn công thường hoặc Phòng thủ vật lý."
+      }
+    ]
+  },
+  {
+    "id": "CH0_BATTLE_GO",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "ARENA",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Đã chọn hành động rồi. Bấm Go để thực hiện."
+      }
+    ]
+  },
+  {
+    "id": "CH0_BATTLE_HOLD",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "ARENA",
+    "replayable": true,
+    "blocking": true,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Bấm vào vũ khí để sử dụng nó."
+      }
+    ]
+  }
+]

@@ -9,6 +9,7 @@ import formationSystem from '../../data/formationSystem';
 import { fetchChampionRoster, getChampionFormation, getChampionNpc, championFormationId } from './championNpcs';
 import { resumeMatchState } from './resumeArenaMatch';
 import './BattlePetSelectPage.css';
+import { useChapter0 } from '../story/Chapter0/Chapter0Context';
 
 const {
   FORMATIONS,
@@ -224,6 +225,7 @@ function FormationSlot({
   hidePetVisual,
   holding,
   locked,
+  storyTarget,
 }) {
   return (
     <div
@@ -263,6 +265,7 @@ function FormationSlot({
       onPointerCancel={onPointerCancel}
       onPointerLeave={onPointerLeave}
       onContextMenu={(e) => e.preventDefault()}
+      data-story-target={storyTarget || undefined}
       aria-label={
         locked
           ? 'Ô đã khóa'
@@ -308,6 +311,7 @@ function BattlePetSelectPage() {
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
   const { user, isLoading, updateUserData } = useContext(UserContext);
   const navigate = useNavigate();
+  const { story, postEvent } = useChapter0();
   const location = useLocation();
 
   const prep = location.state || {};
@@ -390,6 +394,17 @@ function BattlePetSelectPage() {
   const [dragGhost, setDragGhost] = useState(null); // { pet, x, y }
   const [holdUi, setHoldUi] = useState(null); // { type: 'slot'|'roster', key }
   const [petInfoOpen, setPetInfoOpen] = useState(false);
+  const petInfoSeenRef = React.useRef(false);
+
+  useEffect(() => {
+    if (story?.guidance?.lock !== 'bps-hold') return undefined;
+    if (petInfoOpen) petInfoSeenRef.current = true;
+    if (!petInfoOpen && petInfoSeenRef.current) {
+      petInfoSeenRef.current = false;
+      void postEvent({ type: 'ARENA_HOLD_DONE' });
+    }
+    return undefined;
+  }, [petInfoOpen, story?.guidance?.lock, postEvent]);
   const [petInfoLoading, setPetInfoLoading] = useState(false);
   const [petInfoDetail, setPetInfoDetail] = useState(null);
   const [petInfoItems, setPetInfoItems] = useState([]);
@@ -1489,6 +1504,9 @@ function BattlePetSelectPage() {
           dragFromIndex !== index
         }
         holding={isHolding}
+        storyTarget={
+          side === 'player' && pet && story?.guidance?.lock === 'bps-hold' ? 'bps-hold' : undefined
+        }
         onPointerDown={
           readOnly || locked
             ? enemyHoldHandlers.onPointerDown
@@ -1514,7 +1532,7 @@ function BattlePetSelectPage() {
   const renderPlayerSlots = () => {
     if (battleMode === '1v1') {
       return (
-        <div className="bps-board bps-board--single bps-board--player">
+        <div className="bps-board bps-board--single bps-board--player" data-story-target="bps-board">
           {renderSlot('player', 0, slots[0])}
         </div>
       );
@@ -1574,7 +1592,7 @@ function BattlePetSelectPage() {
 
     if (battleMode === '1v1') {
       return (
-        <div className="bps-board bps-board--single bps-board--enemy">
+        <div className="bps-board bps-board--single bps-board--enemy" data-story-target="bps-enemy">
           {renderSlot('enemy', 0, petsByIndex[0], { readOnly: true })}
         </div>
       );
@@ -1594,7 +1612,7 @@ function BattlePetSelectPage() {
   };
 
   const SpeedBadge = ({ value, title }) => (
-    <div className="bps-speed-total" title={title}>
+    <div className="bps-speed-total" title={title} data-story-target="bps-speed">
       <img
         className="arena-speed-icon"
         src="/images/icons/speed.png"
@@ -1624,6 +1642,7 @@ function BattlePetSelectPage() {
             <button
               type="button"
               className="bps-clear-slots"
+              data-story-target="bps-clear"
               onClick={clearAllSlots}
               disabled={filledCount === 0}
               title="Gỡ hết thú khỏi đội hình"
@@ -1717,7 +1736,7 @@ function BattlePetSelectPage() {
             </p>
           ) : (
             <div className="bps-roster__grid">
-              {rosterPets.map((pet) => {
+              {rosterPets.map((pet, petIndex) => {
                 const petKey = petKeyOf(pet);
                 const speciesBlocked =
                   Boolean(petSpeciesKey(pet)) &&
@@ -1733,7 +1752,13 @@ function BattlePetSelectPage() {
                     }${speciesBlocked ? ' bps-pet-card--species-blocked' : ''}${
                       holding ? ' bps-pet-card--holding' : ''
                     }`}
-                    onClick={() => handleRosterPetClick(pet)}
+                    data-story-target={petIndex === 0 ? 'bps-pet' : undefined}
+                    onClick={() => {
+                      if (story?.guidance?.lock === 'bps-pet') {
+                        void postEvent({ type: 'ARENA_PET_PICKED' });
+                      }
+                      handleRosterPetClick(pet);
+                    }}
                     onPointerDown={(e) => handleRosterPointerDown(pet, e)}
                     onPointerUp={handleRosterPointerUp}
                     onPointerCancel={handleRosterPointerUp}
@@ -1768,6 +1793,7 @@ function BattlePetSelectPage() {
           <button
             type="button"
             className="bps-btn bps-btn--primary"
+            data-story-target={story?.guidance?.lock === 'bps-start' ? 'bps-start' : undefined}
             disabled={!canStart || matchStarting}
             onClick={() => void startMatchAndNavigate()}
           >

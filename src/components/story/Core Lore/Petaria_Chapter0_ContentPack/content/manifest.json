@@ -1,0 +1,21 @@
+{
+  "pack_id": "petaria_ch0",
+  "version": "1.2.0-draft",
+  "locale": "vi-VN",
+  "chapter_id": "CH0",
+  "chapter_title_vi": "Người Phiêu Lưu Tập Sự",
+  "canon": "User-approved Petaria World Story Bible; new NPC names and balance values remain reviewable",
+  "entry_location_id": "CAPITAL",
+  "next_region_id": "FLOWER_FIELDS",
+  "assets_needed": [
+    "opening_01_world",
+    "opening_02_regions",
+    "opening_03_life",
+    "opening_04_capital",
+    "chapter1_flower_arrival",
+    "portrait_ari",
+    "portrait_elina",
+    "portrait_bram",
+    "portrait_rowan"
+  ]
+}

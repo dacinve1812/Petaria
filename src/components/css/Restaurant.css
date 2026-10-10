@@ -2,7 +2,8 @@
 .restaurant-page {
   position: relative;
   min-height: 60vh;
-  padding: 24px 16px;
+  padding: 16px 12px 28px;
+  box-sizing: border-box;
 }
 
 .restaurant-background {
@@ -146,11 +147,48 @@
 }
 
 @media (max-width: 768px) {
+  .restaurant-page {
+    min-height: 0;
+    padding: 12px 10px calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .restaurant-content {
+    width: 100%;
+  }
+
+  .restaurant-balance,
+  .restaurant-balance strong,
+  .restaurant-card-title,
+  .restaurant-card-cost,
+  .restaurant-card-status,
+  .restaurant-card-btn,
+  .restaurant-result {
+    font-size: 15px !important;
+  }
+
+  .restaurant-card-title {
+    font-size: 18px !important;
+  }
+
   .restaurant-cards {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
+    gap: 12px;
+    width: 100%;
   }
+
   .restaurant-card {
-    max-width: 100%;
+    flex: none;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+    padding: 16px 14px;
+    border-radius: 16px;
+    background: rgba(20, 24, 32, 0.72);
+  }
+
+  .restaurant-card-btn {
+    max-width: none;
+    min-height: 48px;
   }
 }

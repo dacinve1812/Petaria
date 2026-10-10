@@ -1,0 +1,193 @@
+﻿.ch0-opening-reel {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  background: #000;
+}
+
+.ch0-opening-reel__stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: #000;
+  cursor: pointer;
+  overflow: hidden;
+  animation: none;
+  transform: none;
+  transition: none;
+  box-shadow: none;
+}
+
+.ch0-opening-reel__wash {
+  position: absolute;
+  inset: -12%;
+  width: 124%;
+  height: 124%;
+  object-fit: cover;
+  filter: blur(56px) saturate(1.25) brightness(0.62);
+  pointer-events: none;
+  transform: scale(1.08);
+}
+
+.ch0-opening-reel__frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  width: min(100%, 1440px, calc(100dvh * var(--reel-ratio, 1.777778)));
+  aspect-ratio: var(--reel-ratio, 1.777778);
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+  -webkit-mask-image:
+    linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent),
+    linear-gradient(to right, transparent, #000 72px, #000 calc(100% - 72px), transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent),
+    linear-gradient(to right, transparent, #000 72px, #000 calc(100% - 72px), transparent);
+  mask-composite: intersect;
+}
+
+.ch0-opening-reel__stage:hover,
+.ch0-opening-reel__stage:active,
+.ch0-opening-reel__skip:hover,
+.ch0-opening-reel__skip:active {
+  animation: none;
+  transform: none;
+  transition: none;
+  box-shadow: none;
+}
+
+.ch0-opening-reel__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  transform: none;
+}
+
+.ch0-opening-reel__dim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.48);
+  pointer-events: none;
+}
+
+.ch0-opening-reel__veil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: #000;
+  opacity: 1;
+  pointer-events: none;
+}
+
+.ch0-opening-reel__veil.is-in {
+  animation: ch0-reel-unveil 0.9s ease forwards;
+}
+
+.ch0-opening-reel__veil.is-out {
+  animation: ch0-reel-cover 0.7s ease forwards;
+}
+
+.ch0-opening-reel__stage.is-mobile .ch0-opening-reel__wash {
+  display: none;
+}
+
+.ch0-opening-reel__stage.is-mobile .ch0-opening-reel__frame {
+  top: 0;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  transform: translateX(-50%);
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.ch0-opening-reel__stage.is-mobile .ch0-opening-reel__img {
+  object-fit: cover;
+}
+
+.ch0-opening-reel__copy {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 50%;
+  z-index: 3;
+  transform: translateY(-50%);
+  color: #fff;
+  text-align: center;
+  font-size: clamp(1.05rem, 2.3vw, 1.7rem);
+  line-height: 1.55;
+  white-space: pre-line;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
+.ch0-opening-reel__title {
+  display: block;
+  letter-spacing: 0.12em;
+  animation: ch0-reel-title 0.8s ease forwards;
+}
+
+.ch0-opening-reel__title em {
+  display: block;
+  margin-top: 10px;
+  font-style: normal;
+  letter-spacing: 0.04em;
+  font-size: 0.72em;
+}
+
+.ch0-opening-reel__skip {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 12px;
+  z-index: 4;
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+}
+
+body.ch0-opening-reel #sgw-top-navigation,
+body.ch0-opening-reel .navigation-menu,
+body.ch0-opening-reel .sidebar,
+body.ch0-opening-reel .sidebar-overlay {
+  visibility: hidden !important;
+}
+
+@keyframes ch0-reel-unveil {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes ch0-reel-cover {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ch0-reel-title {
+  from { opacity: 0; transform: scale(1); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ch0-opening-reel__veil.is-in,
+  .ch0-opening-reel__veil.is-out,
+  .ch0-opening-reel__title {
+    animation: none;
+    opacity: 1;
+  }
+
+  .ch0-opening-reel__veil.is-in {
+    opacity: 0;
+  }
+}
+
+

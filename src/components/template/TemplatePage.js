@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useChapter0Optional } from '../story/Chapter0/Chapter0Context';
 
 const TemplatePage = ({ 
   tabs = [], 
@@ -13,6 +14,8 @@ const TemplatePage = ({
   children 
 }) => {
   const [searchValue, setSearchValue] = useState('');
+  const chapter = useChapter0Optional();
+  const lockEquipment = chapter?.story?.guidance?.lock === 'inventory-equipment';
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -55,6 +58,7 @@ const TemplatePage = ({
                 <button
                   key={index}
                   className={`tabs__top-button ${currentTab === index ? 'active' : ''}`}
+                  data-story-target={lockEquipment && tab.value === 'equipment' ? 'inventory-equipment' : undefined}
                   onClick={() => handleTabClick(tab)}
                 >
                   {tab.label}

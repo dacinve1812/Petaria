@@ -7,6 +7,7 @@ import GlobalBanner from '../GlobalBanner';
 import TemplatePage from '../template/TemplatePage';
 import { resolveAssetPath } from '../../utils/pathUtils';
 import { normalizeInventoryResponse } from '../../utils/inventoryApi';
+import { useChapter0 } from '../story/Chapter0/Chapter0Context';
 
 const INVENTORY_FILTERS = ['all', 'food', 'consumable', 'equipment', 'booster', 'misc'];
 
@@ -50,6 +51,7 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
   const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
   const filterType = filterFromPath(location.pathname);
+  const { story } = useChapter0();
 
   useEffect(() => {
     setCurrentPage(1);
@@ -245,6 +247,7 @@ function Inventory({ isLoggedIn, onLogoutSuccess }) {
                   <ItemCard
                     key={`${item.id}-${index}`}
                     item={item}
+                    storyTarget={story?.guidance?.lock === 'inventory-item' && filterType === 'equipment' && index === 0 ? 'inventory-item' : undefined}
                     note={item.is_equipped ? `Trang bị cho ${item.pet_name || '??'} Lvl. ${item.pet_level}` : ''}
                     icon={item.is_equipped ? <img className="inventory-icon-button-1" src="/images/icons/equipped.png" alt="equipped" /> : ''}
                     onClick={() => handleCardClick(item)}

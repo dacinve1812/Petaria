@@ -9,6 +9,7 @@ import GameModalButton from './ui/GameModalButton';
 import GameDialogModal from './ui/GameDialogModal';
 import PetEquipPickerModal, { MAX_EQUIP_SLOTS } from './PetEquipPickerModal';
 import expTable from '../data/exp_table_petaria.json';
+import { useChapter0 } from './story/Chapter0/Chapter0Context';
 
 /** Chuẩn hóa dòng từ GET /api/pets/:id/equipment → shape dùng chung với ItemDetailModal (inventory). */
 function mapEquippedRowToModalItem(row) {
@@ -33,6 +34,9 @@ function mapEquippedRowToModalItem(row) {
 /** API GET /api/pets/:id/hunger-status — cùng kiểu dòng với pet-detail-hp, mp, … */
 const PetVitalsDisplay = ({ vitals }) => {
   const [helpKind, setHelpKind] = useState(null); // 'hunger' | 'mood' | null
+  const { story, postEvent } = useChapter0();
+  const lockStatus = story?.guidance?.lock === 'pet-status';
+  const lockRestaurant = story?.guidance?.lock === 'pet-restaurant';
 
   if (!vitals) return null;
   const hColor = vitals.hunger_color || '#333';
@@ -51,7 +55,11 @@ const PetVitalsDisplay = ({ vitals }) => {
           tabIndex={0}
           className="pet-vitals-status-btn"
           style={{ color: hColor }}
-          onClick={() => setHelpKind('hunger')}
+          data-story-target={lockStatus ? 'pet-status' : undefined}
+          onClick={() => {
+            setHelpKind('hunger');
+            if (lockStatus) void postEvent({ type: 'PET_STATUS_OPENED' });
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
@@ -95,7 +103,12 @@ const PetVitalsDisplay = ({ vitals }) => {
           Thú cưng của bạn hiện đang{' '}
           <strong style={{ color: hColor }}>{hungerText}</strong>.
           Hãy sớm hồi phục sức sống — ghé{' '}
-          <Link to="/restaurant" className="pet-vitals-help__link" onClick={closeHelp}>
+          <Link
+            to="/restaurant"
+            className="pet-vitals-help__link"
+            data-story-target={lockRestaurant ? 'pet-restaurant' : undefined}
+            onClick={closeHelp}
+          >
             Nhà hàng
           </Link>
           {' '}hoặc{' '}

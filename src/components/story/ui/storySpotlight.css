@@ -1,0 +1,123 @@
+﻿.ch0-spot {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: 8px;
+  background: rgba(255, 208, 48, 0.42);
+  box-shadow: inset 0 0 0 3px #f5c542, 0 0 16px rgba(245, 197, 66, 0.85);
+  border: none; 
+}
+
+.ch0-spot--port {
+  z-index: 6;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.pet-card.story-hot {
+  background: #ffe08a !important;
+  position: relative;
+  z-index: 10050 !important;
+  animation: story-hot-pulse 1.05s ease-in-out infinite !important;
+}
+
+.pet-card.story-hot .myhome-pet-image,
+.pet-card.story-hot .pet-image-container {
+  background: transparent !important;
+}
+
+.story-hot,
+.regionmap-button--story,
+.battle-mode-card--story,
+.dropdown-item--story,
+.adopt-button--story,
+.nav-item--story,
+.sgw-logo-link--story {
+  position: relative;
+  z-index: 10050;
+  outline: none;
+  padding: 7px;
+  border-radius: 10px;
+  background-color: rgba(255, 208, 48, 0.55) !important;
+  box-shadow: inset 0 0 0 3px #f5c542, 0 0 18px rgba(245, 197, 66, 0.9) !important;
+}
+
+.worldmap-area--story,
+.worldmap-area--box.worldmap-area--story {
+  fill: rgba(255, 208, 48, 0.35);
+  stroke: #f5c542;
+  stroke-width: 3;
+}
+
+body.story-lock::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 10020;
+  background: rgba(8, 10, 16, 0.45);
+  pointer-events: auto;
+}
+
+body.story-lock #peta-body:has(.story-hot) {
+  z-index: 10040;
+  pointer-events: none;
+}
+
+body.story-lock .story-hot,
+body.story-lock .story-hot * {
+  pointer-events: auto !important;
+}
+
+body.story-lock button.story-hot {
+  z-index: 10060 !important;
+  position: relative;
+}
+
+body.story-lock .navigation-menu:has(.story-hot),
+body.story-lock #sgw-top-navigation:has(.story-hot),
+body.story-lock .game-dialog-overlay:has(.story-hot) {
+  z-index: 10040;
+}
+
+body.story-lock .dropdown-menu:has(.story-hot) {
+  z-index: 10060 !important;
+  pointer-events: none;
+}
+
+body.story-lock .dropdown-menu:has(.story-hot) .story-hot,
+body.story-lock .dropdown-menu:has(.story-hot) .story-hot * {
+  pointer-events: auto;
+}
+
+body.story-lock .game-dialog-overlay:has(.story-hot) {
+  pointer-events: none;
+}
+
+body.story-lock .game-dialog-overlay:has(.story-hot) .story-hot,
+body.story-lock .game-dialog-overlay:has(.story-hot) .story-hot * {
+  pointer-events: auto;
+}
+
+body.story-lock .global-chat-box,
+body.ch0-talk-open .global-chat-box {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ch0-spot,
+  .story-hot,
+  .regionmap-button--story,
+  .battle-mode-card--story,
+  .dropdown-item--story,
+  .adopt-button--story,
+  .nav-item--story,
+  .sgw-logo-link--story {
+    animation: story-hot-pulse 1.05s ease-in-out infinite;
+  }
+}
+
+@keyframes story-hot-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+

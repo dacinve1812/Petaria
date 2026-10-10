@@ -7,10 +7,14 @@ import {
   MAIL_UNREAD_REFRESH_EVENT,
 } from '../../utils/mailEvents';
 import { AlertExclamationBadge } from '../ui/AlertExclamationBadge';
+import { useChapter0 } from '../story/Chapter0/Chapter0Context';
 
 const NavigationMenu = ({ className = '' }) => {
   const navigate = useNavigate();
   const { user, isLoading } = useUser();
+  const { story } = useChapter0();
+  const menuLock = story?.guidance?.lock === 'nav-features';
+  const submenuPath = story?.guidance?.submenu || '';
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [triggerRect, setTriggerRect] = useState(null);
   const navRef = useRef(null);
@@ -223,6 +227,7 @@ const NavigationMenu = ({ className = '' }) => {
             <div
               key={item.id}
               className={`nav-item ${activeDropdown === item.id ? 'active' : ''}`}
+              data-story-target={menuLock && item.id === 'features' && activeDropdown !== 'features' ? 'nav-features' : undefined}
             >
               <div
                 className="nav-link"
@@ -257,6 +262,7 @@ const NavigationMenu = ({ className = '' }) => {
                 className={`dropdown-item ${
                   submenuItem.path === '/mail' ? 'dropdown-item--mail' : ''
                 }`}
+                data-story-target={menuLock && activeItem?.id === 'features' && submenuItem.path === submenuPath ? 'nav-sub' : undefined}
                 onClick={() => handleSubmenuClick(submenuItem)}
               >
                 <span className="dropdown-item__label">{submenuItem.title}</span>

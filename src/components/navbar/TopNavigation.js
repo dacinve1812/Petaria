@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
 import { getDisplayName } from '../../utils/userDisplay';
+import { useChapter0 } from '../story/Chapter0/Chapter0Context';
 
 function formatGrouped(value) {
   const amount = Number(value);
@@ -29,6 +30,7 @@ const TopNavigation = ({ className = '', onOpenSidebar, sidebarOpen = false }) =
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const { user, isLoading, logout } = useUser();
   const navigate = useNavigate();
+  const { story } = useChapter0();
   const dropdownRef = useRef(null);
   const effectiveName = getDisplayName(user, 'Người chơi');
 
@@ -62,7 +64,10 @@ const TopNavigation = ({ className = '', onOpenSidebar, sidebarOpen = false }) =
           <button type="button" className="sgw-logo-btn" onClick={() => onOpenSidebar?.()} aria-label="Mở menu">
             <img src="/images/icons/logo2.png" alt="Petaria Logo" className="sgw-logo-img" />
           </button>
-          <Link to="/home-ver2">
+          <Link
+            to="/home-ver2"
+            data-story-target={story?.guidance?.lock === 'logo' ? 'logo' : undefined}
+          >
             <span className="sgw-logo-text">Petaria</span>
           </Link>
         </div>

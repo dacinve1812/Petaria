@@ -7,6 +7,7 @@ import SpiritDetailModal from './spirit/SpiritDetailModal';
 import GameModalButton from './ui/GameModalButton';
 import { resolveAssetPath } from '../utils/pathUtils';
 import { asOwnedList, normalizeOwnedCapacity } from '../utils/inventoryApi';
+import { useChapter0 } from './story/Chapter0/Chapter0Context';
 
 // Số hàng mỗi trang. pageSize = ROWS * số cột thực tế -> luôn full hàng.
 const PET_ROWS_PER_PAGE = 4;
@@ -372,6 +373,7 @@ function MyHome({isLoggedIn, onLogoutSuccess }) {
 
 // Pet Management Component
 function PetManagement({ userPets, slotCount = 0, maxSlots = 1000, isLoading, imageLoadErrors, setImageLoadErrors, searchTerm }) {
+  const { story } = useChapter0();
   const [currentPage, setCurrentPage] = useState(1);
   const [sortOption, setSortOption] = useState('level');
   const { containerRef, columnsPerRow } = useGridColumns('pets');
@@ -443,13 +445,20 @@ function PetManagement({ userPets, slotCount = 0, maxSlots = 1000, isLoading, im
               const isDeceased =
                 pet.hunger_status === 0 ||
                 pet.hunger_status_text === 'Tử Vong';
+              const markPet = story?.guidance?.lock === 'mypet-card'
+                && !isDeceased
+                && !paginatedPets.slice(0, index).some((item) => item.hunger_status !== 0 && item.hunger_status_text !== 'Tử Vong');
               return (
                 <div
                   key={`${pet.uuid}-${index}`}
                   className={`pet-card${isDeceased ? ' pet-card--deceased' : ''}`}
                   style={{ animationDelay: `${index * 0.02}s` }}
+                  data-story-target={markPet ? 'mypet-card' : undefined}
                 >
-                  <Link to={`/pet/${pet.uuid}`} style={{ textDecoration: 'none' }}>
+                  <Link
+                    to={`/pet/${pet.uuid}`}
+                    style={{ textDecoration: 'none' }}
+                  >
                     <div className="pet-image-container">
                       <img 
                         src={imageLoadErrors[pet.uuid] ? '/images/pets/placeholder.png' : `/images/pets/${pet.image}`}

@@ -2,7 +2,7 @@
 import React from 'react';
 import './ItemCard.css';
 
-function ItemCard({ item, onClick, note, icon, style }) {
+function ItemCard({ item, onClick, note, icon, style, storyTarget }) {
   const rarityColors = {
     common: '#ccc',
     rare: '#3b82f6',
@@ -29,6 +29,7 @@ function ItemCard({ item, onClick, note, icon, style }) {
         ...style
       }}
       onClick={onClick}
+      data-story-target={storyTarget || undefined}
     >
       <img
         src={`/images/equipments/${item.image_url}`}

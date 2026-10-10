@@ -1,0 +1,166 @@
+{
+  "chapter": "CH0",
+  "start_scene": "CH0_OPENING",
+  "rules": [
+    {
+      "id": "first_login",
+      "when": [
+        "NEW_USER",
+        "NOT_STARTER_ADOPTED"
+      ],
+      "then": "CH0_OPENING",
+      "skippable": true
+    },
+    {
+      "id": "mandatory_adoption",
+      "when": [
+        "NOT_STARTER_ADOPTED"
+      ],
+      "focus": "ORPHANAGE",
+      "guidance": "HIGHLIGHT_ONLY",
+      "adoption": "ANY_PET_IN_CURRENT_LIST",
+      "feature_gate": "REQUIRES_PET",
+      "do_not_block": "NON_PET_CITY_SERVICES"
+    },
+    {
+      "id": "after_adoption",
+      "when": [
+        "STARTER_ADOPTED"
+      ],
+      "recommend": [
+        "MY_HOME",
+        "HEALIA",
+        "OFFICIAL_SHOP"
+      ],
+      "required_next": "BATTLE_HUB",
+      "recommendation_not_hardlock": true
+    },
+    {
+      "id": "arena",
+      "when": [
+        "STARTER_ADOPTED",
+        "NOT_ARENA_FIRST_WIN"
+      ],
+      "focus": "BATTLE_HUB",
+      "then_mode": "ARENA",
+      "encounter_key": "ARENA_NPC_LEVEL_1",
+      "note": "Vào /battle, chọn Arena. NPC cấp 1 rất dễ nên trận đầu kỳ vọng thắng. Thua thì đấu lại, không có thắng sẵn. Trại huấn luyện chỉ được nhắc miệng."
+    },
+    {
+      "id": "postal",
+      "when": [
+        "ARENA_FIRST_WIN",
+        "NOT_LETTER_QUEST_ACCEPTED"
+      ],
+      "focus": "POST_OFFICE"
+    },
+    {
+      "id": "departure",
+      "when": [
+        "LETTER_QUEST_ACCEPTED"
+      ],
+      "focus": "CAPITAL_PORT",
+      "allow_region": "FLOWER_FIELDS",
+      "note": "Highlight ô bến tàu trên Kinh thành. Ari mở bản đồ thế giới và chỉ phía Nam. Trao thư cho Mira thuộc Chapter 1."
+    },
+    {
+      "id": "complete",
+      "when": [
+        "STARTER_ADOPTED",
+        "ARENA_FIRST_WIN",
+        "LETTER_QUEST_ACCEPTED",
+        "FLOWER_REGION_ENTERED"
+      ],
+      "then": "CH1",
+      "chapter_scene": "CH0_DEPART"
+    }
+  ],
+  "legacy_policy": {
+    "existing_users_with_pets": "MIGRATE_OR_EXEMPT_FROM_STARTER_ADOPTION",
+    "never_grant_second_starter": true,
+    "never_reset_existing_progress": true
+  },
+  "navigation_note": "Highlight dùng ô spotlight bên dưới, tính theo pixel gốc của ảnh Kinh thành. Vùng bấm nhỏ (castle_hotspot_id) vẫn là nút vào trang. Người chơi tự bấm. Không dịch chuyển hộ.",
+  "spotlight_space": {
+    "desktop": {
+      "image": "/castle1.jpg",
+      "natural_size": [2396, 1760]
+    },
+    "mobile": {
+      "image": "/castle2_mobile.png",
+      "natural_size": [1087, 1447]
+    },
+    "coords": "[x1, y1, x2, y2]"
+  },
+  "locations": {
+    "CAPITAL": { "route": "/home-ver2" },
+    "MY_HOME": {
+      "route": "/myhome/mypet",
+      "castle_hotspot_id": 9,
+      "marker": "red_box",
+      "spotlight": {
+        "desktop": [1288, 1053, 1431, 1218],
+        "mobile": [369, 680, 654, 986]
+      },
+      "note": "Ari đứng trong ô này khi chào. Sau khi nhận Pet, highlight ô này để vào nhà."
+    },
+    "ORPHANAGE": {
+      "route": "/orphanage",
+      "castle_hotspot_id": 4,
+      "guidance": "highlight_only",
+      "adoption": "existing_list_any_pet",
+      "spotlight": {
+        "desktop": [1109, 297, 1590, 662],
+        "mobile": [505, 409, 727, 567]
+      }
+    },
+    "HEALIA": {
+      "route": "/healia-river",
+      "castle_hotspot_id": 3,
+      "spotlight": { "mobile": [471, 158, 686, 271] }
+    },
+    "OFFICIAL_SHOP": {
+      "route": "/shop",
+      "castle_hotspot_id": 1,
+      "spotlight": { "mobile": [35, 135, 229, 330] }
+    },
+    "POST_OFFICE": {
+      "route": "/mail",
+      "castle_hotspot_id": 6,
+      "spotlight": { "mobile": [937, 319, 1077, 495] }
+    },
+    "RESTAURANT": {
+      "route": "/restaurant",
+      "castle_hotspot_id": 5,
+      "spotlight": { "mobile": [731, 328, 917, 481] }
+    },
+    "ENTERTAINMENT": {
+      "route": "/game-center",
+      "castle_hotspot_id": 8,
+      "spotlight": { "mobile": [12, 688, 274, 920] }
+    },
+    "CAPITAL_PORT": {
+      "marker": "green_box",
+      "route": null,
+      "castle_hotspot_id": null,
+      "spotlight": {
+        "desktop": [1714, 786, 1972, 1014],
+        "mobile": [799, 698, 946, 850]
+      },
+      "note": "Bến tàu trên Kinh thành. Chưa có nút bấm riêng. Highlight ô này, rồi Ari mở bản đồ thế giới."
+    },
+    "BATTLE_HUB": { "route": "/battle", "nav_label": "Đấu trường" },
+    "ARENA": { "route": "/battle/arena", "encounter_key": "ARENA_NPC_LEVEL_1" },
+    "TRAINING_CAMP": {
+      "route": "/battle/training",
+      "required_for_chapter": false,
+      "note": "Chỉ nhắc miệng trong CH0_ARENA_INTRO."
+    },
+    "WORLD_MAP": { "route": "/world-map" },
+    "FLOWER_FIELDS": {
+      "route": "/region/3-1",
+      "region_id": "3-1",
+      "name_vi": "Cánh Đồng Vạn Hoa"
+    }
+  }
+}

@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import './Orphanage.css';
 import TemplatePage from './template/TemplatePage';
 import { resolveAssetPath } from '../utils/pathUtils';
-import PetNotice from './PetNotice';
 import { asOwnedList } from '../utils/inventoryApi';
 import GameDialogModal from './ui/GameDialogModal';
+import { dispatchStoryRefresh, useChapter0 } from './story/Chapter0/Chapter0Context';
 
 function Orphanage() {
     const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
@@ -16,6 +16,7 @@ function Orphanage() {
     const [petName, setPetName] = useState('');
     const [currentMode, setCurrentMode] = useState('main'); // 'main', 'adopt', 'release'
     const navigate = useNavigate();
+    const { story, armOrphanageTalk, orphanageTalkArmed, postEvent } = useChapter0();
     const [userId, setUserId] = useState(null);
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -86,6 +87,17 @@ function Orphanage() {
     }, [userId, currentMode]);
 
     const hasExistingPets = userPets.length > 0;
+    const highlightAdopt = story?.guidance?.lock === 'adopt' && currentMode === 'main';
+
+    useEffect(() => {
+        if (hasExistingPets) armOrphanageTalk();
+    }, [hasExistingPets, armOrphanageTalk]);
+
+    useEffect(() => {
+        if (story?.flags?.STARTER_ADOPTED && !story?.flags?.ADOPT_ACKED) {
+            setAdoptSuccessOpen(true);
+        }
+    }, [story?.flags?.STARTER_ADOPTED, story?.flags?.ADOPT_ACKED]);
 
     const fetchOrphanagePets = async () => {
         setLoading(true);
@@ -213,6 +225,7 @@ function Orphanage() {
                     await fetchUserPets();
                     setAdoptSuccessOpen(true);
                     setCurrentMode('main');
+                    dispatchStoryRefresh();
                 } else if (response.status === 401) {
                     handleTokenExpiration();
                 } else {
@@ -297,7 +310,6 @@ function Orphanage() {
 
     const renderMainMenu = () => (
         <div className="orphanage-main-menu">
-            <PetNotice />
             {/* <h2 className="orphanage-title">Trại Mồ Côi</h2> */}
             <div className="welcome-message">
                 <p>Xin chào mừng bạn đã đến với Trung tâm thú cưng, tại đây bạn có thể nhân nuôi thú cưng cho riêng mình hoặc phóng thích thú cưng của mình.</p>
@@ -314,8 +326,12 @@ function Orphanage() {
             <div className="action-buttons">
                 <button 
                     className="adopt-button"
-                    onClick={() => void handleEnterAdoptMode()}
-                    disabled={loading || hasExistingPets}
+                    data-story-target={highlightAdopt ? 'adopt' : undefined}
+                    onClick={() => {
+                        armOrphanageTalk();
+                        void handleEnterAdoptMode();
+                    }}
+                    disabled={!highlightAdopt && (loading || hasExistingPets)}
                     title={hasExistingPets ? 'Bạn đã có thú cưng' : undefined}
                 >
                     Nhân nuôi thú!
@@ -486,7 +502,10 @@ function Orphanage() {
                 mode="alert"
                 tone="success"
                 confirmLabel="Đóng"
-                onConfirm={() => setAdoptSuccessOpen(false)}
+                onConfirm={() => {
+                    setAdoptSuccessOpen(false);
+                    void postEvent({ type: 'ADOPT_ACK' });
+                }}
             >
                 <p>Bạn đã nhận nuôi thú cưng thành công!</p>
             </GameDialogModal>

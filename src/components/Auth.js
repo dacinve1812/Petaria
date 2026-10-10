@@ -30,7 +30,12 @@ export default function Auth(){
    if(['security','change','resend'].includes(target) && user?.token)headers.Authorization=`Bearer ${user.token}`;
    const res=await fetch(`${API}${paths[target] || '/login'}`,{method:'POST',headers,body:JSON.stringify({...values,token,avatar:values.avatar || options.avatars[0]})});
    const data=await res.json();if(!res.ok)throw new Error(data.message || 'Không thể xử lý yêu cầu.');
-   if(target==='login'){login(data.token,data.hasPet);navigate('/');return;}
+   if(target==='login'){login(data.token,data.hasPet);navigate('/home-ver2');return;}
+   if(target==='register'){
+    const loginRes=await fetch(`${API}/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:values.username,password:values.password})});
+    const loginData=await loginRes.json().catch(()=>({}));
+    if(loginRes.ok && loginData.token){login(loginData.token,loginData.hasPet);navigate('/home-ver2');return;}
+   }
    setMessage(data.message);setValues({});
    if(['register','reset','verify','change'].includes(target)){if(['reset','change'].includes(target))logout();setParams({});}
   }catch(e){setError(e.message);}finally{setBusy(false);}
@@ -38,7 +43,7 @@ export default function Auth(){
  const field=(name,label,type='text',hint='',required=true)=><label className="petaria-auth-field" key={name}><span>{label}{required && <b> *</b>}</span><input type={type==="password" && showPasswords ? "text" : type} maxLength={name==="username" && mode==="register" ? 16 : name==="displayName" ? 20 : undefined} name={name} autoComplete={name==='username'?'username':type==='password'?(mode==='login'?'current-password':'new-password'):type==='email'?'email':'off'} required={required} value={values[name] || ''} onChange={e=>setValues({...values,[name]:e.target.value})} minLength={type==='password' && name!=='currentPassword' && mode!=='login'?8:undefined}/>{hint && <small>{hint}</small>}</label>;
  return <main className="petaria-auth-shell">
   <header className="petaria-auth-brand"><a href="/">PETARIA</a><span>Vương quốc thú ảo</span></header>
-  <nav className="petaria-auth-nav" aria-label="Tài khoản"><button onClick={()=>changeMode('login')}>Đăng nhập</button><button onClick={()=>changeMode('register')}>Đăng ký</button>{user && <button onClick={()=>navigate('/')}>Vào vương quốc</button>}</nav>
+  <nav className="petaria-auth-nav" aria-label="Tài khoản"><button onClick={()=>changeMode('login')}>Đăng nhập</button><button onClick={()=>changeMode('register')}>Đăng ký</button>{user && <button onClick={()=>navigate('/home-ver2')}>Vào vương quốc</button>}</nav>
   <section className="auth-container"><h1>{titles[mode] || titles.login}</h1>
    {message && <p role="status" className="auth-success">{message}</p>}{error && <p role="alert" className="auth-error">{error}</p>}
    <form onSubmit={submit}>

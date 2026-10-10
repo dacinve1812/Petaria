@@ -643,6 +643,14 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
         if (typeof onUpdateItem === 'function') {
           onUpdateItem({ ...item, is_equipped: 1, equipped_pet_id: petId });
         }
+        if (token) {
+          const base = process.env.REACT_APP_API_BASE_URL || '';
+          void fetch(`${base}/api/story/chapter0/event`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'GEAR_EQUIPPED', path: window.location.pathname }),
+          }).then(() => window.dispatchEvent(new Event('petaria-story-refresh')));
+        }
         onClose();
       } else {
         alert(result.message || 'Trang bị thất bại.');

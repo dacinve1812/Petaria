@@ -1,0 +1,31 @@
+{
+  "fallbackScreen": "opening_04_capital",
+  "screens": {
+    "opening_01_world": {
+      "desktop": "/images/story/chapter0/opening_01.png",
+      "mobile": "/images/story/chapter0/opening_01_mobile.png"
+    },
+    "opening_02_regions": {
+      "desktop": "/images/story/chapter0/opening_02.png",
+      "mobile": "/worldmap/opening_02_mobile.png"
+    },
+    "opening_03_life": {
+      "desktop": "/images/story/chapter0/opening_03.png",
+      "mobile": "/images/story/chapter0/opening_03_mobile.png"
+    },
+    "opening_04_capital": {
+      "desktop": "/images/story/chapter0/opening_05.png",
+      "mobile": "/images/story/chapter0/opening_04_mobile.png"
+    },
+    "chapter1_flower_arrival": {
+      "desktop": "/images/story/chapter0/opening_05.png",
+      "mobile": "/images/story/chapter0/opening_05_mobile.png"
+    }
+  },
+  "portraits": {
+    "ARI": "/images/character/Ari-avatar-happy.png",
+    "ELINA": "/images/character/Elina-avatar.png",
+    "BRAM": "/images/character/Bram-avatar.png",
+    "ROWAN": "/images/character/Rowan-avatar.png"
+  }
+}
