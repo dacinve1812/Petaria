@@ -43,9 +43,7 @@ function rewardImage(item) {
   const raw = String(item?.image || '');
   if (!raw) return '';
   if (raw.startsWith('http') || raw.startsWith('/')) return raw;
-  const type = String(item?.type || '').toLowerCase();
-  const folder = type === 'equipment' || type === 'weapon' ? 'equipments' : 'items';
-  return `/images/${folder}/${raw}`;
+  return `/images/equipments/${raw}`;
 }
 
 function person(steps, id, speaking) {

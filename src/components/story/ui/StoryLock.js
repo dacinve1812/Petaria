@@ -31,6 +31,9 @@ export default function StoryLock() {
       const cover = document.querySelector('.inventory-item-modal-overlay, .game-dialog-overlay');
       if (cover) {
         document.body.classList.remove('story-lock');
+        marked.forEach((node) => {
+          if (cover.contains(node)) node.classList.add('story-hot');
+        });
         return;
       }
       if (lock && marked.size > 0) document.body.classList.add('story-lock');

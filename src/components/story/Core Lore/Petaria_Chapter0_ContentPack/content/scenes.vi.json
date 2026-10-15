@@ -13,34 +13,36 @@
         "kind": "panel",
         "art_key": "opening_01_world",
         "speaker_id": "NARRATOR",
-        "text_vi": "Giữa biển trời bao la tồn tại Petaria — vương quốc nơi con người và những sinh vật kỳ diệu cùng chung sống."
+        "text_vi": "Giữa biển trời mênh mông là Petaria — vương quốc nơi con người và những loài Pet kỳ diệu cùng chung sống."
       },
       {
         "id": "p2",
         "kind": "panel",
         "art_key": "opening_02_regions",
         "speaker_id": "NARRATOR",
-        "text_vi": "Từ cánh đồng hoa rực rỡ đến miền tuyết trắng, từ rừng sâu đến đại dương, mỗi vùng đất đều lưu giữ những truyền thuyết riêng."
+        "text_vi": "Qua đồng hoa, núi tuyết, rừng sâu và biển cả, mỗi vùng đất đều có những cư dân và truyền thuyết riêng."
       },
       {
         "id": "p3",
         "kind": "panel",
         "art_key": "opening_03_life",
         "speaker_id": "NARRATOR",
-        "text_vi": "Có người mở cửa hàng, có người chăm sóc Pet, có người mong trở thành anh hùng. Và cũng có người chỉ muốn tìm một nơi để gọi là nhà."
+        "text_vi": "Có người gây dựng cửa hàng, có người chăm sóc Pet, có người mơ trở thành anh hùng. Cũng có người chỉ mong tìm thấy một mái nhà."
       },
       {
         "id": "p4",
         "kind": "panel",
         "art_key": "opening_04_capital",
         "speaker_id": "NARRATOR",
-        "text_vi": "Hôm nay, một hành trình mới bắt đầu tại Centre Island — Kinh Đô Petaria."
+        "text_vi": "Và hôm nay, hành trình của bạn bắt đầu tại nơi nhộn nhịp nhất vương quốc: Kinh Đô Petaria, trên đảo Centre Island."
       },
       {
         "id": "ending",
         "kind": "action",
         "action": "SHOW_CHAPTER_TITLE",
-        "title_vi": "CHƯƠNG 0 — NGƯỜI PHIÊU LƯU TẬP SỰ"
+        "art_key": "chapter0_open",
+        "title_vi": "Chapter 0",
+        "subtitle_vi": "NGƯỜI PHIÊU LƯU TẬP SỰ"
       }
     ]
   },
@@ -59,13 +61,13 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "A! Cuối cùng cũng gặp được cậu. Cậu là cư dân mới đến Centre Island hôm nay phải không?"
+        "text_vi": "À, cậu đây rồi! Cậu là cư dân mới của Centre Island phải không? Mình đang chờ cậu đấy!"
       },
       {
         "id": "l2",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Ta là Ari, hướng dẫn viên của Kinh Đô. Thành phố này rộng lắm — lạc đường một lần là chuyện bình thường!"
+        "text_vi": "Mình là Ari, người hướng dẫn ở Kinh Đô. Thành phố có nhiều điều thú vị lắm; để mình dẫn cậu làm quen nhé!"
       },
       {
         "id": "c1",
@@ -75,17 +77,17 @@
           {
             "id": "TRAIN",
             "text_vi": "Tôi muốn trở thành nhà huấn luyện!",
-            "response_vi": "Thế thì trước tiên cậu cần một Pet đồng hành."
+            "response_vi": "Thế thì bắt đầu bằng một Pet đồng hành nhé!"
           },
           {
             "id": "RICH",
             "text_vi": "Tôi muốn kiếm thật nhiều Peta!",
-            "response_vi": "Có chí hướng đấy! Nhưng một người bạn đồng hành cũng rất đáng quý."
+            "response_vi": "Nghe hấp dẫn đấy! Kinh Đô có rất nhiều cơ hội buôn bán. Nhưng trước tiên, mình dẫn cậu đi làm quen nhé."
           },
           {
             "id": "EXPLORE",
             "text_vi": "Tôi muốn khám phá mọi vùng đất.",
-            "response_vi": "Tuyệt! Petaria còn rộng hơn những gì cậu thấy trên bản đồ."
+            "response_vi": "Tuyệt! Mình mong đến ngày được nghe cậu kể về những miền đất xa xôi."
           }
         ],
         "affects_progress": false
@@ -94,7 +96,7 @@
         "id": "l3",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Trước hết, đến Trại Mồ Côi nhé. Cô Elina đang chăm sóc những Pet chờ được nhận nuôi. Cậu bấm vào chỗ ta đang chỉ là tới."
+        "text_vi": "Trước tiên, ghé Trại Mồ Côi đi. Cô Elina đang chăm sóc những Pet chờ được nhận nuôi. Biết đâu cậu sẽ tìm thấy một người bạn thật hợp ý!"
       },
       {
         "id": "guide",
@@ -118,19 +120,19 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ELINA",
-        "text_vi": "Chào cháu. Cháu đến tìm một người bạn đồng hành đầu tiên phải không?"
+        "text_vi": "Chào cháu! Cháu đến tìm người bạn đồng hành đầu tiên phải không?"
       },
       {
         "id": "l2",
         "kind": "line",
         "speaker_id": "ELINA",
-        "text_vi": "Những Pet ở đây đang chờ một người bạn. Mỗi bé một tính cách, nhưng đều mong gặp người biết chăm sóc mình."
+        "text_vi": "Mỗi Pet ở đây đều có tính cách riêng. Có bé hiếu động, có bé nhút nhát, nhưng bé nào cũng mong được quan tâm."
       },
       {
         "id": "l3",
         "kind": "line",
         "speaker_id": "ELINA",
-        "text_vi": "Cháu cứ chọn một bé trong số những Pet đang chờ. Không cần chọn theo sức mạnh. Hãy chọn người bạn mà cháu muốn cùng trưởng thành."
+        "text_vi": "Cứ dành chút thời gian làm quen nhé. Đừng chỉ nhìn vào sức mạnh; hãy chọn người bạn mà cháu muốn cùng trưởng thành."
       },
       {
         "id": "select",
@@ -154,25 +156,25 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ELINA",
-        "text_vi": "Nhìn xem, người bạn nhỏ của cháu đang rất vui đấy!"
+        "text_vi": "Nhìn kìa, người bạn nhỏ có vẻ đã bắt đầu tin tưởng cháu rồi!"
       },
       {
         "id": "l2",
         "kind": "line",
         "speaker_id": "ELINA",
-        "text_vi": "Cô chỉ mong cháu nhớ: chiến thắng thật đáng tự hào, nhưng biết chăm sóc một người bạn còn quan trọng hơn."
+        "text_vi": "Từ hôm nay, hai đứa sẽ có nhiều niềm vui, nhưng cũng sẽ phải chăm sóc nhau. Hãy nhớ ghé thăm cô khi có dịp nhé."
       },
       {
         "id": "l3",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Hai người hợp nhau thật! Về nhà xem thông tin Pet nào."
+        "text_vi": "Tuyệt quá! Cậu đã có bạn đồng hành đầu tiên rồi. Mình chỉ cậu cách xem hồ sơ Pet nhé."
       },
       {
         "id": "l4",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Mở mục Đặc trưng rồi chọn Thú cưng. Hoặc bấm chữ Petaria để về Kinh thành, rồi vào My Home. Cậu phải về nhà trước khi đi tiếp."
+        "text_vi": "Cậu có thể mở mục Thú cưng trong Đặc trưng, hoặc trở về Kinh Đô rồi ghé My Home. Cứ chọn cách nào tiện nhé."
       },
       {
         "id": "guide",
@@ -196,13 +198,13 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Chào mừng về nhà! Đây là nơi cậu quản lý Pet, kiểm tra hành trang và chuẩn bị cho những chuyến đi xa."
+        "text_vi": "Chào mừng về nhà! Đây là nơi cậu chăm sóc Pet và chuẩn bị cho những chuyến phiêu lưu."
       },
       {
         "id": "l2",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Hãy mở hồ sơ của Pet. Cậu sẽ thấy HP, MP, cấp độ và các chỉ số chiến đấu. Chưa cần nhớ hết ngay đâu!"
+        "text_vi": "Thử mở hồ sơ Pet xem. Ở đó có HP, MP, cấp độ và các chỉ số chiến đấu. Chưa cần nhớ hết ngay đâu!"
       },
       {
         "id": "open",
@@ -224,7 +226,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Thấy không? Mỗi Pet đều có điểm mạnh riêng. Dành thời gian tìm hiểu sẽ giúp cả hai phối hợp tốt hơn."
+        "text_vi": "Mỗi Pet đều có điểm mạnh riêng. Càng hiểu người bạn của mình, cậu càng dễ đưa ra lựa chọn trong trận đấu."
       }
     ]
   },
@@ -241,13 +243,13 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Đây là Sông Healia. Những người chăm Pet đã tìm đến dòng nước này từ rất lâu rồi."
+        "text_vi": "Đây là Sông Healia. Từ lâu, cư dân Kinh Đô đã đưa những Pet mệt mỏi đến đây nghỉ ngơi."
       },
       {
         "id": "l2",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Khi Pet bị thương, cậu có thể trở lại đây để hồi phục. Hôm nay hãy thử một lần nhé."
+        "text_vi": "Khi Pet bị thương, cậu có thể trở lại đây để hồi phục. Nếu muốn, chúng ta thử dịch vụ này một lần nhé."
       },
       {
         "id": "open",
@@ -269,7 +271,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Tốt rồi! Dù Pet đang khỏe, biết chỗ nghỉ ngơi cũng rất quan trọng."
+        "text_vi": "Vậy là cậu biết chỗ hồi phục rồi! Nhớ kiểm tra sức khỏe Pet trước những chuyến đi xa nhé."
       }
     ]
   },
@@ -285,13 +287,13 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Chúng ta đã về Kinh thành. Giờ hãy đến Cửa hàng để nhận gói hỗ trợ cho người mới."
+        "text_vi": "Muốn chuẩn bị cho hành trình đầu tiên không? Mình biết một cửa hàng đang có gói hỗ trợ cho người mới."
       },
       {
         "id": "l2",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Trên bản đồ, bấm nút Mua Sắm. Ta sẽ đợi cậu ở đó."
+        "text_vi": "Cửa hàng nằm ở khu Mua Sắm trên bản đồ Kinh Đô. Khi nào tiện, cậu ghé qua nhé."
       }
     ]
   },
@@ -308,19 +310,19 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "BRAM",
-        "text_vi": "Khách mới à? Chào mừng đến Trung Tâm Mua Sắm!"
+        "text_vi": "Ồ, có khách mới! Chào mừng đến Trung Tâm Mua Sắm của Kinh Đô!"
       },
       {
         "id": "l2",
         "kind": "line",
         "speaker_id": "BRAM",
-        "text_vi": "Đi săn thì nhớ mang thức ăn và đồ hồi phục. Nhưng hôm nay cậu không phải tiêu Peta đâu."
+        "text_vi": "Ra ngoài thám hiểm, nhớ chuẩn bị thức ăn và vật phẩm hồi phục. Đừng để Pet phải chiến đấu khi đã kiệt sức nhé."
       },
       {
         "id": "l3",
         "kind": "line",
         "speaker_id": "BRAM",
-        "text_vi": "Ta có một gói hỗ trợ cho người mới. Nhận thử rồi kiểm tra hành trang nhé!"
+        "text_vi": "Cửa hàng có một gói quà dành cho người mới. Cậu nhận đi, không mất Peta đâu!"
       },
       {
         "id": "claim",
@@ -342,7 +344,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "BRAM",
-        "text_vi": "Khi đủ kinh nghiệm, cậu còn có thể xem chợ trời và cửa hàng của những cư dân khác. Giao thương cũng là một phần của Petaria!"
+        "text_vi": "Sau này muốn tìm món đồ độc đáo hơn, cậu có thể ghé chợ trời và cửa hàng của những cư dân khác. Biết đâu còn kiếm được món hời!"
       }
     ]
   },
@@ -359,19 +361,19 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Có Pet rồi thì ra Đấu trường thử một trận nhé. Vào mục Đấu trường, rồi chọn Arena."
+        "text_vi": "Có Pet đồng hành rồi, thử một trận ở Arena nhé! Cậu mở Đấu trường và chọn đối thủ tập sự."
       },
       {
         "id": "l2",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Quan sát HP và MP, chọn kỹ năng phù hợp rồi xem Pet phản ứng thế nào. Đối thủ đầu tiên còn non lắm."
+        "text_vi": "Trong trận, nhớ quan sát HP, MP và chọn hành động phù hợp. Không cần vội: trận đầu chủ yếu để hai cậu làm quen với nhau."
       },
       {
         "id": "l3",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Trong đó còn có Trại huấn luyện — nơi gửi Pet nhận kinh nghiệm theo thời gian. Hôm nay chưa cần tới. Khi nào muốn Pet lớn lên lúc cậu nghỉ, hãy quay lại sau."
+        "text_vi": "Sau này, nếu muốn Pet tiếp tục rèn luyện trong lúc nghỉ, cậu có thể tìm hiểu Trại Huấn Luyện. Hôm nay cứ tập đấu trước đã!"
       },
       {
         "id": "nav",
@@ -409,7 +411,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Cậu đã cố gắng lắm rồi. Hãy cho Pet đi hồi phục sức khỏe ở Sông Healia. Bấm chữ Petaria để về Kinh thành, rồi vào Sông Healia."
+        "text_vi": "Không sao, trận đầu chưa quen là chuyện thường! Mình xem lại đội hình nhé. Nếu Pet bị thương, cậu có thể ghé Sông Healia rồi thử lại."
       },
       {
         "id": "retry",
@@ -432,7 +434,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Làm tốt lắm! Pet đã khá tốn sức. Hãy đến Sông Healia để hồi phục. Bấm chữ Petaria về Kinh thành, rồi vào Sông Healia."
+        "text_vi": "Thắng rồi! Hai cậu phối hợp tốt đấy. Sau trận nhớ kiểm tra sức khỏe Pet; cần hồi phục thì ghé Sông Healia nhé."
       },
       {
         "id": "guide",
@@ -456,31 +458,31 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ROWAN",
-        "text_vi": "Chào cậu! Ta là Rowan, phụ trách tuyến thư phía Nam của Bưu Điện Kinh Đô."
+        "text_vi": "Chào cậu! Tôi là Rowan, phụ trách tuyến thư phía Nam của Bưu Điện Kinh Đô."
       },
       {
         "id": "l2",
         "kind": "line",
         "speaker_id": "ROWAN",
-        "text_vi": "Ta có một lá thư cần được giao tận tay bà Mira ở Làng Nhân Ái, phía Cánh Đồng Vạn Hoa."
+        "text_vi": "Tôi đang cần người mang một lá thư đến bà Mira ở Làng Nhân Ái, thuộc vùng Cánh Đồng Vạn Hoa."
       },
       {
         "id": "l3",
         "kind": "line",
         "speaker_id": "ROWAN",
-        "text_vi": "Dạo gần đây thư đi tuyến ấy thường đến muộn. Có người bảo cứ đi mãi lại quay về chỗ cũ."
+        "text_vi": "Gần đây, thư qua tuyến Đường Hoa thường đến muộn. Có người kể rằng cứ đi theo lối cũ, cuối cùng lại quay về đúng cột mốc ban đầu."
       },
       {
         "id": "l4",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Chắc họ không quen Đường Hoa thôi! Tuyến đó có gì khó đâu."
+        "text_vi": "Lạ thật! Mình nhớ đường ấy dễ đi lắm mà."
       },
       {
         "id": "l5",
         "kind": "line",
         "speaker_id": "ROWAN",
-        "text_vi": "Kỳ lạ là vài người trong số họ đã đi tuyến này hàng chục năm…"
+        "text_vi": "Tôi cũng nghĩ vậy. Nhưng vài người đưa thư gặp chuyện đã qua lại con đường ấy hàng chục năm..."
       },
       {
         "id": "accept",
@@ -521,7 +523,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ROWAN",
-        "text_vi": "Cậu quay lại rồi. Ta vẫn đang giữ lá thư cho bà Mira. Cậu suy nghĩ thế nào, có muốn giúp ta không?"
+        "text_vi": "Cậu quay lại rồi à? Lá thư gửi bà Mira vẫn còn đây. Cậu có muốn nhận chuyến giao thư này không?"
       },
       {
         "id": "accept",
@@ -563,13 +565,13 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ROWAN",
-        "text_vi": "Thư đã được niêm phong. Hãy giữ cẩn thận; ta sẽ chờ tin từ Làng Nhân Ái."
+        "text_vi": "Cảm ơn cậu. Lá thư đã được niêm phong; hãy trao tận tay bà Mira nhé. Tôi sẽ đợi tin từ làng."
       },
       {
         "id": "l2",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Vậy là chuyến phiêu lưu đầu tiên bắt đầu rồi! Ra bến tàu trên Kinh thành. Ta sẽ chỉ cậu đường xuống phía Nam."
+        "text_vi": "Chuyến phiêu lưu đầu tiên của cậu bắt đầu rồi! Hẹn gặp ở bến tàu; mình sẽ chỉ đường đến Cánh Đồng Vạn Hoa."
       },
       {
         "id": "guide",
@@ -595,19 +597,19 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Đây là bến tàu. Ngoài Centre Island là những vùng đất rộng lớn. Có nơi đầy hoa, có nơi tuyết rơi quanh năm!"
+        "text_vi": "Nhìn xem! Từ Centre Island, những chuyến tàu đưa nhà thám hiểm đến khắp các miền đất của Petaria."
       },
       {
         "id": "l2",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Nhiệm vụ của cậu là đến Làng Nhân Ái trước. Cánh Đồng Vạn Hoa nằm về phía Nam."
+        "text_vi": "Làng Nhân Ái nằm giữa những cánh đồng hoa ở phía Nam. Cậu cứ theo dấu nhiệm vụ trên bản đồ nhé."
       },
       {
         "id": "l3",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Nhớ giữ sức cho Pet. Và… khi nào có dịp, quay về Kinh Đô kể ta nghe chuyến đi nhé!"
+        "text_vi": "Và này... khi trở về Kinh Đô, nhất định phải kể mình nghe chuyến đi đầu tiên của cậu đấy!"
       },
       {
         "id": "map",
@@ -641,7 +643,7 @@
         "id": "line",
         "kind": "line",
         "speaker_id": "NARRATOR",
-        "text_vi": "Ngoài khơi Centre Island, những cánh đồng hoa trải dài dưới nắng. Và ở đâu đó giữa những con đường quen thuộc, một điều bất thường đang chờ được phát hiện."
+        "text_vi": "Con tàu rời Centre Island, hướng về miền đồng hoa ngập nắng. Trong hành trang của người phiêu lưu mới là một lá thư nhỏ — và một chuyến đi chưa ai biết sẽ dẫn đến đâu."
       }
     ]
   },
@@ -657,13 +659,13 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Đây là hồ sơ của người bạn nhỏ. Sức khỏe, sức mạnh và các chỉ số cho cậu biết bé ấy đang khỏe đến đâu."
+        "text_vi": "Đây là hồ sơ Pet của cậu. Sức khỏe, cấp độ và các chỉ số sẽ giúp cậu hiểu người bạn nhỏ mạnh ở điểm nào."
       },
       {
         "id": "l2",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Nhìn xuống Tình trạng và Tâm trạng. Bấm vào chữ tình trạng — ta sẽ chỉ cậu cách chăm sóc."
+        "text_vi": "Ở phần Tình trạng và Tâm trạng, cậu có thể xem Pet đang cảm thấy thế nào. Thử mở phần Tình trạng nhé."
       }
     ]
   },
@@ -679,7 +681,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Khi thú cưng đói hoặc mệt, cậu có thể đưa bé đến Nhà hàng. Bấm chữ Nhà hàng trong khung này."
+        "text_vi": "Một Pet được chăm sóc tốt sẽ có tinh thần tốt hơn. Khi cần, cậu có thể đưa bạn ấy đến Nhà Hàng để dùng bữa."
       }
     ]
   },
@@ -695,7 +697,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Ở Nhà hàng, cậu cho thú cưng ăn để hồi phục tình trạng. Hãy chọn menu Bình Dân."
+        "text_vi": "Nhà Hàng có nhiều thực đơn khác nhau. Mình thử bắt đầu bằng thực đơn Bình Dân nhé."
       }
     ]
   },
@@ -711,7 +713,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Ăn xong rồi! Muốn về Kinh thành, bấm chữ Petaria ở góc trái phía trên."
+        "text_vi": "No bụng rồi thì sẵn sàng khám phá tiếp thôi! Khi muốn về Kinh Đô, cậu có thể dùng nút Petaria ở góc trên."
       }
     ]
   },
@@ -727,13 +729,13 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Đây là túi của cậu. Các tab All, Food, Consumable, Equipment… giúp cậu tìm đồ cho nhanh."
+        "text_vi": "Đây là túi đồ của cậu. Vật phẩm được chia theo nhóm như Food, Consumable và Equipment để dễ tìm hơn."
       },
       {
         "id": "l2",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Bấm tab Equipment. Ta sẽ chỉ cậu cách mặc trang bị cho thú cưng."
+        "text_vi": "Thử mở Equipment nhé. Mình sẽ chỉ cậu cách xem những món trang bị dành cho Pet."
       }
     ]
   },
@@ -749,7 +751,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Mở một món trang bị, chọn Trang bị cho thú cưng, rồi chọn người bạn nhỏ của cậu. Cậu phải mặc xong mới đi tiếp được."
+        "text_vi": "Chọn một món trang bị rồi xem Pet nào có thể sử dụng. Nếu có món phù hợp, cậu thử trang bị cho bạn ấy nhé."
       }
     ]
   },
@@ -765,13 +767,13 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Thú cưng đã được trang bị vũ khí rồi. Trông bé ấy sẵn sàng hơn hẳn!"
+        "text_vi": "Vậy là cậu đã biết cách chuẩn bị trang bị cho Pet. Nhớ rằng mỗi món đồ đều có công dụng riêng!"
       },
       {
         "id": "l2",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Giờ hãy bắt đầu trận chiến đầu tiên. Mở Đặc trưng, chọn Đấu trường, rồi vào Arena."
+        "text_vi": "Giờ thử một trận chiến nhé! Cậu mở Đấu trường rồi vào Arena để chọn đối thủ tập sự."
       }
     ]
   },
@@ -787,7 +789,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Ô tốc độ cho biết ai đánh trước. Tốc độ cao hơn sẽ được ra đòn trước."
+        "text_vi": "Chỉ số Tốc độ có thể ảnh hưởng đến thứ tự hành động. Hãy để ý nó khi sắp xếp đội hình nhé."
       }
     ]
   },
@@ -803,7 +805,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Giữ vào hình thú trên đội hình để xem thông tin. Hãy giữ hình thú của cậu, rồi đóng khung thông tin."
+        "text_vi": "Muốn biết thêm về Pet trong đội hình, cậu thử nhấn giữ hình của bạn ấy nhé. Xem xong thì đóng bảng thông tin lại."
       }
     ]
   },
@@ -819,7 +821,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Cậu có thể tháo thú bằng cách nhấn hai lần vào thú, hoặc bấm dấu gỡ hết. Xong thì bấm Bắt đầu trận đấu."
+        "text_vi": "Cậu có thể thay đổi đội hình trước khi đấu. Nếu đã sẵn sàng, hãy giữ Pet ở vị trí phù hợp rồi chọn Bắt đầu trận đấu."
       }
     ]
   },
@@ -835,7 +837,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Hãy chọn hành động: Tấn công thường hoặc Phòng thủ vật lý."
+        "text_vi": "Đến lượt cậu lựa chọn! Có thể tấn công để gây sát thương, hoặc phòng thủ khi cần giữ sức."
       }
     ]
   },
@@ -851,7 +853,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Đã chọn hành động rồi. Bấm Go để thực hiện."
+        "text_vi": "Chọn xong rồi à? Nhấn Go để Pet thực hiện hành động nhé."
       }
     ]
   },
@@ -867,7 +869,7 @@
         "id": "l1",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Bấm vào vũ khí để sử dụng nó."
+        "text_vi": "Nếu muốn dùng vũ khí đang trang bị, hãy thử nhấn vào biểu tượng vũ khí."
       }
     ]
   }

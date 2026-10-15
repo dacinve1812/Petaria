@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import TypewriterText from '../../ui/TypewriterText';
 import './StoryTalk.css';
 
 function Actor({ person }) {
@@ -30,8 +31,21 @@ export default function StoryTalk({
   onDismiss,
   blocking = false,
 }) {
+  const hasChoices = choices.length > 0;
+  const spoken = line || prompt;
+  const choiceKey = choices.map((option) => option.id).join('|');
+  const [questionDone, setQuestionDone] = useState(!hasChoices);
+
+  useEffect(() => {
+    setQuestionDone(!hasChoices);
+  }, [spoken, choiceKey, hasChoices]);
+
   const advanceLine = () => {
-    if (line) onAdvance?.();
+    if (hasChoices) {
+      if (!questionDone) setQuestionDone(true);
+      return;
+    }
+    if (spoken) onAdvance?.();
   };
 
   useEffect(() => {
@@ -45,34 +59,43 @@ export default function StoryTalk({
         <Actor person={left} />
         <Actor person={right} />
       </div>
+      <div className="ch0-talk__dock">
+      {hasChoices && questionDone ? (
+        <div className="ch0-talk__choices">
+          {choices.map((option) => (
+            <button key={option.id} type="button" className="ch0-talk__choice" onClick={() => onChoose?.(option)}>
+              {option.text}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="ch0-talk__bar">
-        {line ? (
-          <button type="button" className="ch0-talk__line" onClick={onAdvance}>
-            <span>{line}</span>
+        {spoken ? (
+          <button type="button" className="ch0-talk__line" onClick={advanceLine}>
+            {hasChoices ? (
+              <TypewriterText
+                text={spoken}
+                active={!questionDone}
+                onComplete={() => setQuestionDone(true)}
+              />
+            ) : (
+              <span>{spoken}</span>
+            )}
           </button>
-        ) : null}
-        {choices.length > 0 ? (
-          <div className="ch0-talk__choices">
-            {prompt ? <p>{prompt}</p> : null}
-            {choices.map((option) => (
-              <button key={option.id} type="button" onClick={() => onChoose?.(option)}>
-                {option.text}
-              </button>
-            ))}
-          </div>
         ) : null}
         {actionLabel ? (
           <button type="button" className="ch0-talk__action" onClick={onAction}>
             {actionLabel}
           </button>
         ) : null}
-        {(onSkip || onDismiss) && choices.length === 0 ? (
+        {(onSkip || onDismiss) && !hasChoices ? (
           <div className="ch0-talk__tools">
             {onSkip ? <button type="button" onClick={onSkip}>Bỏ qua</button> : null}
             {onDismiss ? <button type="button" onClick={onDismiss}>Skip</button> : null}
           </div>
         ) : null}
-        {line ? <span className="ch0-talk__chevron" aria-hidden /> : null}
+        {spoken && !(hasChoices && questionDone) ? <span className="ch0-talk__chevron" aria-hidden /> : null}
+      </div>
       </div>
     </div>,
     document.body

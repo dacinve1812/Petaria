@@ -14,6 +14,7 @@ import NarrativeHost from './ui/NarrativeHost';
 import { Chapter0Provider } from './story/Chapter0/Chapter0Context';
 import Chapter0Dialog from './story/Chapter0/Chapter0Dialog';
 import StoryLock from './story/ui/StoryLock';
+import PageWipe from './ui/PageWipe';
 import { GameCenterAlertsProvider } from './entertainment/GameCenterAlertsContext';
 import '../styles/global.css';
 import { resolveAssetPath } from '../utils/pathUtils';
@@ -204,6 +205,7 @@ function MainLayout() {
     return (
         <GameCenterAlertsProvider>
         <Chapter0Provider>
+        {/* <PageWipe /> */}
        
         {/* Top Navigation Bar */}
         <TopNavigation

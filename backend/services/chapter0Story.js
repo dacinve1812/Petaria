@@ -12,19 +12,15 @@ function readJson(name) {
   return JSON.parse(fs.readFileSync(path.join(CONTENT_DIR, name), 'utf8'));
 }
 
-let contentCache = null;
 function content() {
-  if (!contentCache) {
-    const scenes = readJson('scenes.vi.json');
-    const characters = readJson('characters.vi.json');
-    const transitions = readJson('transitions.config.json');
-    const byId = {};
-    characters.forEach((character) => {
-      byId[character.id] = character;
-    });
-    contentCache = { scenes, characters: byId, transitions };
-  }
-  return contentCache;
+  const scenes = readJson('scenes.vi.json');
+  const characters = readJson('characters.vi.json');
+  const transitions = readJson('transitions.config.json');
+  const byId = {};
+  characters.forEach((character) => {
+    byId[character.id] = character;
+  });
+  return { scenes, characters: byId, transitions };
 }
 
 function blankState() {

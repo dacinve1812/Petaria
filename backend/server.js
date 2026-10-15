@@ -11206,11 +11206,6 @@ app.post('/api/pets/:petId/equip-item', async (req, res) => {
       return res.status(400).json({ message: 'Pet không tồn tại hoặc không thuộc user' });
     }
 
-    // Pet hết máu thì không cho trang bị (tránh các ràng buộc/trigger liên quan current_hp)
-    if ((petRows[0].current_hp ?? 0) <= 0) {
-      await conn.rollback();
-      return res.status(400).json({ message: 'Thú cưng quá mệt mỏi (HP = 0). Hãy cho ăn/nghỉ ngơi để hồi phục trước khi trang bị.' });
-    }
     if (String(petRows[0].activity_status || '') === 'training') {
       await conn.rollback();
       return res.status(400).json({ message: trainingCampService.TRAINING_LOCK_MESSAGE });

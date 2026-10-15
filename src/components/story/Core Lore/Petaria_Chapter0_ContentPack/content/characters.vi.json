@@ -11,7 +11,7 @@
     "id": "ARI",
     "name_vi": "Ari",
     "role": "guide",
-    "voice": "Tươi vui, nhanh nhẹn, đôi lúc trêu đùa",
+    "voice": "Gần gũi, nhanh nhẹn, hài hước nhẹ; dùng mình–cậu",
     "narrative_note": "Người hướng dẫn tại Kinh Đô; không cưỡng ép tutorial",
     "portrait_key": "portrait_ari"
   },
@@ -35,7 +35,7 @@
     "id": "ROWAN",
     "name_vi": "Rowan",
     "role": "postmaster",
-    "voice": "Cẩn thận, tận tụy, đôi khi lo âu",
+    "voice": "Cẩn thận, lịch sự, tận tụy; dùng tôi–cậu",
     "narrative_note": "Giao thư cho Mira; foreshadow đường phía Nam",
     "portrait_key": "portrait_rowan"
   },

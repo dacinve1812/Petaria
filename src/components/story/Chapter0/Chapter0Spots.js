@@ -41,7 +41,7 @@ export function Chapter0CapitalSpots({ naturalWidth, naturalHeight, isMobile }) 
       <button
         type="button"
         ref={spotRef}
-        className="ch0-spot ch0-spot--port"
+        className="story-spot story-spot--hit"
         style={style}
         data-story-target={
           isMobile && String(story?.guidance?.lock || '').startsWith('capital-')
@@ -53,5 +53,5 @@ export function Chapter0CapitalSpots({ naturalWidth, naturalHeight, isMobile }) 
       />
     );
   }
-  return <div className="ch0-spot" style={style} aria-hidden />;
+  return <div className="story-spot" style={style} aria-hidden />;
 }

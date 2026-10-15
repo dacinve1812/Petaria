@@ -1,17 +1,30 @@
-﻿.ch0-spot {
+﻿.story-spot {
   position: absolute;
-  z-index: 2;
+  z-index: 4;
   pointer-events: none;
   border-radius: 8px;
   background: rgba(255, 208, 48, 0.42);
   box-shadow: inset 0 0 0 3px #f5c542, 0 0 16px rgba(245, 197, 66, 0.85);
-  border: none; 
+  border: none;
 }
 
-.ch0-spot--port {
+a.pet-vitals-help__link.story-hot {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 8px;
+  color: #1b1b1b !important;
+}
+
+.story-spot--hit {
   z-index: 6;
   pointer-events: auto;
   cursor: pointer;
+}
+
+body.story-lock button.story-spot.story-hot {
+  position: absolute !important;
+  padding: 0;
+  z-index: 10060;
 }
 
 .pet-card.story-hot {
@@ -26,7 +39,7 @@
   background: transparent !important;
 }
 
-.story-hot,
+.story-hot:not(.story-spot),
 .regionmap-button--story,
 .battle-mode-card--story,
 .dropdown-item--story,
@@ -36,8 +49,9 @@
   position: relative;
   z-index: 10050;
   outline: none;
-  padding: 7px;
+  padding: 12px;
   border-radius: 10px;
+  /* color:black;  */
   background-color: rgba(255, 208, 48, 0.55) !important;
   box-shadow: inset 0 0 0 3px #f5c542, 0 0 18px rgba(245, 197, 66, 0.9) !important;
 }
@@ -68,7 +82,7 @@ body.story-lock .story-hot * {
   pointer-events: auto !important;
 }
 
-body.story-lock button.story-hot {
+body.story-lock button.story-hot:not(.story-spot) {
   z-index: 10060 !important;
   position: relative;
 }
@@ -104,8 +118,8 @@ body.ch0-talk-open .global-chat-box {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .ch0-spot,
-  .story-hot,
+  .story-spot,
+  .story-hot:not(.story-spot),
   .regionmap-button--story,
   .battle-mode-card--story,
   .dropdown-item--story,

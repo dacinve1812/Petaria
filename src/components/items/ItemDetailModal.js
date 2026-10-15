@@ -1,5 +1,6 @@
 // Updated ItemDetailModal.js with support for unequip and use item for pets
 import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import PetSelectionModal from './PetSelectionModal';
 import GameDialogModal from '../ui/GameDialogModal';
@@ -80,6 +81,21 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
   const [fetchedEquipmentData, setFetchedEquipmentData] = useState(null);
   const [purchaseQuantity, setPurchaseQuantity] = useState(1);
   const [showSourcePanel, setShowSourcePanel] = useState(false);
+  const [equipNotice, setEquipNotice] = useState(null);
+  const equipAfterRef = useRef(null);
+
+  const openEquipNotice = (tone, message, after) => {
+    equipAfterRef.current = typeof after === 'function' ? after : null;
+    setShowPetSelection(false);
+    setEquipNotice({ tone, message });
+  };
+
+  const closeEquipNotice = () => {
+    const after = equipAfterRef.current;
+    equipAfterRef.current = null;
+    setEquipNotice(null);
+    after?.();
+  };
 
   // Set item details directly from inventory API (now includes description)
   useEffect(() => {
@@ -391,17 +407,18 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
       });
       const result = await res.json();
       if (res.ok) {
-        alert(result.message || 'Trang bị thành công!');
-        if (typeof onUpdateItem === 'function') {
-          onUpdateItem({ ...item, is_equipped: 1, equipped_pet_id: selectedPetId });
-        }
-        onClose();
+        openEquipNotice('success', result.message || 'Trang bị thành công!', () => {
+          if (typeof onUpdateItem === 'function') {
+            onUpdateItem({ ...item, is_equipped: 1, equipped_pet_id: selectedPetId });
+          }
+          onClose();
+        });
       } else {
-        alert(result.message || 'Trang bị thất bại.');
+        openEquipNotice('error', result.message || 'Trang bị thất bại.');
       }
     } catch (err) {
       console.error('Lỗi khi gọi API equip:', err);
-      alert('Lỗi khi trang bị.');
+      openEquipNotice('error', 'Lỗi khi trang bị.');
     }
   };
 
@@ -639,25 +656,26 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
       });
       const result = await res.json();
       if (res.ok) {
-        alert(result.message || 'Trang bị thành công!');
-        if (typeof onUpdateItem === 'function') {
-          onUpdateItem({ ...item, is_equipped: 1, equipped_pet_id: petId });
-        }
-        if (token) {
-          const base = process.env.REACT_APP_API_BASE_URL || '';
-          void fetch(`${base}/api/story/chapter0/event`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'GEAR_EQUIPPED', path: window.location.pathname }),
-          }).then(() => window.dispatchEvent(new Event('petaria-story-refresh')));
-        }
-        onClose();
+        openEquipNotice('success', result.message || 'Trang bị thành công!', () => {
+          if (typeof onUpdateItem === 'function') {
+            onUpdateItem({ ...item, is_equipped: 1, equipped_pet_id: petId });
+          }
+          if (token) {
+            const base = process.env.REACT_APP_API_BASE_URL || '';
+            void fetch(`${base}/api/story/chapter0/event`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'GEAR_EQUIPPED', path: window.location.pathname }),
+            }).then(() => window.dispatchEvent(new Event('petaria-story-refresh')));
+          }
+          onClose();
+        });
       } else {
-        alert(result.message || 'Trang bị thất bại.');
+        openEquipNotice('error', result.message || 'Trang bị thất bại.');
       }
     } catch (err) {
       console.error('Lỗi khi gọi API equip:', err);
-      alert('Lỗi khi trang bị.');
+      openEquipNotice('error', 'Lỗi khi trang bị.');
     }
   };
 
@@ -1133,6 +1151,24 @@ function ItemDetailModal({ item, onClose, onBuy, mode = 'default', onUpdateItem 
           </p>
         </GameDialogModal>
       )}
+
+      {equipNotice
+        ? createPortal(
+          <GameDialogModal
+            isOpen
+            onClose={closeEquipNotice}
+            title="Thông báo"
+            mode="alert"
+            tone={equipNotice.tone}
+            confirmLabel="Đóng"
+            onConfirm={closeEquipNotice}
+            closeOnOverlayClick
+          >
+            <p>{equipNotice.message}</p>
+          </GameDialogModal>,
+          document.body
+        )
+        : null}
 
       {mode === 'item-hunt' && showSourcePanel && (
         <GameDialogModal

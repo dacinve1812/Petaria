@@ -7,7 +7,7 @@
     },
     "opening_02_regions": {
       "desktop": "/images/story/chapter0/opening_02.png",
-      "mobile": "/worldmap/opening_02_mobile.png"
+      "mobile": "/images/story/chapter0/opening_02_mobile.png"
     },
     "opening_03_life": {
       "desktop": "/images/story/chapter0/opening_03.png",
@@ -17,13 +17,18 @@
       "desktop": "/images/story/chapter0/opening_05.png",
       "mobile": "/images/story/chapter0/opening_04_mobile.png"
     },
+    "chapter0_open": {
+      "desktop": "/images/story/chapter0/opening_05.png",
+      "mobile": "/images/story/chapter0/opening_05_mobile.png"
+    },
     "chapter1_flower_arrival": {
       "desktop": "/images/story/chapter0/opening_05.png",
       "mobile": "/images/story/chapter0/opening_05_mobile.png"
     }
   },
   "portraits": {
-    "ARI": "/images/character/Ari-avatar-happy.png",
+    "ARI": "/images/character/Ari-avatar.png",
+    "ARI_WAVE": "/images/character/Ari-avatar.png",
     "ELINA": "/images/character/Elina-avatar.png",
     "BRAM": "/images/character/Bram-avatar.png",
     "ROWAN": "/images/character/Rowan-avatar.png"
