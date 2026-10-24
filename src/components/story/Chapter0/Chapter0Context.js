@@ -31,6 +31,8 @@ export function Chapter0Provider({ children }) {
   const [tick, setTick] = useState(0);
   const [hiddenSceneId, setHiddenSceneId] = useState(null);
   const [orphanageTalkArmed, setOrphanageTalkArmed] = useState(false);
+  const [questBoardOpen, setQuestBoardOpen] = useState(false);
+  const [questFocusId, setQuestFocusId] = useState(null);
   const pathname = location.pathname;
 
   const refresh = useCallback(() => setTick((value) => value + 1), []);
@@ -126,6 +128,29 @@ export function Chapter0Provider({ children }) {
     setOrphanageTalkArmed(true);
   }, []);
 
+  const openQuestBoard = useCallback((questId) => {
+    setQuestFocusId(questId || null);
+    setQuestBoardOpen(true);
+  }, []);
+
+  const closeQuestBoard = useCallback(async () => {
+    setQuestBoardOpen(false);
+    setQuestFocusId(null);
+    if (story?.quest?.introPending) {
+      try {
+        await postEvent({ type: 'QUEST_INTRO_DONE' });
+      } catch {
+        /* the board stays highlighted if the save failed */
+      }
+    }
+  }, [postEvent, story?.quest?.introPending]);
+
+  useEffect(() => {
+    if (story?.quest?.introPending && !story?.scene && pathname === '/') {
+      navigate('/home-ver2');
+    }
+  }, [story?.quest?.introPending, story?.scene, pathname, navigate]);
+
   const snoozeScene = useCallback((sceneId) => {
     setHiddenSceneId(sceneId);
   }, []);
@@ -134,8 +159,32 @@ export function Chapter0Provider({ children }) {
   const scene = rawScene?.id === 'CH0_ELINA_INTRO' && !orphanageTalkArmed ? null : rawScene;
 
   const value = useMemo(
-    () => ({ story, scene, postEvent, refresh, snoozeScene, armOrphanageTalk, orphanageTalkArmed }),
-    [story, scene, postEvent, refresh, snoozeScene, armOrphanageTalk, orphanageTalkArmed]
+    () => ({
+      story,
+      scene,
+      postEvent,
+      refresh,
+      snoozeScene,
+      armOrphanageTalk,
+      orphanageTalkArmed,
+      questBoardOpen,
+      questFocusId,
+      openQuestBoard,
+      closeQuestBoard,
+    }),
+    [
+      story,
+      scene,
+      postEvent,
+      refresh,
+      snoozeScene,
+      armOrphanageTalk,
+      orphanageTalkArmed,
+      questBoardOpen,
+      questFocusId,
+      openQuestBoard,
+      closeQuestBoard,
+    ]
   );
 
   return <Chapter0Context.Provider value={value}>{children}</Chapter0Context.Provider>;

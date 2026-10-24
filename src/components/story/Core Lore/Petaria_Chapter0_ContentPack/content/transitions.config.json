@@ -61,7 +61,7 @@
       ],
       "focus": "CAPITAL_PORT",
       "allow_region": "FLOWER_FIELDS",
-      "note": "Highlight ô bến tàu trên Kinh thành. Ari mở bản đồ thế giới và chỉ phía Nam. Trao thư cho Mira thuộc Chapter 1."
+      "note": "Sau khi nhận thư, người chơi bấm bảng nhiệm vụ trước. Đóng bảng rồi mới highlight bến tàu. Ari mở bản đồ thế giới và chỉ phía Nam. Trao thư cho Mira thuộc Chapter 1."
     },
     {
       "id": "complete",
@@ -138,6 +138,16 @@
       "route": "/game-center",
       "castle_hotspot_id": 8,
       "spotlight": { "mobile": [12, 688, 274, 920] }
+    },
+    "QUEST_BOARD": {
+      "marker": "gold_box",
+      "route": null,
+      "castle_hotspot_id": null,
+      "spotlight": {
+        "desktop": [1118, 365, 1262, 466],
+        "mobile": [772, 521, 903, 645]
+      },
+      "note": "Bảng nhiệm vụ trên Kinh thành. Sau khi nhận thư của Rowan, bấm ô này trước khi xuống bến."
     },
     "CAPITAL_PORT": {
       "marker": "green_box",

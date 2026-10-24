@@ -485,6 +485,12 @@
         "text_vi": "Tôi cũng nghĩ vậy. Nhưng vài người đưa thư gặp chuyện đã qua lại con đường ấy hàng chục năm..."
       },
       {
+        "id": "l6",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Nếu cậu nhận, chuyến thư này sẽ được ghi lên bảng nhiệm vụ. Nhiệm vụ chính dẫn đường; nhiệm vụ ngày và tuần thì làm khi rảnh."
+      },
+      {
         "id": "accept",
         "kind": "choice",
         "prompt_vi": "Cậu có nhận chuyến thư này không?",
@@ -496,8 +502,8 @@
           },
           {
             "id": "LATER",
-            "text_vi": "Để tôi chuẩn bị thêm.",
-            "response_vi": "Không vội. Khi sẵn sàng, quay lại gặp ta."
+            "text_vi": "Tôi sẽ tìm hiểu thêm.",
+            "response_vi": "Không vội. Khi sẵn sàng, đến Bưu Điện gặp ta."
           }
         ],
         "affects_progress": false
@@ -512,12 +518,35 @@
     ]
   },
   {
+    "id": "CH0_ROWAN_LATER",
+    "chapter_id": "CH0",
+    "type": "DIALOGUE",
+    "location_id": "CAPITAL",
+    "replayable": true,
+    "blocking": false,
+    "steps": [
+      {
+        "id": "l1",
+        "kind": "line",
+        "speaker_id": "ARI",
+        "text_vi": "Không sao. Mình ghi việc gặp Rowan lên bảng nhiệm vụ. Cậu bấm vào bảng trên quảng trường để xem — khi nào muốn thì đến Bưu Điện, không cần đi ngay."
+      },
+      {
+        "id": "guide",
+        "kind": "action",
+        "action": "HIGHLIGHT_MAP_LOCATION",
+        "location_id": "QUEST_BOARD",
+        "interaction": "PLAYER_CLICK"
+      }
+    ]
+  },
+  {
     "id": "CH0_ROWAN_RETRY",
     "chapter_id": "CH0",
     "type": "DIALOGUE",
     "location_id": "POST_OFFICE",
     "replayable": true,
-    "blocking": true,
+    "blocking": false,
     "steps": [
       {
         "id": "l1",
@@ -537,8 +566,8 @@
           },
           {
             "id": "LATER",
-            "text_vi": "Để tôi chuẩn bị thêm.",
-            "response_vi": "Không sao. Ta vẫn ở Bưu Điện khi cậu sẵn sàng."
+            "text_vi": "Tôi sẽ tìm hiểu thêm sau.",
+            "response_vi": "Không sao. Lá thư vẫn ở đây khi cậu quay lại."
           }
         ],
         "affects_progress": false
@@ -571,15 +600,15 @@
         "id": "l2",
         "kind": "line",
         "speaker_id": "ARI",
-        "text_vi": "Chuyến phiêu lưu đầu tiên của cậu bắt đầu rồi! Hẹn gặp ở bến tàu; mình sẽ chỉ đường đến Cánh Đồng Vạn Hoa."
+        "text_vi": "Khoan ra bến tàu đã! Cậu bấm vào bảng nhiệm vụ trên quảng trường trước đi. Xem nhiệm vụ chính ở đó, rồi mình mới xuống bến."
       },
       {
         "id": "guide",
         "kind": "action",
         "action": "HIGHLIGHT_MAP_LOCATION",
-        "location_id": "CAPITAL_PORT",
+        "location_id": "QUEST_BOARD",
         "interaction": "PLAYER_CLICK",
-        "marker": "green_box"
+        "marker": "gold_box"
       }
     ]
   },

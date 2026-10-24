@@ -21,6 +21,21 @@ a.pet-vitals-help__link.story-hot {
   cursor: pointer;
 }
 
+.quest-board-spot {
+  position: absolute;
+  z-index: 5;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.quest-board-spot:focus-visible {
+  outline: 2px solid #f5c542;
+  background: rgba(255, 208, 48, 0.28);
+}
+
 body.story-lock button.story-spot.story-hot {
   position: absolute !important;
   padding: 0;

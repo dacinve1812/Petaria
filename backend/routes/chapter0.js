@@ -9,6 +9,10 @@ function createChapter0Router({ db }) {
       const state = await story.loadState(db, req.classicUserId);
       if (!state) return res.status(404).json({ message: 'Không tìm thấy người chơi.' });
       const pathname = String(req.query.path || '/');
+      if (!pathname.startsWith('/mail') && state.rowanMailDismissed) {
+        state.rowanMailDismissed = false;
+        await story.saveState(db, req.classicUserId, state);
+      }
       res.json(story.publicView(state, pathname));
     } catch (err) {
       console.error('chapter0 get:', err);

@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useUser } from '../UserContext';
 import { getDisplayName } from '../utils/userDisplay';
 import { initializeRealtimeSocket } from '../realtime/socketClient';
+import QuestTracker from './quest/QuestTracker';
 import './GlobalChatBox.css';
 
 const FALLBACK_AVATAR = '/images/character/knight_warrior.jpg';
@@ -244,6 +245,7 @@ function GlobalChatBox() {
 
   return (
     <div ref={rootRef} className={`global-chat-box ${isOpen ? 'open' : ''}`}>
+      <QuestTracker />
       {!isOpen ? (
         <button
           type="button"

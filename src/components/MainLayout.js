@@ -7,6 +7,7 @@ import Footer from './Footer';
 import TopNavigation from './navbar/TopNavigation';
 import NavigationMenu from './navbar/NavigationMenu';
 import GlobalChatBox from './GlobalChatBox';
+import QuestBoardModal from './quest/QuestBoardModal';
 import EncounterModalContainer from './EncounterModalContainer';
 import { Outlet } from 'react-router-dom';
 import { NarrativeDialogProvider } from './ui/NarrativeDialogContext';
@@ -253,6 +254,7 @@ function MainLayout() {
             userId={userId}
             onCurrencyUpdate={handleCurrencyUpdate}
         />
+        <QuestBoardModal />
         <GlobalChatBox />
         <EncounterModalContainer />
         <Footer />

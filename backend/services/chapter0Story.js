@@ -37,6 +37,7 @@ function blankState() {
     arenaLossAck: 0,
     portArmed: false,
     letterHeld: false,
+    rowanMailDismissed: false,
   };
 }
 
@@ -149,7 +150,8 @@ function selectScene(state, pathname) {
   if (path.startsWith('/healia') && (seen.CH0_ARENA_WIN || seen.CH0_ARENA_LOSE) && !flags.HEAL_SERVICE_USED && !seen.CH0_HEALIA) return 'CH0_HEALIA';
   if (path.startsWith('/healia') && flags.HEAL_SERVICE_USED && (seen.CH0_ARENA_WIN || seen.CH0_ARENA_LOSE) && !seen.CH0_HEALIA_DONE) return 'CH0_HEALIA_DONE';
   if (isCapital(path) && flags.HEAL_SERVICE_USED && !flags.LETTER_QUEST_ACCEPTED && !flags.LETTER_DECLINED && !seen.CH0_ROWAN_INTRO) return 'CH0_ROWAN_INTRO';
-  if (path.startsWith('/mail') && flags.LETTER_DECLINED && !flags.LETTER_QUEST_ACCEPTED) return 'CH0_ROWAN_RETRY';
+  if (isCapital(path) && flags.LETTER_DECLINED && !flags.LETTER_QUEST_ACCEPTED && !seen.CH0_ROWAN_LATER) return 'CH0_ROWAN_LATER';
+  if (path.startsWith('/mail') && flags.LETTER_DECLINED && !flags.LETTER_QUEST_ACCEPTED && seen.CH0_ROWAN_LATER && !state.rowanMailDismissed) return 'CH0_ROWAN_RETRY';
   if ((isCapital(path) || path.startsWith('/mail')) && flags.LETTER_QUEST_ACCEPTED && !seen.CH0_ROWAN_ACCEPTED) return 'CH0_ROWAN_ACCEPTED';
   if (isCapital(path) && flags.LETTER_QUEST_ACCEPTED && state.portArmed && !seen.CH0_PORT) return 'CH0_PORT';
   if (path.startsWith('/region/3-1') && flags.FLOWER_REGION_ENTERED && !seen.CH0_DEPART) return 'CH0_DEPART';
@@ -221,12 +223,50 @@ function guidanceFor(state, pathname) {
       lock('logo');
     }
   }
-  if (flags.LETTER_DECLINED && !flags.LETTER_QUEST_ACCEPTED && isCapital(path)) {
-    guide.capital = 'POST_OFFICE';
+  const board = questMeta(state);
+  if (board.introPending) {
+    if (path === '/home-ver2') {
+      guide.capital = 'QUEST_BOARD';
+      lock('capital-quest');
+    } else if (!isCapital(path)) {
+      lock('logo');
+    }
+  } else if (flags.LETTER_QUEST_ACCEPTED && flags.QUEST_INTRO_DONE && seen.CH0_ROWAN_ACCEPTED && !seen.CH0_PORT) {
+    guide.capital = 'CAPITAL_PORT';
   }
-  if (flags.LETTER_QUEST_ACCEPTED && seen.CH0_ROWAN_ACCEPTED && !seen.CH0_PORT) guide.capital = 'CAPITAL_PORT';
   if (flags.LETTER_QUEST_ACCEPTED && seen.CH0_PORT && !flags.FLOWER_REGION_ENTERED) guide.worldRegion = '3-1';
   return guide;
+}
+
+function questMeta(state) {
+  const flags = (state && state.flags) || {};
+  const seen = (state && state.seen) || {};
+  const boardLesson = Boolean(
+    (flags.LETTER_QUEST_ACCEPTED && seen.CH0_ROWAN_ACCEPTED)
+    || (flags.LETTER_DECLINED && !flags.LETTER_QUEST_ACCEPTED && seen.CH0_ROWAN_LATER)
+  );
+  const introPending = Boolean(
+    state
+    && state.enrolled
+    && !state.completed
+    && boardLesson
+    && !flags.QUEST_INTRO_DONE
+    && !state.portArmed
+    && !seen.CH0_PORT
+    && !flags.FLOWER_REGION_ENTERED
+  );
+  const tracker = Boolean(
+    state
+    && state.enrolled
+    && (
+      (flags.LETTER_DECLINED && !flags.LETTER_QUEST_ACCEPTED)
+      || flags.QUEST_INTRO_DONE
+      || seen.CH0_PORT
+      || flags.FLOWER_REGION_ENTERED
+      || state.completed
+    )
+  );
+  return { introPending, tracker };
 }
 
 function presentScene(sceneId) {
@@ -393,19 +433,30 @@ async function applyEvent(db, userId, body) {
     } else if (state.flags.STARTER_ADOPTED) {
       state.flags.STARTER_SUPPLIES_CLAIMED = true;
     }
+  } else if (type === 'QUEST_INTRO_DONE') {
+    const acceptedLesson = state.flags.LETTER_QUEST_ACCEPTED && state.seen.CH0_ROWAN_ACCEPTED;
+    const declinedLesson = state.flags.LETTER_DECLINED && state.seen.CH0_ROWAN_LATER;
+    if (acceptedLesson || declinedLesson) state.flags.QUEST_INTRO_DONE = true;
   } else if (type === 'LETTER_ACCEPT') {
     if (!state.flags.HEAL_SERVICE_USED) {
       const error = new Error('Hãy để Pet hồi phục ở Sông Healia trước khi nhận thư.');
       error.status = 409;
       throw error;
     }
+    const deferred = Boolean(state.flags.LETTER_DECLINED);
     state.flags.LETTER_QUEST_ACCEPTED = true;
     state.flags.LETTER_DECLINED = false;
     state.letterHeld = true;
+    state.rowanMailDismissed = false;
+    if (deferred) {
+      state.seen.CH0_ROWAN_ACCEPTED = true;
+      state.flags.QUEST_INTRO_DONE = true;
+    }
   } else if (type === 'LETTER_DECLINE') {
     state.flags.LETTER_DECLINED = true;
     state.flags.LETTER_QUEST_ACCEPTED = false;
     state.portArmed = false;
+    if (String(body.path || '').startsWith('/mail')) state.rowanMailDismissed = true;
   } else if (type === 'REWARDS_ACK') {
     state.pendingRewards = null;
   } else if (type === 'PORT_ARM') {
@@ -524,9 +575,11 @@ function publicView(state, pathname) {
     flags: state.flags || {},
     rewards: state.pendingRewards || [],
     guidance: guide,
+    quest: questMeta(state),
     spotlights: {
       MY_HOME: spotlight('MY_HOME'),
       ORPHANAGE: spotlight('ORPHANAGE'),
+      QUEST_BOARD: spotlight('QUEST_BOARD'),
       CAPITAL_PORT: spotlight('CAPITAL_PORT'),
       POST_OFFICE: spotlight('POST_OFFICE'),
       HEALIA: spotlight('HEALIA'),
