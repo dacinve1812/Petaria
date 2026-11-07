@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../UserContext';
 import { getDisplayName } from '../../utils/userDisplay';
 import { useChapter0 } from '../story/Chapter0/Chapter0Context';
+import PageSettingsModal from './PageSettingsModal';
 
 function formatGrouped(value) {
   const amount = Number(value);
@@ -28,6 +29,7 @@ function formatPetagold(value) {
 
 const TopNavigation = ({ className = '', onOpenSidebar, sidebarOpen = false }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { user, isLoading, logout } = useUser();
   const navigate = useNavigate();
   const { story } = useChapter0();
@@ -130,6 +132,17 @@ const TopNavigation = ({ className = '', onOpenSidebar, sidebarOpen = false }) =
                          <span className="sgw-dropdown-icon"><img className="sgw-dropdown-icon-img" src="/images/icons/4.png" alt="faq"/></span>
                          FAQ
                        </Link>
+                       <button
+                         type="button"
+                         className="sgw-dropdown-item"
+                         onClick={() => {
+                           setShowUserDropdown(false);
+                           setSettingsOpen(true);
+                         }}
+                       >
+                         <span className="sgw-dropdown-icon"><img className="sgw-dropdown-icon-img" src="/images/icons/edit.png" alt="" /></span>
+                         Setting
+                       </button>
                        <button onClick={handleLogout} className="sgw-dropdown-item">
                          <span className="sgw-dropdown-icon"><img className="sgw-dropdown-icon-img" src="/images/icons/5.png" alt="logout"/></span>
                          Log Out
@@ -150,6 +163,7 @@ const TopNavigation = ({ className = '', onOpenSidebar, sidebarOpen = false }) =
            )}
          </div>
       </div>
+      {settingsOpen && <PageSettingsModal onClose={() => setSettingsOpen(false)} />}
     </nav>
   );
 };

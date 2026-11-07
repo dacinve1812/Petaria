@@ -1,9 +1,14 @@
+ /* body.world-map h1.peta-sectiontitle {
+  display: none;
+}  */
+
 .worldmap-page {
   width: 100%;
   max-width: 100%;
   min-width: 0;
   color: #d9e4ff;
-  height: var(--worldmap-view-height, 60dvh);
+  height: 100%;
+  min-height: 0;
   overflow-x: clip;
 }
 
@@ -26,7 +31,7 @@
   position: relative;
   width: var(--worldmap-render-width, 100%);
   min-width: var(--worldmap-render-width, 100%);
-  height: var(--worldmap-view-height, 60dvh);
+  height: 100%;
   margin: 0 auto;
   /* border-radius: 12px; */
   overflow: hidden;
@@ -92,8 +97,8 @@
   .worldmap-page.worldmap-page--mobile {
     display: flex;
     flex-direction: column;
-    height: calc(100svh - 100px - 8rem);
-    min-height: 240px;
+    height: 100%;
+    min-height: 0;
     overflow: hidden;
     container-type: size;
   }

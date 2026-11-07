@@ -853,6 +853,90 @@ button:disabled:active, .btn:disabled:active, [role="button"]:disabled:active {
   margin-top: 100px; /* Top nav (50px) + Second nav (50px) */
 }
 
+body.hide-page-banner h1.peta-sectiontitle {
+  display: none;
+}
+
+body.hide-page-banner section.container {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+body.hide-page-banner #peta-body {
+  margin-top: 0;
+  height: calc(100svh - 100px);
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+/* World map và region luôn ẩn title và kéo #peta-body sát menu, không phụ thuộc Setting. */
+body.world-map h1.peta-sectiontitle,
+body.region-map h1.peta-sectiontitle {
+  display: none;
+}
+
+body.world-map section.container,
+body.region-map section.container {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+body.world-map #peta-body,
+body.region-map #peta-body {
+  margin-top: 0;
+  height: calc(100svh - 100px);
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.map-reveal-art {
+  opacity: 0;
+  transition: opacity 0.55s ease;
+}
+
+.map-reveal.is-ready .map-reveal-art {
+  opacity: 1;
+}
+
+.map-reveal-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(110deg, #f4f7fb 8%, #ffffff 18%, #e7eef6 33%);
+  background-size: 220% 100%;
+  animation: map-reveal-shimmer 1.15s linear infinite;
+  transition: opacity 0.4s ease;
+}
+
+.map-reveal-veil span {
+  color: #3d4d63;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.map-reveal.is-ready .map-reveal-veil {
+  opacity: 0;
+  pointer-events: none;
+  animation: none;
+}
+
+@keyframes map-reveal-shimmer {
+  to { background-position-x: -220%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-reveal-art,
+  .map-reveal-veil {
+    transition: none;
+    animation: none;
+  }
+}
+
 section.container, footer.container {
   padding-top: 2.5rem;
   padding-bottom: 2.5rem;

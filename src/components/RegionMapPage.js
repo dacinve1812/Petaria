@@ -4,6 +4,8 @@ import { useRegionMapsConfig } from '../hooks/useRegionMapsConfig';
 import { AlertExclamationBadge } from './ui/AlertExclamationBadge';
 import { useGameCenterAlerts } from './entertainment/GameCenterAlertsContext';
 import useIsMobile from '../hooks/useIsMobile';
+import Chapter1CanhDongMap from './story/Chapter1/Chapter1CanhDongMap';
+import useMapImageReady from '../hooks/useMapImageReady';
 import './RegionMapPage.css';
 
 function buildButtons(mapConfig) {
@@ -55,6 +57,12 @@ function RegionMapPage() {
   }, [isMobile, regionConfig]);
 
   const [loadedNaturalSize, setLoadedNaturalSize] = useState({ width: 0, height: 0 });
+  const mapReady = useMapImageReady(displayConfig?.imageSrc || '');
+
+  useEffect(() => {
+    document.body.classList.add('region-map');
+    return () => document.body.classList.remove('region-map');
+  }, []);
 
   const naturalWidth =
     Number(displayConfig?.naturalSize?.width) || Number(loadedNaturalSize.width) || 2100;
@@ -85,6 +93,10 @@ function RegionMapPage() {
     const frame = window.requestAnimationFrame(center);
     return () => window.cancelAnimationFrame(frame);
   }, [regionId, regionConfig]);
+
+  if (regionId === '3-1' && regionConfig) {
+    return <Chapter1CanhDongMap />;
+  }
 
   if (!regionConfig) {
     return (
@@ -142,10 +154,10 @@ function RegionMapPage() {
 
       <div className="regionmap-map-slot regionmap-mobile-slot">
         <div ref={scrollRef} className="regionmap-scroll-x">
-          <div className="regionmap-canvas-wrap">
+          <div className={`regionmap-canvas-wrap map-reveal${mapReady ? ' is-ready' : ''}`}>
             <img
               ref={imageRef}
-              className="regionmap-base-image"
+              className="regionmap-base-image map-reveal-art"
               src={displayConfig.imageSrc}
               alt={regionConfig.name}
               draggable={false}
@@ -157,8 +169,11 @@ function RegionMapPage() {
                 });
               }}
             />
+            <div className="map-reveal-veil" aria-hidden={mapReady}>
+              <span>Loading ...</span>
+            </div>
 
-            <div className="regionmap-hit-layer">
+            <div className="regionmap-hit-layer map-reveal-art">
               {areaRects.map((area, idx) => {
                 const coords = Array.isArray(area.coords) ? area.coords : null;
                 if (!coords || coords.length !== 4 || naturalWidth <= 0 || naturalHeight <= 0) return null;
@@ -185,7 +200,7 @@ function RegionMapPage() {
               })}
             </div>
 
-            <div className="regionmap-buttons-layer">
+            <div className="regionmap-buttons-layer map-reveal-art">
               {mapButtons.map((btn, idx) => {
                 const pathNorm = String(btn.path || '').replace(/\/$/, '');
                 const isGameCenter =

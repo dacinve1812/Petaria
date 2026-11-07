@@ -236,6 +236,15 @@
   }
 }
 
+/* Dưới 1800px sidebar còn trượt ẩn sang trái: nền đặc. Từ 1800px giữ nền kính. */
+/* @media (min-width: 1799px) {
+  .sidebar {
+    background: rgb(204, 255, 255);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+} */
+
 /* Wide viewport: sidebar 100dvh; padding trên div bọc (sidebar-inner) */
 @media (min-width: 1800px) {
   .sidebar {

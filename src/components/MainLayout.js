@@ -20,6 +20,7 @@ import { GameCenterAlertsProvider } from './entertainment/GameCenterAlertsContex
 import '../styles/global.css';
 import { resolveAssetPath } from '../utils/pathUtils';
 import { dispatchMailInboxViewed } from '../utils/mailEvents';
+import { applyPageBackgroundSetting } from '../utils/pageSettings';
 
 function MainLayout() {
     const navigate = useNavigate();
@@ -37,6 +38,10 @@ function MainLayout() {
         document.body.classList.toggle('sidebar-is-open', sidebarOpen);
         return () => document.body.classList.remove('sidebar-is-open');
     }, [sidebarOpen]);
+
+    useEffect(() => {
+        applyPageBackgroundSetting();
+    }, []);
 
     useEffect(() => {
         if (isScrolledDown) {

@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './WorldMapPage.css';
 import zonePointsData from '../config/worldmap-zone-points.json';
 import { useRegionMapsConfig } from '../hooks/useRegionMapsConfig';
 import useIsMobile from '../hooks/useIsMobile';
 import { useChapter0 } from './story/Chapter0/Chapter0Context';
+import useMapImageReady from '../hooks/useMapImageReady';
 
 function getOverlayPath(area) {
   return `/worldmap/${area.row}-${area.col}.png`;
@@ -51,6 +52,12 @@ function WorldMapPage() {
 
   const [hoveredId, setHoveredId] = useState(null);
   const [missingOverlayIds, setMissingOverlayIds] = useState([]);
+  useEffect(() => {
+    document.body.classList.add('world-map');
+    return () => document.body.classList.remove('world-map');
+  }, []);
+
+  const mapReady = useMapImageReady(mapImageSrc);
   const scrollRef = useRef(null);
   const [viewHeight, setViewHeight] = useState(520);
   const [renderWidth, setRenderWidth] = useState(780);
@@ -93,8 +100,6 @@ function WorldMapPage() {
       setViewHeight(available);
       setRenderWidth(nextWidth);
 
-      if (window.matchMedia('(max-width: 599px)').matches) return;
-      el.scrollLeft = 0;
     };
     recalcLayout();
     window.addEventListener('resize', recalcLayout);
@@ -105,17 +110,11 @@ function WorldMapPage() {
     };
   }, [mapAspect]);
 
-  useEffect(() => {
-    if (!isMobile) return undefined;
+  useLayoutEffect(() => {
     const el = scrollRef.current;
-    if (!el) return undefined;
-    const center = () => {
-      el.scrollLeft = Math.max(0, Math.round((el.scrollWidth - el.clientWidth) / 2));
-    };
-    center();
-    const frame = window.requestAnimationFrame(center);
-    return () => window.cancelAnimationFrame(frame);
-  }, [isMobile, frameWidth, frameHeight]);
+    if (!el) return;
+    el.scrollLeft = Math.max(0, Math.round((el.scrollWidth - el.clientWidth) / 2));
+  }, [isMobile, frameWidth, frameHeight, renderWidth, viewHeight]);
 
   const worldLocked = story?.enrolled
     && !story?.completed
@@ -143,13 +142,16 @@ function WorldMapPage() {
     >
 
       <div ref={scrollRef} className="worldmap-scroll-x">
-        <div className="worldmap-canvas-wrap">
+        <div className={`worldmap-canvas-wrap map-reveal${mapReady ? ' is-ready' : ''}`}>
           <img
-            className="worldmap-base-image"
+            className="worldmap-base-image map-reveal-art"
             src={mapImageSrc}
             alt="Petaria world map"
             draggable={false}
           />
+          <div className="map-reveal-veil" aria-hidden={mapReady}>
+            <span>Loading ...</span>
+          </div>
           {!isMobile && activeArea && isOverlayAvailable && (
             <img
               className="worldmap-overlay-image"
@@ -165,7 +167,7 @@ function WorldMapPage() {
           )}
 
           <svg
-            className="worldmap-hit-layer"
+            className="worldmap-hit-layer map-reveal-art"
             viewBox={`0 0 ${frameWidth} ${frameHeight}`}
             preserveAspectRatio="xMidYMid meet"
             shapeRendering="geometricPrecision"
